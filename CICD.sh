@@ -42,7 +42,7 @@ fi
 # BUILD IMAGE
 
 if grep -q "Dockerfile" <<< "$changedFiles"; then
-  docker buildx build -t fabrizio2210/docker_light-cover_letter:$dockerArch --push -f docker/x86_64/Dockerfile-container .
+  docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
 fi
 
 
