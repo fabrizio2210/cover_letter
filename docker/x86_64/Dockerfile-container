@@ -1,7 +1,12 @@
 FROM fabrizio2210/docker_light-default_container:latest
 
-# Install Python 3 and pip
-RUN apt-get update && apt-get install -y python3 python3-pip && apt-get clean
+# Install Python 3, pip, and virtualenv
+RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && apt-get clean
 
-# Install required Python libraries
-RUN pip3 install pymongo argparse
+# Create a virtual environment and install required Python libraries
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install pymongo argparse
+
+# Set the virtual environment as the default Python environment
+ENV PATH="/opt/venv/bin:$PATH"
