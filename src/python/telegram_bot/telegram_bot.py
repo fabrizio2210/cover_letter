@@ -1,6 +1,6 @@
 import os
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 from pymongo import MongoClient
 
 # MongoDB setup using environment variables
@@ -55,7 +55,7 @@ def list_emails(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("No emails found in the database.")
 
-# Command to remove an email
+# Command to remove an email using an interactive list
 @restricted
 def remove_email(update: Update, context: CallbackContext) -> None:
     emails = collection.find()
@@ -65,30 +65,33 @@ def remove_email(update: Update, context: CallbackContext) -> None:
         update.message.reply_text("No emails found in the database to remove.")
         return
 
-    if len(context.args) == 0:
-        # If no email is provided, show the list of emails
-        email_options = "\n".join(f"{i + 1}. {email}" for i, email in enumerate(email_list))
-        update.message.reply_text(
-            "Please specify the email to remove by its number:\n" + email_options
-        )
-        return
+    # Create an inline keyboard with email options
+    keyboard = [
+        [InlineKeyboardButton(email, callback_data=f"remove:{email}")]
+        for email in email_list
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text(
+        "Click on an email to remove it:", reply_markup=reply_markup
+    )
+
+# Callback query handler for removing an email
+@restricted
+def handle_remove_email_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    # Extract the email from the callback data
+    email_to_remove = query.data.split("remove:")[1]
 
     try:
-        # Check if the user provided a valid number
-        index = int(context.args[0]) - 1
-        if index < 0 or index >= len(email_list):
-            update.message.reply_text("Invalid number. Please try again.")
-            return
-
-        email_to_remove = email_list[index]
         collection.delete_one({"email": email_to_remove})
-        update.message.reply_text(f"Email '{email_to_remove}' removed successfully.")
-    except ValueError:
-        update.message.reply_text("Invalid input. Please provide a valid number.")
+        query.edit_message_text(f"Email '{email_to_remove}' removed successfully.")
     except Exception as e:
         error_message = f"An error occurred while removing the email: {str(e)}"
         print(error_message)
-        update.message.reply_text("Sorry, there was an error removing the email. Please try again later.")
+        query.edit_message_text("Sorry, there was an error removing the email. Please try again later.")
 
 # Start command
 @restricted
@@ -109,7 +112,10 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("add_email", add_email))
     dispatcher.add_handler(CommandHandler("list_emails", list_emails))
-    dispatcher.add_handler(CommandHandler("remove_email", remove_email))  # New command
+    dispatcher.add_handler(CommandHandler("remove_email", remove_email))  # Updated command
+
+    # Register callback query handler
+    dispatcher.add_handler(CallbackQueryHandler(handle_remove_email_callback))
 
     # Start the bot
     updater.start_polling()
