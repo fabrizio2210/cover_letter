@@ -41,8 +41,11 @@ fi
 #############
 # BUILD IMAGE
 
-if [ -z "$ACTION" ] && grep -q "Dockerfile" <<< "$changedFiles"; then
+if [ "$MANUAL" == "1" ] || grep -q "Dockerfile-container" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
+fi
+if [ "$MANUAL" == "1" ] || grep -q "Dockerfile-bot" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-telegram-bot:$arch --push -f docker/x86_64/Dockerfile-bot .
 fi
 
 
