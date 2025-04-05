@@ -47,11 +47,3 @@ fi
 if [ "$MANUAL" == "1" ] || grep -q "Dockerfile-bot" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/coverletter-telegram-bot:$arch --push -f docker/x86_64/Dockerfile-bot .
 fi
-
-
-#############
-# Actions
-
-if [ "$ACTION" = "insert_email" ]; then
-    python3 src/python/email_extractor/insert_email.py --db_uri ${DB_URI} --db_name cover_letter --email ${EMAIL_TO_INSERT}
-fi
