@@ -42,7 +42,7 @@ services:
       restart_policy:
         condition: on-failure
 
-  # vue:
+# vue:
   #   image: fabrizio2210/coverletter-frontend-dev
   #   labels: 
   #       traefik.port: 80
@@ -59,6 +59,20 @@ services:
   #   image: redis_cover_letter
   #   networks:
   #     - backends
+
+
+  telegram-bot:
+    image: fabrizio2210/coverletter-telegram-bot-dev
+    restart: always
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
 
   mongo:
     image: mongo
