@@ -47,6 +47,27 @@ def add_description(update: Update, context: CallbackContext) -> None:
         "Click on an email to add a description to it:", reply_markup=reply_markup
     )
 
+# Command to add a name to an email
+@restricted
+def add_name(update: Update, context: CallbackContext) -> None:
+    emails = collection.find()
+    email_list = [email["email"] for email in emails]
+
+    if not email_list:
+        update.message.reply_text("No emails found in the database to add a name.")
+        return
+
+    # Create an inline keyboard with email options
+    keyboard = [
+        [InlineKeyboardButton(email, callback_data=f"add_name:{email}")]
+        for email in email_list
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text(
+        "Click on an email to add a name to it:", reply_markup=reply_markup
+    )
+
 # Command to initiate adding an email
 @restricted
 def add_email(update: Update, context: CallbackContext) -> None:
@@ -58,7 +79,7 @@ def add_email(update: Update, context: CallbackContext) -> None:
 def list_emails(update: Update, context: CallbackContext) -> None:
     emails = collection.find()
     email_list = [
-        f"Email: {email['email']}\nDescription: {email.get('description', 'No description')}"
+        f"Email: {email['email']}\nDescription: {email.get('description', 'No description')}\nName: {email.get('name', 'No name')}"
         for email in emails
     ]
 
@@ -99,6 +120,14 @@ def handle_callback_query(update: Update, context: CallbackContext) -> None:
         # Ask the user to provide a description
         context.user_data["email_to_update"] = email_to_update
         query.edit_message_text(f"Please send the description for the email: {email_to_update}")
+
+    if query.data.startswith("add_name:"):
+        # Extract the email from the callback data
+        email_to_update = query.data.split("add_name:")[1]
+
+        # Ask the user to provide a name
+        context.user_data["email_to_update_for_name"] = email_to_update
+        query.edit_message_text(f"Please send the name for the email: {email_to_update}")
 
     if query.data.startswith("remove:"):
         # Handle email removal actions
@@ -146,12 +175,27 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             update.message.reply_text("Sorry, there was an error adding the description. Please try again later.")
         return
 
+    # Check if the bot is waiting for a name
+    if context.user_data.get("email_to_update_for_name"):
+        email_to_update = context.user_data["email_to_update_for_name"]
+        name = update.message.text
+        try:
+            # Update the email with the name in the database
+            collection.update_one({"email": email_to_update}, {"$set": {"name": name}})
+            update.message.reply_text(f"Name '{name}' added to email '{email_to_update}'.")
+            context.user_data.pop("email_to_update_for_name", None)  # Clear the stored email
+        except Exception as e:
+            error_message = f"An error occurred while adding the name: {str(e)}"
+            print(error_message)
+            update.message.reply_text("Sorry, there was an error adding the name. Please try again later.")
+        return
+
     # Default response for unexpected messages
     update.message.reply_text("I didn't understand that. Please use one of the commands.")
 
 @restricted
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Welcome! Use /add_email <email> to add an email, /list_emails to list all emails, and /remove_email to remove an email.")
+    update.message.reply_text("Welcome! Use the menu on the side.")
 
 def main():
     # Get the bot token from environment variables
@@ -168,7 +212,8 @@ def main():
     dispatcher.add_handler(CommandHandler("add_email", add_email))
     dispatcher.add_handler(CommandHandler("list_emails", list_emails))
     dispatcher.add_handler(CommandHandler("remove_email", remove_email))
-    dispatcher.add_handler(CommandHandler("add_description", add_description))  # New command
+    dispatcher.add_handler(CommandHandler("add_description", add_description))
+    dispatcher.add_handler(CommandHandler("add_name", add_name))
 
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
@@ -181,6 +226,7 @@ def main():
         BotCommand("list_emails", "List all emails in the database"),
         BotCommand("remove_email", "Remove an email from the database using an interactive list"),
         BotCommand("add_description", "Add a description to an email"),
+        BotCommand("add_name", "Add a name to an email"),
     ])
 
     # Start the bot
