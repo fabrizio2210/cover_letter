@@ -1,5 +1,5 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import BotCommand, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 from pymongo import MongoClient
 
@@ -76,24 +76,21 @@ def remove_email(update: Update, context: CallbackContext) -> None:
         "Click on an email to remove it:", reply_markup=reply_markup
     )
 
-# Callback query handler for removing an email
 @restricted
-def handle_remove_email_callback(update: Update, context: CallbackContext) -> None:
+def handle_callback_query(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
+    if query.data.startswith("remove:"):
+        # Handle email removal actions
+        email_to_remove = query.data.split("remove:")[1]
+        try:
+            collection.delete_one({"email": email_to_remove})
+            query.edit_message_text(f"Email '{email_to_remove}' removed successfully.")
+        except Exception as e:
+            error_message = f"An error occurred while removing the email: {str(e)}"
+            print(error_message)
+            query.edit_message_text("Sorry, there was an error removing the email. Please try again later.")
 
-    # Extract the email from the callback data
-    email_to_remove = query.data.split("remove:")[1]
-
-    try:
-        collection.delete_one({"email": email_to_remove})
-        query.edit_message_text(f"Email '{email_to_remove}' removed successfully.")
-    except Exception as e:
-        error_message = f"An error occurred while removing the email: {str(e)}"
-        print(error_message)
-        query.edit_message_text("Sorry, there was an error removing the email. Please try again later.")
-
-# Start command
 @restricted
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Welcome! Use /add_email <email> to add an email, /list_emails to list all emails, and /remove_email to remove an email.")
@@ -112,11 +109,18 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("add_email", add_email))
     dispatcher.add_handler(CommandHandler("list_emails", list_emails))
-    dispatcher.add_handler(CommandHandler("remove_email", remove_email))  # Updated command
+    dispatcher.add_handler(CommandHandler("remove_email", remove_email))
 
     # Register callback query handler
-    dispatcher.add_handler(CallbackQueryHandler(handle_remove_email_callback))
+    dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
 
+    # Set bot commands using setMyCommands
+    updater.bot.set_my_commands([
+        BotCommand("start", "Start the bot and see a welcome message"),
+        BotCommand("add_email", "Add an email to the database"),
+        BotCommand("list_emails", "List all emails in the database"),
+        BotCommand("remove_email", "Remove an email from the database using an interactive list"),
+    ])
     # Start the bot
     updater.start_polling()
     updater.idle()
