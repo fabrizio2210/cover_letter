@@ -42,7 +42,7 @@ ALLOWED_USERS = {int(user_id) for user_id in ALLOWED_USERS_ENV.split(",") if use
 def restricted(func):
     def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
         user_id = update.effective_user.id
-        print(f"User ID: {user_id}")  # Debugging line to check user ID
+        print(f"User ID: {user_id}, Function: {func.__name__}")  # Log user ID and function name
         if user_id not in ALLOWED_USERS:
             update.message.reply_text("Access denied. You are not authorized to use this bot.")
             return
@@ -91,6 +91,9 @@ def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Welcome! Use the menu on the side.")
 
 def main():
+    # Log application start
+    print("Telegram bot application is starting...")
+
     # Get the bot token from environment variables
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
