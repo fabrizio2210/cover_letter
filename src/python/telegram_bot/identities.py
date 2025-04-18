@@ -186,6 +186,7 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
     return False
 
 def handle_identity_message(update: Update, context: CallbackContext) -> bool:
+    # Check if the bot is waiting for an identity
     if context.user_data.get("awaiting_identity"):
         identity = update.message.text
         try:
@@ -201,4 +202,35 @@ def handle_identity_message(update: Update, context: CallbackContext) -> bool:
         finally:
             context.user_data.pop("awaiting_identity", None)  # Clear the flag
         return True
-    return False
+
+    # Check if the bot is waiting for a description
+    if context.user_data.get("identity_to_update"):
+        identity_to_update = context.user_data["identity_to_update"]
+        description = update.message.text
+        try:
+            # Update the identity with the description in the database
+            identity_collection.update_one({"identity": identity_to_update}, {"$set": {"description": description}})
+            update.message.reply_text(f"Description added to identity '{identity_to_update}': {description}")
+            context.user_data.pop("identity_to_update", None)  # Clear the stored identity
+        except Exception as e:
+            error_message = f"An error occurred while adding the description: {str(e)}"
+            print(error_message)
+            update.message.reply_text("Sorry, there was an error adding the description. Please try again later.")
+        return True
+
+    # Check if the bot is waiting for a name
+    if context.user_data.get("identity_to_update_for_name"):
+        identity_to_update = context.user_data["identity_to_update_for_name"]
+        name = update.message.text
+        try:
+            # Update the identity with the name in the database
+            identity_collection.update_one({"identity": identity_to_update}, {"$set": {"name": name}})
+            update.message.reply_text(f"Name '{name}' added to identity '{identity_to_update}'.")
+            context.user_data.pop("identity_to_update_for_name", None)  # Clear the stored identity
+        except Exception as e:
+            error_message = f"An error occurred while adding the name: {str(e)}"
+            print(error_message)
+            update.message.reply_text("Sorry, there was an error adding the name. Please try again later.")
+        return True
+
+    return False  # No action taken
