@@ -94,7 +94,7 @@ def remove_identity(update: Update, context: CallbackContext) -> None:
         "Click on an identity to remove it:", reply_markup=reply_markup
     )
 
-def associate_field_to_identity(update: Update, context: CallbackContext) -> None:
+def associate_field_with_identity(update: Update, context: CallbackContext) -> None:
     identities = identity_collection.find()
     identity_list = [identity["identity"] for identity in identities]
 
