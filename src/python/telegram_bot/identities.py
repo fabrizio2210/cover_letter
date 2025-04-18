@@ -5,12 +5,9 @@ from telegram.ext import CallbackContext
 
 # MongoDB setup
 import os
-MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
-DB_NAME = os.getenv("DB_NAME", "email_database")  # Default to 'email_database' if not set
+from src.python.telegram_bot.db import db  # Import shared db instance
 
-client = MongoClient(MONGO_HOST)
-db = client[DB_NAME]
-identity_collection = db["identities"]  # Collection to store identities
+identity_collection = db["identities"]  # Use shared db instance
 
 def add_identity(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Please send the identity you want to add.")

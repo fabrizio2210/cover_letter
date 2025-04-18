@@ -4,7 +4,7 @@ import sys
 # Add the 'src' directory to sys.path for absolute imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
-from telegram import BotCommand, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import BotCommand, Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, MessageHandler, Filters
 from pymongo import MongoClient
 from src.python.telegram_bot.recipients import (
@@ -32,13 +32,7 @@ from src.python.telegram_bot.fields import (
     process_field_callback,
     handle_field_message,
 )
-
-# MongoDB setup using environment variables
-MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
-DB_NAME = os.getenv("DB_NAME", "email_database")  # Default to 'email_database' if not set
-
-client = MongoClient(MONGO_HOST)
-db = client[DB_NAME]
+from src.python.telegram_bot.db import db  # Import shared db instance
 
 # Read allowed Telegram user IDs from environment variable
 ALLOWED_USERS_ENV = os.getenv("TELEGRAM_ALLOWED_USERS", "")  # Default to an empty string if not set

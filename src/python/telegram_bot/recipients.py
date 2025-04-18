@@ -4,14 +4,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from pymongo.collection import Collection
 from telegram import Update
 from telegram.ext import CallbackContext
+from src.python.telegram_bot.db import db  # Import shared db instance
 
-# MongoDB setup
-MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
-DB_NAME = os.getenv("DB_NAME", "email_database")  # Default to 'email_database' if not set
-
-client = MongoClient(MONGO_HOST)
-db = client[DB_NAME]
-collection = db["recipients"]  # Collection to store emails
+collection = db["recipients"]  # Use shared db instance
 
 def add_email_description(update: Update, context: CallbackContext) -> None:
     emails = collection.find()

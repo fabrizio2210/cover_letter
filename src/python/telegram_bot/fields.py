@@ -1,16 +1,12 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from pymongo import MongoClient
 from telegram import Update
 from telegram.ext import CallbackContext
 
 # MongoDB setup
 import os
-MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
-DB_NAME = os.getenv("DB_NAME", "email_database")  # Default to 'email_database' if not set
+from src.python.telegram_bot.db import db  # Import shared db instance
 
-client = MongoClient(MONGO_HOST)
-db = client[DB_NAME]
-fields_collection = db["fields"]  # Collection to store fields
+fields_collection = db["fields"]  # Use shared db instance
 
 def add_field(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Please send the field you want to add.")
