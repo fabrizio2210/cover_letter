@@ -28,7 +28,7 @@ def restricted(func):
 
 # Command to add a description to an email
 @restricted
-def add_description(update: Update, context: CallbackContext) -> None:
+def add_email_description(update: Update, context: CallbackContext) -> None:
     emails = collection.find()
     email_list = [email["email"] for email in emails]
 
@@ -38,7 +38,7 @@ def add_description(update: Update, context: CallbackContext) -> None:
 
     # Create an inline keyboard with email options
     keyboard = [
-        [InlineKeyboardButton(email, callback_data=f"add_desc:{email}")]
+        [InlineKeyboardButton(email, callback_data=f"add_email_desc:{email}")]
         for email in email_list
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -49,7 +49,7 @@ def add_description(update: Update, context: CallbackContext) -> None:
 
 # Command to add a name to an email
 @restricted
-def add_name(update: Update, context: CallbackContext) -> None:
+def add_email_name(update: Update, context: CallbackContext) -> None:
     emails = collection.find()
     email_list = [email["email"] for email in emails]
 
@@ -59,7 +59,7 @@ def add_name(update: Update, context: CallbackContext) -> None:
 
     # Create an inline keyboard with email options
     keyboard = [
-        [InlineKeyboardButton(email, callback_data=f"add_name:{email}")]
+        [InlineKeyboardButton(email, callback_data=f"add_email_name:{email}")]
         for email in email_list
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -113,17 +113,17 @@ def remove_email(update: Update, context: CallbackContext) -> None:
 def handle_callback_query(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
-    if query.data.startswith("add_desc:"):
+    if query.data.startswith("add_email_desc:"):
         # Extract the email from the callback data
-        email_to_update = query.data.split("add_desc:")[1]
+        email_to_update = query.data.split("add_email_desc:")[1]
 
         # Ask the user to provide a description
         context.user_data["email_to_update"] = email_to_update
         query.edit_message_text(f"Please send the description for the email: {email_to_update}")
 
-    if query.data.startswith("add_name:"):
+    if query.data.startswith("add_email_name:"):
         # Extract the email from the callback data
-        email_to_update = query.data.split("add_name:")[1]
+        email_to_update = query.data.split("add_email_name:")[1]
 
         # Ask the user to provide a name
         context.user_data["email_to_update_for_name"] = email_to_update
@@ -212,8 +212,8 @@ def main():
     dispatcher.add_handler(CommandHandler("add_email", add_email))
     dispatcher.add_handler(CommandHandler("list_emails", list_emails))
     dispatcher.add_handler(CommandHandler("remove_email", remove_email))
-    dispatcher.add_handler(CommandHandler("add_description", add_description))
-    dispatcher.add_handler(CommandHandler("add_name", add_name))
+    dispatcher.add_handler(CommandHandler("add_email_description", add_email_description))
+    dispatcher.add_handler(CommandHandler("add_email_name", add_email_name))
 
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query))
@@ -225,8 +225,8 @@ def main():
         BotCommand("add_email", "Add an email to the database"),
         BotCommand("list_emails", "List all emails in the database"),
         BotCommand("remove_email", "Remove an email from the database using an interactive list"),
-        BotCommand("add_description", "Add a description to an email"),
-        BotCommand("add_name", "Add a name to an email"),
+        BotCommand("add_email_description", "Add a description to an email"),
+        BotCommand("add_email_name", "Add a name to an email"),
     ])
 
     # Start the bot
