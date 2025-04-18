@@ -38,9 +38,9 @@ def remove_field(update: Update, context: CallbackContext) -> None:
     )
 
 def get_field_list() -> list:
-    """Retrieve the list of fields from the fields collection."""
+    """Retrieve the list of fields with their _id and name from the fields collection."""
     fields = fields_collection.find()
-    return [field["field"] for field in fields]
+    return [{"_id": str(field["_id"]), "field": field["field"]} for field in fields]
 
 def process_field_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("remove_field:"):

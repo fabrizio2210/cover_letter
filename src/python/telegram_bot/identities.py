@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from pymongo import MongoClient
 from telegram import Update
 from telegram.ext import CallbackContext
+from bson.objectid import ObjectId  # Import ObjectId for MongoDB references
 
 from src.python.telegram_bot.db import db  # Import shared db instance
 from src.python.telegram_bot.fields import get_field_list  # Import get_field_list
@@ -13,11 +14,26 @@ def add_identity(update: Update, context: CallbackContext) -> None:
     context.user_data["awaiting_identity"] = True
 
 def list_identities(update: Update, context: CallbackContext) -> None:
+    field_list = get_field_list()  # Retrieve all fields with their _id and names
+
     identities = identity_collection.find()
-    identity_list = [
-        f"Identity: {identity['identity']}\nDescription: {identity.get('description', 'No description')}\nName: {identity.get('name', 'No name')}\nField: {identity.get('field', 'No field associated')}"
-        for identity in identities
-    ]
+    identity_list = []
+
+    for identity in identities:
+        field_name = "No field associated"
+        if "field" in identity:
+            field_id = str(identity["field"])  # Convert ObjectId to string for comparison
+            for field in field_list:
+                if field["_id"] == field_id:
+                    field_name = field["field"]
+                    break
+
+        identity_list.append(
+            f"Identity: {identity['identity']}\n"
+            f"Description: {identity.get('description', 'No description')}\n"
+            f"Name: {identity.get('name', 'No name')}\n"
+            f"Field: {field_name}"
+        )
 
     if identity_list:
         update.message.reply_text("Identities in the database:\n\n" + "\n\n".join(identity_list))
@@ -86,7 +102,7 @@ def associate_field_to_identity(update: Update, context: CallbackContext) -> Non
         update.message.reply_text("No identities found in the database to associate a field.")
         return
 
-    field_list = get_field_list()  # Use get_field_list to retrieve fields
+    field_list = get_field_list()  # Use updated get_field_list to retrieve fields with _id and name
 
     if not field_list:
         update.message.reply_text("No fields found in the database to associate with an identity.")
@@ -130,10 +146,10 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
         identity_to_update = query.data.split("select_identity_for_field:")[1]
         context.user_data["identity_to_update_for_field"] = identity_to_update
 
-        field_list = get_field_list()  # Use get_field_list to retrieve fields
-
+        # Use updated get_field_list to retrieve fields with _id and name
+        field_list = get_field_list()
         keyboard = [
-            [InlineKeyboardButton(field, callback_data=f"associate_field:{field}")]
+            [InlineKeyboardButton(field["field"], callback_data=f"associate_field:{field['_id']}")]
             for field in field_list
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -145,7 +161,7 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
         return True
 
     if query.data.startswith("associate_field:"):
-        field_to_associate = query.data.split("associate_field:")[1]
+        field_id = query.data.split("associate_field:")[1]
         identity_to_update = context.user_data.pop("identity_to_update_for_field", None)
 
         if not identity_to_update:
@@ -153,12 +169,13 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
             return True
 
         try:
+            # Store the field reference (_id) in the identity document
             identity_collection.update_one(
                 {"identity": identity_to_update},
-                {"$set": {"field": field_to_associate}}
+                {"$set": {"field": ObjectId(field_id)}}  # Use ObjectId for reference
             )
             query.edit_message_text(
-                f"Field '{field_to_associate}' successfully associated with identity '{identity_to_update}'."
+                f"Field successfully associated with identity '{identity_to_update}'."
             )
         except Exception as e:
             error_message = f"An error occurred while associating the field: {str(e)}"
