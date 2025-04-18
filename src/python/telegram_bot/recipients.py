@@ -74,7 +74,7 @@ def remove_email(update: Update, context: CallbackContext) -> None:
         return
 
     keyboard = [
-        [InlineKeyboardButton(email, callback_data=f"remove:{email}")]
+        [InlineKeyboardButton(email, callback_data=f"remove_email:{email}")]
         for email in email_list
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -83,19 +83,21 @@ def remove_email(update: Update, context: CallbackContext) -> None:
         "Click on an email to remove it:", reply_markup=reply_markup
     )
 
-def process_email_callback(query, context: CallbackContext) -> None:
+def process_email_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("add_email_desc:"):
         email_to_update = query.data.split("add_email_desc:")[1]
         context.user_data["email_to_update"] = email_to_update
         query.edit_message_text(f"Please send the description for the email: {email_to_update}")
+        return True
 
-    elif query.data.startswith("add_email_name:"):
+    if query.data.startswith("add_email_name:"):
         email_to_update = query.data.split("add_email_name:")[1]
         context.user_data["email_to_update_for_name"] = email_to_update
         query.edit_message_text(f"Please send the name for the email: {email_to_update}")
+        return True
 
-    elif query.data.startswith("remove:"):
-        email_to_remove = query.data.split("remove:")[1]
+    if query.data.startswith("remove_email:"):
+        email_to_remove = query.data.split("remove_email:")[1]
         try:
             collection.delete_one({"email": email_to_remove})
             query.edit_message_text(f"Email '{email_to_remove}' removed successfully.")
@@ -103,6 +105,9 @@ def process_email_callback(query, context: CallbackContext) -> None:
             error_message = f"An error occurred while removing the email: {str(e)}"
             print(error_message)
             query.edit_message_text("Sorry, there was an error removing the email. Please try again later.")
+        return True
+
+    return False
 
 def handle_email_message(update: Update, context: CallbackContext) -> bool:
     # Check if the bot is waiting for an email

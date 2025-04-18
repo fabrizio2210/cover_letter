@@ -16,6 +16,15 @@ from src.python.telegram_bot.recipients import (
     process_email_callback,
     handle_email_message,
 )
+from src.python.telegram_bot.identities import (
+    add_identity,
+    list_identities,
+    add_identity_name,
+    add_identity_description,
+    remove_identity,
+    process_identity_callback,
+    handle_identity_message,
+)
 
 # MongoDB setup using environment variables
 MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
@@ -42,11 +51,16 @@ def restricted(func):
 # Unified message handler to handle both email and description inputs
 @restricted
 def handle_message(update: Update, context: CallbackContext) -> None:
+    # Delegate to email-related message processing
     if handle_email_message(update, context):
         return
+
+    # Delegate to identity-related message processing
+    if handle_identity_message(update, context):
+        return
+
     # Default response for unexpected messages
     update.message.reply_text("I didn't understand that. Please use one of the commands.")
-
 
 @restricted
 def handle_callback_query_command(update: Update, context: CallbackContext) -> None:
@@ -54,10 +68,14 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
     query.answer()
 
     # Delegate email-related callback queries to recipients.py
-    if query.data.startswith(("add_email_desc:", "add_email_name:", "remove:")):
-        process_email_callback(query, context)
+    if process_email_callback(query, context):
         return
 
+    # Delegate identity-related callback queries to identities.py
+    if process_identity_callback(query, context):
+        return
+
+    # ...handle other callback queries if needed...
 
 @restricted
 def start(update: Update, context: CallbackContext) -> None:
@@ -73,13 +91,20 @@ def main():
 
     dispatcher = updater.dispatcher
 
-    # Register commands
+    # Register commands for emails
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("add_email", restricted(add_email)))
     dispatcher.add_handler(CommandHandler("list_emails", restricted(list_emails)))
     dispatcher.add_handler(CommandHandler("remove_email", restricted(remove_email)))
     dispatcher.add_handler(CommandHandler("add_email_description", restricted(add_email_description)))
     dispatcher.add_handler(CommandHandler("add_email_name", restricted(add_email_name)))
+
+    # Register commands for identities
+    dispatcher.add_handler(CommandHandler("add_identity", restricted(add_identity)))
+    dispatcher.add_handler(CommandHandler("list_identities", restricted(list_identities)))
+    dispatcher.add_handler(CommandHandler("remove_identity", restricted(remove_identity)))
+    dispatcher.add_handler(CommandHandler("add_identity_description", restricted(add_identity_description)))
+    dispatcher.add_handler(CommandHandler("add_identity_name", restricted(add_identity_name)))
 
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query_command))
@@ -93,6 +118,11 @@ def main():
         BotCommand("remove_email", "Remove an email from the database using an interactive list"),
         BotCommand("add_email_description", "Add a description to an email"),
         BotCommand("add_email_name", "Add a name to an email"),
+        BotCommand("add_identity", "Add an identity to the database"),
+        BotCommand("list_identities", "List all identities in the database"),
+        BotCommand("remove_identity", "Remove an identity from the database using an interactive list"),
+        BotCommand("add_identity_description", "Add a description to an identity"),
+        BotCommand("add_identity_name", "Add a name to an identity"),
     ])
 
     # Start the bot
