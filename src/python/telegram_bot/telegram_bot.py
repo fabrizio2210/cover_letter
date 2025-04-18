@@ -15,6 +15,7 @@ from src.python.telegram_bot.recipients import (
     remove_email,
     process_email_callback,
     handle_email_message,
+    associate_email_with_field,
 )
 from src.python.telegram_bot.identities import (
     add_identity,
@@ -111,6 +112,7 @@ def main():
     dispatcher.add_handler(CommandHandler("remove_email", restricted(remove_email)))
     dispatcher.add_handler(CommandHandler("add_email_description", restricted(add_email_description)))
     dispatcher.add_handler(CommandHandler("add_email_name", restricted(add_email_name)))
+    dispatcher.add_handler(CommandHandler("associate_email_with_field", restricted(associate_email_with_field)))
 
     # Register commands for identities
     dispatcher.add_handler(CommandHandler("add_identity", restricted(add_identity)))
@@ -137,6 +139,7 @@ def main():
         BotCommand("remove_email", "Remove an email from the database using an interactive list"),
         BotCommand("add_email_description", "Add a description to an email"),
         BotCommand("add_email_name", "Add a name to an email"),
+        BotCommand("associate_email_with_field", "Associate a field to an email"),
         BotCommand("add_identity", "Add an identity to the database"),
         BotCommand("list_identities", "List all identities in the database"),
         BotCommand("remove_identity", "Remove an identity from the database using an interactive list"),
