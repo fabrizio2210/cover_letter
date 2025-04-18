@@ -2,8 +2,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram import Update
 from telegram.ext import CallbackContext
 
-# MongoDB setup
-import os
 from src.python.telegram_bot.db import db  # Import shared db instance
 
 fields_collection = db["fields"]  # Use shared db instance
@@ -38,6 +36,11 @@ def remove_field(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         "Click on a field to remove it:", reply_markup=reply_markup
     )
+
+def get_field_list() -> list:
+    """Retrieve the list of fields from the fields collection."""
+    fields = fields_collection.find()
+    return [field["field"] for field in fields]
 
 def process_field_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("remove_field:"):

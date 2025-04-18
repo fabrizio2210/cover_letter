@@ -24,6 +24,7 @@ from src.python.telegram_bot.identities import (
     remove_identity,
     process_identity_callback,
     handle_identity_message,
+    associate_field_to_identity,
 )
 from src.python.telegram_bot.fields import (
     add_field,
@@ -117,6 +118,7 @@ def main():
     dispatcher.add_handler(CommandHandler("remove_identity", restricted(remove_identity)))
     dispatcher.add_handler(CommandHandler("add_identity_description", restricted(add_identity_description)))
     dispatcher.add_handler(CommandHandler("add_identity_name", restricted(add_identity_name)))
+    dispatcher.add_handler(CommandHandler("associate_field_to_identity", restricted(associate_field_to_identity)))
 
     # Register commands for fields
     dispatcher.add_handler(CommandHandler("add_field", restricted(add_field)))
@@ -140,6 +142,7 @@ def main():
         BotCommand("remove_identity", "Remove an identity from the database using an interactive list"),
         BotCommand("add_identity_description", "Add a description to an identity"),
         BotCommand("add_identity_name", "Add a name to an identity"),
+        BotCommand("associate_field_to_identity", "Associate a field to an identity"),
         BotCommand("add_field", "Add a field to the database"),
         BotCommand("list_fields", "List all fields in the database"),
         BotCommand("remove_field", "Remove a field from the database using an interactive list"),

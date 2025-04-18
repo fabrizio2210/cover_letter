@@ -3,9 +3,8 @@ from pymongo import MongoClient
 from telegram import Update
 from telegram.ext import CallbackContext
 
-# MongoDB setup
-import os
 from src.python.telegram_bot.db import db  # Import shared db instance
+from src.python.telegram_bot.fields import get_field_list  # Import get_field_list
 
 identity_collection = db["identities"]  # Use shared db instance
 
@@ -16,7 +15,7 @@ def add_identity(update: Update, context: CallbackContext) -> None:
 def list_identities(update: Update, context: CallbackContext) -> None:
     identities = identity_collection.find()
     identity_list = [
-        f"Identity: {identity['identity']}\nDescription: {identity.get('description', 'No description')}\nName: {identity.get('name', 'No name')}"
+        f"Identity: {identity['identity']}\nDescription: {identity.get('description', 'No description')}\nName: {identity.get('name', 'No name')}\nField: {identity.get('field', 'No field associated')}"
         for identity in identities
     ]
 
@@ -79,6 +78,30 @@ def remove_identity(update: Update, context: CallbackContext) -> None:
         "Click on an identity to remove it:", reply_markup=reply_markup
     )
 
+def associate_field_to_identity(update: Update, context: CallbackContext) -> None:
+    identities = identity_collection.find()
+    identity_list = [identity["identity"] for identity in identities]
+
+    if not identity_list:
+        update.message.reply_text("No identities found in the database to associate a field.")
+        return
+
+    field_list = get_field_list()  # Use get_field_list to retrieve fields
+
+    if not field_list:
+        update.message.reply_text("No fields found in the database to associate with an identity.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(identity, callback_data=f"select_identity_for_field:{identity}")]
+        for identity in identity_list
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text(
+        "Click on an identity to associate a field to it:", reply_markup=reply_markup
+    )
+
 def process_identity_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("add_identity_desc:"):
         identity_to_update = query.data.split("add_identity_desc:")[1]
@@ -101,6 +124,46 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
             error_message = f"An error occurred while removing the identity: {str(e)}"
             print(error_message)
             query.edit_message_text("Sorry, there was an error removing the identity. Please try again later.")
+        return True
+
+    if query.data.startswith("select_identity_for_field:"):
+        identity_to_update = query.data.split("select_identity_for_field:")[1]
+        context.user_data["identity_to_update_for_field"] = identity_to_update
+
+        field_list = get_field_list()  # Use get_field_list to retrieve fields
+
+        keyboard = [
+            [InlineKeyboardButton(field, callback_data=f"associate_field:{field}")]
+            for field in field_list
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        query.edit_message_text(
+            f"Select a field to associate with identity: {identity_to_update}",
+            reply_markup=reply_markup
+        )
+        return True
+
+    if query.data.startswith("associate_field:"):
+        field_to_associate = query.data.split("associate_field:")[1]
+        identity_to_update = context.user_data.pop("identity_to_update_for_field", None)
+
+        if not identity_to_update:
+            query.edit_message_text("Error: No identity selected for association.")
+            return True
+
+        try:
+            identity_collection.update_one(
+                {"identity": identity_to_update},
+                {"$set": {"field": field_to_associate}}
+            )
+            query.edit_message_text(
+                f"Field '{field_to_associate}' successfully associated with identity '{identity_to_update}'."
+            )
+        except Exception as e:
+            error_message = f"An error occurred while associating the field: {str(e)}"
+            print(error_message)
+            query.edit_message_text("Sorry, there was an error associating the field. Please try again later.")
         return True
 
     return False

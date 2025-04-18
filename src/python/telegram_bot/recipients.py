@@ -1,4 +1,3 @@
-import os
 from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from pymongo.collection import Collection
