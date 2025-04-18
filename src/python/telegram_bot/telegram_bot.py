@@ -25,6 +25,13 @@ from src.python.telegram_bot.identities import (
     process_identity_callback,
     handle_identity_message,
 )
+from src.python.telegram_bot.fields import (
+    add_field,
+    list_fields,
+    remove_field,
+    process_field_callback,
+    handle_field_message,
+)
 
 # MongoDB setup using environment variables
 MONGO_HOST = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")  # Default to localhost if not set
@@ -59,6 +66,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if handle_identity_message(update, context):
         return
 
+    # Delegate to field-related message processing
+    if handle_field_message(update, context):
+        return
+
     # Default response for unexpected messages
     update.message.reply_text("I didn't understand that. Please use one of the commands.")
 
@@ -73,6 +84,10 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
 
     # Delegate identity-related callback queries to identities.py
     if process_identity_callback(query, context):
+        return
+
+    # Delegate field-related callback queries to fields.py
+    if process_field_callback(query, context):
         return
 
     # ...handle other callback queries if needed...
@@ -106,6 +121,11 @@ def main():
     dispatcher.add_handler(CommandHandler("add_identity_description", restricted(add_identity_description)))
     dispatcher.add_handler(CommandHandler("add_identity_name", restricted(add_identity_name)))
 
+    # Register commands for fields
+    dispatcher.add_handler(CommandHandler("add_field", restricted(add_field)))
+    dispatcher.add_handler(CommandHandler("list_fields", restricted(list_fields)))
+    dispatcher.add_handler(CommandHandler("remove_field", restricted(remove_field)))
+
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query_command))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))  # Unified message handler
@@ -123,6 +143,9 @@ def main():
         BotCommand("remove_identity", "Remove an identity from the database using an interactive list"),
         BotCommand("add_identity_description", "Add a description to an identity"),
         BotCommand("add_identity_name", "Add a name to an identity"),
+        BotCommand("add_field", "Add a field to the database"),
+        BotCommand("list_fields", "List all fields in the database"),
+        BotCommand("remove_field", "Remove a field from the database using an interactive list"),
     ])
 
     # Start the bot
