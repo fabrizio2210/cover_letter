@@ -6,15 +6,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 
 from telegram import BotCommand, Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, MessageHandler, Filters
-from pymongo import MongoClient
 from src.python.telegram_bot.recipients import (
     add_email_description,
     add_email_name,
     add_email,
     list_emails,
     remove_email,
-    process_email_callback,
-    handle_email_message,
+    process_recipients_callback,
+    handle_recipients_message,
     associate_email_with_field,
 )
 from src.python.telegram_bot.identities import (
@@ -35,6 +34,10 @@ from src.python.telegram_bot.fields import (
     handle_field_message,
 )
 from src.python.telegram_bot.db import db  # Import shared db instance
+from src.python.telegram_bot.generate_email import (
+    process_email_callback,
+    select_recipient_for_generation
+    )
 
 # Read allowed Telegram user IDs from environment variable
 ALLOWED_USERS_ENV = os.getenv("TELEGRAM_ALLOWED_USERS", "")  # Default to an empty string if not set
@@ -55,7 +58,7 @@ def restricted(func):
 @restricted
 def handle_message(update: Update, context: CallbackContext) -> None:
     # Delegate to email-related message processing
-    if handle_email_message(update, context):
+    if handle_recipients_message(update, context):
         return
 
     # Delegate to identity-related message processing
@@ -74,8 +77,8 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
     query = update.callback_query
     query.answer()
 
-    # Delegate email-related callback queries to recipients.py
-    if process_email_callback(query, context):
+    # Delegate recipients-related callback queries to recipients.py
+    if process_recipients_callback(query, context):
         return
 
     # Delegate identity-related callback queries to identities.py
@@ -86,6 +89,11 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
     if process_field_callback(query, context):
         return
 
+    # Delegate email-related callback queries to email.py
+    if process_email_callback(query, context):
+        return
+
+    # If no specific processing was done, you can handle other callback queries here
     # ...handle other callback queries if needed...
 
 @restricted
@@ -127,6 +135,9 @@ def main():
     dispatcher.add_handler(CommandHandler("list_fields", restricted(list_fields)))
     dispatcher.add_handler(CommandHandler("remove_field", restricted(remove_field)))
 
+    # Register command for generating email
+    dispatcher.add_handler(CommandHandler("select_recipient_for_generation", restricted(select_recipient_for_generation)))
+
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query_command))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))  # Unified message handler
@@ -137,6 +148,7 @@ def main():
         BotCommand("add_email", "Add an email to the database"),
         BotCommand("list_emails", "List all emails in the database"),
         BotCommand("remove_email", "Remove an email from the database using an interactive list"),
+        BotCommand("select_recipient_for_generation", "Select a recipient to generate an email for"),
         BotCommand("add_email_description", "Add a description to an email"),
         BotCommand("add_email_name", "Add a name to an email"),
         BotCommand("associate_email_with_field", "Associate a field to an email"),

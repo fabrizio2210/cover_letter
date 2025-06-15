@@ -1,0 +1,35 @@
+# Use an official Python image as the base
+FROM python:3.11-slim
+
+# Set environment variables
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    libpq-dev \
+    libcurl4-openssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a virtual environment
+RUN python3 -m venv $VIRTUAL_ENV
+
+# Install Python dependencies
+COPY src/python/ai_querier/requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt
+
+# Install watchdog for auto-reloading
+RUN pip install watchdog
+
+# Set the working directory
+WORKDIR /app
+
+# Command to run the ai_querier binary with auto-reloading
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "src/python/ai_querier/ai_querier.py"]

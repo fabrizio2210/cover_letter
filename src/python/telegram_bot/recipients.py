@@ -118,7 +118,7 @@ def associate_email_with_field(update: Update, context: CallbackContext) -> None
         "Click on an email to associate a field to it:", reply_markup=reply_markup
     )
 
-def process_email_callback(query, context: CallbackContext) -> bool:
+def process_recipients_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("add_email_desc:"):
         email_to_update = query.data.split("add_email_desc:")[1]
         context.user_data["email_to_update"] = email_to_update
@@ -184,7 +184,7 @@ def process_email_callback(query, context: CallbackContext) -> bool:
 
     return False
 
-def handle_email_message(update: Update, context: CallbackContext) -> bool:
+def handle_recipients_message(update: Update, context: CallbackContext) -> bool:
     # Check if the bot is waiting for an email
     if context.user_data.get("awaiting_email"):
         email = update.message.text

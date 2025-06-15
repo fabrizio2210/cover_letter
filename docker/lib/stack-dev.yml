@@ -55,11 +55,10 @@ services:
   #   networks: 
   #     - backends
 
-  # redis_cover_letter:
-  #   image: redis_cover_letter
-  #   networks:
-  #     - backends
-
+  redis_cover_letter:
+    image: redis
+    networks:
+      - backends
 
   telegram-bot:
     image: fabrizio2210/coverletter-telegram-bot-dev
@@ -69,6 +68,20 @@ services:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
       DB_NAME: "cover_letter"
       TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
+      REDIS_HOST: redis_cover_letter
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
+  ai-querier:
+    image: fabrizio2210/coverletter-ai-querier-dev
+    restart: always
+    environment:
+ #     GEMINI_TOKEN: ${GEMINI_TOKEN}
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: redis_cover_letter
     volumes:
       - ../../:/app
     networks:
