@@ -78,7 +78,7 @@ services:
     image: fabrizio2210/coverletter-ai-querier-dev
     restart: always
     environment:
- #     GEMINI_TOKEN: ${GEMINI_TOKEN}
+      GEMINI_TOKEN: ${GEMINI_TOKEN}
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
       DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter

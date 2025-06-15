@@ -3,11 +3,17 @@ import redis
 import time
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+import google.generativeai as genai
+
 
 def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
     queue_name = os.environ.get("REDIS_QUEUE_GENERATE_EMAIL_NAME", "email_generation_queue")
+    api_token = os.environ.get("GEMINI_TOKEN")
+    if not api_token:
+        raise RuntimeError(f"Environment variable for Gemini API token is not set.")
+    genai.configure(api_key=api_token)
 
     # MongoDB setup
     mongo_uri = os.environ.get("MONGO_HOST", "mongodb://localhost:27017/")
@@ -47,15 +53,28 @@ def main():
                     print(f"No identity associated with field '{field_id}' for recipient '{email}'.")
                     continue
 
-                # Step 4: Retrieve name and description
+                # Step 4: Retrieve name and descriptions
                 identity_name = identity.get("name", "No name")
                 identity_description = identity.get("description", "No description")
+                recipient_description = recipient.get("description", "No description")
 
                 print(f"Identity for recipient '{email}':")
-                print(f"  Name: {identity_name}")
+                print(f"  Description: {recipient_description}")
+                print(f"  For: {identity_name}")
                 print(f"  Description: {identity_description}")
 
-                # ...further processing as needed...
+                prompt = (
+                    f"Write a cover letter for {identity_name} for {recipient}. "
+                    f"The {recipient} description is {recipient_description}. "
+                    f"{identity_name} is described with {identity_description}."
+                )
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(prompt)
+                if not response or not hasattr(response, "text"):
+                    print("No valid response from Gemini API.")
+                    continue
+                cover_letter = response.text.strip()
+                print(f"Generated cover letter for {email}:\n{cover_letter}")
 
         except Exception as e:
             print(f"Error while processing queue: {e}")
