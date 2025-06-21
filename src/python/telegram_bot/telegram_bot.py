@@ -15,6 +15,7 @@ from src.python.telegram_bot.recipients import (
     process_recipients_callback,
     handle_recipients_message,
     associate_email_with_field,
+    select_recipient_for_generation,
 )
 from src.python.telegram_bot.identities import (
     add_identity,
@@ -34,10 +35,7 @@ from src.python.telegram_bot.fields import (
     handle_field_message,
 )
 from src.python.telegram_bot.db import db  # Import shared db instance
-from src.python.telegram_bot.cover_letters import (
-    process_email_callback,
-    select_recipient_for_generation
-    )
+# Remove process_email_callback from imports
 
 # Read allowed Telegram user IDs from environment variable
 ALLOWED_USERS_ENV = os.getenv("TELEGRAM_ALLOWED_USERS", "")  # Default to an empty string if not set
@@ -87,10 +85,6 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
 
     # Delegate field-related callback queries to fields.py
     if process_field_callback(query, context):
-        return
-
-    # Delegate email-related callback queries to email.py
-    if process_email_callback(query, context):
         return
 
     # If no specific processing was done, you can handle other callback queries here

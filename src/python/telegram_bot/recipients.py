@@ -118,6 +118,24 @@ def associate_email_with_field(update: Update, context: CallbackContext) -> None
         "Click on an email to associate a field to it:", reply_markup=reply_markup
     )
 
+def select_recipient_for_generation(update: Update, context: CallbackContext) -> None:
+    emails = collection.find()
+    email_list = [email["email"] for email in emails]
+
+    if not email_list:
+        update.message.reply_text("No recipients found in the database to generate an email for.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(email, callback_data=f"select_recipient:{email}")]
+        for email in email_list
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text(
+        "Select a recipient to generate an email for:", reply_markup=reply_markup
+    )
+
 def process_recipients_callback(query, context: CallbackContext) -> bool:
     if query.data.startswith("add_email_desc:"):
         email_to_update = query.data.split("add_email_desc:")[1]
@@ -180,6 +198,24 @@ def process_recipients_callback(query, context: CallbackContext) -> bool:
             error_message = f"An error occurred while associating the field: {str(e)}"
             print(error_message)
             query.edit_message_text("Sorry, there was an error associating the field. Please try again later.")
+        return True
+
+    if query.data.startswith("select_recipient:"):
+        recipient_email = query.data.split("select_recipient:")[1]
+        context.user_data["selected_recipient"] = recipient_email
+        # Enqueue the selected recipient for email generation
+        import os, redis, json
+        redis_host = os.environ.get("REDIS_HOST", "localhost")
+        redis_port = int(os.environ.get("REDIS_PORT", 6379))
+        queue_name = os.environ.get("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME", "cover_letter_generation_queue")
+        try:
+            r = redis.Redis(host=redis_host, port=redis_port)
+            payload = {"recipient": recipient_email}
+            r.rpush(queue_name, json.dumps(payload))
+            query.edit_message_text(f"Recipient '{recipient_email}' added to the email generation queue.")
+        except Exception as e:
+            print(f"Redis error: {e}")
+            query.edit_message_text("Failed to add recipient to the queue. Please try again later.")
         return True
 
     return False
