@@ -34,6 +34,10 @@ from src.python.telegram_bot.fields import (
     process_field_callback,
     handle_field_message,
 )
+from src.python.telegram_bot.cover_letters import (
+    process_cover_letters_callback,
+    select_cover_letter_for_recipient,
+)
 from src.python.telegram_bot.db import db  # Import shared db instance
 # Remove process_email_callback from imports
 
@@ -87,6 +91,10 @@ def handle_callback_query_command(update: Update, context: CallbackContext) -> N
     if process_field_callback(query, context):
         return
 
+    # Delegate cover letter-related callback queries to cover_letters.py
+    if process_cover_letters_callback(query, context):
+        return
+
     # If no specific processing was done, you can handle other callback queries here
     # ...handle other callback queries if needed...
 
@@ -131,6 +139,8 @@ def main():
 
     # Register command for generating email
     dispatcher.add_handler(CommandHandler("select_recipient_for_generation", restricted(select_recipient_for_generation)))
+    # Register command for listing cover letters
+    dispatcher.add_handler(CommandHandler("list_cover_letters", restricted(select_cover_letter_for_recipient)))
 
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query_command))
