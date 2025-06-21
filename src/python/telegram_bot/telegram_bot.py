@@ -37,6 +37,7 @@ from src.python.telegram_bot.fields import (
 from src.python.telegram_bot.cover_letters import (
     process_cover_letters_callback,
     select_cover_letter_for_recipient,
+    handle_cover_letter_message,
 )
 from src.python.telegram_bot.db import db  # Import shared db instance
 # Remove process_email_callback from imports
@@ -59,6 +60,10 @@ def restricted(func):
 # Unified message handler to handle both email and description inputs
 @restricted
 def handle_message(update: Update, context: CallbackContext) -> None:
+    from src.python.telegram_bot.cover_letters import handle_cover_letter_message
+    # Delegate to cover letter message processing first
+    if handle_cover_letter_message(update, context):
+        return
     # Delegate to email-related message processing
     if handle_recipients_message(update, context):
         return
@@ -144,6 +149,7 @@ def main():
 
     # Register callback query handler
     dispatcher.add_handler(CallbackQueryHandler(handle_callback_query_command))
+    # Only one message handler needed now
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))  # Unified message handler
 
     # Set bot commands using setMyCommands

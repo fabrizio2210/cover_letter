@@ -98,9 +98,10 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col):
     print(f"  For: {identity_name}")
     print(f"  Description: {identity_description}")
     prompt = (
-        f"Write a cover letter for {identity_name} for {recipient}. "
-        f"The {recipient} description is {recipient_description}. "
+        f"Write a cover letter for {identity_name} for {recipient.get('email', '')}. "
+        f"The {recipient.get('email', '')} description is {recipient_description}. "
         f"{identity_name} is described with {identity_description}."
+        "Customize with the recipient's name and email, and the identity's name and description."
     )
     model = genai.GenerativeModel("gemini-1.5-flash")
     chat = model.start_chat(history=[])
@@ -110,9 +111,10 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col):
         return
     cover_letter = response.text.strip()
     conversation_id = str(uuid.uuid4())
+    # Gemini expects 'role' and 'parts' (not 'content')
     history = [
-        {"role": "user", "content": prompt},
-        {"role": "ai", "content": cover_letter}
+        {"role": "user", "parts": [{"text": prompt}]},
+        {"role": "model", "parts": [{"text": cover_letter}]}
     ]
     process_cover_letter(
         cover_letters_col,
@@ -134,7 +136,7 @@ def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_
     if not followup_prompt:
         print("No follow-up prompt provided for iteration.")
         return
-    history.append({"role": "user", "content": followup_prompt})
+    history.append({"role": "user", "parts": [{"text": followup_prompt}]})
     model = genai.GenerativeModel("gemini-1.5-flash")
     chat = model.start_chat(history=history)
     response = chat.send_message(followup_prompt)
@@ -142,7 +144,7 @@ def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_
         print("No valid response from Gemini API.")
         return
     new_cover_letter = response.text.strip()
-    history.append({"role": "ai", "content": new_cover_letter})
+    history.append({"role": "model", "parts": [{"text": new_cover_letter}]})
     process_cover_letter(
         cover_letters_col,
         cover_letter_doc["recipient_id"],
