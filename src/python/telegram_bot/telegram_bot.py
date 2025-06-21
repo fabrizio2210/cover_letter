@@ -34,7 +34,7 @@ from src.python.telegram_bot.fields import (
     handle_field_message,
 )
 from src.python.telegram_bot.db import db  # Import shared db instance
-from src.python.telegram_bot.generate_email import (
+from src.python.telegram_bot.cover_letters import (
     process_email_callback,
     select_recipient_for_generation
     )

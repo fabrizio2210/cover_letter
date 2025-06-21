@@ -11,7 +11,7 @@ import google.generativeai as genai
 def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
-    queue_name = os.environ.get("REDIS_QUEUE_GENERATE_EMAIL_NAME", "email_generation_queue")
+    queue_name = os.environ.get("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME", "cover_letter_generation_queue")
     api_token = os.environ.get("GEMINI_TOKEN")
     if not api_token:
         raise RuntimeError(f"Environment variable for Gemini API token is not set.")
