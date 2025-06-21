@@ -1,5 +1,6 @@
 import os
 import redis
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from src.python.telegram_bot.db import db
@@ -34,7 +35,8 @@ def process_email_callback(query, context: CallbackContext) -> bool:
         queue_name = os.environ.get("REDIS_QUEUE_GENERATE_EMAIL_NAME", "email_generation_queue")
         try:
             r = redis.Redis(host=redis_host, port=redis_port)
-            r.rpush(queue_name, recipient_email)
+            payload = {"recipient": recipient_email}
+            r.rpush(queue_name, json.dumps(payload))
             query.edit_message_text(f"Recipient '{recipient_email}' added to the email generation queue.")
         except Exception as e:
             print(f"Redis error: {e}")
