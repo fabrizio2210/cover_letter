@@ -47,3 +47,6 @@ fi
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-bot\|telegram_bot" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/coverletter-telegram-bot:$arch --push -f docker/x86_64/Dockerfile-bot .
 fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-ai\|ai_querier" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-ai:$arch --push -f docker/x86_64/Dockerfile-ai .
+fi
