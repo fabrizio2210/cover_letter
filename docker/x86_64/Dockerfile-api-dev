@@ -1,0 +1,12 @@
+FROM golang:1.24-alpine
+
+WORKDIR /app
+
+# Install git (required for go mod download) and Air for live reloading
+RUN apk add --no-cache git && go install github.com/air-verse/air@latest
+
+ENV CGO_ENABLED=0
+
+EXPOSE 8080
+
+CMD ["sh", "-c", "go mod download && air -c .air.toml"]

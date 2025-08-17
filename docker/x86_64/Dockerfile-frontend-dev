@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY src/js/coverletter-frontend/package.json ./
+
+# Remove any existing lock and modules, then install cleanly
+RUN rm -rf node_modules && npm install
+
+# Install Angular CLI globally so 'ng' is available
+RUN npm install -g @angular/cli
+
+COPY src/js/coverletter-frontend/ ./
+
+EXPOSE 4200
+
+CMD ["npm", "start"]

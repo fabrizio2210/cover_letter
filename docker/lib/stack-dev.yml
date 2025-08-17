@@ -116,6 +116,39 @@ services:
     networks:
       - backends
 
+  coverletter-api-dev:
+    image: fabrizio2210/coverletter-api-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-api-dev
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ../../src/go/cmd/api:/app
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: "PathPrefix(`/api`)"
+      traefik.http.services.api-service.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    networks:
+      - backends
+
+  coverletter-frontend-dev:
+    image: fabrizio2210/coverletter-frontend-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-frontend-dev
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: "PathPrefix(`/`)"
+      traefik.http.services.frontend-service.loadbalancer.server.port: 4200
+    volumes:
+      - ../../src/js/coverletter-frontend/src:/app/src
+    restart: unless-stopped
+    networks:
+      - backends
+
   # authentication:
   #   image: fabrizio2210/coverletter-authentication-dev
   #   environment:
