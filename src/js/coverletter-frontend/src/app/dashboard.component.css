@@ -1,0 +1,50 @@
+/* General Styles */
+.header-actions {
+  margin-bottom: 1.5rem;
+}
+
+/* Message Banners for Feedback */
+.message {
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.message.is-success {
+  background-color: #f0fff4; /* Bulma's green-lino */
+  border-left: 4px solid #48c774; /* Bulma's green */
+  color: #257942;
+}
+
+.message.is-danger {
+  background-color: #fff5f5; /* Bulma's red-lino */
+  border-left: 4px solid #f14668; /* Bulma's red */
+  color: #cc0f35;
+}
+
+/* Empty State Styling */
+.empty-state {
+  border: 2px dashed #dbdbdb; /* Bulma's grey-lighter */
+  border-radius: 6px;
+  padding: 3rem;
+  margin-top: 2rem;
+}
+
+.empty-state .button {
+  margin-top: 1.5rem;
+}
+
+/* Table Action Buttons */
+.table .button {
+  margin-left: 0.5rem;
+}
+
+/* Modal Styling */
+.modal-card-foot {
+  display: flex;
+  justify-content: flex-end; /* Align buttons to the right */
+}
+
+.modal-card-foot .button:not(:last-child) {
+  margin-right: 0.75rem;
+}
