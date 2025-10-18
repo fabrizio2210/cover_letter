@@ -4,12 +4,14 @@ import (
 	"context"
 	"coverletter/db"
 	"coverletter/models"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -53,4 +55,234 @@ func GetRecipients(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, recipients)
+}
+
+// CreateRecipient creates a new recipient.
+func CreateRecipient(c *gin.Context) {
+	var recipient models.Recipient
+	if err := c.ShouldBindJSON(&recipient); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	result, err := collection.InsertOne(context.Background(), recipient)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create recipient"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, result)
+}
+
+// DeleteRecipient deletes a recipient by its ID.
+func DeleteRecipient(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete recipient"})
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Recipient deleted successfully"})
+}
+
+// UpdateRecipientDescription updates the description of a recipient.
+func UpdateRecipientDescription(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"description": req.Description}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update recipient"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found or description unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Recipient description updated successfully"})
+}
+
+// UpdateRecipientName updates the name of a recipient.
+func UpdateRecipientName(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"name": req.Name}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update recipient"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found or name unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Recipient name updated successfully"})
+}
+
+// AssociateFieldWithRecipient associates a field with a recipient.
+func AssociateFieldWithRecipient(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		FieldID string `json:"fieldId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	fieldObjID, err := primitive.ObjectIDFromHex(req.FieldID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Field ID"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"field": fieldObjID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to associate field"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found or field unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Field associated successfully"})
+}
+
+// GenerateCoverLetterForRecipient triggers the cover letter generation for a recipient.
+func GenerateCoverLetterForRecipient(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	var recipient models.Recipient
+	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&recipient); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found"})
+		return
+	}
+
+	queueName := os.Getenv("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME")
+	if queueName == "" {
+		queueName = "cover_letter_generation_queue"
+	}
+
+	payload := map[string]interface{}{
+		"recipient": recipient.Email,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
+		return
+	}
+
+	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue generation"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Generation queued successfully"})
 }

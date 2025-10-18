@@ -23,6 +23,30 @@ func main() {
 	auth.Use(middleware.JWT(jwtSecret))
 	{
 		auth.GET("/recipients", handlers.GetRecipients)
+		auth.POST("/recipients", handlers.CreateRecipient)
+		auth.DELETE("/recipients/:id", handlers.DeleteRecipient)
+		auth.PUT("/recipients/:id/description", handlers.UpdateRecipientDescription)
+		auth.PUT("/recipients/:id/name", handlers.UpdateRecipientName)
+		auth.PUT("/recipients/:id/field", handlers.AssociateFieldWithRecipient)
+		auth.POST("/recipients/:id/generate-cover-letter", handlers.GenerateCoverLetterForRecipient)
+
+		auth.GET("/identities", handlers.GetIdentities)
+		auth.POST("/identities", handlers.CreateIdentity)
+		auth.DELETE("/identities/:id", handlers.DeleteIdentity)
+		auth.PUT("/identities/:id/description", handlers.UpdateIdentityDescription)
+		auth.PUT("/identities/:id/name", handlers.UpdateIdentityName)
+		auth.PUT("/identities/:id/field", handlers.AssociateFieldWithIdentity)
+
+		auth.GET("/fields", handlers.GetFields)
+		auth.POST("/fields", handlers.CreateField)
+		auth.DELETE("/fields/:id", handlers.DeleteField)
+
+		auth.GET("/cover-letters", handlers.GetCoverLetters)
+		auth.GET("/cover-letters/:id", handlers.GetCoverLetter)
+		auth.DELETE("/cover-letters/:id", handlers.DeleteCoverLetter)
+		auth.PUT("/cover-letters/:id", handlers.UpdateCoverLetter)
+		auth.POST("/cover-letters/:id/refine", handlers.RefineCoverLetter)
+		auth.POST("/cover-letters/:id/send", handlers.SendCoverLetter)
 	}
 
 	r.Run(":8080")
