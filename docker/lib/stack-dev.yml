@@ -124,6 +124,8 @@ services:
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
+      - MONGO_HOST=mongodb://root:develop@mongo:27017/
+      - DB_NAME=cover_letter
     volumes:
       - ../../src/go/cmd/api:/app
     labels:
