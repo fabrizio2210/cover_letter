@@ -48,3 +48,29 @@
 .modal-card-foot .button:not(:last-child) {
   margin-right: 0.75rem;
 }
+
+/* Field Dropdown and Inline Create Controls */
+.field--inline-create {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field--inline-create .inline-create {
+  max-width: 220px;
+}
+
+.input--small {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+/* Ensure select stretches when in "has-addons" */
+.field--inline-create .select.is-fullwidth {
+  width: 100%;
+}
+
+/* Small adjustments for modal spacing with the new controls */
+.modal-card-body .field + .field {
+  margin-top: 0.9rem;
+}

@@ -78,7 +78,23 @@ func CreateRecipient(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, result)
+	// Fetch the created recipient so we can return the document with its _id as hex string
+	var created bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": result.InsertedID}).Decode(&created); err != nil {
+		// If fetching fails, still return InsertedID as hex if possible
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			c.JSON(http.StatusCreated, gin.H{"_id": oid.Hex()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"insertedId": result.InsertedID})
+		return
+	}
+
+	// convert _id to hex string
+	if idVal, ok := created["_id"].(primitive.ObjectID); ok {
+		created["_id"] = idVal.Hex()
+	}
+	c.JSON(http.StatusCreated, created)
 }
 
 // DeleteRecipient deletes a recipient by its ID.
@@ -285,4 +301,160 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Generation queued successfully"})
+}
+
+// GetFields returns all fields.
+func GetFields(c *gin.Context) {
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("fields")
+
+	cursor, err := collection.Find(context.Background(), bson.D{})
+	if err != nil {
+		log.Printf("Error finding fields: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch fields"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	var rawFields []bson.M
+	if err := cursor.All(context.Background(), &rawFields); err != nil {
+		log.Printf("Error decoding fields: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode fields"})
+		return
+	}
+
+	// convert each _id to hex string for frontend simplicity
+	out := make([]map[string]interface{}, 0, len(rawFields))
+	for _, f := range rawFields {
+		m := make(map[string]interface{})
+		if idVal, ok := f["_id"].(primitive.ObjectID); ok {
+			m["_id"] = idVal.Hex()
+		} else {
+			m["_id"] = f["_id"]
+		}
+		if fieldName, ok := f["field"]; ok {
+			m["field"] = fieldName
+		} else {
+			m["field"] = ""
+		}
+		out = append(out, m)
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+// CreateField creates a new field document.
+func CreateField(c *gin.Context) {
+	var req struct {
+		Field string `json:"field"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Field == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("fields")
+
+	res, err := collection.InsertOne(context.Background(), bson.M{"field": req.Field})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create field"})
+		return
+	}
+
+	// Return the created document with _id as hex string
+	var created bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": res.InsertedID}).Decode(&created); err != nil {
+		if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+			c.JSON(http.StatusCreated, gin.H{"_id": oid.Hex(), "field": req.Field})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"insertedId": res.InsertedID})
+		return
+	}
+
+	if idVal, ok := created["_id"].(primitive.ObjectID); ok {
+		created["_id"] = idVal.Hex()
+	}
+	c.JSON(http.StatusCreated, created)
+}
+
+// UpdateField updates an existing field document.
+func UpdateField(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		Field string `json:"field"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("fields")
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"field": req.Field}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update field"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Field not found or value unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Field updated successfully"})
+}
+
+// DeleteField deletes a field document.
+func DeleteField(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("fields")
+
+	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete field"})
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Field not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Field deleted successfully"})
 }
