@@ -1,0 +1,106 @@
+<h3>Recipients</h3>
+
+<table *ngIf="(recipients?.length || 0) > 0; else noRecipients" class="table is-fullwidth is-striped is-hoverable">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Company</th>
+      <th>Description</th>
+      <th class="has-text-right">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let recipient of recipients; let i = index">
+      <td>
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.name"
+          required
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.name || 'N/A' }}</span>
+      </td>
+      <td>
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.email"
+          required
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.email }}</span>
+      </td>
+      <td>
+        <ng-container *ngIf="editIndex === i; else companyDisplay">
+          <input class="input" [(ngModel)]="editRecipient.companyName" placeholder="Company name" />
+        </ng-container>
+        <ng-template #companyDisplay>
+          {{ recipient.companyInfo?.name || 'N/A' }}
+        </ng-template>
+      </td>
+      <td>
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.description"
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.description || 'N/A' }}</span>
+      </td>
+      <td class="has-text-right">
+        <ng-container *ngIf="editIndex === i; else actionButtons">
+          <button class="button is-success is-small" (click)="saveEditRecipient(i)">Save</button>
+          <button class="button is-light is-small" (click)="cancelEdit()">Cancel</button>
+        </ng-container>
+        <ng-template #actionButtons>
+          <button class="button is-small is-light" (click)="startEditRecipient(i)">Edit</button>
+          <button class="button is-small is-danger is-light" (click)="confirmDelete(recipient)">Delete</button>
+        </ng-template>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.name" placeholder="Name" required />
+      </td>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.email" placeholder="Email" required />
+      </td>
+      <td>
+        <div class="field has-addons field--inline-create">
+          <div class="control is-expanded">
+            <div class="select is-fullwidth">
+              <select [(ngModel)]="newRecipient.companyId">
+                <option value="">-- None --</option>
+                <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="control inline-create">
+            <input class="input input--small" type="text" placeholder="New company name" [(ngModel)]="newCompanyName" />
+          </div>
+          <div class="control">
+            <button type="button" class="button is-light" (click)="createCompany()" [disabled]="!newCompanyName || !newCompanyName.trim()">Create</button>
+          </div>
+        </div>
+      </td>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.description" placeholder="Description" />
+      </td>
+      <td class="has-text-right">
+        <button class="button is-primary is-small" (click)="saveNewRecipient()" [disabled]="!newRecipient.name || !newRecipient.email">Save</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<ng-template #noRecipients>
+  <div class="empty-state has-text-centered">
+    <p class="is-size-5">You haven't added any recipients yet.</p>
+    <p>Use the row below to add your first one.</p>
+  </div>
+</ng-template>
+
+<div class="toast-container" *ngIf="feedbackMessage">
+  <div class="message" [ngClass]="isError ? 'is-danger' : 'is-success'">
+    <div class="message-body">{{ feedbackMessage }}</div>
+  </div>
+</div>

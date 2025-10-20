@@ -1,34 +1,29 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms'; // <-- Import FormsModule
-import { RouterModule } from '@angular/router'; // <-- Add RouterModule import
+import { forkJoin } from 'rxjs';
 
-// Recipient Interface (no changes needed)
 export interface Recipient {
   _id: string;
   email: string;
   name?: string;
   description?: string;
-  fieldInfo?: { _id: string; field: string; } | any; // tolerate array or object
-
-  // NEW: company fields used by template
+  fieldInfo?: { _id: string; field: string; } | any;
   companyId?: string;
   companyInfo?: { _id: string; name: string; } | any;
-  companyName?: string; // <-- Add this line
+  companyName?: string;
 }
 
-import { forkJoin, of } from 'rxjs';
-
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-recipients-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule], // <-- Include RouterModule so template routerLink/routerLinkActive work
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css'] // <-- Suggest adding for component-specific styles
+  imports: [CommonModule, FormsModule],
+  templateUrl: './recipients-list.component.html',
+  styleUrls: ['./recipients-list.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class RecipientsListComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
 
@@ -36,28 +31,24 @@ export class DashboardComponent implements OnInit {
   feedbackMessage = '';
   isError = false;
 
-  // In-place editing state
   editIndex: number | null = null;
   editRecipient: Partial<Recipient> = {};
   editFieldId: string = '';
 
-  // New recipient row state
   newRecipient: Partial<Recipient> = { name: '', email: '', description: '' };
   newRecipientFieldId: string = '';
 
-  // --- Fields support added ---
   fields: { _id: string; field: string; }[] = [];
-  selectedFieldId: string = '';    // ID selected in the modal
-  newFieldName: string = ''; // shared for both edit and new
+  selectedFieldId: string = '';
+  newFieldName: string = '';
 
-  // --- Companies support (NEW) ---
   companies: { _id: string; name: string; fieldId?: string }[] = [];
-  newCompanyName: string = ''; // used by the "new company" inline control
+  newCompanyName: string = '';
 
   ngOnInit(): void {
     this.getRecipients();
     this.getFields();
-    this.getCompanies(); // <-- fetch companies for the new select
+    this.getCompanies();
   }
 
   private getAuthHeaders(): HttpHeaders {
@@ -79,12 +70,10 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // --- In-place Editing Methods ---
   startEditRecipient(index: number): void {
     this.editIndex = index;
     const recipient = this.recipients[index];
     this.editRecipient = { ...recipient };
-    // derive field id
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
     if (Array.isArray(fi) && fi.length) {
@@ -121,7 +110,7 @@ export class DashboardComponent implements OnInit {
     if (this.editRecipient.description !== recipient.description) {
       observables.push(this.http.put(`/api/recipients/${_id}/description`, { description: this.editRecipient.description }, { headers }));
     }
-    // field change
+
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
     if (Array.isArray(fi) && fi.length) {
@@ -135,21 +124,16 @@ export class DashboardComponent implements OnInit {
       observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
     }
 
-    // Company change handling: if user edited companyName (free-text), create company then associate;
-    // if you later switch to a <select> for edit, adapt this branch to use companyId instead.
     const origCompanyName = recipient.companyInfo?.name || '';
     if ((this.editRecipient as any).companyName && (this.editRecipient as any).companyName !== origCompanyName) {
-      // create company then associate
       const newName = (this.editRecipient as any).companyName.trim();
       if (newName) {
         this.http.post<{ _id: string; name: string }>('/api/companies', { name: newName }, { headers }).subscribe({
           next: (created) => {
             if (created && created._id) {
               this.companies = [...this.companies, created];
-              // perform association
               this.associateCompanyWithRecipient(_id, created._id).subscribe({
                 next: () => {
-                  // after company created and association done, run other observables (if any)
                   if (observables.length === 0) {
                     this.showFeedback('Recipient updated successfully.');
                     this.getRecipients();
@@ -173,10 +157,9 @@ export class DashboardComponent implements OnInit {
           },
           error: (err) => this.showFeedback('Failed to create company.', true, err)
         });
-        return; // association will trigger further updates and cancel edit
+        return;
       }
     } else if ((this.editRecipient as any).companyId && (this.editRecipient as any).companyId !== recipient.companyInfo?._id) {
-      // user edited to select an existing company id (future-proof if you change edit UI)
       observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: (this.editRecipient as any).companyId }, { headers }));
     }
 
@@ -196,7 +179,6 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // --- New Recipient Row Methods ---
   saveNewRecipient(): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
@@ -226,7 +208,6 @@ export class DashboardComponent implements OnInit {
       });
     };
 
-    // If a new company name was entered, create it first then create recipient and associate
     if (this.newCompanyName && this.newCompanyName.trim()) {
       const payload = { name: this.newCompanyName.trim() };
       this.http.post<{ _id: string; name: string }>('/api/companies', payload, { headers }).subscribe({
@@ -242,12 +223,10 @@ export class DashboardComponent implements OnInit {
         error: (err) => this.showFeedback('Failed to create company.', true, err)
       });
     } else {
-      // Use selected companyId (if any)
       createAndAssociate(this.newRecipient.companyId as string | undefined);
     }
   }
 
-  // --- Fields API methods ---
   getFields(): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
@@ -257,13 +236,12 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // --- Companies API methods (NEW) ---
   getCompanies(): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
     this.http.get<{ _id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
       next: (data) => { this.companies = data || []; },
-      error: (err) => { this.showFeedback('Failed to fetch companies.', true, err); }
+      error: (err) => this.showFeedback('Failed to fetch companies.', true, err)
     });
   }
 
@@ -278,7 +256,6 @@ export class DashboardComponent implements OnInit {
       next: (created) => {
         if (created && created._id) {
           this.companies = [...this.companies, created];
-          // If user was creating a recipient, select created company
           this.newRecipient.companyId = created._id;
           this.newCompanyName = '';
           this.showFeedback('Company created and selected.');
@@ -290,13 +267,11 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // Helper: associate company with recipient
   associateCompanyWithRecipient(recipientId: string, companyId: string) {
     const headers = this.getAuthHeaders();
     return this.http.put(`/api/recipients/${recipientId}/company`, { companyId }, { headers });
   }
 
-  // --- User Feedback Handling ---
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
     this.feedbackMessage = message;
     this.isError = isError;
@@ -305,8 +280,7 @@ export class DashboardComponent implements OnInit {
     if (error?.status === 401) {
       this.router.navigate(['/login']);
     }
-    
-    // Automatically clear the message after a few seconds
+
     setTimeout(() => this.clearFeedback(), 5000);
   }
 
@@ -315,7 +289,6 @@ export class DashboardComponent implements OnInit {
     this.isError = false;
   }
 
-  // --- Add this method to clear the new recipient row ---
   private resetNewRecipient(): void {
     this.newRecipient = { name: '', email: '', description: '' };
     this.newRecipientFieldId = '';

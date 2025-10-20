@@ -1,0 +1,14 @@
+.field--inline-create {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.input--small {
+  width: 10rem;
+}
+.toast-container {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+}
