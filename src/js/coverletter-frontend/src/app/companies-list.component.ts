@@ -92,7 +92,7 @@ export class CompaniesListComponent implements OnInit {
     }
     const origField = c.fieldId || c.fieldInfo?._id || '';
     if ((this.editFieldId || '') !== (origField || '')) {
-      observables.push(this.http.put(`/api/companies/${c._id}/field`, { fieldId: this.editFieldId }, { headers }));
+      observables.push(this.http.put(`/api/companies/${c._id}/field`, { field_id: this.editFieldId }, { headers }));
     }
 
     if (observables.length === 0) {
@@ -117,8 +117,8 @@ export class CompaniesListComponent implements OnInit {
       this.showFeedback('Company name cannot be empty.', true);
       return;
     }
-    const payload = { name: this.newName.trim(), fieldId: this.newFieldId || undefined };
-    this.http.post<Company>('/api/companies', payload, { headers }).subscribe({
+  const payload = { name: this.newName.trim(), field_id: this.newFieldId || undefined };
+  this.http.post<Company>('/api/companies', payload, { headers }).subscribe({
       next: (created) => {
         this.companies = [...this.companies, created];
         this.showFeedback('Company created successfully.');
