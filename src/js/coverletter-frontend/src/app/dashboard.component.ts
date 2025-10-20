@@ -30,20 +30,23 @@ export class DashboardComponent implements OnInit {
   feedbackMessage = '';
   isError = false;
 
-  // State for the modal
-  showRecipientModal = false;
-  isEditMode = false;
-  selectedRecipient: Partial<Recipient> = {};
-  originalRecipient: Partial<Recipient> = {}; // Store the original state for comparison
+  // In-place editing state
+  editIndex: number | null = null;
+  editRecipient: Partial<Recipient> = {};
+  editFieldId: string = '';
+
+  // New recipient row state
+  newRecipient: Partial<Recipient> = { name: '', email: '', description: '' };
+  newRecipientFieldId: string = '';
 
   // --- Fields support added ---
   fields: { _id: string; field: string; }[] = [];
   selectedFieldId: string = '';    // ID selected in the modal
-  newFieldName: string = '';       // for creating a new field inline
+  newFieldName: string = ''; // shared for both edit and new
 
   ngOnInit(): void {
     this.getRecipients();
-    this.getFields(); // load fields for dropdown
+    this.getFields();
   }
 
   private getAuthHeaders(): HttpHeaders {
@@ -65,22 +68,12 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // --- Modal Control ---
-  openAddRecipientModal(): void {
-    this.isEditMode = false;
-    this.selectedRecipient = { name: '', email: '', description: '' };
-    this.selectedFieldId = '';
-    this.newFieldName = '';
-    this.showRecipientModal = true;
-    this.clearFeedback();
-    this.getFields();
-  }
-
-  openEditRecipientModal(recipient: Recipient): void {
-    this.isEditMode = true;
-    this.selectedRecipient = { ...recipient }; // Use a copy for editing
-    this.originalRecipient = { ...recipient }; // Store the original state
-    // derive field id from recipient.fieldInfo (handle array or object)
+  // --- In-place Editing Methods ---
+  startEditRecipient(index: number): void {
+    this.editIndex = index;
+    const recipient = this.recipients[index];
+    this.editRecipient = { ...recipient };
+    // derive field id
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
     if (Array.isArray(fi) && fi.length) {
@@ -88,17 +81,94 @@ export class DashboardComponent implements OnInit {
     } else if (fi && fi._id) {
       origFieldId = fi._id;
     } else if ((recipient as any).field) {
-      origFieldId = (recipient as any).field; // fallback if raw stored id
+      origFieldId = (recipient as any).field;
     }
-    this.selectedFieldId = origFieldId || '';
+    this.editFieldId = origFieldId || '';
     this.newFieldName = '';
-    this.showRecipientModal = true;
     this.clearFeedback();
-    this.getFields();
   }
 
-  closeModal(): void {
-    this.showRecipientModal = false;
+  cancelEdit(): void {
+    this.editIndex = null;
+    this.editRecipient = {};
+    this.editFieldId = '';
+    this.newFieldName = '';
+  }
+
+  saveEditRecipient(index: number): void {
+    const recipient = this.recipients[index];
+    const headers = this.getAuthHeaders();
+    const { _id } = recipient;
+    const observables: any[] = [];
+
+    if (this.editRecipient.name !== recipient.name) {
+      observables.push(this.http.put(`/api/recipients/${_id}/name`, { name: this.editRecipient.name }, { headers }));
+    }
+    if (this.editRecipient.email !== recipient.email) {
+      observables.push(this.http.put(`/api/recipients/${_id}/email`, { email: this.editRecipient.email }, { headers }));
+    }
+    if (this.editRecipient.description !== recipient.description) {
+      observables.push(this.http.put(`/api/recipients/${_id}/description`, { description: this.editRecipient.description }, { headers }));
+    }
+    // field change
+    let origFieldId = '';
+    const fi = (recipient as any).fieldInfo;
+    if (Array.isArray(fi) && fi.length) {
+      origFieldId = fi[0]._id;
+    } else if (fi && fi._id) {
+      origFieldId = fi._id;
+    } else if ((recipient as any).field) {
+      origFieldId = (recipient as any).field;
+    }
+    if ((this.editFieldId || '') !== (origFieldId || '')) {
+      observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
+    }
+
+    if (observables.length === 0) {
+      this.showFeedback('No changes detected.');
+      this.cancelEdit();
+      return;
+    }
+
+    forkJoin(observables).subscribe({
+      next: () => {
+        this.showFeedback('Recipient updated successfully.');
+        this.getRecipients();
+        this.cancelEdit();
+      },
+      error: (err) => this.showFeedback('Failed to update recipient.', true, err),
+    });
+  }
+
+  // --- New Recipient Row Methods ---
+  saveNewRecipient(): void {
+    const headers = this.getAuthHeaders();
+    this.http.post<Recipient>('/api/recipients', this.newRecipient, { headers }).subscribe({
+      next: (createdRecipient: any) => {
+        const createdId = createdRecipient?._id || createdRecipient?.InsertedID || createdRecipient?.InsertedId;
+        if (this.newRecipientFieldId && createdId) {
+          this.associateFieldWithRecipient(createdId, this.newRecipientFieldId).subscribe({
+            next: () => {
+              this.showFeedback('Recipient added and field associated successfully.');
+              this.getRecipients();
+              this.resetNewRecipient();
+            },
+            error: (err) => this.showFeedback('Recipient added but failed to associate field.', true, err)
+          });
+        } else {
+          this.showFeedback('Recipient added successfully.');
+          this.getRecipients();
+          this.resetNewRecipient();
+        }
+      },
+      error: (err) => this.showFeedback('Failed to add recipient.', true, err)
+    });
+  }
+
+  resetNewRecipient(): void {
+    this.newRecipient = { name: '', email: '', description: '' };
+    this.newRecipientFieldId = '';
+    this.newFieldName = '';
   }
 
   // --- Fields API methods ---
@@ -111,7 +181,14 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  createField(): void {
+  // Helper: call backend to associate a field with recipient
+  associateFieldWithRecipient(recipientId: string, fieldId: string) {
+    const headers = this.getAuthHeaders();
+    return this.http.put(`/api/recipients/${recipientId}/field`, { fieldId }, { headers });
+  }
+
+  // --- Field Creation (shared for edit/new) ---
+  createField(editRowIndex?: number): void {
     if (!this.newFieldName || !this.newFieldName.trim()) {
       this.showFeedback('Field name cannot be empty.', true);
       return;
@@ -120,10 +197,13 @@ export class DashboardComponent implements OnInit {
     const payload = { field: this.newFieldName.trim() };
     this.http.post<{ _id: string; field: string }>('/api/fields', payload, { headers }).subscribe({
       next: (created) => {
-        // add to local list and select it
         if (created && created._id) {
           this.fields = [...this.fields, created];
-          this.selectedFieldId = created._id;
+          if (editRowIndex !== undefined && this.editIndex === editRowIndex) {
+            this.editFieldId = created._id;
+          } else {
+            this.newRecipientFieldId = created._id;
+          }
           this.newFieldName = '';
           this.showFeedback('Field created and selected.');
         } else {
@@ -131,92 +211,6 @@ export class DashboardComponent implements OnInit {
         }
       },
       error: (err) => this.showFeedback('Failed to create field.', true, err)
-    });
-  }
-
-  // Helper: call backend to associate a field with recipient
-  associateFieldWithRecipient(recipientId: string, fieldId: string) {
-    const headers = this.getAuthHeaders();
-    return this.http.put(`/api/recipients/${recipientId}/field`, { fieldId }, { headers });
-  }
-
-  // --- CRUD Operations ---
-  saveRecipient(): void {
-    if (this.isEditMode) {
-      this.updateRecipient();
-    } else {
-      this.createRecipient();
-    }
-  }
-
-  createRecipient(): void {
-    const headers = this.getAuthHeaders();
-    this.http.post<Recipient>('/api/recipients', this.selectedRecipient, { headers }).subscribe({
-      next: (createdRecipient: any) => {
-        // If a field was selected, associate it with the created recipient (createdRecipient should include _id)
-        const createdId = createdRecipient?._id || createdRecipient?.InsertedID || createdRecipient?.InsertedId;
-        if (this.selectedFieldId && createdId) {
-          this.associateFieldWithRecipient(createdId, this.selectedFieldId).subscribe({
-            next: () => {
-              this.showFeedback('Recipient added and field associated successfully.');
-              this.getRecipients();
-              this.closeModal();
-            },
-            error: (err) => this.showFeedback('Recipient added but failed to associate field.', true, err)
-          });
-        } else {
-          this.showFeedback('Recipient added successfully.');
-          this.getRecipients();
-          this.closeModal();
-        }
-      },
-      error: (err) => this.showFeedback('Failed to add recipient.', true, err)
-    });
-  }
-
-  updateRecipient(): void {
-    const headers = this.getAuthHeaders();
-    const { _id } = this.selectedRecipient;
-    const observables: any[] = [];
-
-    // Only send requests for fields that have changed.
-    if (this.selectedRecipient.name !== this.originalRecipient.name) {
-      observables.push(this.http.put(`/api/recipients/${_id}/name`, { name: this.selectedRecipient.name }, { headers }));
-    }
-    if (this.selectedRecipient.description !== this.originalRecipient.description) {
-      observables.push(this.http.put(`/api/recipients/${_id}/description`, { description: this.selectedRecipient.description }, { headers }));
-    }
-
-    // detect field change
-    // derive original field id
-    let originalFieldId = '';
-    const origFI = (this.originalRecipient as any).fieldInfo;
-    if (Array.isArray(origFI) && origFI.length) {
-      originalFieldId = origFI[0]._id;
-    } else if (origFI && origFI._id) {
-      originalFieldId = origFI._id;
-    } else if ((this.originalRecipient as any).field) {
-      originalFieldId = (this.originalRecipient as any).field;
-    }
-    if ((this.selectedFieldId || '') !== (originalFieldId || '')) {
-      // add association request (can be empty to clear - backend currently treats only set)
-      observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.selectedFieldId }, { headers }));
-    }
-
-    // If nothing changed, just close the modal and provide feedback.
-    if (observables.length === 0) {
-      this.showFeedback('No changes detected.');
-      this.closeModal();
-      return;
-    }
-
-    forkJoin(observables).subscribe({
-      next: () => {
-        this.showFeedback('Recipient updated successfully.');
-        this.getRecipients();
-        this.closeModal();
-      },
-      error: (err) => this.showFeedback('Failed to update recipient.', true, err),
     });
   }
 

@@ -74,3 +74,9 @@
 .modal-card-body .field + .field {
   margin-top: 0.9rem;
 }
+
+/* Add spacing for the new recipient row */
+.table tr:last-child td {
+  background: #f9fafb;
+  border-top: 2px solid #dbdbdb;
+}

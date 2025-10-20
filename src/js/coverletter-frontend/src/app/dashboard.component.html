@@ -3,17 +3,11 @@
 
 <h3>Recipients</h3>
 
-<!-- 1. Add a prominent "Add Recipient" button -->
-<div class="header-actions">
-  <button class="btn btn-primary" (click)="openAddRecipientModal()">+ Add Recipient</button>
-</div>
-
-<!-- 2. Add containers for success and error messages -->
+<!-- Feedback messages -->
 <div *ngIf="feedbackMessage" [ngClass]="isError ? 'message is-danger' : 'message is-success'">
   <div class="message-body">{{ feedbackMessage }}</div>
 </div>
 
-<!-- 3. Update the table to include an "Actions" column -->
 <table *ngIf="recipients.length > 0; else noRecipients" class="table is-fullwidth is-striped is-hoverable">
   <thead>
     <tr>
@@ -25,86 +19,106 @@
     </tr>
   </thead>
   <tbody>
-    <tr *ngFor="let recipient of recipients">
-      <td>{{ recipient.name || 'N/A' }}</td>
-      <td>{{ recipient.email }}</td>
+    <tr *ngFor="let recipient of recipients; let i = index">
       <td>
-        {{ recipient.fieldInfo?.[0]?.field || recipient.fieldInfo?.field || 'N/A' }}
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.name"
+          required
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.name || 'N/A' }}</span>
       </td>
-      <td>{{ recipient.description || 'N/A' }}</td>
-      <td class="has-text-right">
-        <button class="button is-small is-light" (click)="openEditRecipientModal(recipient)">Edit</button>
-        <button class="button is-small is-danger is-light" (click)="confirmDelete(recipient)">Delete</button>
+      <td>
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.email"
+          required
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.email }}</span>
       </td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- 4. Enhance the empty state with a clear call-to-action -->
-<ng-template #noRecipients>
-  <div class="empty-state has-text-centered">
-    <p class="is-size-5">You haven't added any recipients yet.</p>
-    <p>Click the button below to add your first one.</p>
-    <button class="button is-primary is-medium" (click)="openAddRecipientModal()">+ Add First Recipient</button>
-  </div>
-</ng-template>
-
-<!-- 5. A reusable modal for adding and editing recipients -->
-<div class="modal" [class.is-active]="showRecipientModal">
-  <div class="modal-background" (click)="closeModal()"></div>
-  <div class="modal-card">
-    <header class="modal-card-head">
-      <p class="modal-card-title">{{ isEditMode ? 'Edit' : 'Add New' }} Recipient</p>
-      <button class="delete" aria-label="close" (click)="closeModal()"></button>
-    </header>
-    <section class="modal-card-body">
-      <form #recipientForm="ngForm" (ngSubmit)="saveRecipient()">
-        <div class="field">
-          <label class="label">Name</label>
-          <div class="control">
-            <input class="input" type="text" placeholder="e.g., Jane Doe" [(ngModel)]="selectedRecipient.name" name="name" required>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="label">Email</label>
-          <div class="control">
-            <input class="input" type="email" placeholder="e.g., jane.doe@example.com" [(ngModel)]="selectedRecipient.email" name="email" required>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="label">Field (optional)</label>
+      <td>
+        <ng-container *ngIf="editIndex === i; else fieldDisplay">
           <div class="field has-addons field--inline-create">
             <div class="control is-expanded">
               <div class="select is-fullwidth">
-                <select [(ngModel)]="selectedFieldId" name="fieldSelect">
+                <select [(ngModel)]="editFieldId">
                   <option value="">-- None --</option>
                   <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
                 </select>
               </div>
             </div>
             <div class="control inline-create">
-              <input class="input input--small" type="text" placeholder="New field name" [(ngModel)]="newFieldName" name="newFieldName">
+              <input class="input input--small" type="text" placeholder="New field name" [(ngModel)]="newFieldName" />
             </div>
             <div class="control">
-              <button type="button" class="button is-light" (click)="createField()" [disabled]="!newFieldName || !newFieldName.trim()">Create</button>
+              <button type="button" class="button is-light" (click)="createField(i)" [disabled]="!newFieldName || !newFieldName.trim()">Create</button>
             </div>
           </div>
-          <p class="help">Select an existing field or create a new one inline.</p>
-        </div>
-
-        <div class="field">
-          <label class="label">Description (Optional)</label>
+        </ng-container>
+        <ng-template #fieldDisplay>
+          {{ recipient.fieldInfo?.[0]?.field || recipient.fieldInfo?.field || 'N/A' }}
+        </ng-template>
+      </td>
+      <td>
+        <input
+          *ngIf="editIndex === i"
+          class="input"
+          [(ngModel)]="editRecipient.description"
+        />
+        <span *ngIf="editIndex !== i">{{ recipient.description || 'N/A' }}</span>
+      </td>
+      <td class="has-text-right">
+        <ng-container *ngIf="editIndex === i; else actionButtons">
+          <button class="button is-success is-small" (click)="saveEditRecipient(i)">Save</button>
+          <button class="button is-light is-small" (click)="cancelEdit()">Cancel</button>
+        </ng-container>
+        <ng-template #actionButtons>
+          <button class="button is-small is-light" (click)="startEditRecipient(i)">Edit</button>
+          <button class="button is-small is-danger is-light" (click)="confirmDelete(recipient)">Delete</button>
+        </ng-template>
+      </td>
+    </tr>
+    <!-- Row for adding a new recipient -->
+    <tr>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.name" placeholder="Name" required />
+      </td>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.email" placeholder="Email" required />
+      </td>
+      <td>
+        <div class="field has-addons field--inline-create">
+          <div class="control is-expanded">
+            <div class="select is-fullwidth">
+              <select [(ngModel)]="newRecipientFieldId">
+                <option value="">-- None --</option>
+                <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="control inline-create">
+            <input class="input input--small" type="text" placeholder="New field name" [(ngModel)]="newFieldName" />
+          </div>
           <div class="control">
-            <textarea class="textarea" placeholder="e.g., Hiring Manager at Acme Corp" [(ngModel)]="selectedRecipient.description" name="description"></textarea>
+            <button type="button" class="button is-light" (click)="createField()" [disabled]="!newFieldName || !newFieldName.trim()">Create</button>
           </div>
         </div>
-      </form>
-    </section>
-    <footer class="modal-card-foot">
-      <button class="button is-success" (click)="saveRecipient()" [disabled]="!recipientForm.form.valid">Save changes</button>
-      <button class="button" (click)="closeModal()">Cancel</button>
-    </footer>
+      </td>
+      <td>
+        <input class="input" [(ngModel)]="newRecipient.description" placeholder="Description" />
+      </td>
+      <td class="has-text-right">
+        <button class="button is-primary is-small" (click)="saveNewRecipient()" [disabled]="!newRecipient.name || !newRecipient.email">Save</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<ng-template #noRecipients>
+  <div class="empty-state has-text-centered">
+    <p class="is-size-5">You haven't added any recipients yet.</p>
+    <p>Use the row below to add your first one.</p>
   </div>
-</div>
+</ng-template>
