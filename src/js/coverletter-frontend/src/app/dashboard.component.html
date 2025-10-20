@@ -1,14 +1,25 @@
 <h2>Dashboard</h2>
 <p>Welcome to the dashboard!</p>
 
+<!-- Top nav to switch lists -->
+<nav class="tabs is-toggle is-fullwidth mb-4">
+  <ul>
+    <li><a routerLink="/recipients" routerLinkActive="is-active">Recipients</a></li>
+    <li><a routerLink="/fields" routerLinkActive="is-active">Fields</a></li>
+    <li><a routerLink="/identities" routerLinkActive="is-active">Identities</a></li>
+    <li><a routerLink="/cover-letters" routerLinkActive="is-active">Cover Letters</a></li>
+    <li><a routerLink="/companies" routerLinkActive="is-active">Companies</a></li>
+  </ul>
+</nav>
+
 <h3>Recipients</h3>
 
-<table *ngIf="recipients.length > 0; else noRecipients" class="table is-fullwidth is-striped is-hoverable">
+<table *ngIf="(recipients?.length || 0) > 0; else noRecipients" class="table is-fullwidth is-striped is-hoverable">
   <thead>
     <tr>
       <th>Name</th>
       <th>Email</th>
-      <th>Field</th>
+      <th>Company</th>
       <th>Description</th>
       <th class="has-text-right">Actions</th>
     </tr>
@@ -34,26 +45,13 @@
         <span *ngIf="editIndex !== i">{{ recipient.email }}</span>
       </td>
       <td>
-        <ng-container *ngIf="editIndex === i; else fieldDisplay">
-          <div class="field has-addons field--inline-create">
-            <div class="control is-expanded">
-              <div class="select is-fullwidth">
-                <select [(ngModel)]="editFieldId">
-                  <option value="">-- None --</option>
-                  <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
-                </select>
-              </div>
-            </div>
-            <div class="control inline-create">
-              <input class="input input--small" type="text" placeholder="New field name" [(ngModel)]="newFieldName" />
-            </div>
-            <div class="control">
-              <button type="button" class="button is-light" (click)="createField(i)" [disabled]="!newFieldName || !newFieldName.trim()">Create</button>
-            </div>
-          </div>
+        <!-- Company display / simple edit (replace previous Field controls) -->
+        <ng-container *ngIf="editIndex === i; else companyDisplay">
+          <input class="input" [(ngModel)]="editRecipient.companyName" placeholder="Company name" />
+          <!-- Optionally you can replace with a select bound to companies if you populate companies in the TS -->
         </ng-container>
-        <ng-template #fieldDisplay>
-          {{ recipient.fieldInfo?.[0]?.field || recipient.fieldInfo?.field || 'N/A' }}
+        <ng-template #companyDisplay>
+          {{ recipient.companyInfo?.name || 'N/A' }}
         </ng-template>
       </td>
       <td>
@@ -84,20 +82,21 @@
         <input class="input" [(ngModel)]="newRecipient.email" placeholder="Email" required />
       </td>
       <td>
+        <!-- New recipient: choose existing company or type a new one -->
         <div class="field has-addons field--inline-create">
           <div class="control is-expanded">
             <div class="select is-fullwidth">
-              <select [(ngModel)]="newRecipientFieldId">
+              <select [(ngModel)]="newRecipient.companyId">
                 <option value="">-- None --</option>
-                <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+                <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
               </select>
             </div>
           </div>
           <div class="control inline-create">
-            <input class="input input--small" type="text" placeholder="New field name" [(ngModel)]="newFieldName" />
+            <input class="input input--small" type="text" placeholder="New company name" [(ngModel)]="newCompanyName" />
           </div>
           <div class="control">
-            <button type="button" class="button is-light" (click)="createField()" [disabled]="!newFieldName || !newFieldName.trim()">Create</button>
+            <button type="button" class="button is-light" (click)="createCompany()" [disabled]="!newCompanyName || !newCompanyName.trim()">Create</button>
           </div>
         </div>
       </td>

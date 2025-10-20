@@ -11,6 +11,11 @@ export interface Recipient {
   name?: string;
   description?: string;
   fieldInfo?: { _id: string; field: string; } | any; // tolerate array or object
+
+  // NEW: company fields used by template
+  companyId?: string;
+  companyInfo?: { _id: string; name: string; } | any;
+  companyName?: string; // <-- Add this line
 }
 
 import { forkJoin, of } from 'rxjs';
@@ -44,9 +49,14 @@ export class DashboardComponent implements OnInit {
   selectedFieldId: string = '';    // ID selected in the modal
   newFieldName: string = ''; // shared for both edit and new
 
+  // --- Companies support (NEW) ---
+  companies: { _id: string; name: string; fieldId?: string }[] = [];
+  newCompanyName: string = ''; // used by the "new company" inline control
+
   ngOnInit(): void {
     this.getRecipients();
     this.getFields();
+    this.getCompanies(); // <-- fetch companies for the new select
   }
 
   private getAuthHeaders(): HttpHeaders {
@@ -124,6 +134,51 @@ export class DashboardComponent implements OnInit {
       observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
     }
 
+    // Company change handling: if user edited companyName (free-text), create company then associate;
+    // if you later switch to a <select> for edit, adapt this branch to use companyId instead.
+    const origCompanyName = recipient.companyInfo?.name || '';
+    if ((this.editRecipient as any).companyName && (this.editRecipient as any).companyName !== origCompanyName) {
+      // create company then associate
+      const newName = (this.editRecipient as any).companyName.trim();
+      if (newName) {
+        this.http.post<{ _id: string; name: string }>('/api/companies', { name: newName }, { headers }).subscribe({
+          next: (created) => {
+            if (created && created._id) {
+              this.companies = [...this.companies, created];
+              // perform association
+              this.associateCompanyWithRecipient(_id, created._id).subscribe({
+                next: () => {
+                  // after company created and association done, run other observables (if any)
+                  if (observables.length === 0) {
+                    this.showFeedback('Recipient updated successfully.');
+                    this.getRecipients();
+                    this.cancelEdit();
+                  } else {
+                    forkJoin(observables).subscribe({
+                      next: () => {
+                        this.showFeedback('Recipient updated successfully.');
+                        this.getRecipients();
+                        this.cancelEdit();
+                      },
+                      error: (err) => this.showFeedback('Failed to update recipient.', true, err),
+                    });
+                  }
+                },
+                error: (err) => this.showFeedback('Failed to associate new company.', true, err)
+              });
+            } else {
+              this.showFeedback('Company created but unexpected response shape.', true);
+            }
+          },
+          error: (err) => this.showFeedback('Failed to create company.', true, err)
+        });
+        return; // association will trigger further updates and cancel edit
+      }
+    } else if ((this.editRecipient as any).companyId && (this.editRecipient as any).companyId !== recipient.companyInfo?._id) {
+      // user edited to select an existing company id (future-proof if you change edit UI)
+      observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: (this.editRecipient as any).companyId }, { headers }));
+    }
+
     if (observables.length === 0) {
       this.showFeedback('No changes detected.');
       this.cancelEdit();
@@ -143,32 +198,52 @@ export class DashboardComponent implements OnInit {
   // --- New Recipient Row Methods ---
   saveNewRecipient(): void {
     const headers = this.getAuthHeaders();
-    this.http.post<Recipient>('/api/recipients', this.newRecipient, { headers }).subscribe({
-      next: (createdRecipient: any) => {
-        const createdId = createdRecipient?._id || createdRecipient?.InsertedID || createdRecipient?.InsertedId;
-        if (this.newRecipientFieldId && createdId) {
-          this.associateFieldWithRecipient(createdId, this.newRecipientFieldId).subscribe({
-            next: () => {
-              this.showFeedback('Recipient added and field associated successfully.');
-              this.getRecipients();
-              this.resetNewRecipient();
-            },
-            error: (err) => this.showFeedback('Recipient added but failed to associate field.', true, err)
-          });
-        } else {
-          this.showFeedback('Recipient added successfully.');
-          this.getRecipients();
-          this.resetNewRecipient();
-        }
-      },
-      error: (err) => this.showFeedback('Failed to add recipient.', true, err)
-    });
-  }
+    if (!headers.has('Authorization')) return;
 
-  resetNewRecipient(): void {
-    this.newRecipient = { name: '', email: '', description: '' };
-    this.newRecipientFieldId = '';
-    this.newFieldName = '';
+    const createAndAssociate = (companyId?: string) => {
+      const payload: any = { ...this.newRecipient };
+      if (companyId) payload.companyId = companyId;
+      this.http.post<Recipient>('/api/recipients', payload, { headers }).subscribe({
+        next: (createdRecipient: any) => {
+          const createdId = createdRecipient?._id || createdRecipient?.InsertedID || createdRecipient?.InsertedId;
+          if (companyId && createdId) {
+            this.associateCompanyWithRecipient(createdId, companyId).subscribe({
+              next: () => {
+                this.showFeedback('Recipient added and company associated successfully.');
+                this.getRecipients();
+                this.resetNewRecipient();
+              },
+              error: (err) => this.showFeedback('Recipient added but failed to associate company.', true, err)
+            });
+          } else {
+            this.showFeedback('Recipient added successfully.');
+            this.getRecipients();
+            this.resetNewRecipient();
+          }
+        },
+        error: (err) => this.showFeedback('Failed to add recipient.', true, err)
+      });
+    };
+
+    // If a new company name was entered, create it first then create recipient and associate
+    if (this.newCompanyName && this.newCompanyName.trim()) {
+      const payload = { name: this.newCompanyName.trim() };
+      this.http.post<{ _id: string; name: string }>('/api/companies', payload, { headers }).subscribe({
+        next: (created) => {
+          if (created && created._id) {
+            this.companies = [...this.companies, created];
+            createAndAssociate(created._id);
+            this.newCompanyName = '';
+          } else {
+            this.showFeedback('Company created but unexpected response shape.', true);
+          }
+        },
+        error: (err) => this.showFeedback('Failed to create company.', true, err)
+      });
+    } else {
+      // Use selected companyId (if any)
+      createAndAssociate(this.newRecipient.companyId as string | undefined);
+    }
   }
 
   // --- Fields API methods ---
@@ -181,54 +256,43 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // Helper: call backend to associate a field with recipient
-  associateFieldWithRecipient(recipientId: string, fieldId: string) {
+  // --- Companies API methods (NEW) ---
+  getCompanies(): void {
     const headers = this.getAuthHeaders();
-    return this.http.put(`/api/recipients/${recipientId}/field`, { fieldId }, { headers });
+    if (!headers.has('Authorization')) return;
+    this.http.get<{ _id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
+      next: (data) => { this.companies = data || []; },
+      error: (err) => { this.showFeedback('Failed to fetch companies.', true, err); }
+    });
   }
 
-  // --- Field Creation (shared for edit/new) ---
-  createField(editRowIndex?: number): void {
-    if (!this.newFieldName || !this.newFieldName.trim()) {
-      this.showFeedback('Field name cannot be empty.', true);
+  createCompany(): void {
+    if (!this.newCompanyName || !this.newCompanyName.trim()) {
+      this.showFeedback('Company name cannot be empty.', true);
       return;
     }
     const headers = this.getAuthHeaders();
-    const payload = { field: this.newFieldName.trim() };
-    this.http.post<{ _id: string; field: string }>('/api/fields', payload, { headers }).subscribe({
+    const payload = { name: this.newCompanyName.trim() };
+    this.http.post<{ _id: string; name: string }>('/api/companies', payload, { headers }).subscribe({
       next: (created) => {
         if (created && created._id) {
-          this.fields = [...this.fields, created];
-          if (editRowIndex !== undefined && this.editIndex === editRowIndex) {
-            this.editFieldId = created._id;
-          } else {
-            this.newRecipientFieldId = created._id;
-          }
-          this.newFieldName = '';
-          this.showFeedback('Field created and selected.');
+          this.companies = [...this.companies, created];
+          // If user was creating a recipient, select created company
+          this.newRecipient.companyId = created._id;
+          this.newCompanyName = '';
+          this.showFeedback('Company created and selected.');
         } else {
-          this.showFeedback('Field created (unexpected response shape).');
+          this.showFeedback('Company created (unexpected response shape).');
         }
       },
-      error: (err) => this.showFeedback('Failed to create field.', true, err)
+      error: (err) => this.showFeedback('Failed to create company.', true, err)
     });
   }
 
-  confirmDelete(recipient: Recipient): void {
-    if (window.confirm(`Are you sure you want to delete ${recipient.name || recipient.email}? This action cannot be undone.`)) {
-      this.deleteRecipient(recipient._id);
-    }
-  }
-
-  private deleteRecipient(id: string): void {
+  // Helper: associate company with recipient
+  associateCompanyWithRecipient(recipientId: string, companyId: string) {
     const headers = this.getAuthHeaders();
-    this.http.delete(`/api/recipients/${id}`, { headers }).subscribe({
-      next: () => {
-        this.showFeedback('Recipient deleted successfully.');
-        this.getRecipients(); // Refresh list
-      },
-      error: (err) => this.showFeedback('Failed to delete recipient.', true, err)
-    });
+    return this.http.put(`/api/recipients/${recipientId}/company`, { companyId }, { headers });
   }
 
   // --- User Feedback Handling ---
@@ -248,5 +312,31 @@ export class DashboardComponent implements OnInit {
   private clearFeedback(): void {
     this.feedbackMessage = '';
     this.isError = false;
+  }
+
+  // --- Add this method to clear the new recipient row ---
+  private resetNewRecipient(): void {
+    this.newRecipient = { name: '', email: '', description: '' };
+    this.newRecipientFieldId = '';
+    this.newCompanyName = '';
+  }
+
+  confirmDelete(recipient: any) {
+    if (window.confirm(`Are you sure you want to delete recipient "${recipient.name}"?`)) {
+      this.deleteRecipient(recipient);
+    }
+  }
+
+  deleteRecipient(recipient: any): void {
+    const headers = this.getAuthHeaders();
+    if (!headers.has('Authorization')) return;
+    const id = recipient._id;
+    this.http.delete(`/api/recipients/${id}`, { headers }).subscribe({
+      next: () => {
+        this.showFeedback('Recipient deleted successfully.');
+        this.getRecipients();
+      },
+      error: (err) => this.showFeedback('Failed to delete recipient.', true, err)
+    });
   }
 }

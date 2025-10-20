@@ -112,3 +112,14 @@
 .toast-container .message .message-body {
   padding: 0.9rem 1.25rem;
 }
+
+/* Small spacing for top nav */
+.tabs.mb-4 {
+  margin-bottom: 1rem;
+}
+
+/* Highlight active router link (Bulma uses .is-active on <li>, but routerLinkActive adds class to <a> by default) */
+.tabs a.is-active {
+  background: #f5f7fa;
+  border-radius: 4px;
+}
