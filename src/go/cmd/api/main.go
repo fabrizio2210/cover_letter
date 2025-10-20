@@ -41,6 +41,12 @@ func main() {
 		auth.POST("/fields", handlers.CreateField)
 		auth.DELETE("/fields/:id", handlers.DeleteField)
 
+		// Company CRUD endpoints
+		auth.GET("/companies", handlers.GetCompanies)
+		auth.POST("/companies", handlers.CreateCompany)
+		auth.PUT("/companies/:id", handlers.UpdateCompany)
+		auth.DELETE("/companies/:id", handlers.DeleteCompany)
+
 		auth.GET("/cover-letters", handlers.GetCoverLetters)
 		auth.GET("/cover-letters/:id", handlers.GetCoverLetter)
 		auth.DELETE("/cover-letters/:id", handlers.DeleteCoverLetter)
