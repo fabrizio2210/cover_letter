@@ -1,0 +1,57 @@
+<section class="companies">
+  <h3>Companies</h3>
+  <p class="is-size-6">Companies belong to a Field. Recipients belong to a Company. Backend should support CRUD and return company + field joins.</p>
+
+  <div class="feedback" [class.error]="isError" *ngIf="feedbackMessage">{{ feedbackMessage }}</div>
+
+  <table class="companies-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Field</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let c of companies; let i = index">
+        <td *ngIf="editIndex !== i">{{ c.name }}</td>
+        <td *ngIf="editIndex === i">
+          <input [(ngModel)]="editName" placeholder="Company name" />
+        </td>
+
+        <td *ngIf="editIndex !== i">{{ c.fieldInfo?.field || '-' }}</td>
+        <td *ngIf="editIndex === i">
+          <select [(ngModel)]="editFieldId">
+            <option value="">-- none --</option>
+            <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+          </select>
+        </td>
+
+        <td class="actions">
+          <button *ngIf="editIndex !== i" (click)="startEdit(i)">Edit</button>
+          <div *ngIf="editIndex === i">
+            <button (click)="saveEdit(i)">Save</button>
+            <button (click)="cancelEdit()">Cancel</button>
+            <button class="danger" (click)="confirmDelete(c)">Delete</button>
+          </div>
+        </td>
+      </tr>
+
+      <!-- last row: create -->
+      <tr class="new-row">
+        <td>
+          <input [(ngModel)]="newName" placeholder="New company name" />
+        </td>
+        <td>
+          <select [(ngModel)]="newFieldId">
+            <option value="">-- none --</option>
+            <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+          </select>
+        </td>
+        <td class="actions">
+          <button (click)="createOrUpdateFromLastRow()">Create</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
