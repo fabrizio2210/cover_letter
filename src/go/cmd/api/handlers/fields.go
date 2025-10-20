@@ -94,3 +94,45 @@ func DeleteField(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Field deleted successfully"})
 }
+
+// UpdateField updates an existing field.
+func UpdateField(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		Field string `json:"field"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("fields")
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"field": req.Field}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update field"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Field not found or value unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Field updated successfully"})
+}
