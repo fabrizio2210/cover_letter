@@ -76,6 +76,7 @@ export class RecipientsListComponent implements OnInit {
     this.editIndex = index;
     const recipient = this.recipients[index];
     this.editRecipient = { ...recipient };
+    this.editRecipient.companyId = recipient.companyInfo?._id || '';
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
     if (Array.isArray(fi) && fi.length) {
@@ -126,43 +127,9 @@ export class RecipientsListComponent implements OnInit {
       observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
     }
 
-    const origCompanyName = recipient.companyInfo?.name || '';
-    if ((this.editRecipient as any).companyName && (this.editRecipient as any).companyName !== origCompanyName) {
-      const newName = (this.editRecipient as any).companyName.trim();
-      if (newName) {
-        this.http.post<{ _id: string; name: string }>('/api/companies', { name: newName }, { headers }).subscribe({
-          next: (created) => {
-            if (created && created._id) {
-              this.companies = [...this.companies, created];
-              this.associateCompanyWithRecipient(_id, created._id).subscribe({
-                next: () => {
-                  if (observables.length === 0) {
-                    this.showFeedback('Recipient updated successfully.');
-                    this.getRecipients();
-                    this.cancelEdit();
-                  } else {
-                    forkJoin(observables).subscribe({
-                      next: () => {
-                        this.showFeedback('Recipient updated successfully.');
-                        this.getRecipients();
-                        this.cancelEdit();
-                      },
-                      error: (err) => this.showFeedback('Failed to update recipient.', true, err),
-                    });
-                  }
-                },
-                error: (err) => this.showFeedback('Failed to associate new company.', true, err)
-              });
-            } else {
-              this.showFeedback('Company created but unexpected response shape.', true);
-            }
-          },
-          error: (err) => this.showFeedback('Failed to create company.', true, err)
-        });
-        return;
-      }
-    } else if ((this.editRecipient as any).companyId && (this.editRecipient as any).companyId !== recipient.companyInfo?._id) {
-      observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: (this.editRecipient as any).companyId }, { headers }));
+    const origCompanyId = recipient.companyInfo?._id || '';
+    if (this.editRecipient.companyId !== origCompanyId) {
+      observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: this.editRecipient.companyId || null }, { headers }));
     }
 
     if (observables.length === 0) {
@@ -244,28 +211,6 @@ export class RecipientsListComponent implements OnInit {
     this.http.get<{ _id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
       next: (data) => { this.companies = data || []; },
       error: (err) => this.showFeedback('Failed to fetch companies.', true, err)
-    });
-  }
-
-  createCompany(): void {
-    if (!this.newCompanyName || !this.newCompanyName.trim()) {
-      this.showFeedback('Company name cannot be empty.', true);
-      return;
-    }
-    const headers = this.getAuthHeaders();
-    const payload = { name: this.newCompanyName.trim() };
-    this.http.post<{ _id: string; name: string }>('/api/companies', payload, { headers }).subscribe({
-      next: (created) => {
-        if (created && created._id) {
-          this.companies = [...this.companies, created];
-          this.newRecipient.companyId = created._id;
-          this.newCompanyName = '';
-          this.showFeedback('Company created and selected.');
-        } else {
-          this.showFeedback('Company created (unexpected response shape).');
-        }
-      },
-      error: (err) => this.showFeedback('Failed to create company.', true, err)
     });
   }
 

@@ -32,7 +32,12 @@
       </td>
       <td>
         <ng-container *ngIf="editIndex === i; else companyDisplay">
-          <input class="input" [(ngModel)]="editRecipient.companyName" placeholder="Company name" />
+          <div class="select is-fullwidth">
+            <select [(ngModel)]="editRecipient.companyId" name="companyId-{{i}}">
+              <option value="">-- None --</option>
+              <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
+            </select>
+          </div>
         </ng-container>
         <ng-template #companyDisplay>
           {{ recipient.companyInfo?.name || 'N/A' }}
@@ -65,21 +70,11 @@
         <input class="input" [(ngModel)]="newRecipient.email" placeholder="Email" required />
       </td>
       <td>
-        <div class="field has-addons field--inline-create">
-          <div class="control is-expanded">
-            <div class="select is-fullwidth">
-              <select [(ngModel)]="newRecipient.companyId">
-                <option value="">-- None --</option>
-                <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="control inline-create">
-            <input class="input input--small" type="text" placeholder="New company name" [(ngModel)]="newCompanyName" />
-          </div>
-          <div class="control">
-            <button type="button" class="button is-light" (click)="createCompany()" [disabled]="!newCompanyName || !newCompanyName.trim()">Create</button>
-          </div>
+        <div class="select is-fullwidth">
+          <select [(ngModel)]="newRecipient.companyId">
+            <option value="">-- None --</option>
+            <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
+          </select>
         </div>
       </td>
       <td>
