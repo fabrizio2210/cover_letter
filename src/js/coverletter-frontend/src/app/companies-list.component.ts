@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { RouterModule, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { FeedbackService } from './services/feedback.service';
 
 export interface Company {
   _id: string;
@@ -22,6 +23,7 @@ export interface Company {
 export class CompaniesListComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private feedbackService = inject(FeedbackService);
 
   companies: Company[] = [];
   fields: { _id: string; field: string }[] = [];
@@ -148,17 +150,14 @@ export class CompaniesListComponent implements OnInit {
   }
 
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
-    this.feedbackMessage = message;
-    this.isError = isError;
     console.error(error || message);
     if (error?.status === 401) {
       this.router.navigate(['/login']);
     }
-    setTimeout(() => this.clearFeedback(), 5000);
+    this.feedbackService.showFeedback(message, isError);
   }
 
   private clearFeedback(): void {
-    this.feedbackMessage = '';
-    this.isError = false;
+    this.feedbackService.clearFeedback();
   }
 }

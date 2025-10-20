@@ -1,9 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms'; // <-- Import FormsModule
-import { RouterModule } from '@angular/router'; // <-- Add RouterModule import
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { FeedbackService } from './services/feedback.service';
+import { Subscription } from 'rxjs';
 
 // Recipient Interface (no changes needed)
 export interface Recipient {
@@ -26,11 +28,13 @@ import { forkJoin, of } from 'rxjs';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule], // <-- Include RouterModule so template routerLink/routerLinkActive work
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css'] // <-- Suggest adding for component-specific styles
+  styleUrls: ['./dashboard.component.css', './styles/feedback.css']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private feedbackService = inject(FeedbackService);
+  private feedbackSubscription?: Subscription;
 
   recipients: Recipient[] = [];
   feedbackMessage = '';
@@ -57,7 +61,23 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.getRecipients();
     this.getFields();
-    this.getCompanies(); // <-- fetch companies for the new select
+    this.getCompanies();
+    
+    this.feedbackSubscription = this.feedbackService.feedback$.subscribe(
+      ({ message, isError }) => {
+        this.feedbackMessage = message;
+        this.isError = isError;
+        if (message) {
+          setTimeout(() => this.feedbackService.clearFeedback(), 5000);
+        }
+      }
+    );
+  }
+
+  ngOnDestroy(): void {
+    if (this.feedbackSubscription) {
+      this.feedbackSubscription.unsubscribe();
+    }
   }
 
   private getAuthHeaders(): HttpHeaders {
@@ -298,16 +318,11 @@ export class DashboardComponent implements OnInit {
 
   // --- User Feedback Handling ---
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
-    this.feedbackMessage = message;
-    this.isError = isError;
     console.error(error || message);
-
     if (error?.status === 401) {
       this.router.navigate(['/login']);
     }
-    
-    // Automatically clear the message after a few seconds
-    setTimeout(() => this.clearFeedback(), 5000);
+    this.feedbackService.showFeedback(message, isError);
   }
 
   private clearFeedback(): void {

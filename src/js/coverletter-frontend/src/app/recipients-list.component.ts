@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { FeedbackService } from './services/feedback.service';
 import { forkJoin } from 'rxjs';
 
 export interface Recipient {
@@ -26,6 +27,7 @@ export interface Recipient {
 export class RecipientsListComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private feedbackService = inject(FeedbackService);
 
   recipients: Recipient[] = [];
   feedbackMessage = '';
@@ -273,15 +275,11 @@ export class RecipientsListComponent implements OnInit {
   }
 
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
-    this.feedbackMessage = message;
-    this.isError = isError;
     console.error(error || message);
-
     if (error?.status === 401) {
       this.router.navigate(['/login']);
     }
-
-    setTimeout(() => this.clearFeedback(), 5000);
+    this.feedbackService.showFeedback(message, isError);
   }
 
   private clearFeedback(): void {
