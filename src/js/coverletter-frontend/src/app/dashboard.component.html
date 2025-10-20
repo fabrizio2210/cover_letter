@@ -3,11 +3,6 @@
 
 <h3>Recipients</h3>
 
-<!-- Feedback messages -->
-<div *ngIf="feedbackMessage" [ngClass]="isError ? 'message is-danger' : 'message is-success'">
-  <div class="message-body">{{ feedbackMessage }}</div>
-</div>
-
 <table *ngIf="recipients.length > 0; else noRecipients" class="table is-fullwidth is-striped is-hoverable">
   <thead>
     <tr>
@@ -122,3 +117,10 @@
     <p>Use the row below to add your first one.</p>
   </div>
 </ng-template>
+
+<!-- Bottom toast (fixed, does not affect layout) -->
+<div class="toast-container" *ngIf="feedbackMessage">
+  <div class="message" [ngClass]="isError ? 'is-danger' : 'is-success'">
+    <div class="message-body">{{ feedbackMessage }}</div>
+  </div>
+</div>
