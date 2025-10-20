@@ -2,13 +2,38 @@
 <p>Welcome to the dashboard!</p>
 
 <!-- Top nav to switch lists -->
-<nav class="tabs is-toggle is-fullwidth mb-4">
-  <ul>
-    <li><a routerLink="/dashboard/recipients" routerLinkActive="is-active">Recipients</a></li>
-    <li><a routerLink="/dashboard/fields" routerLinkActive="is-active">Fields</a></li>
-    <li><a routerLink="/dashboard/identities" routerLinkActive="is-active">Identities</a></li>
-    <li><a routerLink="/dashboard/cover-letters" routerLinkActive="is-active">Cover Letters</a></li>
-    <li><a routerLink="/dashboard/companies" routerLinkActive="is-active">Companies</a></li>
+<nav class="dashboard-nav">
+  <ul class="dashboard-nav-list">
+    <li>
+      <a routerLink="/dashboard/recipients" routerLinkActive="is-active">
+        <i class="fas fa-user-friends"></i>
+        <span>Recipients</span>
+      </a>
+    </li>
+    <li>
+      <a routerLink="/dashboard/fields" routerLinkActive="is-active">
+        <i class="fas fa-list-alt"></i>
+        <span>Fields</span>
+      </a>
+    </li>
+    <li>
+      <a routerLink="/dashboard/identities" routerLinkActive="is-active">
+        <i class="fas fa-id-badge"></i>
+        <span>Identities</span>
+      </a>
+    </li>
+    <li>
+      <a routerLink="/dashboard/cover-letters" routerLinkActive="is-active">
+        <i class="fas fa-envelope-open-text"></i>
+        <span>Cover Letters</span>
+      </a>
+    </li>
+    <li>
+      <a routerLink="/dashboard/companies" routerLinkActive="is-active">
+        <i class="fas fa-building"></i>
+        <span>Companies</span>
+      </a>
+    </li>
   </ul>
 </nav>
 

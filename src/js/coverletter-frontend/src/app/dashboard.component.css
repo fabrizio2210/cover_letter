@@ -1,3 +1,79 @@
+/* Modern dashboard nav styles */
+.dashboard-nav {
+  background: #f8fafc;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.07);
+  padding: 0.5rem 1rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-nav-list {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-nav-list li {
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-nav-list a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.8rem;
+  color: #1e293b;
+  font-weight: 500;
+  font-size: 1.08rem;
+  text-decoration: none;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.dashboard-nav-list a .fas {
+  font-size: 1.1em;
+  color: #2563eb;
+  transition: color 0.18s;
+}
+
+.dashboard-nav-list a:hover,
+.dashboard-nav-list a:focus {
+  background: #e0e7ef;
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.dashboard-nav-list a:hover .fas,
+.dashboard-nav-list a:focus .fas {
+  color: #1e40af;
+}
+
+.dashboard-nav-list a.is-active,
+.dashboard-nav-list a.router-link-active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.13);
+}
+
+.dashboard-nav-list a.is-active .fas,
+.dashboard-nav-list a.router-link-active .fas {
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .dashboard-nav-list {
+    gap: 0.5rem;
+  }
+  .dashboard-nav-list a {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.98rem;
+  }
+}
 /* General Styles */
 .header-actions {
   margin-bottom: 1.5rem;
