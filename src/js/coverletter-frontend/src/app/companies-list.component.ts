@@ -7,9 +7,9 @@ import { forkJoin } from 'rxjs';
 import { FeedbackService } from './services/feedback.service';
 
 export interface Company {
-  _id: string;
+  id: string;
   name: string;
-  fieldId?: string;
+  fieldId?: string | any;
   fieldInfo?: { _id: string; field: string } | any;
 }
 
@@ -73,8 +73,8 @@ export class CompaniesListComponent implements OnInit {
   startEdit(i: number): void {
     this.editIndex = i;
     const c = this.companies[i];
-    this.editName = c.name;
-    this.editFieldId = (c.fieldId || (c.fieldInfo && (c.fieldInfo._id || c.fieldInfo[0]?._id)) || '') as string;
+    this.editName = c.name; 
+    this.editFieldId = (c.fieldId || (c.fieldInfo && (c.fieldInfo.id || c.fieldInfo[0]?.id)) || '') as string;
     this.clearFeedback();
   }
 
@@ -90,11 +90,11 @@ export class CompaniesListComponent implements OnInit {
     const observables: any[] = [];
 
     if (this.editName !== c.name) {
-      observables.push(this.http.put(`/api/companies/${c._id}/name`, { name: this.editName }, { headers }));
+      observables.push(this.http.put(`/api/companies/${c.id}/name`, { name: this.editName }, { headers }));
     }
-    const origField = c.fieldId || c.fieldInfo?._id || '';
-    if ((this.editFieldId || '') !== (origField || '')) {
-      observables.push(this.http.put(`/api/companies/${c._id}/field`, { field_id: this.editFieldId }, { headers }));
+    const origField = c.fieldId || c.fieldInfo?.id || '';
+    if ((this.editFieldId || '') !== (origField || '')) { 
+      observables.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: this.editFieldId }, { headers }));
     }
 
     if (observables.length === 0) {
@@ -119,7 +119,7 @@ export class CompaniesListComponent implements OnInit {
       this.showFeedback('Company name cannot be empty.', true);
       return;
     }
-  const payload = { name: this.newName.trim(), field_id: this.newFieldId || undefined };
+  const payload = { name: this.newName.trim(), field_id: this.newFieldId || undefined }; 
   this.http.post<Company>('/api/companies', payload, { headers }).subscribe({
       next: (created) => {
         this.companies = [...this.companies, created];
@@ -140,7 +140,7 @@ export class CompaniesListComponent implements OnInit {
   deleteCompany(c: Company): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/companies/${c._id}`, { headers }).subscribe({
+    this.http.delete(`/api/companies/${c.id}`, { headers }).subscribe({
       next: () => {
         this.showFeedback('Company deleted successfully.');
         this.getCompanies();

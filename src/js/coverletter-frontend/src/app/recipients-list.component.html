@@ -33,9 +33,9 @@
       <td>
         <ng-container *ngIf="editIndex === i; else companyDisplay">
           <div class="select is-fullwidth">
-            <select [(ngModel)]="editRecipient.companyId" name="companyId-{{i}}">
-              <option value="">-- None --</option>
-              <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
+            <select name="editCompany" [(ngModel)]="editRecipient.companyId">
+              <option value="">-- None --</option> 
+              <option *ngFor="let c of companies" [value]="c.id">{{ c.name }}</option>
             </select>
           </div>
         </ng-container>
@@ -72,8 +72,8 @@
       <td>
         <div class="select is-fullwidth">
           <select [(ngModel)]="newRecipient.companyId">
-            <option value="">-- None --</option>
-            <option *ngFor="let c of companies" [value]="c._id">{{ c.name }}</option>
+            <option value="">-- None --</option> 
+            <option *ngFor="let c of companies" [value]="c.id">{{ c.name }}</option>
           </select>
         </div>
       </td>

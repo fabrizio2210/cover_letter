@@ -14,7 +14,6 @@ export interface Recipient {
   fieldInfo?: { _id: string; field: string; } | any;
   companyId?: string;
   companyInfo?: { _id: string; name: string; } | any;
-  companyName?: string;
 }
 
 @Component({
@@ -41,11 +40,10 @@ export class RecipientsListComponent implements OnInit {
   newRecipientFieldId: string = '';
 
   fields: { _id: string; field: string; }[] = [];
-  selectedFieldId: string = '';
+  // selectedFieldId: string = ''; // This property is not used
   newFieldName: string = '';
 
-  companies: { _id: string; name: string; fieldId?: string }[] = [];
-  newCompanyName: string = '';
+  companies: { id: string; name: string; fieldId?: string }[] = [];
 
   ngOnInit(): void {
     this.getRecipients();
@@ -75,7 +73,7 @@ export class RecipientsListComponent implements OnInit {
   startEditRecipient(index: number): void {
     this.editIndex = index;
     const recipient = this.recipients[index];
-    this.editRecipient = { ...recipient };
+    this.editRecipient = { ...recipient } as any; // Use `any` to allow adding companyName
     this.editRecipient.companyId = recipient.companyInfo?._id || '';
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
@@ -177,23 +175,8 @@ export class RecipientsListComponent implements OnInit {
       });
     };
 
-    if (this.newCompanyName && this.newCompanyName.trim()) {
-      const payload = { name: this.newCompanyName.trim() };
-      this.http.post<{ _id: string; name: string }>('/api/companies', payload, { headers }).subscribe({
-        next: (created) => {
-          if (created && created._id) {
-            this.companies = [...this.companies, created];
-            createAndAssociate(created._id);
-            this.newCompanyName = '';
-          } else {
-            this.showFeedback('Company created but unexpected response shape.', true);
-          }
-        },
-        error: (err) => this.showFeedback('Failed to create company.', true, err)
-      });
-    } else {
-      createAndAssociate(this.newRecipient.companyId as string | undefined);
-    }
+
+  createAndAssociate(this.newRecipient.companyId as string | undefined);
   }
 
   getFields(): void {
@@ -208,8 +191,8 @@ export class RecipientsListComponent implements OnInit {
   getCompanies(): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.get<{ _id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
-      next: (data) => { this.companies = data || []; },
+    this.http.get<{ id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
+      next: (data) => { this.companies = data || [];},
       error: (err) => this.showFeedback('Failed to fetch companies.', true, err)
     });
   }
@@ -235,7 +218,6 @@ export class RecipientsListComponent implements OnInit {
   private resetNewRecipient(): void {
     this.newRecipient = { name: '', email: '', description: '' };
     this.newRecipientFieldId = '';
-    this.newCompanyName = '';
   }
 
   confirmDelete(recipient: any) {
