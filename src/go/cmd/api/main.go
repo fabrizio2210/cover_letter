@@ -27,7 +27,7 @@ func main() {
 		auth.DELETE("/recipients/:id", handlers.DeleteRecipient)
 		auth.PUT("/recipients/:id/description", handlers.UpdateRecipientDescription)
 		auth.PUT("/recipients/:id/name", handlers.UpdateRecipientName)
-		auth.PUT("/recipients/:id/field", handlers.AssociateFieldWithRecipient)
+		auth.PUT("/recipients/:id/company", handlers.AssociateCompanyWithRecipient)
 		auth.POST("/recipients/:id/generate-cover-letter", handlers.GenerateCoverLetterForRecipient)
 
 		auth.GET("/identities", handlers.GetIdentities)

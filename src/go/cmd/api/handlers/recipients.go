@@ -28,10 +28,10 @@ func GetRecipients(c *gin.Context) {
 	// Aggregation pipeline to join with the 'fields' collection
 	pipeline := mongo.Pipeline{
 		{{"$lookup", bson.D{
-			{"from", "fields"},
-			{"localField", "field"},
+			{"from", "companies"},
+			{"localField", "company"},
 			{"foreignField", "_id"},
-			{"as", "fieldInfo"},
+			{"as", "companyInfo"},
 		}}},
 	}
 
@@ -211,54 +211,6 @@ func UpdateRecipientName(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Recipient name updated successfully"})
 }
 
-// AssociateFieldWithRecipient associates a field with a recipient.
-func AssociateFieldWithRecipient(c *gin.Context) {
-	id := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
-	var req struct {
-		FieldID string `json:"fieldId"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	fieldObjID, err := primitive.ObjectIDFromHex(req.FieldID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Field ID"})
-		return
-	}
-
-	client := db.GetDB()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
-	collection := client.Database(dbName).Collection("recipients")
-
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"field": fieldObjID}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to associate field"})
-		return
-	}
-
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found or field unchanged"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Field associated successfully"})
-}
-
 // GenerateCoverLetterForRecipient triggers the cover letter generation for a recipient.
 func GenerateCoverLetterForRecipient(c *gin.Context) {
 	id := c.Param("id")
@@ -301,6 +253,51 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Generation queued successfully"})
+}
+
+// AssociateCompanyWithRecipient associates a company with a recipient.
+func AssociateCompanyWithRecipient(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		CompanyID *string `json:"companyId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("recipients")
+
+	var update bson.M
+	if req.CompanyID == nil {
+		update = bson.M{"$unset": bson.M{"company": ""}}
+	} else {
+		companyObjID, err := primitive.ObjectIDFromHex(*req.CompanyID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Company ID"})
+			return
+		}
+		update = bson.M{"$set": bson.M{"company": companyObjID}}
+	}
+
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to associate company"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Company associated successfully", "modifiedCount": result.ModifiedCount})
 }
 
 // Removed duplicated field-related handlers (GetFields, CreateField, UpdateField, DeleteField).
