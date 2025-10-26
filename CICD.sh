@@ -50,3 +50,9 @@ fi
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-ai\|ai_querier" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/coverletter-ai:$arch --push -f docker/x86_64/Dockerfile-ai .
 fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-frontend|src/js/coverletter-frontend" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-frontend:$arch --push -f docker/x86_64/Dockerfile-frontend .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-api|src/go" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-api:$arch --push -f docker/x86_64/Dockerfile-api .
+fi
