@@ -4,13 +4,13 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum to leverage Docker layer caching
-COPY src/go/go.mod src/go/go.sum ./
+COPY src/go/cmd/api/go.mod src/go/cmd/api/go.sum ./
 
 # Download dependencies
 RUN go mod download
 
 # Copy the rest of the source code
-COPY src/go/ ./
+COPY src/go/cmd/api ./
 
 # Build the Go application as a static binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /app/api ./cmd/api
