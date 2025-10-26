@@ -94,7 +94,7 @@ export class CompaniesListComponent implements OnInit {
     }
     const origField = c.fieldId || c.fieldInfo?.id || '';
     if ((this.editFieldId || '') !== (origField || '')) { 
-      observables.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: this.editFieldId }, { headers }));
+      observables.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: this.editFieldId || null }, { headers }));
     }
 
     if (observables.length === 0) {

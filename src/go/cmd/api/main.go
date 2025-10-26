@@ -45,6 +45,7 @@ func main() {
 		auth.GET("/companies", handlers.GetCompanies)
 		auth.POST("/companies", handlers.CreateCompany)
 		auth.PUT("/companies/:id", handlers.UpdateCompany)
+		auth.PUT("/companies/:id/field", handlers.AssociateFieldWithCompany)
 		auth.DELETE("/companies/:id", handlers.DeleteCompany)
 
 		auth.GET("/cover-letters", handlers.GetCoverLetters)

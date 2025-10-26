@@ -10,8 +10,10 @@ type Field struct {
 
 // Company represents a company.
 type Company struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string             `bson:"name" json:"name"`
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name      string             `bson:"name" json:"name"`
+	FieldID   primitive.ObjectID `bson:"field,omitempty" json:"fieldId,omitempty"`
+	FieldInfo *Field             `bson:"fieldInfo,omitempty" json:"fieldInfo,omitempty"`
 }
 
 // Recipient represents a person or company to whom a cover letter is addressed.

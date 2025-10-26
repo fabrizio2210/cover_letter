@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"coverletter/db"
+	"coverletter/models"
 	"log"
 	"net/http"
 	"os"
@@ -43,30 +44,11 @@ func GetCompanies(c *gin.Context) {
 	}
 	defer cursor.Close(context.Background())
 
-	var companies []bson.M
+	var companies []models.Company
 	if err = cursor.All(context.Background(), &companies); err != nil {
 		log.Printf("Error decoding companies: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode companies"})
 		return
-	}
-
-	// Convert _id and fieldInfo._id to hex strings for frontend
-	for _, company := range companies {
-		if id, ok := company["_id"].(primitive.ObjectID); ok {
-			company["id"] = id.Hex()
-			delete(company, "_id")
-		}
-		if fieldInfo, ok := company["fieldInfo"].(bson.M); ok {
-			if fid, ok := fieldInfo["_id"].(primitive.ObjectID); ok {
-				fieldInfo["id"] = fid.Hex()
-				delete(fieldInfo, "_id")
-			}
-			company["field"] = fieldInfo
-			delete(company, "fieldInfo")
-		} else {
-			company["field"] = nil
-			delete(company, "fieldInfo")
-		}
 	}
 
 	c.JSON(http.StatusOK, companies)
@@ -191,4 +173,49 @@ func DeleteCompany(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Company deleted successfully"})
+}
+
+// AssociateFieldWithCompany associates a field with a company.
+func AssociateFieldWithCompany(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid company ID"})
+		return
+	}
+
+	var req struct {
+		FieldID *string `json:"field_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("companies")
+
+	var update bson.M
+	if req.FieldID == nil || *req.FieldID == "" {
+		update = bson.M{"$unset": bson.M{"field": ""}}
+	} else {
+		fieldObjID, err := primitive.ObjectIDFromHex(*req.FieldID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid field_id"})
+			return
+		}
+		update = bson.M{"$set": bson.M{"field": fieldObjID}}
+	}
+
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to associate field with company"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Field associated successfully", "modifiedCount": result.ModifiedCount})
 }
