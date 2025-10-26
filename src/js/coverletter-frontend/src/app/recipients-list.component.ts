@@ -13,7 +13,7 @@ export interface Recipient {
   description?: string;
   fieldInfo?: { _id: string; field: string; } | any;
   companyId?: string;
-  companyInfo?: { _id: string; name: string; } | any;
+  companyInfo?: { id: string; name: string; }[] | any;
 }
 
 @Component({
@@ -74,7 +74,7 @@ export class RecipientsListComponent implements OnInit {
     this.editIndex = index;
     const recipient = this.recipients[index];
     this.editRecipient = { ...recipient } as any; // Use `any` to allow adding companyName
-    this.editRecipient.companyId = recipient.companyInfo?._id || '';
+    this.editRecipient.companyId = recipient.companyInfo?.[0]?.id || '';
     let origFieldId = '';
     const fi = (recipient as any).fieldInfo;
     if (Array.isArray(fi) && fi.length) {
@@ -125,7 +125,7 @@ export class RecipientsListComponent implements OnInit {
       observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
     }
 
-    const origCompanyId = recipient.companyInfo?._id || '';
+    const origCompanyId = recipient.companyInfo?.[0]?.id || '';
     if (this.editRecipient.companyId !== origCompanyId) {
       observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: this.editRecipient.companyId || null }, { headers }));
     }

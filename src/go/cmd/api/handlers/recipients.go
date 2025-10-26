@@ -25,7 +25,7 @@ func GetRecipients(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("recipients")
 
-	// Aggregation pipeline to join with the 'fields' collection
+	// Aggregation pipeline to join with the 'companies' collection
 	pipeline := mongo.Pipeline{
 		{{"$lookup", bson.D{
 			{"from", "companies"},

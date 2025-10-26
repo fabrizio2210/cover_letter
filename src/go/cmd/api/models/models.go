@@ -8,14 +8,20 @@ type Field struct {
 	Field string             `bson:"field" json:"field"`
 }
 
+// Company represents a company.
+type Company struct {
+	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name string             `bson:"name" json:"name"`
+}
+
 // Recipient represents a person or company to whom a cover letter is addressed.
 type Recipient struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
 	Email       string             `bson:"email" json:"email"`
 	Name        string             `bson:"name,omitempty" json:"name,omitempty"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	FieldID     primitive.ObjectID `bson:"field,omitempty" json:"-"` // Use `json:"-"` to hide from JSON output
-	FieldInfo   []Field            `bson:"fieldInfo,omitempty" json:"fieldInfo,omitempty"`
+	CompanyID   primitive.ObjectID `bson:"company,omitempty" json:"companyId,omitempty"`
+	CompanyInfo []Company          `bson:"companyInfo,omitempty" json:"companyInfo,omitempty"`
 }
 
 // Identity represents a user's identity.
