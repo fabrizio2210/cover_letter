@@ -28,12 +28,13 @@ type Recipient struct {
 
 // Identity represents a user's identity.
 type Identity struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
-	Identity    string             `bson:"identity" json:"identity"`
-	Name        string             `bson:"name,omitempty" json:"name,omitempty"`
-	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	FieldID     primitive.ObjectID `bson:"field,omitempty" json:"-"`
-	FieldInfo   []Field            `bson:"fieldInfo,omitempty" json:"fieldInfo,omitempty"`
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
+	Identity      string             `bson:"identity" json:"identity"`
+	Name          string             `bson:"name,omitempty" json:"name,omitempty"`
+	Description   string             `bson:"description,omitempty" json:"description,omitempty"`
+	FieldID       primitive.ObjectID `bson:"field,omitempty" json:"-"`
+	HtmlSignature string             `bson:"html_signature,omitempty" json:"html_signature,omitempty"`
+	FieldInfo     []Field            `bson:"fieldInfo,omitempty" json:"fieldInfo,omitempty"`
 }
 
 // CoverLetter represents a cover letter.

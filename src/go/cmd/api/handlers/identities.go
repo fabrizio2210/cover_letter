@@ -192,6 +192,54 @@ func UpdateIdentityName(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Identity name updated successfully"})
 }
 
+// UpdateIdentitySignature updates the HTML signature of an identity.
+func UpdateIdentitySignature(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req struct {
+		HtmlSignature string `json:"html_signature"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	client := db.GetDB()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("identities")
+
+	// Basic safeguard: limit signature size to reasonable length (e.g., 64KB)
+	if len(req.HtmlSignature) > 64*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Signature too large"})
+		return
+	}
+
+	result, err := collection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"html_signature": req.HtmlSignature}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update identity template"})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found or template unchanged"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Identity template updated successfully"})
+}
+
 // AssociateFieldWithIdentity associates a field with an identity.
 func AssociateFieldWithIdentity(c *gin.Context) {
 	id := c.Param("id")
