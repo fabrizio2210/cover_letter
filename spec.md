@@ -31,7 +31,7 @@ The user can use the web application to see and review the cover letters. The us
 
 #### Send Cover Letters
 
-Once the user is satisfied with a cover letter, they can send an email of it to the selected recipient. The email is sent via SMTP (credentials provided via environment variables). Redis is used to queue the emails. The cover letter body is converted from Markdown to HTML by the backend and wrapped in the user-defined HTML template (stored in the Identity) before sending.
+Once the user is satisfied with a cover letter, they can send an email of it to the selected recipient. The email is sent via SMTP (credentials provided via environment variables). Redis is used to queue the emails. The cover letter body is converted from Markdown to HTML by the backend and wrapped in the user-defined HTML signature (stored in the Identity) before sending.
 
 ### MVP and experiment
 
@@ -43,7 +43,7 @@ The database is currently named `cover_letter`, but will be in the future named 
 In the DB we have 7 collections:
 - `fields`, list of `{'field': 'name of the field/sector which one can operate in'}`, which is the sector/field of a company or worker;
 - `companies`, list of `{'name': 'name of the company', 'description': 'description of the company', 'field': 'id of the field/sector which the company operates in'}`;
-- `identities`, list of `{'identity': 'id', 'field': 'id of the field/sector which the identity belongs to, 'name': 'visible name of the identity, 'description': 'description of the identity', 'html_template': 'HTML template for the email'}`, which describes the identity of the user who wants to send the cover letter. There is only one identity per field; attempts to create a duplicate identity for a field will be blocked;
+- `identities`, list of `{'identity': 'id', 'field': 'id of the field/sector which the identity belongs to, 'name': 'visible name of the identity, 'description': 'description of the identity', 'html_signature': 'HTML signature for the email'}`, which describes the identity of the user who wants to send the cover letter. There is only one identity per field; attempts to create a duplicate identity for a field will be blocked;
 - `recipients`, list of `{'email': 'recipient email', 'description': 'description of the recipient', 'name': 'name of the recipient', 'company': 'company which the recipient belongs'}`, which describes the recipient of the cover letter;
 - `cover-letters`, list of `{'recipient_id': 'id of the recipient', 'cover_letter': 'body of the cover letter to send', 'created_at': 'timestamp of creation', 'prompt': 'initial prompt to create the cover letter', 'history': 'conversation with AI to recall the context', 'conversation_id': 'Gemini conversation ID to reuse the same conversation', 'updated_at': 'timestamp of last update', 'status': 'status of the letter (e.g., draft, generated, sent)'}`, which describes the cover letters and their processing;
 - `crawls`, log of the crawler tasks performed with `start_time`, `error`, `result`;
@@ -75,7 +75,7 @@ It is an Angular application styled with Tailwind CSS, using JWT tokens for auth
 
 The user interface is a modern, responsive dashboard designed for efficiency and clarity.
 - **Navigation**: A persistent side navigation bar provides access to `Recipients`, `Companies`, `Identities`, `Cover Letters`, and `Crawler Tasks`.
-- **Entity Management**: `Recipients`, `Companies`, and `Identities` are displayed in interactive lists (Data Tables) supporting sorting and filtering. Inline editing allows for quick updates to fields like names, descriptions, and email HTML templates (for identities) without leaving the context.
+- **Entity Management**: `Recipients`, `Companies`, and `Identities` are displayed in interactive lists (Data Tables) supporting sorting and filtering. Inline editing allows for quick updates to fields like names, descriptions, and email HTML signature (for identities) without leaving the context.
 - **Cover Letter Studio**: The core workspace features a **split-pane view**. On one side, a rich Markdown editor allows manual crafting; on the other, a live preview renders the final HTML (rendered by the backend to ensure consistency). The list of cover letters supports filtering by status (e.g., Draft, Sent).
   - **AI Integration**: Below the editor, a dedicated "Prompt Bar" allows the user to instruct Gemini to refine or rewrite sections of the letter.
 - **Crawler Tasks** panel: it will list the recent tasks performed by the crawler. And the settings, like `location` to use for the crawling. 
