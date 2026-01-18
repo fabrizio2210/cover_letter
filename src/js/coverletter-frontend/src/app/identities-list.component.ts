@@ -24,6 +24,7 @@ export interface Identity {
   selector: 'app-identities-list',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
+  styleUrls: ['./identities-list.component.css'],
   template: `
     <section>
       <h3>Identities</h3>
