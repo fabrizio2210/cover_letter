@@ -1,0 +1,21 @@
+<section>
+  <h3>Cover Letter</h3>
+
+  <div *ngIf="loading">Loading…</div>
+
+  <div *ngIf="!loading && letter">
+    <div class="meta">
+      <strong>Recipient:</strong>
+      <span>{{ (letter.recipientInfo && letter.recipientInfo[0]?.name) || letter.recipientInfo?.[0]?.email || '—' }}</span>
+    </div>
+
+    <textarea [(ngModel)]="content" rows="18" class="cover-textarea"></textarea>
+
+    <div class="actions">
+      <button class="button is-primary" (click)="save()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</button>
+      <button class="button" (click)="refine()" [disabled]="refining">{{ refining ? 'Queuing…' : 'Refine' }}</button>
+      <button class="button is-success" (click)="send()" [disabled]="sending">{{ sending ? 'Sending…' : 'Send' }}</button>
+      <button class="button is-danger" (click)="delete()">Delete</button>
+    </div>
+  </div>
+</section>

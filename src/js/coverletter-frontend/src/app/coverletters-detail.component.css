@@ -1,0 +1,13 @@
+.meta {
+  margin-bottom: 0.5rem;
+}
+
+.cover-textarea {
+  width: 100%;
+  font-family: inherit;
+  margin-bottom: 0.75rem;
+}
+
+.actions > .button {
+  margin-right: 0.5rem;
+}

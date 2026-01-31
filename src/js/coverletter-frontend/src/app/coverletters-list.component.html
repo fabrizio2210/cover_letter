@@ -1,0 +1,30 @@
+<section>
+  <h3>Cover Letters</h3>
+  <p class="is-size-6">Cover letters are created per recipient and based on an identity.</p>
+
+  <div *ngIf="loading" class="loading">Loading cover letters…</div>
+
+  <table *ngIf="!loading && letters.length" class="table is-fullwidth">
+    <thead>
+      <tr>
+        <th>Recipient</th>
+        <th>Snippet</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let l of letters">
+        <td>{{ (l.recipientInfo && l.recipientInfo[0]?.name) || l.recipientInfo?.[0]?.email || '—' }}</td>
+        <td>{{ snippet(l) }}</td>
+        <td>{{ l.createdAt ? (l.createdAt | date:'short') : '' }}</td>
+        <td>
+          <button class="button is-small" (click)="viewLetter(l._id)">View</button>
+          <button class="button is-small is-danger" (click)="deleteLetter(l._id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="!loading && letters.length === 0">No cover letters found.</div>
+</section>
