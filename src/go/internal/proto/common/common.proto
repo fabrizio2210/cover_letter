@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package common;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/fabrizio2210/cover_letter/src/go/internal/proto/common";
+
+message HistoryPart {
+    string text = 1; // @gotags: bson:"text"
+}
+
+message HistoryEntry {
+    string role = 1; // @gotags: bson:"role"
+    repeated HistoryPart parts = 2; // @gotags: bson:"parts"
+}
+
+message CoverLetter {
+    string id = 1; // @gotags: bson:"id"
+    string recipient_id = 2; // @gotags: bson:"recipient_id"
+    string conversation_id = 3; // @gotags: bson:"conversation_id"
+    string cover_letter = 4; // @gotags: bson:"cover_letter"
+    google.protobuf.Timestamp created_at = 5; // @gotags: bson:"created_at"
+    google.protobuf.Timestamp updated_at = 6; // @gotags: bson:"updated_at"
+    string prompt = 7; // @gotags: bson:"prompt"
+    repeated HistoryEntry history = 8; // @gotags: bson:"history"
+}

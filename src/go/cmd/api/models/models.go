@@ -1,6 +1,9 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/fabrizio2210/cover_letter/src/go/internal/proto/common"
+)
 
 // Field represents a field of study or industry.
 type Field struct {
@@ -38,12 +41,5 @@ type Identity struct {
 }
 
 // CoverLetter represents a cover letter.
-type CoverLetter struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
-	RecipientID    primitive.ObjectID `bson:"recipient_id" json:"recipientId"`
-	ConversationID string             `bson:"conversation_id" json:"conversationId"`
-	CoverLetter    string             `bson:"cover_letter" json:"coverLetter"`
-	CreatedAt      primitive.DateTime `bson:"created_at" json:"createdAt"`
-	UpdatedAt      primitive.DateTime `bson:"updated_at" json:"updatedAt"`
-	RecipientInfo  []Recipient        `bson:"recipientInfo,omitempty" json:"recipientInfo,omitempty"`
-}
+
+type CoverLetter = common.CoverLetter

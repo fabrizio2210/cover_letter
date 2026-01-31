@@ -1,11 +1,15 @@
 import os
 import redis
 import time
+from datetime import datetime
 import uuid
 import json
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 import google.generativeai as genai
+import common_pb2
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.timestamp_pb2 import Timestamp
 
 
 def main():
@@ -60,26 +64,37 @@ def main():
             time.sleep(5)
 
 def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, history, conversation_id, is_update=False):
-    now = time.time()
+    now = Timestamp()
+    now.GetCurrentTime()
+
+    history_entries = []
+    for entry in history:
+        parts = [common_pb2.HistoryPart(text=part['text']) for part in entry['parts']]
+        history_entries.append(common_pb2.HistoryEntry(role=entry['role'], parts=parts))
+
     if is_update:
+        cover_letter_proto = common_pb2.CoverLetter(
+            cover_letter=cover_letter,
+            updated_at=now,
+            prompt=prompt,
+            history=history_entries
+        )
+        cover_letter_data = MessageToDict(cover_letter_proto, preserving_proto_field_name=True, including_default_value_fields=True)
         cover_letters_col.update_one(
             {"conversation_id": conversation_id},
-            {"$set": {
-                "cover_letter": cover_letter,
-                "updated_at": now,
-                "history": history,
-                "prompt": prompt
-            }}
+            {"$set": cover_letter_data}
         )
     else:
-        cover_letters_col.insert_one({
-            "recipient_id": recipient_id,
-            "cover_letter": cover_letter,
-            "created_at": now,
-            "prompt": prompt,
-            "history": history,
-            "conversation_id": conversation_id
-        })
+        cover_letter_proto = common_pb2.CoverLetter(
+            recipient_id=str(recipient_id),
+            cover_letter=cover_letter,
+            created_at=now,
+            conversation_id=conversation_id,
+            prompt=prompt,
+            history=history_entries
+        )
+        cover_letter_data = MessageToDict(cover_letter_proto, preserving_proto_field_name=True, including_default_value_fields=True)
+        cover_letters_col.insert_one(cover_letter_data)
 
 def generate_initial_cover_letter(recipient, identities_col, cover_letters_col):
     field_id = recipient.get("field")
