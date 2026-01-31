@@ -1,0 +1,8 @@
+generate-proto:
+	# 1. Generate the Go code
+	protoc --go_out=src/go/internal/proto/common/ src/go/internal/proto/common/common.proto
+	# 2. Inject the BSON tags
+	protoc-go-inject-tag  --input=src/go/internal/proto/common/github.com/fabrizio2210/cover_letter/src/
+go/internal/proto/common/common.pb.go
+	# 3. Generate Python code (adjust path as needed)
+	protoc --python_out=src/python/ai_querier/ --proto_path=src/go/internal/proto/common/ common.proto
