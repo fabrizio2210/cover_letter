@@ -81,6 +81,12 @@ def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, 
             history=history_entries
         )
         cover_letter_data = MessageToDict(cover_letter_proto, preserving_proto_field_name=True)
+        # Replace protobuf Timestamp string representation with numeric seconds/nanos
+        if "updated_at" in cover_letter_data:
+            cover_letter_data["updated_at"] = {
+                "seconds": cover_letter_proto.updated_at.seconds,
+                "nanos": cover_letter_proto.updated_at.nanos,
+            }
         cover_letters_col.update_one(
             {"conversation_id": conversation_id},
             {"$set": cover_letter_data}
@@ -95,6 +101,12 @@ def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, 
             history=history_entries
         )
         cover_letter_data = MessageToDict(cover_letter_proto, preserving_proto_field_name=True)
+        # Replace protobuf Timestamp string representation with numeric seconds/nanos
+        if "created_at" in cover_letter_data:
+            cover_letter_data["created_at"] = {
+                "seconds": cover_letter_proto.created_at.seconds,
+                "nanos": cover_letter_proto.created_at.nanos,
+            }
         cover_letters_col.insert_one(cover_letter_data)
 
 def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col):
