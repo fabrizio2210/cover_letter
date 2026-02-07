@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"context"
-	"coverletter/db"
-	"coverletter/models"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -197,10 +198,27 @@ func RefineCoverLetter(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("cover-letters")
 
-	var coverLetter models.CoverLetter
-	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&coverLetter); err != nil {
+	var doc bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&doc); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Cover letter not found"})
 		return
+	}
+
+	// Determine recipient email from recipient_id (stored as string)
+	var recipientEmail string
+	if ridStr, ok := doc["recipient_id"].(string); ok {
+		recCol := client.Database(dbName).Collection("recipients")
+		var recipient bson.M
+		if err := recCol.FindOne(context.Background(), bson.M{"_id": ridStr}).Decode(&recipient); err == nil {
+			if em, ok := recipient["email"].(string); ok {
+				recipientEmail = em
+			}
+		}
+	}
+
+	var conversationID string
+	if v, ok := doc["conversation_id"].(string); ok {
+		conversationID = v
 	}
 
 	queueName := os.Getenv("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME")
@@ -209,8 +227,8 @@ func RefineCoverLetter(c *gin.Context) {
 	}
 
 	payload := map[string]interface{}{
-		"recipient":       coverLetter.RecipientInfo[0].Email,
-		"conversation_id": coverLetter.ConversationID,
+		"recipient":       recipientEmail,
+		"conversation_id": conversationID,
 		"prompt":          req.Prompt,
 	}
 	payloadBytes, err := json.Marshal(payload)
@@ -243,10 +261,22 @@ func SendCoverLetter(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("cover-letters")
 
-	var coverLetter models.CoverLetter
-	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&coverLetter); err != nil {
+	var doc bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&doc); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Cover letter not found"})
 		return
+	}
+
+	// Determine recipient email from recipient_id (stored as string)
+	var recipientEmail string
+	if ridStr, ok := doc["recipient_id"].(string); ok {
+		recCol := client.Database(dbName).Collection("recipients")
+		var recipient bson.M
+		if err := recCol.FindOne(context.Background(), bson.M{"_id": ridStr}).Decode(&recipient); err == nil {
+			if em, ok := recipient["email"].(string); ok {
+				recipientEmail = em
+			}
+		}
 	}
 
 	queueName := os.Getenv("EMAILS_TO_SEND_QUEUE")
@@ -254,9 +284,14 @@ func SendCoverLetter(c *gin.Context) {
 		queueName = "emails_to_send"
 	}
 
+	coverLetterText := ""
+	if cl, ok := doc["cover_letter"].(string); ok {
+		coverLetterText = cl
+	}
+
 	payload := map[string]interface{}{
-		"recipient":    coverLetter.RecipientInfo[0].Email,
-		"cover_letter": coverLetter.CoverLetter,
+		"recipient":    recipientEmail,
+		"cover_letter": coverLetterText,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
