@@ -44,6 +44,7 @@ export class RecipientsListComponent implements OnInit {
   newFieldName: string = '';
 
   companies: { id: string; name: string; fieldId?: string }[] = [];
+  generatingId: string | null = null;
 
   ngOnInit(): void {
     this.getRecipients();
@@ -236,6 +237,23 @@ export class RecipientsListComponent implements OnInit {
         this.getRecipients();
       },
       error: (err) => this.showFeedback('Failed to delete recipient.', true, err)
+    });
+  }
+
+  generate(recipient: Recipient): void {
+    const headers = this.getAuthHeaders();
+    if (!headers.has('Authorization')) return;
+    const id = recipient._id;
+    this.generatingId = id;
+    this.http.post(`/api/recipients/${id}/generate-cover-letter`, {}, { headers }).subscribe({
+      next: () => {
+        this.showFeedback('Generation queued successfully.');
+        this.generatingId = null;
+      },
+      error: (err) => {
+        this.showFeedback('Failed to queue generation.', true, err);
+        this.generatingId = null;
+      }
     });
   }
 }

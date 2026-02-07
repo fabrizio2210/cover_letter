@@ -58,6 +58,7 @@
         </ng-container>
         <ng-template #actionButtons>
           <button class="button is-small is-light" (click)="startEditRecipient(i)">Edit</button>
+          <button class="button is-small is-primary is-light" (click)="generate(recipient)" [disabled]="generatingId === recipient._id">Generate</button>
           <button class="button is-small is-danger is-light" (click)="confirmDelete(recipient)">Delete</button>
         </ng-template>
       </td>
