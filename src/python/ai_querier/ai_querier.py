@@ -28,6 +28,7 @@ def main():
     db = client[mongo_db_name]
     recipients_col = db["recipients"]
     identities_col = db["identities"]
+    companies_col = db["companies"]
     cover_letters_col = db["cover-letters"]
 
     r = redis.Redis(host=redis_host, port=redis_port)
@@ -55,7 +56,7 @@ def main():
                     print(f"Recipient '{email}' not found in database.")
                     continue
                 if not conversation_id:
-                    generate_initial_cover_letter(recipient, identities_col, cover_letters_col)
+                    generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col)
                 else:
                     iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col)
 
@@ -96,12 +97,33 @@ def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, 
         cover_letter_data = MessageToDict(cover_letter_proto, preserving_proto_field_name=True, including_default_value_fields=True)
         cover_letters_col.insert_one(cover_letter_data)
 
-def generate_initial_cover_letter(recipient, identities_col, cover_letters_col):
-    field_id = recipient.get("field")
-    if not field_id:
-        print(f"No field associated with recipient '{recipient.get('email', '')}'.")
+def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col):
+    # The recipient no longer holds the field directly; fetch the company then the field
+    company_id = recipient.get("company")
+    if not company_id:
+        print(f"No company associated with recipient '{recipient.get('email', '')}'.")
         return
-    identity = identities_col.find_one({"field": ObjectId(field_id)})
+    # Resolve company document (company_id may be a string or ObjectId)
+    if isinstance(company_id, ObjectId):
+        company = companies_col.find_one({"_id": company_id})
+    else:
+        try:
+            company = companies_col.find_one({"_id": ObjectId(company_id)})
+        except Exception:
+            company = companies_col.find_one({"_id": company_id})
+    if not company:
+        print(f"Company '{company_id}' not found for recipient '{recipient.get('email', '')}'.")
+        return
+    field_id = company.get("field")
+    if not field_id:
+        print(f"No field associated with company '{company.get('name', '')}'.")
+        return
+    # Resolve identity by field (field may be a string or ObjectId)
+    try:
+        field_obj = field_id if isinstance(field_id, ObjectId) else ObjectId(field_id)
+        identity = identities_col.find_one({"field": field_obj})
+    except Exception:
+        identity = identities_col.find_one({"field": field_id})
     if not identity:
         print(f"No identity associated with field '{field_id}' for recipient '{recipient.get('email', '')}'.")
         return
@@ -109,16 +131,18 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col):
     identity_description = identity.get("description", "No description")
     recipient_description = recipient.get("description", "No description")
     print(f"Identity for recipient '{recipient.get('email', '')}':")
-    print(f"  Description: {recipient_description}")
+    print(f"  Company: {company.get('name', '')}")
+    print(f"  Recipient description: {recipient_description}")
     print(f"  For: {identity_name}")
-    print(f"  Description: {identity_description}")
+    print(f"  Identity description: {identity_description}")
     prompt = (
         f"Write a cover letter for {identity_name} for {recipient.get('email', '')}. "
-        f"The {recipient.get('email', '')} description is {recipient_description}. "
+        f"The recipient description is {recipient_description}. "
+        f"The company '{company.get('name', '')}' is described with '{company.get('description', '')}'. "
         f"{identity_name} is described with {identity_description}."
-        "Customize with the recipient's name and email, and the identity's name and description."
+        " Customize with the recipient's name and email, and the identity's name and description."
     )
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     chat = model.start_chat(history=[])
     response = chat.send_message(prompt)
     if not response or not hasattr(response, "text"):
@@ -152,7 +176,7 @@ def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_
         print("No follow-up prompt provided for iteration.")
         return
     history.append({"role": "user", "parts": [{"text": followup_prompt}]})
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     chat = model.start_chat(history=history)
     response = chat.send_message(followup_prompt)
     if not response or not hasattr(response, "text"):
