@@ -6,10 +6,9 @@ import { FeedbackService } from './services/feedback.service';
 
 interface CoverLetterSummary {
   _id?: string;
-  coverLetter?: string;
   cover_letter?: string;
-  createdAt?: string | number;
-  recipientInfo?: Array<any>;
+  created_at?: string | number | { seconds: number; nanos: number };
+  recipient_info?: any;
 }
 
 @Component({
@@ -43,7 +42,19 @@ export class CoverLettersListComponent implements OnInit {
     if (!headers) return;
     this.loading = true;
     this.http.get<CoverLetterSummary[]>('/api/cover-letters', { headers }).subscribe({
-      next: (data) => { this.letters = data || []; this.loading = false; },
+      next: (data) => {
+        const list = (data || []) as CoverLetterSummary[];
+        this.letters = list.map((d) => {
+          if (d && d.created_at && typeof d.created_at === 'object' && 'seconds' in (d.created_at as any)) {
+            const secs = Number((d.created_at as any).seconds) || 0;
+            const nanos = Number((d.created_at as any).nanos) || 0;
+            const ms = secs * 1000 + Math.floor(nanos / 1e6);
+            return { ...d, created_at: new Date(ms).toISOString() };
+          }
+          return d;
+        });
+        this.loading = false;
+      },
       error: (err) => { this.loading = false; this.feedback.showFeedback('Failed to load cover letters', true); if (err.status === 401) this.router.navigate(['/login']); }
     });
   }
@@ -54,7 +65,7 @@ export class CoverLettersListComponent implements OnInit {
   }
 
   snippet(letter: CoverLetterSummary): string {
-    const content = letter.coverLetter || (letter as any).cover_letter || '';
+    const content = (letter as any).cover_letter || '';
     return content.length > 140 ? content.slice(0, 140) + '…' : content;
   }
 
@@ -67,5 +78,19 @@ export class CoverLettersListComponent implements OnInit {
       next: () => { this.feedback.showFeedback('Cover letter deleted'); this.fetchList(); },
       error: (err) => { this.feedback.showFeedback('Failed to delete cover letter', true); if (err.status === 401) this.router.navigate(['/login']); }
     });
+  }
+
+  formatCreatedAt(value: string | number | { seconds: number; nanos: number } | undefined): string {
+    if (!value) return '';
+    if (typeof value === 'string' || typeof value === 'number') {
+      const d = new Date(value as any);
+      if (isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    }
+    // protobuf Timestamp object
+    const seconds = Number((value as any).seconds) || 0;
+    const nanos = Number((value as any).nanos) || 0;
+    const ms = seconds * 1000 + Math.floor(nanos / 1e6);
+    return new Date(ms).toLocaleString();
   }
 }

@@ -136,6 +136,8 @@ type CoverLetter struct {
 	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty" bson:"updated_at"`                // @gotags: bson:"updated_at"
 	Prompt         string                 `protobuf:"bytes,7,opt,name=prompt,proto3" json:"prompt,omitempty" bson:"prompt"`                                       // @gotags: bson:"prompt"
 	History        []*HistoryEntry        `protobuf:"bytes,8,rep,name=history,proto3" json:"history,omitempty" bson:"history"`                                     // @gotags: bson:"history"
+	// Recipient info populated by aggregation lookup
+	RecipientInfo *Recipient `protobuf:"bytes,9,opt,name=recipient_info,json=recipientInfo,proto3" json:"recipient_info,omitempty" bson:"recipientInfo,omitempty"` // @gotags: bson:"recipientInfo,omitempty"
 }
 
 func (x *CoverLetter) Reset() {
@@ -226,6 +228,321 @@ func (x *CoverLetter) GetHistory() []*HistoryEntry {
 	return nil
 }
 
+func (x *CoverLetter) GetRecipientInfo() *Recipient {
+	if x != nil {
+		return x.RecipientInfo
+	}
+	return nil
+}
+
+type Field struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id    string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id,omitempty"`       // @gotags: bson:"_id,omitempty"
+	Field string `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty" bson:"field"` // @gotags: bson:"field"
+}
+
+func (x *Field) Reset() {
+	*x = Field{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_src_go_internal_proto_common_common_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Field) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Field) ProtoMessage() {}
+
+func (x *Field) ProtoReflect() protoreflect.Message {
+	mi := &file_src_go_internal_proto_common_common_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Field.ProtoReflect.Descriptor instead.
+func (*Field) Descriptor() ([]byte, []int) {
+	return file_src_go_internal_proto_common_common_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Field) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Field) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+type Company struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id        string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id,omitempty"`                                // @gotags: bson:"_id,omitempty"
+	Name      string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                            // @gotags: bson:"name"
+	FieldId   string `protobuf:"bytes,3,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field"`       // @gotags: bson:"field"
+	FieldInfo *Field `protobuf:"bytes,4,opt,name=field_info,json=fieldInfo,proto3" json:"field_info,omitempty" bson:"fieldInfo,omitempty"` // @gotags: bson:"fieldInfo,omitempty"
+}
+
+func (x *Company) Reset() {
+	*x = Company{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_src_go_internal_proto_common_common_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Company) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Company) ProtoMessage() {}
+
+func (x *Company) ProtoReflect() protoreflect.Message {
+	mi := &file_src_go_internal_proto_common_common_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Company.ProtoReflect.Descriptor instead.
+func (*Company) Descriptor() ([]byte, []int) {
+	return file_src_go_internal_proto_common_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Company) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Company) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Company) GetFieldId() string {
+	if x != nil {
+		return x.FieldId
+	}
+	return ""
+}
+
+func (x *Company) GetFieldInfo() *Field {
+	if x != nil {
+		return x.FieldInfo
+	}
+	return nil
+}
+
+type Recipient struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id          string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id,omitempty"`                                      // @gotags: bson:"_id,omitempty"
+	Email       string   `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty" bson:"email"`                                // @gotags: bson:"email"
+	Name        string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                                  // @gotags: bson:"name"
+	Description string   `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty" bson:"description"`                    // @gotags: bson:"description"
+	CompanyId   string   `protobuf:"bytes,5,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty" bson:"company"`       // @gotags: bson:"company"
+	CompanyInfo *Company `protobuf:"bytes,6,opt,name=company_info,json=companyInfo,proto3" json:"company_info,omitempty" bson:"companyInfo,omitempty"` // @gotags: bson:"companyInfo,omitempty"
+}
+
+func (x *Recipient) Reset() {
+	*x = Recipient{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_src_go_internal_proto_common_common_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Recipient) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Recipient) ProtoMessage() {}
+
+func (x *Recipient) ProtoReflect() protoreflect.Message {
+	mi := &file_src_go_internal_proto_common_common_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Recipient.ProtoReflect.Descriptor instead.
+func (*Recipient) Descriptor() ([]byte, []int) {
+	return file_src_go_internal_proto_common_common_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Recipient) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Recipient) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *Recipient) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Recipient) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Recipient) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
+}
+
+func (x *Recipient) GetCompanyInfo() *Company {
+	if x != nil {
+		return x.CompanyInfo
+	}
+	return nil
+}
+
+type Identity struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id,omitempty"`                                            // @gotags: bson:"_id,omitempty"
+	Identity      string `protobuf:"bytes,2,opt,name=identity,proto3" json:"identity,omitempty" bson:"identity"`                                // @gotags: bson:"identity"
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                                        // @gotags: bson:"name"
+	Description   string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty" bson:"description"`                          // @gotags: bson:"description"
+	FieldId       string `protobuf:"bytes,5,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field"`                   // @gotags: bson:"field"
+	HtmlSignature string `protobuf:"bytes,6,opt,name=html_signature,json=htmlSignature,proto3" json:"html_signature,omitempty" bson:"html_signature,omitempty"` // @gotags: bson:"html_signature,omitempty"
+	FieldInfo     *Field `protobuf:"bytes,7,opt,name=field_info,json=fieldInfo,proto3" json:"field_info,omitempty" bson:"fieldInfo,omitempty"`             // @gotags: bson:"fieldInfo,omitempty"
+}
+
+func (x *Identity) Reset() {
+	*x = Identity{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_src_go_internal_proto_common_common_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Identity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Identity) ProtoMessage() {}
+
+func (x *Identity) ProtoReflect() protoreflect.Message {
+	mi := &file_src_go_internal_proto_common_common_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Identity.ProtoReflect.Descriptor instead.
+func (*Identity) Descriptor() ([]byte, []int) {
+	return file_src_go_internal_proto_common_common_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Identity) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Identity) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
+func (x *Identity) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Identity) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Identity) GetFieldId() string {
+	if x != nil {
+		return x.FieldId
+	}
+	return ""
+}
+
+func (x *Identity) GetHtmlSignature() string {
+	if x != nil {
+		return x.HtmlSignature
+	}
+	return ""
+}
+
+func (x *Identity) GetFieldInfo() *Field {
+	if x != nil {
+		return x.FieldInfo
+	}
+	return nil
+}
+
 var File_src_go_internal_proto_common_common_proto protoreflect.FileDescriptor
 
 var file_src_go_internal_proto_common_common_proto_rawDesc = []byte{
@@ -241,7 +558,7 @@ var file_src_go_internal_proto_common_common_proto_rawDesc = []byte{
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x72, 0x6f, 0x6c, 0x65, 0x12, 0x29, 0x0a, 0x05, 0x70,
 	0x61, 0x72, 0x74, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x63, 0x6f, 0x6d,
 	0x6d, 0x6f, 0x6e, 0x2e, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x50, 0x61, 0x72, 0x74, 0x52,
-	0x05, 0x70, 0x61, 0x72, 0x74, 0x73, 0x22, 0xca, 0x02, 0x0a, 0x0b, 0x43, 0x6f, 0x76, 0x65, 0x72,
+	0x05, 0x70, 0x61, 0x72, 0x74, 0x73, 0x22, 0x84, 0x03, 0x0a, 0x0b, 0x43, 0x6f, 0x76, 0x65, 0x72,
 	0x4c, 0x65, 0x74, 0x74, 0x65, 0x72, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x72, 0x65, 0x63, 0x69, 0x70, 0x69,
 	0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x72, 0x65,
@@ -262,11 +579,51 @@ var file_src_go_internal_proto_common_common_proto_rawDesc = []byte{
 	0x6d, 0x70, 0x74, 0x12, 0x2e, 0x0a, 0x07, 0x68, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x08,
 	0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x48, 0x69,
 	0x73, 0x74, 0x6f, 0x72, 0x79, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07, 0x68, 0x69, 0x73, 0x74,
-	0x6f, 0x72, 0x79, 0x42, 0x43, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x66, 0x61, 0x62, 0x72, 0x69, 0x7a, 0x69, 0x6f, 0x32, 0x32, 0x31, 0x30, 0x2f, 0x63,
-	0x6f, 0x76, 0x65, 0x72, 0x5f, 0x6c, 0x65, 0x74, 0x74, 0x65, 0x72, 0x2f, 0x73, 0x72, 0x63, 0x2f,
-	0x67, 0x6f, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x72, 0x79, 0x12, 0x38, 0x0a, 0x0e, 0x72, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74,
+	0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x63, 0x6f,
+	0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x52, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x52, 0x0d,
+	0x72, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x2d, 0x0a,
+	0x05, 0x46, 0x69, 0x65, 0x6c, 0x64, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x22, 0x76, 0x0a, 0x07,
+	0x43, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x19, 0x0a, 0x08, 0x66,
+	0x69, 0x65, 0x6c, 0x64, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x66,
+	0x69, 0x65, 0x6c, 0x64, 0x49, 0x64, 0x12, 0x2c, 0x0a, 0x0a, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x5f,
+	0x69, 0x6e, 0x66, 0x6f, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x63, 0x6f, 0x6d,
+	0x6d, 0x6f, 0x6e, 0x2e, 0x46, 0x69, 0x65, 0x6c, 0x64, 0x52, 0x09, 0x66, 0x69, 0x65, 0x6c, 0x64,
+	0x49, 0x6e, 0x66, 0x6f, 0x22, 0xba, 0x01, 0x0a, 0x09, 0x52, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65,
+	0x6e, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02,
+	0x69, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a, 0x0b,
+	0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1d,
+	0x0a, 0x0a, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x5f, 0x69, 0x64, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x09, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x49, 0x64, 0x12, 0x32, 0x0a,
+	0x0c, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x06, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x43, 0x6f, 0x6d,
+	0x70, 0x61, 0x6e, 0x79, 0x52, 0x0b, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x6e, 0x79, 0x49, 0x6e, 0x66,
+	0x6f, 0x22, 0xdc, 0x01, 0x0a, 0x08, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x12, 0x0e,
+	0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x1a,
+	0x0a, 0x08, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x08, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61,
+	0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x20,
+	0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e,
+	0x12, 0x19, 0x0a, 0x08, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x5f, 0x69, 0x64, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x07, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x49, 0x64, 0x12, 0x25, 0x0a, 0x0e, 0x68,
+	0x74, 0x6d, 0x6c, 0x5f, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x06, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0d, 0x68, 0x74, 0x6d, 0x6c, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
+	0x72, 0x65, 0x12, 0x2c, 0x0a, 0x0a, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x5f, 0x69, 0x6e, 0x66, 0x6f,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e,
+	0x46, 0x69, 0x65, 0x6c, 0x64, 0x52, 0x09, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x49, 0x6e, 0x66, 0x6f,
+	0x42, 0x43, 0x5a, 0x41, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x66,
+	0x61, 0x62, 0x72, 0x69, 0x7a, 0x69, 0x6f, 0x32, 0x32, 0x31, 0x30, 0x2f, 0x63, 0x6f, 0x76, 0x65,
+	0x72, 0x5f, 0x6c, 0x65, 0x74, 0x74, 0x65, 0x72, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x67, 0x6f, 0x2f,
+	0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x63,
+	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -281,23 +638,31 @@ func file_src_go_internal_proto_common_common_proto_rawDescGZIP() []byte {
 	return file_src_go_internal_proto_common_common_proto_rawDescData
 }
 
-var file_src_go_internal_proto_common_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_src_go_internal_proto_common_common_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_src_go_internal_proto_common_common_proto_goTypes = []interface{}{
 	(*HistoryPart)(nil),           // 0: common.HistoryPart
 	(*HistoryEntry)(nil),          // 1: common.HistoryEntry
 	(*CoverLetter)(nil),           // 2: common.CoverLetter
-	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+	(*Field)(nil),                 // 3: common.Field
+	(*Company)(nil),               // 4: common.Company
+	(*Recipient)(nil),             // 5: common.Recipient
+	(*Identity)(nil),              // 6: common.Identity
+	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
 }
 var file_src_go_internal_proto_common_common_proto_depIdxs = []int32{
 	0, // 0: common.HistoryEntry.parts:type_name -> common.HistoryPart
-	3, // 1: common.CoverLetter.created_at:type_name -> google.protobuf.Timestamp
-	3, // 2: common.CoverLetter.updated_at:type_name -> google.protobuf.Timestamp
+	7, // 1: common.CoverLetter.created_at:type_name -> google.protobuf.Timestamp
+	7, // 2: common.CoverLetter.updated_at:type_name -> google.protobuf.Timestamp
 	1, // 3: common.CoverLetter.history:type_name -> common.HistoryEntry
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 4: common.CoverLetter.recipient_info:type_name -> common.Recipient
+	3, // 5: common.Company.field_info:type_name -> common.Field
+	4, // 6: common.Recipient.company_info:type_name -> common.Company
+	3, // 7: common.Identity.field_info:type_name -> common.Field
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_src_go_internal_proto_common_common_proto_init() }
@@ -342,6 +707,54 @@ func file_src_go_internal_proto_common_common_proto_init() {
 				return nil
 			}
 		}
+		file_src_go_internal_proto_common_common_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Field); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_src_go_internal_proto_common_common_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Company); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_src_go_internal_proto_common_common_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Recipient); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_src_go_internal_proto_common_common_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Identity); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -349,7 +762,7 @@ func file_src_go_internal_proto_common_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_src_go_internal_proto_common_common_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -15,9 +15,9 @@
     </thead>
     <tbody>
       <tr *ngFor="let l of letters">
-        <td>{{ (l.recipientInfo && l.recipientInfo[0]?.name) || l.recipientInfo?.[0]?.email || '—' }}</td>
+        <td>{{ (l.recipient_info && l.recipient_info.name) || ( l.recipient_info && l.recipient_info.email ) || '—' }}</td>
         <td>{{ snippet(l) }}</td>
-        <td>{{ l.createdAt ? (l.createdAt | date:'short') : '' }}</td>
+        <td>{{ formatCreatedAt(l.created_at) }}</td>
         <td>
           <button class="button is-small" (click)="viewLetter(l._id)">View</button>
           <button class="button is-small is-danger" (click)="deleteLetter(l._id)">Delete</button>

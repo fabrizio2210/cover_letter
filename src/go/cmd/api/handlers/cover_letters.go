@@ -43,12 +43,16 @@ func GetCoverLetters(c *gin.Context) {
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	pipeline := mongo.Pipeline{
+		{{"$addFields", bson.D{
+			{"recipientObjId", bson.D{{"$toObjectId", "$recipient_id"}}},
+		}}},
 		{{"$lookup", bson.D{
 			{"from", "recipients"},
-			{"localField", "recipient_id"},
+			{"localField", "recipientObjId"},
 			{"foreignField", "_id"},
 			{"as", "recipientInfo"},
 		}}},
+		{{"$unwind", bson.D{{"path", "$recipientInfo"}, {"preserveNullAndEmptyArrays", true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x06\x63ommon\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1b\n\x0bHistoryPart\x12\x0c\n\x04text\x18\x01 \x01(\t\"@\n\x0cHistoryEntry\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\"\n\x05parts\x18\x02 \x03(\x0b\x32\x13.common.HistoryPart\"\xf5\x01\n\x0b\x43overLetter\x12\n\n\x02id\x18\x01 \x01(\t\x12\x14\n\x0crecipient_id\x18\x02 \x01(\t\x12\x17\n\x0f\x63onversation_id\x18\x03 \x01(\t\x12\x14\n\x0c\x63over_letter\x18\x04 \x01(\t\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06prompt\x18\x07 \x01(\t\x12%\n\x07history\x18\x08 \x03(\x0b\x32\x14.common.HistoryEntryBCZAgithub.com/fabrizio2210/cover_letter/src/go/internal/proto/commonb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x06\x63ommon\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1b\n\x0bHistoryPart\x12\x0c\n\x04text\x18\x01 \x01(\t\"@\n\x0cHistoryEntry\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\"\n\x05parts\x18\x02 \x03(\x0b\x32\x13.common.HistoryPart\"\xa0\x02\n\x0b\x43overLetter\x12\n\n\x02id\x18\x01 \x01(\t\x12\x14\n\x0crecipient_id\x18\x02 \x01(\t\x12\x17\n\x0f\x63onversation_id\x18\x03 \x01(\t\x12\x14\n\x0c\x63over_letter\x18\x04 \x01(\t\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06prompt\x18\x07 \x01(\t\x12%\n\x07history\x18\x08 \x03(\x0b\x32\x14.common.HistoryEntry\x12)\n\x0erecipient_info\x18\t \x01(\x0b\x32\x11.common.Recipient\"\"\n\x05\x46ield\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x66ield\x18\x02 \x01(\t\"X\n\x07\x43ompany\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x66ield_id\x18\x03 \x01(\t\x12!\n\nfield_info\x18\x04 \x01(\x0b\x32\r.common.Field\"\x84\x01\n\tRecipient\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x12\n\ncompany_id\x18\x05 \x01(\t\x12%\n\x0c\x63ompany_info\x18\x06 \x01(\x0b\x32\x0f.common.Company\"\x98\x01\n\x08Identity\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08identity\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x10\n\x08\x66ield_id\x18\x05 \x01(\t\x12\x16\n\x0ehtml_signature\x18\x06 \x01(\t\x12!\n\nfield_info\x18\x07 \x01(\x0b\x32\r.common.FieldBCZAgithub.com/fabrizio2210/cover_letter/src/go/internal/proto/commonb\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'common_pb2', globals())
@@ -27,5 +27,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _HISTORYENTRY._serialized_start=86
   _HISTORYENTRY._serialized_end=150
   _COVERLETTER._serialized_start=153
-  _COVERLETTER._serialized_end=398
+  _COVERLETTER._serialized_end=441
+  _FIELD._serialized_start=443
+  _FIELD._serialized_end=477
+  _COMPANY._serialized_start=479
+  _COMPANY._serialized_end=567
+  _RECIPIENT._serialized_start=570
+  _RECIPIENT._serialized_end=702
+  _IDENTITY._serialized_start=705
+  _IDENTITY._serialized_end=857
 # @@protoc_insertion_point(module_scope)

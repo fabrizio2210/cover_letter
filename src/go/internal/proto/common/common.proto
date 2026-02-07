@@ -24,4 +24,37 @@ message CoverLetter {
     google.protobuf.Timestamp updated_at = 6; // @gotags: bson:"updated_at"
     string prompt = 7; // @gotags: bson:"prompt"
     repeated HistoryEntry history = 8; // @gotags: bson:"history"
+    // Recipient info populated by aggregation lookup
+    Recipient recipient_info = 9; // @gotags: bson:"recipientInfo,omitempty"
+}
+
+message Field {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string field = 2; // @gotags: bson:"field"
+}
+
+message Company {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string name = 2; // @gotags: bson:"name"
+    string field_id = 3; // @gotags: bson:"field"
+    Field field_info = 4; // @gotags: bson:"fieldInfo,omitempty"
+}
+
+message Recipient {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string email = 2; // @gotags: bson:"email"
+    string name = 3; // @gotags: bson:"name"
+    string description = 4; // @gotags: bson:"description"
+    string company_id = 5; // @gotags: bson:"company"
+    Company company_info = 6; // @gotags: bson:"companyInfo,omitempty"
+}
+
+message Identity {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string identity = 2; // @gotags: bson:"identity"
+    string name = 3; // @gotags: bson:"name"
+    string description = 4; // @gotags: bson:"description"
+    string field_id = 5; // @gotags: bson:"field"
+    string html_signature = 6; // @gotags: bson:"html_signature,omitempty"
+    Field field_info = 7; // @gotags: bson:"fieldInfo,omitempty"
 }
