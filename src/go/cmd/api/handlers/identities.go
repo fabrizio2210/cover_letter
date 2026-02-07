@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"context"
-	"coverletter/db"
-	"coverletter/models"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"log"
 	"net/http"
 	"os"

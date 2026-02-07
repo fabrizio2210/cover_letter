@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"context"
-	"coverletter/db"
-	"coverletter/models"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -243,11 +244,13 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("Error marshaling payload: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
 		return
 	}
 
 	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+		log.Printf("Error pushing to queue: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue generation"})
 		return
 	}

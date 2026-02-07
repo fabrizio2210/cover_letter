@@ -127,7 +127,7 @@ services:
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
       - DB_NAME=cover_letter
     volumes:
-      - ../../src/go/cmd/api:/app
+      - ../../src/go/:/app
     labels:
       traefik.enable: "true"
       traefik.http.routers.api.rule: "PathPrefix(`/api`)"

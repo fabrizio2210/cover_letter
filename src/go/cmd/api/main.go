@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"coverletter/handlers"
-	"coverletter/middleware"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/handlers"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/middleware"
 
 	"github.com/gin-gonic/gin"
 )

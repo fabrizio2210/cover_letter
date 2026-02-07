@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"context"
-	"coverletter/db"
-	"coverletter/models"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"

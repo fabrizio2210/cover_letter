@@ -1,8 +1,8 @@
 package models
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/fabrizio2210/cover_letter/src/go/internal/proto/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Field represents a field of study or industry.
