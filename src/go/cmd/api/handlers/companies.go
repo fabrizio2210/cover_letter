@@ -67,17 +67,27 @@ func CreateCompany(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-	fieldObjID, err := primitive.ObjectIDFromHex(req.FieldID)
-	if err != nil {
-		log.Printf("Invalid field_id: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid field_id"})
-		return
+	var (
+		fieldObjID primitive.ObjectID
+		hasField   bool
+	)
+	if req.FieldID != "" {
+		oid, err := primitive.ObjectIDFromHex(req.FieldID)
+		if err != nil {
+			log.Printf("Invalid field_id: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid field_id"})
+			return
+		}
+		fieldObjID = oid
+		hasField = true
 	}
 
 	company := bson.M{
 		"name":        req.Name,
 		"description": req.Description,
-		"field":       fieldObjID,
+	}
+	if hasField {
+		company["field"] = fieldObjID
 	}
 
 	client := db.GetDB()
@@ -94,11 +104,26 @@ func CreateCompany(c *gin.Context) {
 		return
 	}
 
-	// Return the created company with id as hex string
-	company["id"] = result.InsertedID.(primitive.ObjectID).Hex()
-	delete(company, "field")
-	company["field"] = req.FieldID
-	c.JSON(http.StatusCreated, company)
+	// Build response: include id and field_info (if available)
+	resp := bson.M{
+		"id":          result.InsertedID.(primitive.ObjectID).Hex(),
+		"name":        req.Name,
+		"description": req.Description,
+	}
+	if hasField {
+		// try to fetch the field document to return the name
+		fieldsColl := client.Database(dbName).Collection("fields")
+		var fieldDoc bson.M
+		err = fieldsColl.FindOne(context.Background(), bson.M{"_id": fieldObjID}).Decode(&fieldDoc)
+		if err == nil {
+			resp["field_info"] = bson.M{"id": fieldObjID.Hex(), "field": fieldDoc["field"]}
+		} else {
+			// fallback to returning the provided field id
+			resp["field_info"] = bson.M{"id": req.FieldID}
+		}
+	}
+
+	c.JSON(http.StatusCreated, resp)
 }
 
 // UpdateCompany updates a company's name, description, or field.
