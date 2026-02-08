@@ -1,5 +1,5 @@
 [build]
-cmd = "go build -o api ./main.go"
+cmd = "rm api; go build -o api ./main.go"
 bin = "api"
 watch_dir = "."
 include_ext = ["go", "mod"]
