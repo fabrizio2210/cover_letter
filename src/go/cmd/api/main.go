@@ -40,6 +40,7 @@ func main() {
 
 		auth.GET("/fields", handlers.GetFields)
 		auth.POST("/fields", handlers.CreateField)
+		auth.PUT("/fields/:id", handlers.UpdateField)
 		auth.DELETE("/fields/:id", handlers.DeleteField)
 
 		// Company CRUD endpoints

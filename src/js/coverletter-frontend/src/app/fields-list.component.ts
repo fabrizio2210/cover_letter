@@ -6,7 +6,7 @@ import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http
 import { FeedbackService } from './services/feedback.service';
 
 export interface Field {
-  _id: string;
+  id: string;
   field: string;
 }
 
@@ -118,7 +118,7 @@ export class FieldsListComponent implements OnInit {
       return;
     }
 
-    this.http.put(`/api/fields/${f._id}`, { field: this.editField.trim() }, { headers }).subscribe({
+    this.http.put(`/api/fields/${f.id}`, { field: this.editField.trim() }, { headers }).subscribe({
       next: () => {
         this.showFeedback('Field updated successfully.');
         this.getFields();
@@ -155,7 +155,7 @@ export class FieldsListComponent implements OnInit {
   deleteField(f: Field): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/fields/${f._id}`, { headers }).subscribe({
+    this.http.delete(`/api/fields/${f.id}`, { headers }).subscribe({
       next: () => {
         this.showFeedback('Field deleted successfully.');
         this.getFields();
