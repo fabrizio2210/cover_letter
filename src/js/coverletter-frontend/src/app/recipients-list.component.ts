@@ -11,7 +11,6 @@ export interface Recipient {
   email: string;
   name?: string;
   description?: string;
-  field_info?: { id: string; field: string; } | any;
   company_id?: string;
   company_info?: { id: string; name: string; }[] | any;
 }
@@ -34,21 +33,14 @@ export class RecipientsListComponent implements OnInit {
 
   editIndex: number | null = null;
   editRecipient: Partial<Recipient> = {};
-  editFieldId: string = '';
 
   newRecipient: Partial<Recipient> = { name: '', email: '', description: '' };
-  newRecipientFieldId: string = '';
-
-  fields: { _id: string; field: string; }[] = [];
-  // selectedFieldId: string = ''; // This property is not used
-  newFieldName: string = '';
 
   companies: { id: string; name: string; fieldId?: string }[] = [];
   generatingId: string | null = null;
 
   ngOnInit(): void {
     this.getRecipients();
-    this.getFields();
     this.getCompanies();
   }
 
@@ -75,26 +67,13 @@ export class RecipientsListComponent implements OnInit {
     this.editIndex = index;
     const recipient = this.recipients[index];
     this.editRecipient = { ...recipient } as any; // Use `any` to allow adding companyName
-    this.editRecipient.company_id = recipient.company_info?.[0]?.id || '';
-    let origFieldId = '';
-    const fi = (recipient as any).field_info;
-    if (Array.isArray(fi) && fi.length) {
-      origFieldId = fi[0]._id;
-    } else if (fi && fi._id) {
-      origFieldId = fi._id;
-    } else if ((recipient as any).field) {
-      origFieldId = (recipient as any).field;
-    }
-    this.editFieldId = origFieldId || '';
-    this.newFieldName = '';
+    this.editRecipient.company_id = recipient.company_info?.id || '';
     this.clearFeedback();
   }
 
   cancelEdit(): void {
     this.editIndex = null;
     this.editRecipient = {};
-    this.editFieldId = '';
-    this.newFieldName = '';
   }
 
   saveEditRecipient(index: number): void {
@@ -113,20 +92,7 @@ export class RecipientsListComponent implements OnInit {
       observables.push(this.http.put(`/api/recipients/${id}/description`, { description: this.editRecipient.description }, { headers }));
     }
 
-    let origFieldId = '';
-    const fi = (recipient as any).field_info;
-    if (Array.isArray(fi) && fi.length) {
-      origFieldId = fi[0]._id;
-    } else if (fi && fi._id) {
-      origFieldId = fi._id;
-    } else if ((recipient as any).field) {
-      origFieldId = (recipient as any).field;
-    }
-    if ((this.editFieldId || '') !== (origFieldId || '')) {
-      observables.push(this.http.put(`/api/recipients/${id}/field`, { fieldId: this.editFieldId }, { headers }));
-    }
-
-    const origCompanyId = recipient.company_info?.[0]?.id || '';
+    const origCompanyId = recipient.company_info?.id || '';
     if (this.editRecipient.company_id !== origCompanyId) {
       observables.push(this.http.put(`/api/recipients/${id}/company`, { companyId: this.editRecipient.company_id || null }, { headers }));
     }
@@ -180,14 +146,6 @@ export class RecipientsListComponent implements OnInit {
   createAndAssociate(this.newRecipient.company_id as string | undefined);
   }
 
-  getFields(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<{ _id: string; field: string }[]>('/api/fields', { headers }).subscribe({
-      next: (data) => { this.fields = data || []; },
-      error: (err) => { this.showFeedback('Failed to fetch fields.', true, err); }
-    });
-  }
 
   getCompanies(): void {
     const headers = this.getAuthHeaders();
@@ -218,7 +176,6 @@ export class RecipientsListComponent implements OnInit {
 
   private resetNewRecipient(): void {
     this.newRecipient = { name: '', email: '', description: '' };
-    this.newRecipientFieldId = '';
   }
 
   confirmDelete(recipient: any) {
