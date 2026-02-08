@@ -30,30 +30,32 @@ export interface Field {
           <tr *ngFor="let f of fields; let i = index">
             <td *ngIf="editIndex !== i">{{ f.field }}</td>
             <td *ngIf="editIndex === i">
-              <input [(ngModel)]="editField" placeholder="Field name" />
+              <input type="text" class="table-input" [(ngModel)]="editField" aria-label="Edit field name" placeholder="Field name" />
             </td>
             <td class="actions">
               <button *ngIf="editIndex !== i" (click)="startEdit(i)">Edit</button>
               <div *ngIf="editIndex === i">
-                <button (click)="saveEdit(i)">Save</button>
-                <button (click)="cancelEdit()">Cancel</button>
-                <button class="danger" (click)="confirmDelete(f)">Delete</button>
+                <button type="button" (click)="saveEdit(i)" aria-label="Save field">Save</button>
+                <button type="button" (click)="cancelEdit()" aria-label="Cancel edit">Cancel</button>
+                <button type="button" class="danger" (click)="confirmDelete(f)" aria-label="Delete field">Delete</button>
               </div>
             </td>
           </tr>
 
           <tr class="new-row">
             <td>
-              <input [(ngModel)]="newField" placeholder="New field name" />
+              <input type="text" class="table-input" [(ngModel)]="newField" aria-label="New field name" placeholder="New field name" />
             </td>
             <td class="actions">
-              <button (click)="createField()">Create</button>
+              <button type="button" (click)="createField()" aria-label="Create field">Create</button>
             </td>
           </tr>
         </tbody>
       </table>
     </section>
   `
+  ,
+  styleUrls: ['./fields-list.component.css']
 })
 export class FieldsListComponent implements OnInit {
   private http = inject(HttpClient);

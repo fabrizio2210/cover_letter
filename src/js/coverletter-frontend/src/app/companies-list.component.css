@@ -1,10 +1,8 @@
-section.companies { padding: 0.5rem; }
-.companies-table { width: 100%; border-collapse: collapse; }
-.companies-table th, .companies-table td { border: 1px solid #e5e5e5; padding: 0.4rem; }
-.companies-table input, .companies-table select { width: 100%; box-sizing: border-box; }
-.actions { width: 180px; }
-.feedback { margin: 0.5rem 0; padding: 0.5rem; border-radius: 4px; }
-.feedback.error { background: #ffe6e6; color: #900; }
-.feedback:not(.error) { background: #e6ffe6; color: #060; }
-button { margin-right: 0.4rem; }
-button.danger { background: #f44336; color: white; }
+@import './shared-styles/tables.css';
+
+section.companies {
+    max-width: 1000px;
+    margin: 0 auto; 
+    padding: 20px 16px; 
+    color: #111827; 
+}

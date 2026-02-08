@@ -1,11 +1,16 @@
+@import './shared-styles/tables.css';
+
+section.coverletters {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  color: #111827;
+}
+
 .loading {
   padding: 1rem 0;
 }
 
 .table td {
   vertical-align: middle;
-}
-
-.button + .button {
-  margin-left: 0.5rem;
 }

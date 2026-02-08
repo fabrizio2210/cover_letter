@@ -1,0 +1,156 @@
+/* Shared table/card/input/button/focus/responsive rules (based on identities-list.component.css) */
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+}
+
+p.is-size-6 {
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
+/* Container / Section tokens are kept minimal here; components can add their own spacing */
+
+/* Responsive wrapper for tables to provide consistent overflow handling */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* App-wide table base class: apply to all tables to unify appearance */
+.app-table,
+.recipients-table, .identities-table, .fields-table, .companies-table, .coverletters-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+}
+
+/* Thead / Th */
+.recipients-table thead th, .identities-table thead th, .fields-table thead th, .companies-table thead th, .coverletters-table thead th, .recipients-table thead th {
+  background: #f3f4f6;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+/* Tbody / Td */
+.recipients-table tbody td, .identities-table tbody td, .fields-table tbody td, .companies-table tbody td, .coverletters-table tbody td, .recipients-table tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  font-size: 0.95rem;
+  color: #111827;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.recipients-table tbody tr:hover td, .identities-table tbody tr:hover td, .fields-table tbody tr:hover td, .companies-table tbody tr:hover td, .coverletters-table tbody tr:hover td, .recipients-table tbody tr:hover td {
+  background: #fbfdff;
+}
+
+/* Actions column */
+.actions {
+  width: 170px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* New-row styling */
+tr.new-row td {
+  background: #fafafa;
+}
+
+/* Inputs / Selects */
+.recipients-table input[type="text"], .recipients-table input, .recipients-table select,
+.identities-table input[type="text"], .identities-table input, .identities-table select,
+.fields-table input[type="text"], .fields-table input, .fields-table select,
+.companies-table input[type="text"], .companies-table input, .companies-table select,
+.coverletters-table input[type="text"], .coverletters-table input, .coverletters-table select,
+.recipients-table input[type="text"], .recipients-table input, .recipients-table select {
+  width: 100%;
+  min-width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+/* Textarea */
+.recipients-table textarea, .identities-table textarea, .fields-table textarea, .companies-table textarea, .coverletters-table textarea, .recipients-table textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 110px;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: vertical;
+  font: inherit;
+  font-family: inherit;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+/* Focus states */
+.recipients-table input:focus, .recipients-table select:focus, .recipients-table textarea:focus,
+.identities-table input:focus, .identities-table select:focus, .identities-table textarea:focus,
+.fields-table input:focus, .fields-table select:focus, .fields-table textarea:focus,
+.companies-table input:focus, .companies-table select:focus, .companies-table textarea:focus,
+.coverletters-table input:focus, .coverletters-table select:focus, .coverletters-table textarea:focus,
+.recipients-table input:focus, .recipients-table select:focus, .recipients-table textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+  border-color: #2563eb;
+}
+
+/* Buttons */
+.recipients-table button, .identities-table button, .fields-table button, .companies-table button, .coverletters-table button, .recipients-table button, .actions button {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 6px;
+  font: inherit;
+}
+
+.recipients-table button:hover, .identities-table button:hover, .fields-table button:hover, .companies-table button:hover, .coverletters-table button:hover, .recipients-table button:hover, .actions button :hover {
+  background: #f8fafc;
+}
+
+.recipients-table button:focus, .identities-table button:focus, .fields-table button:focus, .companies-table button:focus, .coverletters-table button:focus, .recipients-table button:focus, .actions button :focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+}
+
+/* Danger variant */
+.recipients-table button.danger, .identities-table button.danger, .fields-table button.danger, .companies-table button.danger, .coverletters-table button.danger, .recipients-table button.danger {
+  background: #f44336;
+  color: white;
+  border-color: transparent;
+}
+
+/* Responsive behavior */
+@media (max-width: 700px) {
+  .recipients-table, .identities-table, .fields-table, .companies-table, .coverletters-table, .recipients-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .actions {
+    width: auto;
+    text-align: left;
+  }
+  td input, td select {
+    min-width: 140px;
+  }
+}
