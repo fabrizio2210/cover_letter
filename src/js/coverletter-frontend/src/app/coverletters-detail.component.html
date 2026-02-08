@@ -6,7 +6,7 @@
   <div *ngIf="!loading && letter">
     <div class="meta">
       <strong>Recipient:</strong>
-      <span>{{ (letter.recipientInfo && letter.recipientInfo.name) || (letter.recipientInfo && letter.recipientInfo.email) || '—' }}</span>
+      <span>{{ (letter.recipient_info && letter.recipient_info.name) || (letter.recipient_info && letter.recipient_info.email) || '—' }}</span>
     </div>
 
     <textarea [(ngModel)]="content" rows="18" class="cover-textarea"></textarea>

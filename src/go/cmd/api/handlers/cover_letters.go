@@ -93,13 +93,41 @@ func GetCoverLetter(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("cover-letters")
 
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{{Key: "_id", Value: objID}}}},
+		{{"$addFields", bson.D{
+			{"recipientObjId", bson.D{{"$toObjectId", "$recipient_id"}}},
+		}}},
+		{{"$lookup", bson.D{
+			{"from", "recipients"},
+			{"localField", "recipientObjId"},
+			{"foreignField", "_id"},
+			{"as", "recipientInfo"},
+		}}},
+		{{"$unwind", bson.D{{"path", "$recipientInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+	}
+
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		log.Printf("Error aggregating cover letters: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cover letters"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
 	var coverLetter models.CoverLetter
-	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&coverLetter); err != nil {
-		if err == mongo.ErrNoDocuments {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Cover letter not found"})
+	if cursor.Next(context.Background()) {
+		if err = cursor.Decode(&coverLetter); err != nil {
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Cover letter not found"})
+				return
+			}
+			log.Printf("Error fetching cover letter: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cover letter"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cover letter"})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Cover letter not found"})
 		return
 	}
 
