@@ -5,7 +5,7 @@ import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http'
 import { FeedbackService } from './services/feedback.service';
 
 interface CoverLetterSummary {
-  _id?: string;
+  id?: string;
   cover_letter?: string;
   created_at?: string | number | { seconds: number; nanos: number };
   recipient_info?: any;

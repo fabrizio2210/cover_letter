@@ -19,8 +19,8 @@
         <td>{{ snippet(l) }}</td>
         <td>{{ formatCreatedAt(l.created_at) }}</td>
         <td>
-          <button class="button is-small" (click)="viewLetter(l._id)">View</button>
-          <button class="button is-small is-danger" (click)="deleteLetter(l._id)">Delete</button>
+          <button class="button is-small" (click)="viewLetter(l.id)">View</button>
+          <button class="button is-small is-danger" (click)="deleteLetter(l.id)">Delete</button>
         </td>
       </tr>
     </tbody>

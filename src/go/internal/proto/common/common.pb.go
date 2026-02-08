@@ -128,7 +128,7 @@ type CoverLetter struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"id"`                                               // @gotags: bson:"id"
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id"`                                               // @gotags: bson:"_id"
 	RecipientId    string                 `protobuf:"bytes,2,opt,name=recipient_id,json=recipientId,proto3" json:"recipient_id,omitempty" bson:"recipient_id"`          // @gotags: bson:"recipient_id"
 	ConversationId string                 `protobuf:"bytes,3,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty" bson:"conversation_id"` // @gotags: bson:"conversation_id"
 	CoverLetter    string                 `protobuf:"bytes,4,opt,name=cover_letter,json=coverLetter,proto3" json:"cover_letter,omitempty" bson:"cover_letter"`          // @gotags: bson:"cover_letter"

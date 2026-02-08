@@ -16,7 +16,7 @@ message HistoryEntry {
 }
 
 message CoverLetter {
-    string id = 1; // @gotags: bson:"id"
+    string id = 1; // @gotags: bson:"_id"
     string recipient_id = 2; // @gotags: bson:"recipient_id"
     string conversation_id = 3; // @gotags: bson:"conversation_id"
     string cover_letter = 4; // @gotags: bson:"cover_letter"
