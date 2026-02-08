@@ -34,6 +34,7 @@ func GetRecipients(c *gin.Context) {
 			{"foreignField", "_id"},
 			{"as", "companyInfo"},
 		}}},
+		{{"$unwind", bson.D{{"path", "$companyInfo"}, {"preserveNullAndEmptyArrays", true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)

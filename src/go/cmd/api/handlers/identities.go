@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"context"
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,6 +55,7 @@ func GetIdentities(c *gin.Context) {
 			{"foreignField", "_id"},
 			{"as", "fieldInfo"},
 		}}},
+		{{"$unwind", bson.D{{"path", "$fieldInfo"}, {"preserveNullAndEmptyArrays", true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
