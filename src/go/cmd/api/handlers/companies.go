@@ -63,11 +63,13 @@ func CreateCompany(c *gin.Context) {
 		FieldID     string `json:"field_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Invalid request: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 	fieldObjID, err := primitive.ObjectIDFromHex(req.FieldID)
 	if err != nil {
+		log.Printf("Invalid field_id: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid field_id"})
 		return
 	}
@@ -87,6 +89,7 @@ func CreateCompany(c *gin.Context) {
 
 	result, err := collection.InsertOne(context.Background(), company)
 	if err != nil {
+		log.Printf("Error inserting company: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company"})
 		return
 	}

@@ -18,11 +18,11 @@
           <input [(ngModel)]="editName" placeholder="Company name" />
         </td>
 
-        <td *ngIf="editIndex !== i">{{ c.fieldInfo?.field || '-' }}</td>
+        <td *ngIf="editIndex !== i">{{ c.field_info?.field || '-' }}</td>
         <td *ngIf="editIndex === i">
           <select [(ngModel)]="editFieldId">
             <option value="">-- none --</option>
-            <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+            <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
           </select>
         </td>
 
@@ -44,7 +44,7 @@
         <td>
           <select [(ngModel)]="newFieldId">
             <option value="">-- none --</option>
-            <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+            <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
           </select>
         </td>
         <td class="actions">

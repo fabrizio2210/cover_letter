@@ -10,7 +10,7 @@ export interface Company {
   id: string;
   name: string;
   fieldId?: string | any;
-  fieldInfo?: { _id: string; field: string } | any;
+  field_info?: { id: string; field: string } | any;
 }
 
 @Component({
@@ -26,7 +26,7 @@ export class CompaniesListComponent implements OnInit {
   private feedbackService = inject(FeedbackService);
 
   companies: Company[] = [];
-  fields: { _id: string; field: string }[] = [];
+  fields: { id: string; field: string }[] = [];
 
   editIndex: number | null = null;
   editName = '';
@@ -64,7 +64,7 @@ export class CompaniesListComponent implements OnInit {
   getFields(): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.get<{ _id: string; field: string }[]>('/api/fields', { headers }).subscribe({
+    this.http.get<{ id: string; field: string }[]>('/api/fields', { headers }).subscribe({
       next: (data) => { this.fields = data || []; },
       error: (err) => this.showFeedback('Failed to fetch fields.', true, err)
     });
@@ -74,7 +74,7 @@ export class CompaniesListComponent implements OnInit {
     this.editIndex = i;
     const c = this.companies[i];
     this.editName = c.name; 
-    this.editFieldId = (c.fieldId || (c.fieldInfo && (c.fieldInfo.id || c.fieldInfo[0]?.id)) || '') as string;
+    this.editFieldId = (c.fieldId || (c.field_info && (c.field_info.id || c.field_info[0]?.id)) || '') as string;
     this.clearFeedback();
   }
 
@@ -92,7 +92,7 @@ export class CompaniesListComponent implements OnInit {
     if (this.editName !== c.name) {
       observables.push(this.http.put(`/api/companies/${c.id}/name`, { name: this.editName }, { headers }));
     }
-    const origField = c.fieldId || c.fieldInfo?.id || '';
+    const origField = c.fieldId || c.field_info?.id || '';
     if ((this.editFieldId || '') !== (origField || '')) { 
       observables.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: this.editFieldId || null }, { headers }));
     }
