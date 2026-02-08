@@ -28,7 +28,7 @@ export interface Identity {
   template: `
     <section>
       <h3>Identities</h3>
-      <p class="is-size-6">Manage personas. Click a row to edit fields or expand the email template.</p>
+      <p class="is-size-6">Manage personas. Click a row to edit fields or expand the email signature.</p>
 
       <table class="identities-table">
         <thead>
