@@ -35,14 +35,14 @@
         <td>
           <ng-container *ngIf="editIndex === i; else companyDisplay">
             <div class="select is-fullwidth">
-              <select name="editCompany" [(ngModel)]="editRecipient.companyId">
+              <select name="editCompany" [(ngModel)]="editRecipient.company_id">
                 <option value="">-- None --</option> 
                 <option *ngFor="let c of companies" [value]="c.id">{{ c.name }}</option>
               </select>
             </div>
           </ng-container>
           <ng-template #companyDisplay>
-            {{ (recipient.companyInfo && recipient.companyInfo[0]?.name) || 'N/A' }}
+            {{ (recipient.company_info && recipient.company_info?.name) || 'N/A' }}
           </ng-template>
         </td>
         <td>
@@ -60,7 +60,7 @@
           </ng-container>
           <ng-template #actionButtons>
             <button class="button is-small is-light" (click)="startEditRecipient(i)">Edit</button>
-            <button class="button is-small is-primary is-light" (click)="generate(recipient)" [disabled]="generatingId === recipient._id">Generate</button>
+            <button class="button is-small is-primary is-light" (click)="generate(recipient)" [disabled]="generatingId === recipient.id">Generate</button>
             <button class="button is-small is-danger is-light" (click)="confirmDelete(recipient)">Delete</button>
           </ng-template>
         </td>
@@ -74,7 +74,7 @@
         </td>
         <td>
           <div class="select is-fullwidth">
-            <select [(ngModel)]="newRecipient.companyId">
+            <select [(ngModel)]="newRecipient.company_id">
               <option value="">-- None --</option> 
               <option *ngFor="let c of companies" [value]="c.id">{{ c.name }}</option>
             </select>

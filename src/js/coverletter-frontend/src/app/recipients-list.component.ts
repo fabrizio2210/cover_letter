@@ -7,13 +7,13 @@ import { FeedbackService } from './services/feedback.service';
 import { forkJoin } from 'rxjs';
 
 export interface Recipient {
-  _id: string;
+  id: string;
   email: string;
   name?: string;
   description?: string;
-  fieldInfo?: { _id: string; field: string; } | any;
-  companyId?: string;
-  companyInfo?: { id: string; name: string; }[] | any;
+  field_info?: { id: string; field: string; } | any;
+  company_id?: string;
+  company_info?: { id: string; name: string; }[] | any;
 }
 
 @Component({
@@ -75,9 +75,9 @@ export class RecipientsListComponent implements OnInit {
     this.editIndex = index;
     const recipient = this.recipients[index];
     this.editRecipient = { ...recipient } as any; // Use `any` to allow adding companyName
-    this.editRecipient.companyId = recipient.companyInfo?.[0]?.id || '';
+    this.editRecipient.company_id = recipient.company_info?.[0]?.id || '';
     let origFieldId = '';
-    const fi = (recipient as any).fieldInfo;
+    const fi = (recipient as any).field_info;
     if (Array.isArray(fi) && fi.length) {
       origFieldId = fi[0]._id;
     } else if (fi && fi._id) {
@@ -100,21 +100,21 @@ export class RecipientsListComponent implements OnInit {
   saveEditRecipient(index: number): void {
     const recipient = this.recipients[index];
     const headers = this.getAuthHeaders();
-    const { _id } = recipient;
+    const { id } = recipient;
     const observables: any[] = [];
 
     if (this.editRecipient.name !== recipient.name) {
-      observables.push(this.http.put(`/api/recipients/${_id}/name`, { name: this.editRecipient.name }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/name`, { name: this.editRecipient.name }, { headers }));
     }
     if (this.editRecipient.email !== recipient.email) {
-      observables.push(this.http.put(`/api/recipients/${_id}/email`, { email: this.editRecipient.email }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/email`, { email: this.editRecipient.email }, { headers }));
     }
     if (this.editRecipient.description !== recipient.description) {
-      observables.push(this.http.put(`/api/recipients/${_id}/description`, { description: this.editRecipient.description }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/description`, { description: this.editRecipient.description }, { headers }));
     }
 
     let origFieldId = '';
-    const fi = (recipient as any).fieldInfo;
+    const fi = (recipient as any).field_info;
     if (Array.isArray(fi) && fi.length) {
       origFieldId = fi[0]._id;
     } else if (fi && fi._id) {
@@ -123,12 +123,12 @@ export class RecipientsListComponent implements OnInit {
       origFieldId = (recipient as any).field;
     }
     if ((this.editFieldId || '') !== (origFieldId || '')) {
-      observables.push(this.http.put(`/api/recipients/${_id}/field`, { fieldId: this.editFieldId }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/field`, { fieldId: this.editFieldId }, { headers }));
     }
 
-    const origCompanyId = recipient.companyInfo?.[0]?.id || '';
-    if (this.editRecipient.companyId !== origCompanyId) {
-      observables.push(this.http.put(`/api/recipients/${_id}/company`, { companyId: this.editRecipient.companyId || null }, { headers }));
+    const origCompanyId = recipient.company_info?.[0]?.id || '';
+    if (this.editRecipient.company_id !== origCompanyId) {
+      observables.push(this.http.put(`/api/recipients/${id}/company`, { companyId: this.editRecipient.company_id || null }, { headers }));
     }
 
     if (observables.length === 0) {
@@ -177,7 +177,7 @@ export class RecipientsListComponent implements OnInit {
     };
 
 
-  createAndAssociate(this.newRecipient.companyId as string | undefined);
+  createAndAssociate(this.newRecipient.company_id as string | undefined);
   }
 
   getFields(): void {
@@ -243,7 +243,7 @@ export class RecipientsListComponent implements OnInit {
   generate(recipient: Recipient): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    const id = recipient._id;
+    const id = recipient.id;
     this.generatingId = id;
     this.http.post(`/api/recipients/${id}/generate-cover-letter`, {}, { headers }).subscribe({
       next: () => {
