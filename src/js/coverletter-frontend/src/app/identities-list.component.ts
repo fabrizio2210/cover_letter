@@ -7,16 +7,16 @@ import { lastValueFrom } from 'rxjs';
 import { FeedbackService } from './services/feedback.service';
 
 export interface Field {
-  _id: string;
+  id: string;
   field: string;
 }
 
 export interface Identity {
-  _id: string;
+  id: string;
   identity: string;
   name?: string;
   description?: string;
-  fieldInfo?: Field[];
+  field_info?: Field;
   html_signature?: string;
 }
 
@@ -57,12 +57,12 @@ export interface Identity {
 
             <td>
               <span *ngIf="!(editIndex === i)">
-                {{ id.fieldInfo && id.fieldInfo.length ? id.fieldInfo[0].field : '-' }}
+                {{ id.field_info && id.field_info.field ? id.field_info.field : '-' }}
               </span>
               <span *ngIf="editIndex === i">
                 <select [(ngModel)]="selectedFieldId">
                   <option [value]="''">-- none --</option>
-                  <option *ngFor="let f of fields" [value]="f._id">{{ f.field }}</option>
+                  <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
                 </select>
               </span>
             </td>
@@ -179,7 +179,7 @@ export class IdentitiesListComponent implements OnInit {
     const id = this.identities[i];
     this.editName = id?.name || '';
     this.editDescription = id?.description || '';
-    this.selectedFieldId = id.fieldInfo && id.fieldInfo.length ? id.fieldInfo[0]._id : '';
+    this.selectedFieldId = id.field_info && id.field_info.id ? id.field_info.id : '';
     this.clearFeedback();
   }
 
@@ -196,13 +196,13 @@ export class IdentitiesListComponent implements OnInit {
 
     const ops: any[] = [];
     if (this.editName.trim() !== (identity.name || '').trim()) {
-      ops.push(this.http.put(`/api/identities/${identity._id}/name`, { name: this.editName.trim() }, { headers }));
+      ops.push(this.http.put(`/api/identities/${identity.id}/name`, { name: this.editName.trim() }, { headers }));
     }
     if (this.editDescription.trim() !== (identity.description || '').trim()) {
-      ops.push(this.http.put(`/api/identities/${identity._id}/description`, { description: this.editDescription.trim() }, { headers }));
+      ops.push(this.http.put(`/api/identities/${identity.id}/description`, { description: this.editDescription.trim() }, { headers }));
     }
-    if (this.selectedFieldId && (identity.fieldInfo?.[0]?._id !== this.selectedFieldId)) {
-      ops.push(this.http.put(`/api/identities/${identity._id}/field`, { fieldId: this.selectedFieldId }, { headers }));
+    if (this.selectedFieldId && (identity.field_info?.id !== this.selectedFieldId)) {
+      ops.push(this.http.put(`/api/identities/${identity.id}/field`, { fieldId: this.selectedFieldId }, { headers }));
     }
 
     if (ops.length === 0) {
@@ -229,7 +229,7 @@ export class IdentitiesListComponent implements OnInit {
   deleteIdentity(id: Identity): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/identities/${id._id}`, { headers }).subscribe({
+    this.http.delete(`/api/identities/${id.id}`, { headers }).subscribe({
       next: () => { this.showFeedback('Identity deleted.'); this.getIdentities(); },
       error: (err) => this.showFeedback('Failed to delete identity.', true, err)
     });
@@ -242,7 +242,7 @@ export class IdentitiesListComponent implements OnInit {
   saveSignature(identity: Identity): void {
     const headers = this.getAuthHeaders();
     if (!headers.has('Authorization')) return;
-    this.http.put(`/api/identities/${identity._id}/signature`, { html_signature: identity.html_signature || '' }, { headers }).subscribe({
+    this.http.put(`/api/identities/${identity.id}/signature`, { html_signature: identity.html_signature || '' }, { headers }).subscribe({
       next: () => { this.showFeedback('Signature saved.'); this.getIdentities(); },
       error: (err) => this.showFeedback('Failed to save signature.', true, err)
     });
