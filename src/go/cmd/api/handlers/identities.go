@@ -144,8 +144,12 @@ func UpdateIdentityDescription(c *gin.Context) {
 		return
 	}
 
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+		return
+	}
 	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found or description unchanged"})
+		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
 		return
 	}
 
@@ -186,8 +190,12 @@ func UpdateIdentityName(c *gin.Context) {
 		return
 	}
 
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+		return
+	}
 	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found or name unchanged"})
+		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
 		return
 	}
 
@@ -234,8 +242,12 @@ func UpdateIdentitySignature(c *gin.Context) {
 		return
 	}
 
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+		return
+	}
 	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found or template unchanged"})
+		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
 		return
 	}
 
@@ -282,8 +294,12 @@ func AssociateFieldWithIdentity(c *gin.Context) {
 		return
 	}
 
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+		return
+	}
 	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found or field unchanged"})
+		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
 		return
 	}
 
