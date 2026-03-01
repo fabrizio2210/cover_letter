@@ -35,7 +35,7 @@ func init() {
 
 // GetCoverLetters fetches all cover letters from the database.
 func GetCoverLetters(c *gin.Context) {
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -86,7 +86,7 @@ func GetCoverLetter(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -143,7 +143,7 @@ func DeleteCoverLetter(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -181,7 +181,7 @@ func UpdateCoverLetter(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -223,7 +223,7 @@ func RefineCoverLetter(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"

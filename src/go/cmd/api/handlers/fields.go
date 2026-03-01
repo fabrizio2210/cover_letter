@@ -2,14 +2,15 @@ package handlers
 
 import (
 	"context"
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
+	"log"
 	"net/http"
 	"os"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // CreateField creates a new field.
@@ -20,7 +21,7 @@ func CreateField(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -33,39 +34,61 @@ func CreateField(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, result)
+	var created bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": result.InsertedID}).Decode(&created); err != nil {
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			c.JSON(http.StatusCreated, gin.H{"_id": oid.Hex()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"insertedId": result.InsertedID})
+		return
+	}
+
+	if idVal, ok := created["_id"].(primitive.ObjectID); ok {
+		created["_id"] = idVal.Hex()
+	}
+	c.JSON(http.StatusCreated, created)
 }
 
-// GetFields fetches all fields from the database.
+// GetFields fetches all fields.
 func GetFields(c *gin.Context) {
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
+		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
 		dbName = "cover_letter"
 	}
 	collection := client.Database(dbName).Collection("fields")
 
-	cursor, err := collection.Find(context.Background(), bson.D{})
+	cursor, err := collection.Aggregate(context.Background(), mongo.Pipeline{})
 	if err != nil {
+		log.Printf("Error aggregating fields: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch fields"})
 		return
 	}
 	defer cursor.Close(context.Background())
 
-	var fields []models.Field
-	if err = cursor.All(context.Background(), &fields); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode fields"})
-		return
+	var docs []bson.M
+	for cursor.Next(context.Background()) {
+		var d bson.M
+		if err := cursor.Decode(&d); err != nil {
+			log.Printf("Error decoding field document: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode fields"})
+			return
+		}
+		// convert _id to hex string when present
+		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
+			d["_id"] = idVal.Hex()
+		}
+		docs = append(docs, d)
 	}
-
-	if fields == nil {
-		fields = []models.Field{}
+	if docs == nil {
+		docs = []bson.M{}
 	}
-
-	c.JSON(http.StatusOK, fields)
+	c.JSON(http.StatusOK, docs)
 }
 
-// DeleteField deletes a field by its ID.
+// DeleteField deletes a field by id.
 func DeleteField(c *gin.Context) {
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
@@ -74,7 +97,7 @@ func DeleteField(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -95,7 +118,7 @@ func DeleteField(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Field deleted successfully"})
 }
 
-// UpdateField updates an existing field.
+// UpdateField updates existing field.
 func UpdateField(c *gin.Context) {
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
@@ -103,7 +126,6 @@ func UpdateField(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
-
 	var req struct {
 		Field string `json:"field"`
 	}
@@ -112,18 +134,14 @@ func UpdateField(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
 	}
 	collection := client.Database(dbName).Collection("fields")
 
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"field": req.Field}},
-	)
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": bson.M{"field": req.Field}})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update field"})
 		return

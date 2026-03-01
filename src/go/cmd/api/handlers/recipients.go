@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +17,7 @@ import (
 
 // GetRecipients fetches all recipients from the database.
 func GetRecipients(c *gin.Context) {
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
@@ -67,7 +66,7 @@ func CreateRecipient(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -108,7 +107,7 @@ func DeleteRecipient(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -146,7 +145,7 @@ func UpdateRecipientDescription(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -188,7 +187,7 @@ func UpdateRecipientName(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -222,7 +221,7 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -276,7 +275,7 @@ func AssociateCompanyWithRecipient(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"

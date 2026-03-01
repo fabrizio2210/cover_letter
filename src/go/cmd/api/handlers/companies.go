@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +16,7 @@ import (
 
 // GetCompanies fetches all companies with their field info.
 func GetCompanies(c *gin.Context) {
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -90,7 +89,7 @@ func CreateCompany(c *gin.Context) {
 		company["field"] = fieldObjID
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -157,7 +156,7 @@ func UpdateCompany(c *gin.Context) {
 		},
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -185,7 +184,7 @@ func DeleteCompany(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -221,7 +220,7 @@ func AssociateFieldWithCompany(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"

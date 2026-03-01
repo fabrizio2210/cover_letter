@@ -6,13 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // CreateIdentity creates a new identity.
@@ -23,7 +20,7 @@ func CreateIdentity(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -36,26 +33,34 @@ func CreateIdentity(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, result)
+	var created bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": result.InsertedID}).Decode(&created); err != nil {
+		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+			c.JSON(http.StatusCreated, gin.H{"_id": oid.Hex()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"insertedId": result.InsertedID})
+		return
+	}
+	if idVal, ok := created["_id"].(primitive.ObjectID); ok {
+		created["_id"] = idVal.Hex()
+	}
+	c.JSON(http.StatusCreated, created)
 }
 
 // GetIdentities fetches all identities from the database.
 func GetIdentities(c *gin.Context) {
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
+		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
 		dbName = "cover_letter"
 	}
 	collection := client.Database(dbName).Collection("identities")
 
-	pipeline := mongo.Pipeline{
-		{{"$lookup", bson.D{
-			{"from", "fields"},
-			{"localField", "field"},
-			{"foreignField", "_id"},
-			{"as", "fieldInfo"},
-		}}},
-		{{"$unwind", bson.D{{"path", "$fieldInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+	pipeline := bson.A{
+		bson.D{{"$lookup", bson.D{{"from", "fields"}, {"localField", "field"}, {"foreignField", "_id"}, {"as", "fieldInfo"}}}},
+		bson.D{{"$unwind", bson.D{{"path", "$fieldInfo"}, {"preserveNullAndEmptyArrays", true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -66,18 +71,23 @@ func GetIdentities(c *gin.Context) {
 	}
 	defer cursor.Close(context.Background())
 
-	var identities []models.Identity
-	if err = cursor.All(context.Background(), &identities); err != nil {
-		log.Printf("Error decoding identities: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode identities"})
-		return
+	var docs []bson.M
+	for cursor.Next(context.Background()) {
+		var d bson.M
+		if err := cursor.Decode(&d); err != nil {
+			log.Printf("Error decoding identity document: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode identities"})
+			return
+		}
+		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
+			d["_id"] = idVal.Hex()
+		}
+		docs = append(docs, d)
 	}
-
-	if identities == nil {
-		identities = []models.Identity{}
+	if docs == nil {
+		docs = []bson.M{}
 	}
-
-	c.JSON(http.StatusOK, identities)
+	c.JSON(http.StatusOK, docs)
 }
 
 // DeleteIdentity deletes an identity by its ID.
@@ -89,7 +99,7 @@ func DeleteIdentity(c *gin.Context) {
 		return
 	}
 
-	client := db.GetDB()
+	client := GetMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -101,17 +111,15 @@ func DeleteIdentity(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete identity"})
 		return
 	}
-
 	if result.DeletedCount == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Identity deleted successfully"})
 }
 
-// UpdateIdentityDescription updates the description of an identity.
-func UpdateIdentityDescription(c *gin.Context) {
+// UpdateIdentityGeneric updates identity using arbitrary update map.
+func UpdateIdentityGeneric(c *gin.Context, update bson.M) {
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -119,6 +127,31 @@ func UpdateIdentityDescription(c *gin.Context) {
 		return
 	}
 
+	client := GetMongoClient()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	collection := client.Database(dbName).Collection("identities")
+
+	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": update})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update identity"})
+		return
+	}
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+		return
+	}
+	if result.ModifiedCount == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Identity updated successfully"})
+}
+
+// UpdateIdentityDescription wrapper
+func UpdateIdentityDescription(c *gin.Context) {
 	var req struct {
 		Description string `json:"description"`
 	}
@@ -126,45 +159,11 @@ func UpdateIdentityDescription(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
-	client := db.GetDB()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
-	collection := client.Database(dbName).Collection("identities")
-
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"description": req.Description}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update identity"})
-		return
-	}
-
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
-		return
-	}
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Identity description updated successfully"})
+	UpdateIdentityGeneric(c, bson.M{"description": req.Description})
 }
 
-// UpdateIdentityName updates the name of an identity.
+// UpdateIdentityName wrapper
 func UpdateIdentityName(c *gin.Context) {
-	id := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -172,45 +171,11 @@ func UpdateIdentityName(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
-	client := db.GetDB()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
-	collection := client.Database(dbName).Collection("identities")
-
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"name": req.Name}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update identity"})
-		return
-	}
-
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
-		return
-	}
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Identity name updated successfully"})
+	UpdateIdentityGeneric(c, bson.M{"name": req.Name})
 }
 
-// UpdateIdentitySignature updates the HTML signature of an identity.
+// UpdateIdentitySignature wrapper
 func UpdateIdentitySignature(c *gin.Context) {
-	id := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
 	var req struct {
 		HtmlSignature string `json:"html_signature"`
 	}
@@ -218,51 +183,15 @@ func UpdateIdentitySignature(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
-	client := db.GetDB()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
-	collection := client.Database(dbName).Collection("identities")
-
-	// Basic safeguard: limit signature size to reasonable length (e.g., 64KB)
 	if len(req.HtmlSignature) > 64*1024 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Signature too large"})
 		return
 	}
-
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"html_signature": req.HtmlSignature}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update identity template"})
-		return
-	}
-
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
-		return
-	}
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Identity template updated successfully"})
+	UpdateIdentityGeneric(c, bson.M{"html_signature": req.HtmlSignature})
 }
 
 // AssociateFieldWithIdentity associates a field with an identity.
 func AssociateFieldWithIdentity(c *gin.Context) {
-	id := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
 	var req struct {
 		FieldID string `json:"fieldId"`
 	}
@@ -270,38 +199,10 @@ func AssociateFieldWithIdentity(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
 	fieldObjID, err := primitive.ObjectIDFromHex(req.FieldID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Field ID"})
 		return
 	}
-
-	client := db.GetDB()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
-	collection := client.Database(dbName).Collection("identities")
-
-	result, err := collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"field": fieldObjID}},
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to associate field"})
-		return
-	}
-
-	if result.MatchedCount == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
-		return
-	}
-	if result.ModifiedCount == 0 {
-		c.JSON(http.StatusOK, gin.H{"message": "Identity found; no changes made"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Field associated successfully"})
+	UpdateIdentityGeneric(c, bson.M{"field": fieldObjID})
 }

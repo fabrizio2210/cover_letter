@@ -17,6 +17,10 @@ var (
 
 // GetDB returns a singleton instance of the MongoDB client.
 func GetDB() *mongo.Client {
+	if clientInstance != nil {
+		return clientInstance
+	}
+
 	clientOnce.Do(func() {
 		mongoURI := os.Getenv("MONGO_HOST")
 		if mongoURI == "" {
@@ -30,4 +34,11 @@ func GetDB() *mongo.Client {
 		clientInstance = client
 	})
 	return clientInstance
+}
+
+// SetTestClient overrides the package mongo client for tests.
+// Call this from tests before any call to db.GetDB() to avoid
+// connecting to a real Mongo instance.
+func SetTestClient(c *mongo.Client) {
+	clientInstance = c
 }
