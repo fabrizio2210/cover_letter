@@ -1,0 +1,71 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0
+    
+  redis:
+    image: redis:7
+
+  ai_querier:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ../..:/workspace:delegated
+    command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/src/python/ai_querier/ai_querier.py"
+    environment:
+      - AI_QUERIER_TEST_MODE=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_HOST=mongodb://mongo:27017/
+      - DB_NAME=cover_letter
+      - REDIS_QUEUE_GENERATE_COVER_LETTER_NAME=cover_letter_generation_queue
+    depends_on:
+      - mongo
+      - redis
+
+  api:
+    image: golang:1.25
+    working_dir: /workspace/src/go/cmd/api
+    volumes:
+      - ../..:/workspace:delegated
+    command: bash -lc "cd /workspace/src/go/cmd/api && /usr/local/go/bin/go mod download >/dev/null 2>&1 || true && /usr/local/go/bin/go run ."
+    environment:
+      - ADMIN_PASSWORD=testpassword
+      - JWT_SECRET=testsecret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_HOST=mongodb://mongo:27017/
+      - DB_NAME=cover_letter
+      - REDIS_QUEUE_GENERATE_COVER_LETTER_NAME=cover_letter_generation_queue
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "8080:8080"
+
+  seeder:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/seed_mongo.py"]
+    depends_on:
+      - mongo
+
+  pusher:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/push_via_api.py"]
+    depends_on:
+      - redis
+
+  checker:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/check_coverletter.py"]
+    depends_on:
+      - mongo

@@ -38,6 +38,10 @@ EOF
   fi
 fi
 
+#######
+# TESTS
+tests/e2e.sh
+
 #############
 # BUILD IMAGE
 

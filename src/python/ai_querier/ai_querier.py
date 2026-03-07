@@ -16,10 +16,12 @@ def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
     queue_name = os.environ.get("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME", "cover_letter_generation_queue")
+    test_mode = os.environ.get("AI_QUERIER_TEST_MODE", "0") == "1"
     api_token = os.environ.get("GEMINI_TOKEN")
-    if not api_token:
-        raise RuntimeError(f"Environment variable for Gemini API token is not set.")
-    genai.configure(api_key=api_token)
+    if not test_mode:
+        if not api_token:
+            raise RuntimeError(f"Environment variable for Gemini API token is not set.")
+        genai.configure(api_key=api_token)
 
     # MongoDB setup
     mongo_uri = os.environ.get("MONGO_HOST", "mongodb://localhost:27017/")
@@ -56,9 +58,9 @@ def main():
                     print(f"Recipient '{email}' not found in database.")
                     continue
                 if not conversation_id:
-                    generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col)
+                    generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col, test_mode=test_mode)
                 else:
-                    iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col)
+                    iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col, test_mode=test_mode)
 
         except Exception as e:
             print(f"Error while processing queue: {e}")
@@ -109,7 +111,7 @@ def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, 
             }
         cover_letters_col.insert_one(cover_letter_data)
 
-def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col):
+def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col, test_mode=False):
     # The recipient no longer holds the field directly; fetch the company then the field
     company_id = recipient.get("company")
     if not company_id:
@@ -154,9 +156,23 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
         f"{identity_name} is described with {identity_description}."
         " Customize with the recipient's name and email, and the identity's name and description."
     )
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    chat = model.start_chat(history=[])
-    response = chat.send_message(prompt)
+    if test_mode:
+        class _FakeResp:
+            def __init__(self, text):
+                self.text = text
+
+        class _FakeChat:
+            def __init__(self, history):
+                self.history = history
+            def send_message(self, prompt_text):
+                return _FakeResp(f"[TEST-MODE] Generated cover letter for prompt: {prompt_text[:80]}")
+
+        chat = _FakeChat(history=[])
+        response = chat.send_message(prompt)
+    else:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        chat = model.start_chat(history=[])
+        response = chat.send_message(prompt)
     if not response or not hasattr(response, "text"):
         print("No valid response from Gemini API.")
         return
@@ -178,7 +194,7 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
     )
     print(f"Cover letter for {recipient.get('email', '')} inserted into DB with conversation_id {conversation_id}.")
 
-def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col):
+def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col, test_mode=False):
     cover_letter_doc = cover_letters_col.find_one({"conversation_id": conversation_id})
     if not cover_letter_doc:
         print(f"No cover letter found for conversation_id {conversation_id}.")
@@ -188,9 +204,23 @@ def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_
         print("No follow-up prompt provided for iteration.")
         return
     history.append({"role": "user", "parts": [{"text": followup_prompt}]})
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    chat = model.start_chat(history=history)
-    response = chat.send_message(followup_prompt)
+    if test_mode:
+        class _FakeResp:
+            def __init__(self, text):
+                self.text = text
+
+        class _FakeChat:
+            def __init__(self, history):
+                self.history = history
+            def send_message(self, prompt_text):
+                return _FakeResp(f"[TEST-MODE] Iterated cover letter for prompt: {prompt_text[:80]}")
+
+        chat = _FakeChat(history=history)
+        response = chat.send_message(followup_prompt)
+    else:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        chat = model.start_chat(history=history)
+        response = chat.send_message(followup_prompt)
     if not response or not hasattr(response, "text"):
         print("No valid response from Gemini API.")
         return
