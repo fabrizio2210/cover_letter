@@ -39,4 +39,18 @@ identity_id = db['identities'].insert_one(identity).inserted_id
 recipient = {'_id': ObjectId('0000000000000000000000aa'), 'email': 'to@example.test', 'description': 'Recipient for tests', 'name': 'Recipient', 'company': company_id}
 recipient_id = db['recipients'].insert_one(recipient).inserted_id
 
-print('SEEDED', str(recipient_id))
+
+recipient_for_refine = {'_id': ObjectId('0000000000000000000000bb'), 'email': 'to2@example.test', 'description': 'Recipient for refine tests', 'name': 'Recipient', 'company': company_id}
+recipient_for_refine_id = db['recipients'].insert_one(recipient_for_refine).inserted_id
+cover_letter_for_refine = {
+    '_id': ObjectId('0000000000000000000000cc'),
+    'recipient_id': recipient_for_refine_id,
+    'version': 1,
+    'content': 'This is a cover letter to be refined',
+    'refined_content': '',
+    'created_at': '2024-01-01T12:00:00Z',
+    'model_used': 'model-1'
+}
+db['cover-letters'].insert_one(cover_letter_for_refine)
+
+print('SEEDED', str(recipient_id), str(recipient_for_refine_id))

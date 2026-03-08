@@ -22,11 +22,20 @@ if not client:
 db = client['cover_letter']
 col = db['cover-letters']
 
-found = False
+found_generate = False
+found_refine = False
 end = time.time() + 30
 while time.time() < end:
-    res = col.find_one({})
-    if res:
+    # Check for the generated cover letter. This is a new document, so we expect two documents in the collection
+    if col.count_documents({}) == 2:
+        found_generate = True
+
+    # Check for the refined cover letter
+    res_refine = col.find_one({'refined_content': {'$ne': ''}})
+    if res_refine:
+        found_refine = True
+
+    if found_generate and found_refine:
         print('FOUND')
         sys.exit(0)
     time.sleep(0.5)
