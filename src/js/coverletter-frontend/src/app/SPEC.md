@@ -30,7 +30,7 @@ The frontend is served behind an Nginx reverse proxy that routes `/api/*` to the
 |---|---|---|
 | `/` | — | Redirects to `/login` |
 | `/login` | `LoginComponent` | None |
-| `/dashboard` | `DashboardComponent` (shell) | **None — missing, see §4** |
+| `/dashboard` | `DashboardComponent` (shell) | `authGuard` |
 | `/dashboard/recipients` | `RecipientsListComponent` | Inherited |
 | `/dashboard/companies` | `CompaniesListComponent` | Inherited |
 | `/dashboard/fields` | `FieldsListComponent` | Inherited |
@@ -124,23 +124,26 @@ Critical alignment rules:
 
 ### Current state
 - `POST /api/login` returns `{ token: string }`, which is stored in `localStorage['token']`.
-- Every data component has its own `getAuthHeaders()` that reads the token and builds the `Authorization: Bearer` header.
-- On HTTP `401`, components navigate to `/login`.
-- There is no `HttpInterceptor`, no `AuthService`, no route guard, and no logout action.
+- Auth is centralized in `app/services/auth.service.ts`.
+- `app/services/auth.interceptor.ts` automatically adds `Authorization: Bearer <token>` to non-login API requests.
+- On HTTP `401` (non-login requests), the interceptor calls `AuthService.logout()` and redirects to `/login`.
+- `/dashboard` is protected by `authGuard` (`app/auth.guard.ts`) using `AuthService.isAuthenticated()`.
+- There is no visible logout button in the UI yet, but the logout behavior exists in the auth service.
 - Login is password-only (`{ password: string }`). OTP-based login described in the project-level spec is not yet implemented.
 
-### Target pattern
-Centralise auth in `app/services/auth.service.ts`:
+### Implemented auth API (`AuthService`)
 
 ```typescript
 getToken(): string | null
+setToken(token: string): void
 getHeaders(): HttpHeaders
 logout(): void
 isAuthenticated(): boolean
 ```
 
-Add an `HttpInterceptor` to attach the auth header automatically and redirect on `401`.
-Add a `canActivate` guard on `/dashboard`.
+### Remaining auth gaps
+- OTP-based login flow is not implemented yet.
+- No dedicated logout action in dashboard navigation yet.
 
 ---
 
@@ -207,9 +210,6 @@ Response `401`:
 | PUT | `/api/companies/:id/field` | `{ "field_id": "<hex or null>" }` | `{ "message": "Field associated successfully", "modifiedCount": 1 }` |
 | DELETE | `/api/companies/:id` | — | `{ "message": "Company deleted successfully" }` |
 
-Bug:
-- The current frontend calls `PUT /api/companies/:id/name`, which does not exist in the backend. Use `PUT /api/companies/:id` with the full body instead.
-
 ### 6.4 Recipients
 
 | Method | Path | Request body | Success response |
@@ -221,11 +221,6 @@ Bug:
 | PUT | `/api/recipients/:id/company` | `{ "companyId": "<hex or null>" }` | `{ "message": "Company associated successfully", "modifiedCount": 1 }` |
 | DELETE | `/api/recipients/:id` | — | `{ "message": "Recipient deleted successfully" }` |
 | POST | `/api/recipients/:id/generate-cover-letter` | — | `{ "message": "Generation queued successfully" }` |
-
-Bugs:
-- The current frontend calls `PUT /api/recipients/:id/email`, which does not exist in the backend.
-- The current frontend deletes recipients using `_id`; it must use `id`.
-- Recipient creation should send `company_id` only in the `POST` body and not follow up with a redundant association call.
 
 ### 6.5 Identities
 
@@ -292,17 +287,20 @@ Conventions:
 
 ---
 
-## 9. Known Bugs and Misalignments
+## 9. Alignment Status
 
-| # | Area | Problem | Required behavior |
-|---|---|---|---|
-| 1 | Companies | Frontend uses `PUT /api/companies/:id/name` | Use `PUT /api/companies/:id` |
-| 2 | Recipients | Frontend uses `PUT /api/recipients/:id/email` | Remove email editing or add backend support first |
-| 3 | Recipients | Frontend deletes with `_id` | Use `id` |
-| 4 | Relations | `company_info` and `field_info` are sometimes typed as arrays | Treat them as objects |
-| 5 | Recipients create | Frontend may send both `company_id` and `companyId` and then a second PUT | Send only `company_id` in POST |
-| 6 | Auth | Header creation is duplicated in many components | Centralize in `AuthService` / interceptor |
-| 7 | Feedback | `RecipientsListComponent` has dead local feedback state | Use `FeedbackService` only |
+Resolved in current frontend code:
+- Companies update now uses `PUT /api/companies/:id` (full payload), not `/name`.
+- Recipients no longer call `PUT /api/recipients/:id/email`.
+- Recipients delete uses `recipient.id`.
+- `company_info` and `field_info` are modeled as objects in shared interfaces.
+- Recipient creation sends `company_id` in `POST /api/recipients` and does not do a redundant association call.
+- Auth headers and `401` handling are centralized via `AuthService` + interceptor.
+- `/dashboard` is protected by `authGuard`.
+- Feedback handling is centralized through `FeedbackService` and rendered by `DashboardComponent`.
+
+Remaining caveat:
+- In `CompaniesListComponent`, a name-only update is intentionally blocked in the UI when no field is associated yet, because the backend update endpoint currently expects a full payload that includes field context.
 
 ---
 
@@ -311,12 +309,10 @@ Conventions:
 These features are described in the project-level spec but are not implemented yet:
 
 - OTP-based login flow.
-- Route guards for protected routes.
-- Shared `AuthService` and `HttpInterceptor`.
-- Shared model definitions file.
 - Real-time notifications for cover letter lifecycle events.
 - Crawler task UI.
 - Settings UI.
+- Dedicated logout action in the dashboard UI.
 - Skeleton loaders.
 - Split-pane cover letter editor with live preview.
 - Sorting and filtering across entity tables.
