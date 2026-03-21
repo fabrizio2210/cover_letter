@@ -1,7 +1,7 @@
 <section class="recipients">
   <h3>Recipients</h3>
   <p class="is-size-6">Recipients are the people you want to send cover letters to. They should be associated with a company.</p>
-  <div *ngIf="(recipients?.length || 0) > 0; else noRecipients" class="table-container">
+  <div *ngIf="recipients.length > 0; else noRecipients" class="table-container">
     <table class="recipients-table app-table is-fullwidth is-striped is-hoverable">
     <thead>
       <tr>
@@ -24,13 +24,8 @@
           <span *ngIf="editIndex !== i">{{ recipient.name || 'N/A' }}</span>
         </td>
         <td>
-          <input
-            *ngIf="editIndex === i"
-            class="input"
-            [(ngModel)]="editRecipient.email"
-            required
-          />
           <span *ngIf="editIndex !== i">{{ recipient.email }}</span>
+          <span *ngIf="editIndex === i">{{ recipient.email }}</span>
         </td>
         <td>
           <ng-container *ngIf="editIndex === i; else companyDisplay">
@@ -42,7 +37,7 @@
             </div>
           </ng-container>
           <ng-template #companyDisplay>
-            {{ (recipient.company_info && recipient.company_info?.name) || 'N/A' }}
+            {{ recipient.company_info?.name || 'N/A' }}
           </ng-template>
         </td>
         <td>
@@ -98,9 +93,4 @@
     </div>
   </ng-template>
 
-  <div class="toast-container" *ngIf="feedbackMessage">
-    <div class="message" [ngClass]="isError ? 'is-danger' : 'is-success'">
-      <div class="message-body">{{ feedbackMessage }}</div>
-    </div>
-  </div>
 </section>

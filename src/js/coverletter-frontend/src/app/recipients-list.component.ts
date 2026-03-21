@@ -1,19 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { FeedbackService } from './services/feedback.service';
 import { forkJoin } from 'rxjs';
-
-export interface Recipient {
-  id: string;
-  email: string;
-  name?: string;
-  description?: string;
-  company_id?: string;
-  company_info?: { id: string; name: string; }[] | any;
-}
+import { Company, Recipient } from './models/models';
 
 @Component({
   selector: 'app-recipients-list',
@@ -24,19 +15,16 @@ export interface Recipient {
 })
 export class RecipientsListComponent implements OnInit {
   private http = inject(HttpClient);
-  private router = inject(Router);
   private feedbackService = inject(FeedbackService);
 
   recipients: Recipient[] = [];
-  feedbackMessage = '';
-  isError = false;
 
   editIndex: number | null = null;
   editRecipient: Partial<Recipient> = {};
 
   newRecipient: Partial<Recipient> = { name: '', email: '', description: '' };
 
-  companies: { id: string; name: string; fieldId?: string }[] = [];
+  companies: Company[] = [];
   generatingId: string | null = null;
 
   ngOnInit(): void {
@@ -44,20 +32,8 @@ export class RecipientsListComponent implements OnInit {
     this.getCompanies();
   }
 
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.router.navigate(['/login']);
-      return new HttpHeaders();
-    }
-    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
-  }
-
   getRecipients(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-
-    this.http.get<Recipient[]>('/api/recipients', { headers }).subscribe({
+    this.http.get<Recipient[]>('/api/recipients').subscribe({
       next: (data) => { this.recipients = data; },
       error: (err) => { this.showFeedback('Failed to fetch recipients.', true, err); }
     });
@@ -66,7 +42,7 @@ export class RecipientsListComponent implements OnInit {
   startEditRecipient(index: number): void {
     this.editIndex = index;
     const recipient = this.recipients[index];
-    this.editRecipient = { ...recipient } as any; // Use `any` to allow adding companyName
+    this.editRecipient = { ...recipient };
     this.editRecipient.company_id = recipient.company_info?.id || '';
     this.clearFeedback();
   }
@@ -78,23 +54,19 @@ export class RecipientsListComponent implements OnInit {
 
   saveEditRecipient(index: number): void {
     const recipient = this.recipients[index];
-    const headers = this.getAuthHeaders();
     const { id } = recipient;
     const observables: any[] = [];
 
     if (this.editRecipient.name !== recipient.name) {
-      observables.push(this.http.put(`/api/recipients/${id}/name`, { name: this.editRecipient.name }, { headers }));
-    }
-    if (this.editRecipient.email !== recipient.email) {
-      observables.push(this.http.put(`/api/recipients/${id}/email`, { email: this.editRecipient.email }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/name`, { name: this.editRecipient.name }));
     }
     if (this.editRecipient.description !== recipient.description) {
-      observables.push(this.http.put(`/api/recipients/${id}/description`, { description: this.editRecipient.description }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/description`, { description: this.editRecipient.description }));
     }
 
     const origCompanyId = recipient.company_info?.id || '';
     if (this.editRecipient.company_id !== origCompanyId) {
-      observables.push(this.http.put(`/api/recipients/${id}/company`, { companyId: this.editRecipient.company_id || null }, { headers }));
+      observables.push(this.http.put(`/api/recipients/${id}/company`, { companyId: this.editRecipient.company_id || null }));
     }
 
     if (observables.length === 0) {
@@ -114,81 +86,52 @@ export class RecipientsListComponent implements OnInit {
   }
 
   saveNewRecipient(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-
-    const createAndAssociate = (companyId?: string) => {
-      const payload: any = { ...this.newRecipient };
-      if (companyId) payload.companyId = companyId;
-      this.http.post<Recipient>('/api/recipients', payload, { headers }).subscribe({
-        next: (createdRecipient: any) => {
-          const createdId = createdRecipient?._id || createdRecipient?.InsertedID || createdRecipient?.InsertedId;
-          if (companyId && createdId) {
-            this.associateCompanyWithRecipient(createdId, companyId).subscribe({
-              next: () => {
-                this.showFeedback('Recipient added and company associated successfully.');
-                this.getRecipients();
-                this.resetNewRecipient();
-              },
-              error: (err) => this.showFeedback('Recipient added but failed to associate company.', true, err)
-            });
-          } else {
-            this.showFeedback('Recipient added successfully.');
-            this.getRecipients();
-            this.resetNewRecipient();
-          }
-        },
-        error: (err) => this.showFeedback('Failed to add recipient.', true, err)
-      });
+    const payload: Partial<Recipient> = {
+      name: this.newRecipient.name?.trim(),
+      email: this.newRecipient.email?.trim(),
+      description: this.newRecipient.description?.trim() || '',
+      company_id: this.newRecipient.company_id || undefined
     };
 
-
-  createAndAssociate(this.newRecipient.company_id as string | undefined);
+    this.http.post<Recipient>('/api/recipients', payload).subscribe({
+      next: () => {
+        this.showFeedback('Recipient added successfully.');
+        this.getRecipients();
+        this.resetNewRecipient();
+      },
+      error: (err) => this.showFeedback('Failed to add recipient.', true, err)
+    });
   }
 
 
   getCompanies(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<{ id: string; name: string; fieldId?: string }[]>('/api/companies', { headers }).subscribe({
+    this.http.get<Company[]>('/api/companies').subscribe({
       next: (data) => { this.companies = data || [];},
       error: (err) => this.showFeedback('Failed to fetch companies.', true, err)
     });
   }
 
-  associateCompanyWithRecipient(recipientId: string, companyId: string) {
-    const headers = this.getAuthHeaders();
-    return this.http.put(`/api/recipients/${recipientId}/company`, { companyId }, { headers });
-  }
-
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
     console.error(error || message);
-    if (error?.status === 401) {
-      this.router.navigate(['/login']);
-    }
     this.feedbackService.showFeedback(message, isError);
   }
 
   private clearFeedback(): void {
-    this.feedbackMessage = '';
-    this.isError = false;
+    this.feedbackService.clearFeedback();
   }
 
   private resetNewRecipient(): void {
     this.newRecipient = { name: '', email: '', description: '' };
   }
 
-  confirmDelete(recipient: any) {
+  confirmDelete(recipient: Recipient) {
     if (window.confirm(`Are you sure you want to delete recipient "${recipient.name}"?`)) {
       this.deleteRecipient(recipient);
     }
   }
 
-  deleteRecipient(recipient: any): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    const id = recipient._id;
-    this.http.delete(`/api/recipients/${id}`, { headers }).subscribe({
+  deleteRecipient(recipient: Recipient): void {
+    this.http.delete(`/api/recipients/${recipient.id}`).subscribe({
       next: () => {
         this.showFeedback('Recipient deleted successfully.');
         this.getRecipients();
@@ -198,11 +141,9 @@ export class RecipientsListComponent implements OnInit {
   }
 
   generate(recipient: Recipient): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
     const id = recipient.id;
     this.generatingId = id;
-    this.http.post(`/api/recipients/${id}/generate-cover-letter`, {}, { headers }).subscribe({
+    this.http.post(`/api/recipients/${id}/generate-cover-letter`, {}).subscribe({
       next: () => {
         this.showFeedback('Generation queued successfully.');
         this.generatingId = null;

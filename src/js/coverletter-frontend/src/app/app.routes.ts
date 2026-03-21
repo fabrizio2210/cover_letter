@@ -7,6 +7,7 @@ import { CoverLettersListComponent } from './coverletters-list.component';
 import { CoverLettersDetailComponent } from './coverletters-detail.component';
 import { CompaniesListComponent } from './companies-list.component';
 import { RecipientsListComponent } from './recipients-list.component';
+import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
     { path: 'login', component: LoginComponent },
@@ -15,6 +16,7 @@ export const routes: Routes = [
     {
         path: 'dashboard',
         component: DashboardComponent,
+        canActivate: [authGuard],
         children: [
             { path: '', redirectTo: 'recipients', pathMatch: 'full' },
             { path: 'recipients', component: RecipientsListComponent },

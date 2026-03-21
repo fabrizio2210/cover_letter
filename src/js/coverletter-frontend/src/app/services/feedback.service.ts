@@ -1,10 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-
-export interface FeedbackMessage {
-  message: string;
-  isError: boolean;
-}
+import { FeedbackMessage } from '../models/models';
 
 @Injectable({
   providedIn: 'root'

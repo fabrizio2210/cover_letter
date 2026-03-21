@@ -1,17 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
-import { RouterModule, Router } from '@angular/router';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FeedbackService } from './services/feedback.service';
-
-export interface Company {
-  id: string;
-  name: string;
-  fieldId?: string | any;
-  field_info?: { id: string; field: string } | any;
-}
+import { Company, Field } from './models/models';
 
 @Component({
   selector: 'app-companies-list',
@@ -22,11 +16,10 @@ export interface Company {
 })
 export class CompaniesListComponent implements OnInit {
   private http = inject(HttpClient);
-  private router = inject(Router);
   private feedbackService = inject(FeedbackService);
 
   companies: Company[] = [];
-  fields: { id: string; field: string }[] = [];
+  fields: Field[] = [];
 
   editIndex: number | null = null;
   editName = '';
@@ -35,36 +28,20 @@ export class CompaniesListComponent implements OnInit {
   newName = '';
   newFieldId = '';
 
-  feedbackMessage = '';
-  isError = false;
-
   ngOnInit(): void {
     this.getCompanies();
     this.getFields();
   }
 
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.router.navigate(['/login']);
-      return new HttpHeaders();
-    }
-    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
-  }
-
   getCompanies(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<Company[]>('/api/companies', { headers }).subscribe({
+    this.http.get<Company[]>('/api/companies').subscribe({
       next: (data) => { this.companies = data || []; },
       error: (err) => this.showFeedback('Failed to fetch companies.', true, err)
     });
   }
 
   getFields(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<{ id: string; field: string }[]>('/api/fields', { headers }).subscribe({
+    this.http.get<Field[]>('/api/fields').subscribe({
       next: (data) => { this.fields = data || []; },
       error: (err) => this.showFeedback('Failed to fetch fields.', true, err)
     });
@@ -73,8 +50,8 @@ export class CompaniesListComponent implements OnInit {
   startEdit(i: number): void {
     this.editIndex = i;
     const c = this.companies[i];
-    this.editName = c.name; 
-    this.editFieldId = (c.fieldId || (c.field_info && (c.field_info.id || c.field_info[0]?.id)) || '') as string;
+    this.editName = c.name;
+    this.editFieldId = c.field_info?.id || c.field_id || '';
     this.clearFeedback();
   }
 
@@ -86,24 +63,47 @@ export class CompaniesListComponent implements OnInit {
 
   saveEdit(i: number): void {
     const c = this.companies[i];
-    const headers = this.getAuthHeaders();
-    const observables: any[] = [];
+    const nextName = this.editName.trim();
+    const currentName = (c.name || '').trim();
+    const currentFieldId = c.field_info?.id || c.field_id || '';
+    const nextFieldId = this.editFieldId || '';
+    const nameChanged = nextName !== currentName;
+    const fieldChanged = nextFieldId !== currentFieldId;
 
-    if (this.editName !== c.name) {
-      observables.push(this.http.put(`/api/companies/${c.id}/name`, { name: this.editName }, { headers }));
-    }
-    const origField = c.fieldId || c.field_info?.id || '';
-    if ((this.editFieldId || '') !== (origField || '')) { 
-      observables.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: this.editFieldId || null }, { headers }));
-    }
-
-    if (observables.length === 0) {
+    if (!nameChanged && !fieldChanged) {
       this.showFeedback('No changes detected.');
       this.cancelEdit();
       return;
     }
 
-    forkJoin(observables).subscribe({
+    if (!nextName) {
+      this.showFeedback('Company name cannot be empty.', true);
+      return;
+    }
+
+    const requests = [];
+
+    if (nameChanged) {
+      const fieldIdForUpdate = nextFieldId || currentFieldId;
+      if (!fieldIdForUpdate) {
+        this.showFeedback('Cannot rename a company without a field association until the backend supports name-only updates.', true);
+        return;
+      }
+
+      requests.push(
+        this.http.put(`/api/companies/${c.id}`, {
+          name: nextName,
+          description: c.description || '',
+          field_id: fieldIdForUpdate
+        })
+      );
+    }
+
+    if (fieldChanged && (!nameChanged || !nextFieldId)) {
+      requests.push(this.http.put(`/api/companies/${c.id}/field`, { field_id: nextFieldId || null }));
+    }
+
+    forkJoin(requests).subscribe({
       next: () => {
         this.showFeedback('Company updated successfully.');
         this.getCompanies();
@@ -114,13 +114,17 @@ export class CompaniesListComponent implements OnInit {
   }
 
   createOrUpdateFromLastRow(): void {
-    const headers = this.getAuthHeaders();
     if (!this.newName || !this.newName.trim()) {
       this.showFeedback('Company name cannot be empty.', true);
       return;
     }
-  const payload = { name: this.newName.trim(), field_id: this.newFieldId || undefined }; 
-  this.http.post<Company>('/api/companies', payload, { headers }).subscribe({
+    const payload = {
+      name: this.newName.trim(),
+      description: '',
+      field_id: this.newFieldId || ''
+    };
+
+    this.http.post<Company>('/api/companies', payload).subscribe({
       next: (created) => {
         this.companies = [...this.companies, created];
         this.showFeedback('Company created successfully.');
@@ -138,9 +142,7 @@ export class CompaniesListComponent implements OnInit {
   }
 
   deleteCompany(c: Company): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/companies/${c.id}`, { headers }).subscribe({
+    this.http.delete(`/api/companies/${c.id}`).subscribe({
       next: () => {
         this.showFeedback('Company deleted successfully.');
         this.getCompanies();
@@ -151,9 +153,6 @@ export class CompaniesListComponent implements OnInit {
 
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
     console.error(error || message);
-    if (error?.status === 401) {
-      this.router.navigate(['/login']);
-    }
     this.feedbackService.showFeedback(message, isError);
   }
 

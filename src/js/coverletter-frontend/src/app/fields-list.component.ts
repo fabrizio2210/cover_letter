@@ -1,14 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule, Router } from '@angular/router';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { FeedbackService } from './services/feedback.service';
-
-export interface Field {
-  id: string;
-  field: string;
-}
+import { Field } from './models/models';
 
 @Component({
   selector: 'app-fields-list',
@@ -59,7 +55,6 @@ export interface Field {
 })
 export class FieldsListComponent implements OnInit {
   private http = inject(HttpClient);
-  private router = inject(Router);
   private feedbackService = inject(FeedbackService);
 
   fields: Field[] = [];
@@ -73,19 +68,8 @@ export class FieldsListComponent implements OnInit {
     this.getFields();
   }
 
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.router.navigate(['/login']);
-      return new HttpHeaders();
-    }
-    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
-  }
-
   getFields(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<Field[]>('/api/fields', { headers }).subscribe({
+    this.http.get<Field[]>('/api/fields').subscribe({
       next: (data) => { this.fields = data || []; },
       error: (err) => this.showFeedback('Failed to fetch fields.', true, err)
     });
@@ -104,8 +88,6 @@ export class FieldsListComponent implements OnInit {
 
   saveEdit(i: number): void {
     const f = this.fields[i];
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
 
     if (!this.editField || !this.editField.trim()) {
       this.showFeedback('Field name cannot be empty.', true);
@@ -118,7 +100,7 @@ export class FieldsListComponent implements OnInit {
       return;
     }
 
-    this.http.put(`/api/fields/${f.id}`, { field: this.editField.trim() }, { headers }).subscribe({
+    this.http.put(`/api/fields/${f.id}`, { field: this.editField.trim() }).subscribe({
       next: () => {
         this.showFeedback('Field updated successfully.');
         this.getFields();
@@ -129,14 +111,12 @@ export class FieldsListComponent implements OnInit {
   }
 
   createField(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
     if (!this.newField || !this.newField.trim()) {
       this.showFeedback('Field name cannot be empty.', true);
       return;
     }
     const payload = { field: this.newField.trim() };
-    this.http.post<Field>('/api/fields', payload, { headers }).subscribe({
+    this.http.post<Field>('/api/fields', payload).subscribe({
       next: () => {
         this.showFeedback('Field created successfully.');
         this.newField = '';
@@ -153,9 +133,7 @@ export class FieldsListComponent implements OnInit {
   }
 
   deleteField(f: Field): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/fields/${f.id}`, { headers }).subscribe({
+    this.http.delete(`/api/fields/${f.id}`).subscribe({
       next: () => {
         this.showFeedback('Field deleted successfully.');
         this.getFields();
@@ -166,9 +144,6 @@ export class FieldsListComponent implements OnInit {
 
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
     console.error(error || message);
-    if (error?.status === 401) {
-      this.router.navigate(['/login']);
-    }
     this.feedbackService.showFeedback(message, isError);
   }
 

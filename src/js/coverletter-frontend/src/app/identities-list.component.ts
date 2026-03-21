@@ -1,24 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule, Router } from '@angular/router';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
 import { FeedbackService } from './services/feedback.service';
-
-export interface Field {
-  id: string;
-  field: string;
-}
-
-export interface Identity {
-  id: string;
-  identity: string;
-  name?: string;
-  description?: string;
-  field_info?: Field;
-  html_signature?: string;
-}
+import { Field, Identity } from './models/models';
 
 @Component({
   selector: 'app-identities-list',
@@ -110,7 +97,6 @@ export interface Identity {
 })
 export class IdentitiesListComponent implements OnInit {
   private http = inject(HttpClient);
-  private router = inject(Router);
   private feedbackService = inject(FeedbackService);
 
   identities: Identity[] = [];
@@ -129,28 +115,15 @@ export class IdentitiesListComponent implements OnInit {
     this.getIdentities();
   }
 
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.router.navigate(['/login']);
-      return new HttpHeaders();
-    }
-    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
-  }
-
   getFields(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<Field[]>('/api/fields', { headers }).subscribe({
+    this.http.get<Field[]>('/api/fields').subscribe({
       next: (data) => { this.fields = data || []; },
       error: (err) => this.showFeedback('Failed to fetch fields.', true, err)
     });
   }
 
   getIdentities(): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.get<Identity[]>('/api/identities', { headers }).subscribe({
+    this.http.get<Identity[]>('/api/identities').subscribe({
       next: (data) => { this.identities = data || []; this.templateOpen = {}; },
       error: (err) => this.showFeedback('Failed to fetch identities.', true, err)
     });
@@ -161,10 +134,8 @@ export class IdentitiesListComponent implements OnInit {
       this.showFeedback('Identity id cannot be empty.', true);
       return;
     }
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
     const payload = { identity: this.newIdentity.trim() };
-    this.http.post('/api/identities', payload, { headers }).subscribe({
+    this.http.post('/api/identities', payload).subscribe({
       next: () => {
         this.showFeedback('Identity created.');
         this.newIdentity = '';
@@ -191,18 +162,15 @@ export class IdentitiesListComponent implements OnInit {
   }
 
   saveEdit(identity: Identity): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-
     const ops: any[] = [];
     if (this.editName.trim() !== (identity.name || '').trim()) {
-      ops.push(this.http.put(`/api/identities/${identity.id}/name`, { name: this.editName.trim() }, { headers }));
+      ops.push(this.http.put(`/api/identities/${identity.id}/name`, { name: this.editName.trim() }));
     }
     if (this.editDescription.trim() !== (identity.description || '').trim()) {
-      ops.push(this.http.put(`/api/identities/${identity.id}/description`, { description: this.editDescription.trim() }, { headers }));
+      ops.push(this.http.put(`/api/identities/${identity.id}/description`, { description: this.editDescription.trim() }));
     }
     if (this.selectedFieldId && (identity.field_info?.id !== this.selectedFieldId)) {
-      ops.push(this.http.put(`/api/identities/${identity.id}/field`, { fieldId: this.selectedFieldId }, { headers }));
+      ops.push(this.http.put(`/api/identities/${identity.id}/field`, { fieldId: this.selectedFieldId }));
     }
 
     if (ops.length === 0) {
@@ -227,9 +195,7 @@ export class IdentitiesListComponent implements OnInit {
   }
 
   deleteIdentity(id: Identity): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.delete(`/api/identities/${id.id}`, { headers }).subscribe({
+    this.http.delete(`/api/identities/${id.id}`).subscribe({
       next: () => { this.showFeedback('Identity deleted.'); this.getIdentities(); },
       error: (err) => this.showFeedback('Failed to delete identity.', true, err)
     });
@@ -240,9 +206,7 @@ export class IdentitiesListComponent implements OnInit {
   }
 
   saveSignature(identity: Identity): void {
-    const headers = this.getAuthHeaders();
-    if (!headers.has('Authorization')) return;
-    this.http.put(`/api/identities/${identity.id}/signature`, { html_signature: identity.html_signature || '' }, { headers }).subscribe({
+    this.http.put(`/api/identities/${identity.id}/signature`, { html_signature: identity.html_signature || '' }).subscribe({
       next: () => { this.showFeedback('Signature saved.'); this.getIdentities(); },
       error: (err) => this.showFeedback('Failed to save signature.', true, err)
     });
@@ -251,9 +215,6 @@ export class IdentitiesListComponent implements OnInit {
 
   private showFeedback(message: string, isError = false, error?: HttpErrorResponse): void {
     console.error(error || message);
-    if (error?.status === 401) {
-      this.router.navigate(['/login']);
-    }
     this.feedbackService.showFeedback(message, isError);
   }
 
