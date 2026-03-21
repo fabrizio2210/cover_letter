@@ -80,6 +80,7 @@ The user interface is a modern, responsive dashboard designed for efficiency and
   - **AI Integration**: Below the editor, a dedicated "Prompt Bar" allows the user to instruct Gemini to refine or rewrite sections of the letter.
 - **Crawler Tasks** panel: it will list the recent tasks performed by the crawler. And the settings, like `location` to use for the crawling. 
 - **Feedback & Async Operations**: Since scraping and generation are asynchronous, the UI uses **toast notifications** (snackbars) to alert users when background tasks complete. **Skeleton loaders** are used during data fetching to improve perceived performance.
+**Real-time Notifications** The frontend will receive real-time backend events (for example cover_letter.created, cover_letter.updated, cover_letter.sent) so users are immediately notified and the UI updates automatically: each event payload should include event, cover_letter_id, recipient_id, status, summary, timestamp and optionally a small delta; delivery is best-effort over an authenticated channel (prefer WebSockets with JWT/signed token auth and Redis Pub/Sub for multi-instance broadcast, with SSE as a simpler fallback), and notifications must be persisted server-side (a notifications collection) so clients can reconcile missed events on reconnect; UI behavior: show a toast/snackbar, update list entries, and if a cover-letter detail is open either auto-refresh the editor content while preserving unsaved edits (offer merge/reload prompt) or prompt the user to reload.
 
 ### Settings
 
