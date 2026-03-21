@@ -44,12 +44,15 @@ recipient_for_refine = {'_id': ObjectId('0000000000000000000000bb'), 'email': 't
 recipient_for_refine_id = db['recipients'].insert_one(recipient_for_refine).inserted_id
 cover_letter_for_refine = {
     '_id': ObjectId('0000000000000000000000cc'),
-    'recipient_id': recipient_for_refine_id,
-    'version': 1,
-    'content': 'This is a cover letter to be refined',
-    'refined_content': '',
-    'created_at': '2024-01-01T12:00:00Z',
-    'model_used': 'model-1'
+    'recipient_id': str(recipient_for_refine_id),
+    'cover_letter': 'This is a cover letter to be refined',
+    'conversation_id': 'test-conversation-id',
+    'prompt': 'Initial prompt',
+    'history': [
+        {'role': 'user', 'parts': [{'text': 'Initial prompt'}]},
+        {'role': 'model', 'parts': [{'text': 'This is a cover letter to be refined'}]}
+    ],
+    'created_at': {'seconds': 1704067200, 'nanos': 0},
 }
 db['cover-letters'].insert_one(cover_letter_for_refine)
 

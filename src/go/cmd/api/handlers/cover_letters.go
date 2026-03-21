@@ -239,11 +239,13 @@ func RefineCoverLetter(c *gin.Context) {
 	// Determine recipient email from recipient_id (stored as string)
 	var recipientEmail string
 	if ridStr, ok := doc["recipient_id"].(string); ok {
-		recCol := client.Database(dbName).Collection("recipients")
-		var recipient bson.M
-		if err := recCol.FindOne(context.Background(), bson.M{"_id": ridStr}).Decode(&recipient); err == nil {
-			if em, ok := recipient["email"].(string); ok {
-				recipientEmail = em
+		if oid, err := primitive.ObjectIDFromHex(ridStr); err == nil {
+			recCol := client.Database(dbName).Collection("recipients")
+			var recipient bson.M
+			if err := recCol.FindOne(context.Background(), bson.M{"_id": oid}).Decode(&recipient); err == nil {
+				if em, ok := recipient["email"].(string); ok {
+					recipientEmail = em
+				}
 			}
 		}
 	}
@@ -302,11 +304,13 @@ func SendCoverLetter(c *gin.Context) {
 	// Determine recipient email from recipient_id (stored as string)
 	var recipientEmail string
 	if ridStr, ok := doc["recipient_id"].(string); ok {
-		recCol := client.Database(dbName).Collection("recipients")
-		var recipient bson.M
-		if err := recCol.FindOne(context.Background(), bson.M{"_id": ridStr}).Decode(&recipient); err == nil {
-			if em, ok := recipient["email"].(string); ok {
-				recipientEmail = em
+		if oid, err := primitive.ObjectIDFromHex(ridStr); err == nil {
+			recCol := client.Database(dbName).Collection("recipients")
+			var recipient bson.M
+			if err := recCol.FindOne(context.Background(), bson.M{"_id": oid}).Decode(&recipient); err == nil {
+				if em, ok := recipient["email"].(string); ok {
+					recipientEmail = em
+				}
 			}
 		}
 	}

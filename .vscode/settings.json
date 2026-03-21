@@ -1,0 +1,9 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "docker compose": true,
+        "/^bash tests/e2e\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

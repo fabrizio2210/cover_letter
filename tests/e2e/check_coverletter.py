@@ -30,8 +30,8 @@ while time.time() < end:
     if col.count_documents({}) == 2:
         found_generate = True
 
-    # Check for the refined cover letter
-    res_refine = col.find_one({'refined_content': {'$ne': ''}})
+    # Check for the refined cover letter (ai_querier sets updated_at on iteration)
+    res_refine = col.find_one({'updated_at': {'$exists': True}})
     if res_refine:
         found_refine = True
 

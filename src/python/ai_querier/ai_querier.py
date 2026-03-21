@@ -115,7 +115,7 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
     # The recipient no longer holds the field directly; fetch the company then the field
     company_id = recipient.get("company")
     if not company_id:
-        print(f"Error: No company associated with recipient '{recipient.get('email', '')}'.")
+        print(f"error: No company associated with recipient '{recipient.get('email', '')}'.")
         return
     # Resolve company document (company_id may be a string or ObjectId)
     if isinstance(company_id, ObjectId):
