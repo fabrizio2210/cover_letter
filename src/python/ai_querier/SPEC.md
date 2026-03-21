@@ -170,7 +170,7 @@ Validation rules:
 - Invalid JSON messages are rejected and logged.
 - Messages without `job_id` are rejected and logged.
 - Messages whose `job_id` does not resolve to a job description are rejected and logged.
-- Messages that resolve to an identity without enabled preferences may be skipped or marked as unscored according to the application contract.
+- Messages that cannot resolve scoring prerequisites (for example company/field/identity linkage or enabled preferences) must result in `job-descriptions.scoring_status = skipped` and no score writes.
 
 ---
 
@@ -215,6 +215,8 @@ Expected BSON keys used by the worker:
 The worker must tolerate legacy or mixed MongoDB data where relation fields are stored either as:
 - `ObjectId`; or
 - stringified ObjectID values.
+
+For cross-service consistency, new upstream writes are expected to use `ObjectId` for relation fields. Mixed-type tolerance remains a read-compatibility requirement.
 
 This applies at minimum to:
 - `recipients.company`;
@@ -385,7 +387,13 @@ The worker must treat the AI output as per-preference evidence only. Weighted ag
 6. For each enabled preference, ask Gemini for a score from 1 to 5 and a short rationale.
 7. Persist one `job-preference-scores` document per preference, keyed by job, identity, and preference key.
 8. Compute the weighted aggregate deterministically from the stored scores and weights.
-9. Update the `job-descriptions` document with aggregate ranking fields and `scoring_status`.
+9. Update the `job-descriptions` document with aggregate ranking fields, `scoring_status`, and `updated_at`.
+
+Scoring lifecycle expectations:
+- Allowed values: `unscored`, `queued`, `scored`, `failed`, `skipped`.
+- Worker sets `scoring_status = scored` only after successful per-preference persistence and aggregate update.
+- Worker sets `scoring_status = skipped` when scoring prerequisites are missing.
+- Worker may set `scoring_status = failed` on processing errors where the job was dequeued but scoring could not complete.
 
 ---
 

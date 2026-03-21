@@ -26,6 +26,8 @@ The stack consists of:
 
 The primary acquisition flow is now job discovery rather than recipient-email discovery. An async crawler will query common hiring platforms such as Ashby, Greenhouse, Lever, and 4dayweek.io, which typically expose structured job APIs. The crawler normalizes jobs into a shared internal shape and persists all discovered job descriptions first, together with source metadata and company linkage.
 
+Each crawl execution is scoped by an explicit `identity_id` and role query terms. Runs without `identity_id` are invalid.
+
 If a scraped job references a company not yet present in the database, the system should create the company automatically and link the job description to it. This keeps the discovery pipeline autonomous while preserving the company-centric data model already used by the application.
 
 The crawler may still coexist with manual data entry for companies and recipients, but job-description discovery becomes the primary way to identify application opportunities.
@@ -35,6 +37,10 @@ The crawler may still coexist with manual data entry for companies and recipient
 After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns a score from 1 to 5 plus a short rationale, while the overall score is computed deterministically by the application using the stored weights.
 
 The preferred architecture is to store all job descriptions first and score them afterward. This separates scraping from AI latency, preserves raw data for later re-scoring, and allows the user to change preferences without having to crawl the sources again.
+
+If a job cannot resolve required scoring prerequisites (for example company-field-identity linkage), scoring is skipped for that job rather than failing the full crawl.
+
+Re-crawled jobs are always re-enqueued for scoring when scoring enqueue is enabled.
 
 The `ai_querier` service is reused for this scoring flow. It remains the Gemini-facing worker for both cover-letter generation/refinement and job-preference scoring.
 

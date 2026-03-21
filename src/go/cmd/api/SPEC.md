@@ -127,10 +127,14 @@ The `preferences` field on `Identity` is therefore a JSON array and BSON array o
 | `source_url` | `source_url` | `string` | Canonical URL for the job |
 | `created_at` | `created_at` | Timestamp object | See §3.7 |
 | `updated_at` | `updated_at` | Timestamp object | See §3.7 |
-| `scoring_status` | `scoring_status` | `string` | e.g. `unscored`, `queued`, `scored`, `failed` |
+| `scoring_status` | `scoring_status` | `string` | one of `unscored`, `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | `weighted_score` | `number` | Deterministic aggregate score persisted for sorting |
 | `max_score` | `max_score` | `integer` | Highest single preference score, optional ranking aid |
 | `scores` | `scores` | `[]JobPreferenceScore` | Aggregated read model; omitted on insert |
+
+Storage note:
+- API JSON uses string ids (`company_id`), but new MongoDB writes for relation fields should use `ObjectId` values.
+- Read paths must remain tolerant of legacy string reference storage where present.
 
 ### 3.4.2 JobPreferenceScore
 
@@ -253,6 +257,11 @@ Rules enforced by the consumer:
 - Missing `job_id` → message is dropped with an error log.
 - The worker resolves the job description, company, field, identity, and identity preferences from MongoDB.
 - AI returns only per-preference score and rationale; the weighted aggregate is computed deterministically by application logic and persisted back onto the job description.
+
+Producer-side lifecycle expectations:
+- Post-crawl producers enqueue on both insert and update when scoring enqueue is enabled.
+- Re-crawl updates should always produce a new `job_id` queue message for rescoring.
+- Jobs that cannot resolve scoring prerequisites may be marked `skipped` and not enqueued.
 
 ### 5.3 `emails_to_send`
 

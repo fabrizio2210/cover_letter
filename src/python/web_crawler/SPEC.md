@@ -11,12 +11,12 @@ It exists to prevent contract drift between crawl adapters, MongoDB job document
 
 ## 1. Purpose and Scope
 
-The `web_crawler` service discovers job opportunities from ATS providers and a job aggregator, normalizes them to the shared internal job shape, and persists them into MongoDB.
+The `web_crawler` service discovers company targets and job opportunities from aggregators, curated communities, and ATS providers, normalizes postings to the shared internal job shape, and persists them into MongoDB.
 
 This document covers:
 - runtime behavior of the crawler service;
 - environment variables required by the crawler;
-- discovery contracts for ATS slugs and aggregator job URLs;
+- discovery contracts for role-first company discovery, ATS validation, and slug resolution;
 - extraction contracts per source platform;
 - normalization and deduplication rules;
 - MongoDB persistence shape and default lifecycle values;
@@ -40,19 +40,20 @@ This document does **not** define:
 | Execution style | On-demand run or scheduled batch run |
 | Data store | MongoDB |
 | Queue integration | Optional Redis producer for job scoring |
-| Source types | ATS APIs (Greenhouse, Lever, Ashby) and aggregator HTML pages (4dayweek.io) |
+| Source types | ATS APIs (Greenhouse, Lever, Ashby), aggregator sources (LinkedIn, Indeed, SimplyHired), curated startup communities (Y Combinator, Wellfound), and aggregator HTML pages (4dayweek.io) |
 
 The crawler runs as a bounded batch process and may process one or multiple source configurations per run.
 
 High-level flow:
-1. Load crawler configuration and enabled sources.
-2. Discover source identifiers (ATS slug or explicit source config).
-3. Fetch raw job listings from source endpoint(s).
-4. Normalize each listing into shared job fields.
-5. Resolve or create company documents.
-6. Upsert `job-descriptions` documents idempotently.
-7. Optionally enqueue `{ "job_id": "..." }` messages for scoring.
-8. Emit crawl summary logs and counters.
+1. Load crawler configuration, enabled sources, explicit `identity_id`, and discovery input role.
+2. Discover companies for the role from aggregators and curated startup communities.
+3. Validate ATS compatibility from company careers pages and resolve ATS slugs.
+4. Fetch raw job listings from source endpoint(s).
+5. Normalize each listing into shared job fields.
+6. Resolve or create company documents.
+7. Upsert `job-descriptions` documents idempotently.
+8. Optionally enqueue `{ "job_id": "..." }` messages for scoring.
+9. Emit crawl summary logs and counters.
 
 ---
 
@@ -85,18 +86,21 @@ Rules:
 ## 4. Responsibilities
 
 The crawler is responsible for:
+- taking an explicit `identity_id` plus role-focused discovery input and using it to discover actively hiring companies;
 - discovering company slugs for ATS-hosted boards when not preconfigured;
+- validating ATS compatibility from company careers pages before slug resolution;
 - extracting jobs from Greenhouse, Lever, Ashby, and 4dayweek.io;
 - mapping heterogeneous payloads into one normalized job schema;
-- resolving or creating companies before persisting jobs;
+- resolving or creating companies before persisting jobs, using canonicalized company names for matching;
 - idempotent upsert of jobs on repeated crawls;
-- writing lifecycle defaults for scoring-related fields on first insert;
+- writing lifecycle defaults and transitions for scoring-related fields;
 - optionally enqueueing scoring jobs;
 - continuing processing when one source partially fails.
 
 The crawler is not responsible for:
 - deterministic weighted score computation;
 - writing per-preference scoring results;
+- requiring external enrichment APIs for company-to-domain resolution;
 - cover-letter writing or refinement;
 - auth, JWT, or API route validation.
 
@@ -104,7 +108,78 @@ The crawler is not responsible for:
 
 ## 5. Source Discovery Contracts
 
-### 5.1 ATS Slug Discovery
+### 5.1 Discovery Input: Role and Identity Mapping
+
+The crawler discovery input must include:
+- `identity_id` (required, hex MongoDB ObjectId string);
+- one or more role query keywords (for example, `Software Engineer`).
+
+Runs missing `identity_id` are invalid and must fail fast before discovery starts.
+
+Terminology mapping with product spec:
+- The user-facing `ROLE` maps to identity profile context in `../../../spec.md`.
+- The crawler may derive additional role query variants from identity description text and role-relevant identity preferences.
+- Identity preferences are used only to shape discovery and filtering scope; weighted score computation remains outside crawler ownership.
+
+Query construction rules:
+- Build one or more role queries from provided input role terms and optional identity context.
+- Keep query terms broad enough for discovery, then narrow results with ATS validation and dedup.
+- Do not mutate scoring contracts, queue payloads, or persistence keys when applying role filters.
+
+### 5.2 Aggregator Reverse Search (Company-First)
+
+Primary company-name discovery sources for v1:
+- LinkedIn
+- Indeed
+- SimplyHired
+
+Objective:
+- Treat aggregator results as a source of truth for currently hiring companies for the requested role.
+
+Discovery logic:
+1. Execute role query on each aggregator source.
+2. Extract at minimum: company name and company website domain (when present).
+3. Normalize and deduplicate companies before ATS checks (for example, one company listed across many postings is kept once).
+4. Preserve source attribution metadata for troubleshooting and recrawl decisions.
+
+Compliance and safety:
+- Access patterns must respect legal and operational constraints of each source.
+- Use bounded concurrency and anti-bot controls defined in section 11.
+
+### 5.3 Niche Community Crawling
+
+Use curated startup communities as a complementary high-signal source for ATS-backed companies.
+
+Priority niche sources:
+- Y Combinator company directory (`https://www.ycombinator.com/companies`)
+- Wellfound
+
+Expected behavior:
+- Extract company names and any discoverable domain/careers links.
+- Capture redirects or metadata that may reveal ATS provider hints.
+- Merge and deduplicate against aggregator-derived companies before ATS validation.
+
+### 5.4 ATS Compatibility Validation
+
+Before slug dorking, validate whether a company appears compatible with Greenhouse, Lever, or Ashby.
+
+Validation target:
+- Company careers page (for example `/careers`, `/jobs`, or equivalent path from discovered links).
+
+Signature indicators to detect:
+
+| ATS | Indicators in careers HTML or links |
+|---|---|
+| Greenhouse | `grnh.io`, `boards.greenhouse.io` |
+| Lever | `jobs.lever.co`, `.lever-job` markers |
+| Ashby | `window.ashby` hints, `ashbyhq.com` links |
+
+Rules:
+- If ATS signatures are absent, keep company in discovery telemetry, log the reason, and skip extraction for that company in that run.
+- If multiple ATS hints appear, prioritize the strongest hosted-board signal and log ambiguity.
+- If careers content is client-rendered, optional headless rendering may be used under section 11 controls.
+
+### 5.5 ATS Slug Discovery
 
 To call ATS public APIs, the crawler needs the provider-specific company slug.
 
@@ -118,16 +193,15 @@ Expected extraction:
 - Extract the first path segment after host as slug.
 - Validate slug by requesting the provider API endpoint.
 
-Secondary method (technology profiling):
-- Inspect the company careers page when available.
-- Detect ATS-specific signatures (scripts, containers, redirects, or subdomain links).
-- Derive slug from discovered hosted-board URL.
+Secondary method (direct hosted-board extraction):
+- If ATS compatibility validation already exposed a hosted-board URL, derive slug directly from that URL.
+- Validate slug by requesting the provider API endpoint.
 
 If slug cannot be resolved:
 - Log unresolved source with reason.
 - Skip source for this run.
 
-### 5.2 4dayweek Job URL Discovery
+### 5.6 4dayweek Job URL Discovery
 
 Preferred strategy: sitemap traversal.
 
@@ -142,6 +216,15 @@ Fallback strategy: list-page crawl.
 - Start from `https://4dayweek.io/jobs`.
 - Use headless browser only if required by client-side pagination/infinite scroll.
 - Capture job detail URLs from loaded content or intercepted XHR payloads.
+
+### 5.7 End-to-End Discovery Workflow
+
+Engineer-oriented sequence:
+1. Input role keyword from identity profile context.
+2. Discover company names/domains from LinkedIn, Indeed, SimplyHired, and niche startup communities.
+3. Validate ATS compatibility on careers pages using signature checks.
+4. Resolve ATS slug via hosted-board extraction or dorking.
+5. Fetch postings from ATS APIs (and 4dayweek flow where configured), normalize, upsert, and optionally enqueue scoring payloads.
 
 ---
 
@@ -187,6 +270,11 @@ Minimum extraction targets:
 - Location/remote signal
 - Salary or compensation when present
 - Canonical job URL
+
+`external_job_id` strategy for 4dayweek:
+- Primary: parse the terminal numeric id from job URL pattern `...-{id}`.
+- Fallback: if numeric id cannot be parsed, use a stable hash of the canonical `source_url` path.
+- This key must remain stable across recrawls for dedup.
 
 ---
 
@@ -252,11 +340,15 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 | `platform` | string | Source platform key |
 | `external_job_id` | string | Platform-native id |
 | `source_url` | string | Canonical source URL |
-| `company` | ObjectId or string | Ref to `companies` (`company_id` in API JSON) |
+| `company` | ObjectId | Ref to `companies` (`company_id` in API JSON) for new writes |
 | `created_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 | `updated_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
-| `scoring_status` | string | Must initialize to `unscored` |
+| `scoring_status` | string | One of `unscored`, `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | number | Must initialize to `0` |
+
+Reference compatibility note:
+- New crawler writes for references must use MongoDB `ObjectId`.
+- Legacy string references may still exist and must be tolerated during reads.
 
 ### 9.3 Company Resolution Contract
 
@@ -266,8 +358,8 @@ Resolution order:
 3. If no match exists, create company document and use new id.
 
 Company creation behavior:
-- Preserve exact company name from source when possible.
-- Use empty description when no reliable description is available.
+- Canonicalize company name for storage and matching (single stored value; no separate display-name field).
+- Use best-effort fallback description when no reliable description is available (for example a short extracted snippet). If unavailable, use empty description.
 - Field linkage may be unresolved at creation time and can be assigned later by application flows.
 
 The crawler must tolerate mixed reference storage (`ObjectId` and string) in related documents where legacy data exists.
@@ -290,8 +382,17 @@ When `CRAWLER_ENABLE_SCORING_ENQUEUE=1`:
 
 Rules:
 - Enqueue only after successful insert or update with a valid document id.
+- On job updates from recrawls, always re-enqueue when enqueue is enabled.
 - Enqueue payload must use key name `job_id` exactly.
-- If enqueue fails, persistence remains committed; error is logged and crawler continues.
+- If enqueue fails, persistence remains committed, `scoring_status` should be set to `failed`, error is logged, and crawler continues.
+
+Scoring lifecycle contract:
+- Allowed `scoring_status` values: `unscored`, `queued`, `scored`, `failed`, `skipped`.
+- Insert/update with enqueue enabled and enqueue success: set `scoring_status` to `queued`.
+- Insert/update with enqueue disabled: set `scoring_status` to `unscored`.
+- Enqueue failure: set `scoring_status` to `failed`.
+- Missing scoring prerequisites (for example unresolved company-field-identity linkage): set `scoring_status` to `skipped` and do not enqueue.
+- Successful scoring write by downstream worker: set `scoring_status` to `scored`.
 
 Ownership boundary:
 - Crawler produces job ids for scoring.
@@ -326,6 +427,7 @@ Recoverable failures (log and continue):
 - Slug resolution failure for one company.
 - Parsing failure for one posting.
 - Duplicate-key race conditions on upsert.
+- Missing scoring prerequisites that require `scoring_status=skipped`.
 - Redis enqueue failure when scoring enqueue is enabled.
 
 Run-level failures (abort run):
