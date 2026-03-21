@@ -35,6 +35,7 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `REDIS_HOST` | `localhost` | No | `handlers/cover_letters.go` `init()` |
 | `REDIS_PORT` | `6379` | No | `handlers/cover_letters.go` `init()` |
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `handlers/recipients.go`, `handlers/cover_letters.go` |
+| `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | planned job-description scoring producer handlers |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
 ---
@@ -97,6 +98,54 @@ The proto message does not include `description`. It is stored as a raw BSON fie
 
 One identity per field enforced at the application level — duplicate `field_id` for an identity is blocked.
 
+Identities also carry a weighted preference list used to score job descriptions.
+
+**IdentityPreference**
+
+| JSON key | BSON key | Type | Notes |
+|---|---|---|---|
+| `key` | `key` | `string` | Stable preference identifier, for example `remote_work` |
+| `label` | `label` | `string` | Human-friendly label |
+| `weight` | `weight` | `number` | Deterministic aggregate ranking uses this value |
+| `enabled` | `enabled` | `bool` | Disabled preferences are ignored by scoring |
+| `guidance` | `guidance` | `string` | Optional extra instruction for AI scoring |
+
+The `preferences` field on `Identity` is therefore a JSON array and BSON array of `IdentityPreference` objects.
+
+### 3.4.1 JobDescription
+
+| JSON key | BSON key | Type | Notes |
+|---|---|---|---|
+| `id` | `_id` | `string` | Hex ObjectID; omitted on insert |
+| `company_id` | `company` | `string` | Hex ObjectID ref → `companies`. **BSON key is `company`, not `company_id`** |
+| `company_info` | `companyInfo` | `Company` | Populated by `$lookup` aggregation |
+| `title` | `title` | `string` | Normalized job title |
+| `description` | `description` | `string` | Full job description body |
+| `location` | `location` | `string` | Free-form location string |
+| `platform` | `platform` | `string` | Source platform, for example `ashby` or `lever` |
+| `external_job_id` | `external_job_id` | `string` | Platform-native stable job id |
+| `source_url` | `source_url` | `string` | Canonical URL for the job |
+| `created_at` | `created_at` | Timestamp object | See §3.7 |
+| `updated_at` | `updated_at` | Timestamp object | See §3.7 |
+| `scoring_status` | `scoring_status` | `string` | e.g. `unscored`, `queued`, `scored`, `failed` |
+| `weighted_score` | `weighted_score` | `number` | Deterministic aggregate score persisted for sorting |
+| `max_score` | `max_score` | `integer` | Highest single preference score, optional ranking aid |
+| `scores` | `scores` | `[]JobPreferenceScore` | Aggregated read model; omitted on insert |
+
+### 3.4.2 JobPreferenceScore
+
+| JSON key | BSON key | Type | Notes |
+|---|---|---|---|
+| `id` | `_id` | `string` | Hex ObjectID; omitted on insert |
+| `job_id` | `job_id` | `string` | Hex ObjectID ref → `job-descriptions` |
+| `identity_id` | `identity_id` | `string` | Hex ObjectID ref → `identities` |
+| `preference_key` | `preference_key` | `string` | Stable preference identifier |
+| `preference_label` | `preference_label` | `string` | Human-friendly copy snapshot |
+| `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking |
+| `score` | `score` | `integer` | AI-generated score from 1 to 5 |
+| `rationale` | `rationale` | `string` | Short explanation of the score |
+| `scored_at` | `scored_at` | Timestamp object | See §3.7 |
+
 ### 3.5 CoverLetter
 
 | JSON key | BSON key | Type | Notes |
@@ -147,6 +196,8 @@ They are **not** ISO 8601 strings. The Python `ai_querier` writes them this way;
 | `companies` | `companies.go`, `recipients.go` (lookup) |
 | `recipients` | `recipients.go`, `cover_letters.go` (lookup) |
 | `identities` | `identities.go` |
+| `job-descriptions` | planned job handlers and crawler ingestion |
+| `job-preference-scores` | planned scoring aggregation and ranking endpoints |
 | `cover-letters` | `cover_letters.go` (note the hyphen) |
 
 ---
@@ -185,7 +236,25 @@ Rules enforced by the consumer:
 - Missing `conversation_id` → treated as initial generation.
 - `conversation_id` present but `prompt` absent → consumer will attempt refinement with an empty prompt (avoid this).
 
-### 5.2 `emails_to_send`
+### 5.2 `job_scoring_queue`
+
+Env var: `JOB_SCORING_QUEUE_NAME` (default: `job_scoring_queue`)
+Consumer: Python `ai_querier` service.
+
+**Payload** (from `POST /api/job-descriptions/:id/score` or automatic post-crawl enqueue):
+
+```json
+{
+  "job_id": "<job description hex object id>"
+}
+```
+
+Rules enforced by the consumer:
+- Missing `job_id` → message is dropped with an error log.
+- The worker resolves the job description, company, field, identity, and identity preferences from MongoDB.
+- AI returns only per-preference score and rationale; the weighted aggregate is computed deterministically by application logic and persisted back onto the job description.
+
+### 5.3 `emails_to_send`
 
 Env var: `EMAILS_TO_SEND_QUEUE` (default: `emails_to_send`)
 Consumer: Go `emailer` service (not yet implemented, stub only).
@@ -253,7 +322,7 @@ Base path prefix: `/api`
 - If a handler must persist ObjectID references (`field`, `company`), convert proto string IDs (`field_id`, `company_id`) to Mongo ObjectID before write.
 
 Allowed custom-payload exceptions (intentional, endpoint-specific):
-- Partial update endpoints whose body is not a full model (for example: `/name`, `/description`, `/signature`, `/field`, `/company`).
+- Partial update endpoints whose body is not a full model (for example: `/name`, `/description`, `/signature`, `/field`, `/company`, `/preferences`).
 - `POST /api/login` (`{ password }`).
 - `PUT /api/cover-letters/:id` (`{ content }`) because payload key differs from model field name.
 - Queue-producing endpoints that build Redis payload objects.
@@ -501,9 +570,117 @@ Response `200`:
 { "message": "Identity updated successfully" }
 ```
 
+#### `PUT /api/identities/:id/preferences`
+Auth: required.
+Request:
+```json
+{
+  "preferences": [
+    {
+      "key": "remote_work",
+      "label": "Remote work",
+      "weight": 2,
+      "enabled": true,
+      "guidance": "Prefer fully remote roles over hybrid ones."
+    }
+  ]
+}
+```
+Response `200`:
+```json
+{ "message": "Identity updated successfully" }
+```
+
+Rules:
+- Preference keys must be unique inside one identity.
+- This endpoint replaces the full preference list for the identity.
+- When preferences change, the default follow-up behavior is to schedule a full re-score for the affected identity rather than incremental recalculation.
+
 ---
 
-### 7.5 Cover Letters
+### 7.5 Job Descriptions
+
+Implementation guardrail for maintainers:
+- `JobDescription` and `JobPreferenceScore` are proto-first domain models and should become the schema source once added to `common.proto`.
+- The crawler may discover a company before it exists in the database; in that case the ingestion flow should resolve by name or create the company before persisting the job description.
+
+#### `GET /api/job-descriptions`
+Auth: required.
+Response `200`: array of `JobDescription` with `company_info` embedded and `scores` included when available.
+
+#### `GET /api/job-descriptions/:id`
+Auth: required.
+Response `200`: single `JobDescription` with `company_info` and `scores`.
+Response `404`:
+```json
+{ "error": "Job description not found" }
+```
+
+#### `POST /api/job-descriptions`
+Auth: required.
+Request:
+```json
+{
+  "company_id": "<hex or omit>",
+  "company_name": "<string or omit when company_id is set>",
+  "title": "string",
+  "description": "string",
+  "location": "string",
+  "platform": "string",
+  "external_job_id": "string",
+  "source_url": "string"
+}
+```
+Behavior:
+- If `company_id` is present, the handler links to that company.
+- If `company_id` is absent and `company_name` is present, the handler should resolve or create the company automatically.
+- New jobs start with `scoring_status = "unscored"` and `weighted_score = 0`.
+
+Response `201`: created `JobDescription`.
+
+#### `PUT /api/job-descriptions/:id`
+Auth: required.
+Request:
+```json
+{
+  "company_id": "<hex or omit>",
+  "title": "string",
+  "description": "string",
+  "location": "string",
+  "platform": "string",
+  "external_job_id": "string",
+  "source_url": "string"
+}
+```
+Response `200`:
+```json
+{ "message": "Job description updated successfully" }
+```
+
+#### `DELETE /api/job-descriptions/:id`
+Auth: required.
+Response `200`:
+```json
+{ "message": "Job description deleted successfully" }
+```
+
+#### `POST /api/job-descriptions/:id/score`
+Auth: required.
+No request body.
+Pushes a message to `job_scoring_queue` (see §5.2).
+Response `200`:
+```json
+{ "message": "Scoring queued successfully" }
+```
+
+Ranking semantics:
+- The AI writes per-preference scores only.
+- The application computes the weighted aggregate deterministically from the identity preference weights.
+- The aggregate score is persisted on the job description for fast sorting in list endpoints.
+
+---
+
+### 7.6 Cover Letters
 
 Implementation guardrail for maintainers:
 - Use `models.CoverLetter` as the schema source for model-aligned payloads and responses.

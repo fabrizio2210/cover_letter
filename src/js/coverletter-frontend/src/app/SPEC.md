@@ -35,6 +35,7 @@ The frontend is served behind an Nginx reverse proxy that routes `/api/*` to the
 | `/dashboard/companies` | `CompaniesListComponent` | Inherited |
 | `/dashboard/fields` | `FieldsListComponent` | Inherited |
 | `/dashboard/identities` | `IdentitiesListComponent` | Inherited |
+| `/dashboard/jobs` | `JobsListComponent` | Inherited |
 | `/dashboard/cover-letters` | `CoverLettersListComponent` | Inherited |
 | `/dashboard/cover-letters/:id` | `CoverLettersDetailComponent` | Inherited |
 
@@ -77,6 +78,15 @@ export interface Identity {
   field_id?: string;
   field_info?: Field;
   html_signature?: string;
+  preferences?: IdentityPreference[];
+}
+
+export interface IdentityPreference {
+  key: string;
+  label?: string;
+  weight: number;
+  enabled: boolean;
+  guidance?: string;
 }
 
 export interface HistoryPart {
@@ -106,6 +116,36 @@ export interface CoverLetter {
   recipient_info?: Recipient;
 }
 
+export interface JobPreferenceScore {
+  id: string;
+  job_id: string;
+  identity_id: string;
+  preference_key: string;
+  preference_label?: string;
+  preference_weight?: number;
+  score: number;
+  rationale?: string;
+  scored_at?: string | Timestamp;
+}
+
+export interface JobDescription {
+  id: string;
+  company_id?: string;
+  company_info?: Company;
+  title: string;
+  description?: string;
+  location?: string;
+  platform?: string;
+  external_job_id?: string;
+  source_url?: string;
+  created_at?: string | Timestamp;
+  updated_at?: string | Timestamp;
+  scoring_status?: string;
+  weighted_score?: number;
+  max_score?: number;
+  scores?: JobPreferenceScore[];
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;
@@ -116,6 +156,8 @@ Critical alignment rules:
 - `field_info` and `company_info` are objects, never arrays.
 - `company_id` is the JSON key for a recipient's company reference, except for `PUT /api/recipients/:id/company`, which uses `companyId`.
 - `field_id` is the JSON key for company and identity field references, except for `PUT /api/identities/:id/field`, which uses `fieldId`.
+- `preferences` on an `Identity` is an array of weighted preference descriptors.
+- `scores` on a `JobDescription` is an array of per-preference score objects.
 - `created_at` and `updated_at` may be returned as protobuf-style timestamp objects: `{ seconds, nanos }`.
 
 ---
@@ -231,6 +273,7 @@ Response `401`:
 | PUT | `/api/identities/:id/name` | `{ "name": "string" }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/description` | `{ "description": "string" }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/field` | `{ "fieldId": "<hex>" }` | `{ "message": "Identity updated successfully" }` |
+| PUT | `/api/identities/:id/preferences` | `{ "preferences": IdentityPreference[] }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/signature` | `{ "html_signature": "<html string>" }` | `{ "message": "Identity updated successfully" }` |
 | DELETE | `/api/identities/:id` | — | `{ "message": "Identity deleted successfully" }` |
 
@@ -238,7 +281,23 @@ Notes:
 - `PUT /api/identities/:id/field` uses `fieldId` in camelCase because that is what the backend expects.
 - `html_signature` is limited to 64 KiB.
 
-### 6.6 Cover Letters
+### 6.6 Jobs
+
+| Method | Path | Request body | Success response |
+|---|---|---|---|
+| GET | `/api/job-descriptions` | — | `JobDescription[]` with `company_info` and optional `scores` |
+| GET | `/api/job-descriptions/:id` | — | single `JobDescription` |
+| POST | `/api/job-descriptions` | `{ "company_id": "<hex or omit>", "company_name": "<string or omit>", "title": "string", "description": "string", "location": "string", "platform": "string", "external_job_id": "string", "source_url": "string" }` | created `JobDescription` |
+| PUT | `/api/job-descriptions/:id` | `{ "company_id": "<hex or omit>", "title": "string", "description": "string", "location": "string", "platform": "string", "external_job_id": "string", "source_url": "string" }` | `{ "message": "Job description updated successfully" }` |
+| POST | `/api/job-descriptions/:id/score` | — | `{ "message": "Scoring queued successfully" }` |
+| DELETE | `/api/job-descriptions/:id` | — | `{ "message": "Job description deleted successfully" }` |
+
+Notes:
+- The jobs list is the MVP entry point for the new hiring workflow.
+- `weighted_score` is a deterministic aggregate computed by the backend from the stored per-preference scores.
+- Per-preference values shown in the UI come from `scores`, not from re-running ranking logic in the browser.
+
+### 6.7 Cover Letters
 
 | Method | Path | Request body | Success response |
 |---|---|---|---|
@@ -266,6 +325,7 @@ Notes:
 | `CompaniesListComponent` | external HTML | Company CRUD and field association |
 | `FieldsListComponent` | inline template | Field CRUD |
 | `IdentitiesListComponent` | inline template | Identity CRUD and signature editing |
+| `JobsListComponent` | external HTML | Job listing, filtering, score visibility, queue scoring |
 | `CoverLettersListComponent` | external HTML | Cover letter list, open detail, delete |
 | `CoverLettersDetailComponent` | external HTML | Edit body, refine, send, delete |
 
@@ -301,6 +361,7 @@ Resolved in current frontend code:
 
 Remaining caveat:
 - In `CompaniesListComponent`, a name-only update is intentionally blocked in the UI when no field is associated yet, because the backend update endpoint currently expects a full payload that includes field context.
+- The Jobs route, identity preference editing, and job scoring views are defined in this spec as the target contract, but are not implemented in the current frontend code yet.
 
 ---
 
@@ -309,6 +370,8 @@ Remaining caveat:
 These features are described in the project-level spec but are not implemented yet:
 
 - OTP-based login flow.
+- Jobs list and ranking UI defined in this spec.
+- Identity preference editing UI for job scoring.
 - Real-time notifications for cover letter lifecycle events.
 - Crawler task UI.
 - Settings UI.
