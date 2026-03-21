@@ -44,6 +44,13 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 Models are type aliases to protobuf-generated structs in `../../internal/proto/common/common.pb.go`.
 The proto source is `../../internal/proto/common/common.proto`.
 
+Proto-first contract (applies to all APIs):
+- `common.proto` is the canonical schema for API wire fields and MongoDB field tags via generated structs.
+- For endpoints whose request body mirrors a model, handlers MUST bind directly to `models.<Type>` (proto-backed alias) instead of custom request structs.
+- For inserts/updates, use the proto-backed model shape as the source of truth for JSON/BSON mapping.
+- If a payload field is missing from proto, update `common.proto` and regenerate before introducing handler-local schema changes.
+- Only use custom request structs for endpoint-specific payloads that intentionally do not mirror a model (documented exceptions in §7 Conventions).
+
 **Critical**: JSON field names (used in HTTP request/response bodies) differ from BSON field names (used in MongoDB storage) in several places. Both are listed.
 
 ### 3.1 Field
@@ -241,10 +248,23 @@ Base path prefix: `/api`
 - `201` is used for successful creation; `200` for everything else.
 - `404` is returned when a document matching `:id` is not found.
 - Aggregation responses embed lookup results (`field_info`, `company_info`, `recipient_info`) directly in the returned object.
+- Proto-first implementation rule: when an endpoint body matches a domain model, bind and validate with `models.<Type>` generated from `common.proto`.
+- Do not create custom request DTOs that duplicate proto-defined fields; this causes JSON/BSON drift bugs.
+- If a handler must persist ObjectID references (`field`, `company`), convert proto string IDs (`field_id`, `company_id`) to Mongo ObjectID before write.
+
+Allowed custom-payload exceptions (intentional, endpoint-specific):
+- Partial update endpoints whose body is not a full model (for example: `/name`, `/description`, `/signature`, `/field`, `/company`).
+- `POST /api/login` (`{ password }`).
+- `PUT /api/cover-letters/:id` (`{ content }`) because payload key differs from model field name.
+- Queue-producing endpoints that build Redis payload objects.
 
 ---
 
 ### 7.1 Fields
+
+Implementation guardrail for maintainers:
+- `POST /api/fields` and full-model operations should use `models.Field` as the request schema source.
+- Avoid custom structs for proto-defined fields unless covered by Conventions exceptions.
 
 #### `GET /api/fields`
 Auth: required.
@@ -282,6 +302,10 @@ Response `200`:
 ---
 
 ### 7.2 Companies
+
+Implementation guardrail for maintainers:
+- Use `models.Company` as the schema source for proto-defined fields (`id`, `name`, `field_id`, `field_info`).
+- `description` is a documented non-proto field today; if it becomes canonical, add it to `common.proto` and regenerate.
 
 #### `GET /api/companies`
 Auth: required.
@@ -328,6 +352,11 @@ Response `200`:
 
 ### 7.3 Recipients
 
+Implementation guardrail for maintainers:
+- For `POST /api/recipients`, handlers MUST bind the request body directly to `models.Recipient` (proto-backed type alias) and use that model shape for insertion.
+- Do NOT introduce a custom request struct for this endpoint unless `common.proto` is updated first and regenerated.
+- Reason: custom structs can drift from proto JSON/BSON tags and silently break `company_id` / `company` mapping and `company_info` lookup behavior.
+
 #### `GET /api/recipients`
 Auth: required.
 Response `200`: array of `Recipient` with `company_info` embedded (nullable).
@@ -338,6 +367,11 @@ Request (mirrors `Recipient` model; `company_id` optional):
 ```json
 { "email": "string", "name": "string", "description": "string", "company_id": "<hex or omit>" }
 ```
+Handler contract:
+- Bind request JSON to `models.Recipient`.
+- Convert `company_id` to MongoDB ObjectID before insert so lookup joins on `companies._id` correctly.
+- Keep BSON field mapping aligned with proto tags (`company_id` JSON maps to `company` BSON).
+
 Response `201`: created `Recipient` with `id` populated.
 
 #### `DELETE /api/recipients/:id`
@@ -392,6 +426,10 @@ Response `200`:
 ---
 
 ### 7.4 Identities
+
+Implementation guardrail for maintainers:
+- `POST /api/identities` should bind to `models.Identity` (proto-backed) for model fields.
+- Keep `field_id` (JSON) to `field` (BSON) mapping aligned with proto tags and convert to ObjectID before write.
 
 #### `GET /api/identities`
 Auth: required.
@@ -466,6 +504,10 @@ Response `200`:
 ---
 
 ### 7.5 Cover Letters
+
+Implementation guardrail for maintainers:
+- Use `models.CoverLetter` as the schema source for model-aligned payloads and responses.
+- Endpoint-specific payload wrappers (for example `{ content }` in manual update and queue payloads) are valid only where explicitly documented.
 
 #### `GET /api/cover-letters`
 Auth: required.
