@@ -27,13 +27,13 @@ func GetRecipients(c *gin.Context) {
 
 	// Aggregation pipeline to join with the 'companies' collection
 	pipeline := mongo.Pipeline{
-		{{"$lookup", bson.D{
-			{"from", "companies"},
-			{"localField", "company"},
-			{"foreignField", "_id"},
-			{"as", "companyInfo"},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "companies"},
+			{Key: "localField", Value: "company"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "companyInfo"},
 		}}},
-		{{"$unwind", bson.D{{"path", "$companyInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+		{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$companyInfo"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -60,10 +60,37 @@ func GetRecipients(c *gin.Context) {
 
 // CreateRecipient creates a new recipient.
 func CreateRecipient(c *gin.Context) {
-	var recipient models.Recipient
-	if err := c.ShouldBindJSON(&recipient); err != nil {
+	var req models.Recipient
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
+	}
+
+	recipient := models.Recipient{
+		Email:       req.Email,
+		Name:        req.Name,
+		Description: req.Description,
+		CompanyId:   req.CompanyId,
+	}
+
+	var insertDoc bson.M
+	rawRecipient, err := bson.Marshal(&recipient)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create recipient"})
+		return
+	}
+	if err := bson.Unmarshal(rawRecipient, &insertDoc); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create recipient"})
+		return
+	}
+
+	if recipient.CompanyId != "" {
+		companyObjID, err := primitive.ObjectIDFromHex(recipient.CompanyId)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid company_id"})
+			return
+		}
+		insertDoc["company"] = companyObjID
 	}
 
 	client := GetMongoClient()
@@ -73,29 +100,44 @@ func CreateRecipient(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("recipients")
 
-	result, err := collection.InsertOne(context.Background(), recipient)
+	result, err := collection.InsertOne(context.Background(), insertDoc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create recipient"})
 		return
 	}
 
-	// Fetch the created recipient so we can return the document with its _id as hex string
-	var created bson.M
-	if err := collection.FindOne(context.Background(), bson.M{"_id": result.InsertedID}).Decode(&created); err != nil {
-		// If fetching fails, still return InsertedID as hex if possible
-		if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
-			c.JSON(http.StatusCreated, gin.H{"_id": oid.Hex()})
-			return
-		}
-		c.JSON(http.StatusCreated, gin.H{"insertedId": result.InsertedID})
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created recipient"})
 		return
 	}
 
-	// convert _id to hex string
-	if idVal, ok := created["_id"].(primitive.ObjectID); ok {
-		created["_id"] = idVal.Hex()
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{{Key: "_id", Value: insertedID}}}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "companies"},
+			{Key: "localField", Value: "company"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "companyInfo"},
+		}}},
+		{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$companyInfo"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	}
-	c.JSON(http.StatusCreated, created)
+
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created recipient"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	if cursor.Next(context.Background()) {
+		var created models.Recipient
+		if err := cursor.Decode(&created); err == nil {
+			c.JSON(http.StatusCreated, &created)
+			return
+		}
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created recipient"})
 }
 
 // DeleteRecipient deletes a recipient by its ID.

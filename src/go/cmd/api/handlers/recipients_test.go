@@ -56,15 +56,20 @@ func TestAssociateCompanyWithRecipient_InvalidID(t *testing.T) {
 // DB + Redis backed tests for recipients
 
 type rFakeCollection struct {
+	docs       []bson.M
+	insertRes  *mongo.InsertOneResult
 	findOneDoc bson.M
 	updateRes  *mongo.UpdateResult
 }
 
 func (f *rFakeCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
-	return &fakeCursor{docs: []bson.M{}}, nil
+	return &fakeCursor{docs: f.docs}, nil
 }
 func (f *rFakeCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
-	return nil, nil
+	if f.insertRes != nil {
+		return f.insertRes, nil
+	}
+	return &mongo.InsertOneResult{InsertedID: primitive.NewObjectID()}, nil
 }
 func (f *rFakeCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
 	return &fakeSingleResult{doc: f.findOneDoc}
@@ -169,4 +174,52 @@ func TestAssociateCompanyWithRecipient_DBFlows(t *testing.T) {
 
 	AssociateCompanyWithRecipient(c2)
 	require.Equal(t, http.StatusOK, w2.Code)
+}
+
+func TestCreateRecipient_ReturnsCompanyInfoWhenCompanyProvided(t *testing.T) {
+	rid := primitive.NewObjectID()
+	cid := primitive.NewObjectID()
+
+	rc := &rFakeCollection{
+		insertRes: &mongo.InsertOneResult{InsertedID: rid},
+		docs: []bson.M{{
+			"_id":         rid,
+			"email":       "sdfsf",
+			"name":        "sdfgsfd",
+			"company":     cid,
+			"companyInfo": bson.M{"_id": cid, "name": "Arriva"},
+		}},
+	}
+	fakeDB := &rFakeDB{cols: map[string]*rFakeCollection{"recipients": rc}}
+	fakeClient := &rFakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	body := bytes.NewBufferString(`{"name":"sdfgsfd","email":"sdfsf","description":"","company_id":"` + cid.Hex() + `"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/api/recipients", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPost, "/api/recipients", req)
+
+	CreateRecipient(ctx)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, "sdfsf", resp["email"])
+	ci, ok := resp["company_info"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "Arriva", ci["name"])
+	require.Equal(t, cid.Hex(), resp["company_id"])
+}
+
+func TestCreateRecipient_InvalidCompanyID(t *testing.T) {
+	body := bytes.NewBufferString(`{"name":"x","email":"x@example.com","company_id":"not-a-hex"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/api/recipients", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPost, "/api/recipients", req)
+
+	CreateRecipient(ctx)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }
