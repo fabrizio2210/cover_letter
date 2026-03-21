@@ -45,17 +45,17 @@ def main():
                 try:
                     payload = json.loads(data.decode('utf-8'))
                 except Exception as e:
-                    print(f"Invalid JSON in queue message: {e}")
+                    print(f"error: Invalid JSON in queue message: {e}")
                     continue
                 email = payload.get("recipient")
                 conversation_id = payload.get("conversation_id")
                 followup_prompt = payload.get("prompt")
                 if not email:
-                    print("No recipient specified in message.")
+                    print("error: No recipient specified in message.")
                     continue
                 recipient = recipients_col.find_one({"email": email})
                 if not recipient:
-                    print(f"Recipient '{email}' not found in database.")
+                    print(f"error: Recipient '{email}' not found in database.")
                     continue
                 if not conversation_id:
                     generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col, test_mode=test_mode)
@@ -63,7 +63,7 @@ def main():
                     iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col, test_mode=test_mode)
 
         except Exception as e:
-            print(f"Error while processing queue: {e}")
+            print(f"error: Error while processing queue: {e}")
             time.sleep(5)
 
 def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, history, conversation_id, is_update=False):
@@ -115,7 +115,7 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
     # The recipient no longer holds the field directly; fetch the company then the field
     company_id = recipient.get("company")
     if not company_id:
-        print(f"No company associated with recipient '{recipient.get('email', '')}'.")
+        print(f"Error: No company associated with recipient '{recipient.get('email', '')}'.")
         return
     # Resolve company document (company_id may be a string or ObjectId)
     if isinstance(company_id, ObjectId):
@@ -126,11 +126,11 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
         except Exception:
             company = companies_col.find_one({"_id": company_id})
     if not company:
-        print(f"Company '{company_id}' not found for recipient '{recipient.get('email', '')}'.")
+        print(f"error: Company '{company_id}' not found for recipient '{recipient.get('email', '')}'.")
         return
     field_id = company.get("field")
     if not field_id:
-        print(f"No field associated with company '{company.get('name', '')}'.")
+        print(f"error: No field associated with company '{company.get('name', '')}'.")
         return
     # Resolve identity by field (field may be a string or ObjectId)
     try:
@@ -139,7 +139,7 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
     except Exception:
         identity = identities_col.find_one({"field": field_id})
     if not identity:
-        print(f"No identity associated with field '{field_id}' for recipient '{recipient.get('email', '')}'.")
+        print(f"error: No identity associated with field '{field_id}' for recipient '{recipient.get('email', '')}'.")
         return
     identity_name = identity.get("name", "No name")
     identity_description = identity.get("description", "No description")
@@ -174,7 +174,7 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
         chat = model.start_chat(history=[])
         response = chat.send_message(prompt)
     if not response or not hasattr(response, "text"):
-        print("No valid response from Gemini API.")
+        print("error: No valid response from Gemini API.")
         return
     cover_letter = response.text.strip()
     conversation_id = str(uuid.uuid4())
@@ -197,11 +197,11 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
 def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_col, test_mode=False):
     cover_letter_doc = cover_letters_col.find_one({"conversation_id": conversation_id})
     if not cover_letter_doc:
-        print(f"No cover letter found for conversation_id {conversation_id}.")
+        print(f"error: No cover letter found for conversation_id {conversation_id}.")
         return
     history = cover_letter_doc.get("history", [])
     if not followup_prompt:
-        print("No follow-up prompt provided for iteration.")
+        print("error: No follow-up prompt provided for iteration.")
         return
     history.append({"role": "user", "parts": [{"text": followup_prompt}]})
     if test_mode:
@@ -222,7 +222,7 @@ def iterate_cover_letter(email, conversation_id, followup_prompt, cover_letters_
         chat = model.start_chat(history=history)
         response = chat.send_message(followup_prompt)
     if not response or not hasattr(response, "text"):
-        print("No valid response from Gemini API.")
+        print("error: No valid response from Gemini API.")
         return
     new_cover_letter = response.text.strip()
     history.append({"role": "model", "parts": [{"text": new_cover_letter}]})

@@ -11,7 +11,7 @@ services:
     working_dir: /app
     volumes:
       - ../..:/workspace:delegated
-    command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/src/python/ai_querier/ai_querier.py"
+    command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_querier/ai_querier.py"
     environment:
       - AI_QUERIER_TEST_MODE=1
       - REDIS_HOST=redis
