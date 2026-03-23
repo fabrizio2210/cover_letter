@@ -26,7 +26,17 @@ The stack consists of:
 
 The primary acquisition flow is now job discovery rather than recipient-email discovery. An async crawler will query common hiring platforms such as Ashby, Greenhouse, Lever, and 4dayweek.io, which typically expose structured job APIs. The crawler normalizes jobs into a shared internal shape and persists all discovered job descriptions first, together with source metadata and company linkage.
 
-Each crawl execution is scoped by an explicit `identity_id` and role query terms. Runs without `identity_id` are invalid.
+Each crawl execution is scoped by an explicit `identity_id`. Runs without `identity_id` are invalid.
+
+Identity profiles include a manually curated `roles` list (for example, `software engineer`, `platform engineer`). The crawler uses this list as the primary input for role-first company discovery.
+
+Crawler architecture is organized as four workflows running in parallel with DB-backed handoffs:
+1. find new companies from identity roles;
+2. detect ATS provider and resolve ATS slug on discovered companies;
+3. discover jobs from ATS-enriched companies;
+4. run an independent 4dayweek scraper that discovers companies and job descriptions.
+
+Each workflow persists intermediate results directly to MongoDB so downstream workflows can consume partial progress during the same run.
 
 If a scraped job references a company not yet present in the database, the system should create the company automatically and link the job description to it. This keeps the discovery pipeline autonomous while preserving the company-centric data model already used by the application.
 
@@ -35,6 +45,10 @@ The crawler may still coexist with manual data entry for companies and recipient
 #### Score and filter job descriptions
 
 After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns a score from 1 to 5 plus a short rationale, while the overall score is computed deterministically by the application using the stored weights.
+
+Separation of concerns:
+- `roles` define discovery scope for crawler queries.
+- `preferences` define scoring criteria and weights.
 
 The preferred architecture is to store all job descriptions first and score them afterward. This separates scraping from AI latency, preserves raw data for later re-scoring, and allows the user to change preferences without having to crawl the sources again.
 
@@ -89,6 +103,8 @@ Collections are linked through document IDs:
 - job-preference scores link to job descriptions and identities;
 - cover letters link to recipients;
 - companies and identities link to fields.
+
+Crawler-enriched company metadata may also include ATS linkage fields (`ats_provider`, `ats_slug`) used to drive ATS job extraction.
 
 ### Redis queues
 

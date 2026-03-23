@@ -65,12 +65,16 @@ Proto-first contract (applies to all APIs):
 
 The proto message does not include `description`. It is stored as a raw BSON field by the handler.
 
+The proto message also does not include ATS enrichment fields. They are stored as raw BSON fields and may be written by crawler workflows.
+
 | JSON key | BSON key | Type | Notes |
 |---|---|---|---|
 | `id` | `_id` | `string` | Hex ObjectID; omitted on insert |
 | `name` | `name` | `string` | |
 | `description` | `description` | `string` | **Not in proto** — written directly as bson.M by handler |
 | `field_id` | `field` | `string` | Hex ObjectID ref → `fields` collection. **BSON key is `field`, not `field_id`** |
+| `ats_provider` | `ats_provider` | `string` | Nullable; one of `greenhouse`, `lever`, `ashby`. **Not in proto** |
+| `ats_slug` | `ats_slug` | `string` | Nullable provider slug used for ATS extraction. **Not in proto** |
 | `field_info` | `fieldInfo` | `Field` | Populated by `$lookup` aggregation; omitted on insert |
 
 ### 3.3 Recipient
@@ -93,12 +97,17 @@ The proto message does not include `description`. It is stored as a raw BSON fie
 | `name` | `name` | `string` | Display name |
 | `description` | `description` | `string` | |
 | `field_id` | `field` | `string` | Hex ObjectID ref → `fields` collection. **BSON key is `field`, not `field_id`** |
+| `roles` | `roles` | `[]string` | Optional manual role list for crawler discovery scope, for example `software engineer`, `platform engineer` |
 | `html_signature` | `html_signature` | `string` | HTML email signature; max **64 KiB** enforced; omitted if empty |
 | `field_info` | `fieldInfo` | `Field` | Populated by `$lookup` aggregation; omitted on insert |
 
 One identity per field enforced at the application level — duplicate `field_id` for an identity is blocked.
 
 Identities also carry a weighted preference list used to score job descriptions.
+
+Role and preference boundary:
+- `roles` define crawler discovery scope.
+- `preferences` define scoring behavior.
 
 **IdentityPreference**
 
@@ -383,7 +392,7 @@ Response `200`:
 
 Implementation guardrail for maintainers:
 - Use `models.Company` as the schema source for proto-defined fields (`id`, `name`, `field_id`, `field_info`).
-- `description` is a documented non-proto field today; if it becomes canonical, add it to `common.proto` and regenerate.
+- `description`, `ats_provider`, and `ats_slug` are documented non-proto fields today; if they become canonical, add them to `common.proto` and regenerate.
 
 #### `GET /api/companies`
 Auth: required.
@@ -393,20 +402,36 @@ Response `200`: array of `Company` with `field_info` embedded (nullable via `$un
 Auth: required.
 Request:
 ```json
-{ "name": "string", "description": "string", "field_id": "<hex or empty>" }
+{
+  "name": "string",
+  "description": "string",
+  "field_id": "<hex or empty>",
+  "ats_provider": "<greenhouse|lever|ashby or omit>",
+  "ats_slug": "<provider slug or omit>"
+}
 ```
 Response `201`: created company document. If `field_id` was provided, `field_info` is included.
 
 #### `PUT /api/companies/:id`
 Auth: required.
-Request (all three fields required; `field_id` must be valid hex):
+Request (`name`, `description`, `field_id` required; ATS fields optional; `field_id` must be valid hex):
 ```json
-{ "name": "string", "description": "string", "field_id": "<hex>" }
+{
+  "name": "string",
+  "description": "string",
+  "field_id": "<hex>",
+  "ats_provider": "<greenhouse|lever|ashby or omit>",
+  "ats_slug": "<provider slug or omit>"
+}
 ```
 Response `200`:
 ```json
 { "message": "Company updated successfully" }
 ```
+
+Crawler interoperability note:
+- Crawler workflows may update only `ats_provider` and `ats_slug` on existing companies.
+- Legacy company documents may not include ATS fields and remain valid.
 
 #### `PUT /api/companies/:id/field`
 Auth: required.
@@ -522,10 +547,15 @@ Request (mirrors `Identity` model):
   "name":           "string",
   "description":    "string",
   "field_id":       "<hex or empty>",
+  "roles":          ["sring", "string"],
   "html_signature": "<html string or omit>"
 }
 ```
 Response `201`: created `Identity` with `id` populated.
+
+`roles` behavior:
+- Role values are manually maintained by the user.
+- Crawler discovery uses this list as primary query seeds.
 
 #### `DELETE /api/identities/:id`
 Auth: required.

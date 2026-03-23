@@ -42,18 +42,15 @@ This document does **not** define:
 | Queue integration | Optional Redis producer for job scoring |
 | Source types | ATS APIs (Greenhouse, Lever, Ashby), aggregator sources (LinkedIn, Indeed, SimplyHired), curated startup communities (Y Combinator, Wellfound), and aggregator HTML pages (4dayweek.io) |
 
-The crawler runs as a bounded batch process and may process one or multiple source configurations per run.
+The crawler runs as a bounded batch process and executes four workflows in parallel with DB-backed handoffs between them.
 
-High-level flow:
-1. Load crawler configuration, enabled sources, explicit `identity_id`, and discovery input role.
-2. Discover companies for the role from aggregators and curated startup communities.
-3. Validate ATS compatibility from company careers pages and resolve ATS slugs.
-4. Fetch raw job listings from source endpoint(s).
-5. Normalize each listing into shared job fields.
-6. Resolve or create company documents.
-7. Upsert `job-descriptions` documents idempotently.
-8. Optionally enqueue `{ "job_id": "..." }` messages for scoring.
-9. Emit crawl summary logs and counters.
+High-level orchestration:
+1. Load crawler configuration, enabled sources, explicit `identity_id`, and the selected identity's `roles` list.
+2. Start workflow 1 (company discovery from identity roles), workflow 2 (ATS enrichment of companies), and workflow 4 (independent 4dayweek scraper) in parallel.
+3. Continuously run workflow 3 (ATS job extraction) against companies already enriched with `ats_provider` and `ats_slug`.
+4. Persist each workflow output immediately to MongoDB so downstream workflows can consume partial progress without waiting for run completion.
+5. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
+6. Emit crawl summary logs and counters, including per-workflow success/failure counts.
 
 ---
 
@@ -111,18 +108,25 @@ The crawler is not responsible for:
 ### 5.1 Discovery Input: Role and Identity Mapping
 
 The crawler discovery input must include:
-- `identity_id` (required, hex MongoDB ObjectId string);
-- one or more role query keywords (for example, `Software Engineer`).
+- `identity_id` (required, hex MongoDB ObjectId string).
+
+The selected identity must include:
+- `roles` (required for role-first discovery): user-maintained list of role keywords, for example `software engineer`, `platform engineer`.
 
 Runs missing `identity_id` are invalid and must fail fast before discovery starts.
 
-Terminology mapping with product spec:
-- The user-facing `ROLE` maps to identity profile context in `../../../spec.md`.
-- The crawler may derive additional role query variants from identity description text and role-relevant identity preferences.
-- Identity preferences are used only to shape discovery and filtering scope; weighted score computation remains outside crawler ownership.
+Identity role rules:
+- `roles` are manually typed and curated by the user on the identity profile.
+- The crawler uses `identity.roles` as the primary query seed for company discovery.
+- Query expansion may add normalized variants (case/spacing/seniority synonyms), but must not drop the original user-entered role terms.
+
+Boundary with scoring preferences:
+- Identity `preferences` remain scoring inputs and are not required to seed role discovery.
+- Role filters are applied at discovery-query time.
+- Weighted score computation remains outside crawler ownership.
 
 Query construction rules:
-- Build one or more role queries from provided input role terms and optional identity context.
+- Build one or more role queries from `identity.roles` and optional identity context.
 - Keep query terms broad enough for discovery, then narrow results with ATS validation and dedup.
 - Do not mutate scoring contracts, queue payloads, or persistence keys when applying role filters.
 
@@ -220,11 +224,95 @@ Fallback strategy: list-page crawl.
 ### 5.7 End-to-End Discovery Workflow
 
 Engineer-oriented sequence:
-1. Input role keyword from identity profile context.
-2. Discover company names/domains from LinkedIn, Indeed, SimplyHired, and niche startup communities.
-3. Validate ATS compatibility on careers pages using signature checks.
-4. Resolve ATS slug via hosted-board extraction or dorking.
-5. Fetch postings from ATS APIs (and 4dayweek flow where configured), normalize, upsert, and optionally enqueue scoring payloads.
+1. Load `identity_id` and `identity.roles`.
+2. In parallel, discover companies from role queries and run independent 4dayweek discovery.
+3. In parallel, enrich discovered companies with ATS provider and ATS slug.
+4. Continuously extract jobs from ATS APIs for companies that already have ATS metadata.
+5. Normalize, upsert, and optionally enqueue scoring payloads.
+
+### 5.8 Parallel Workflow Contracts
+
+The crawler is organized as four workflows that may run concurrently in one run.
+
+#### Workflow 1: Company Discovery from Identity Roles
+
+Input:
+- `identity_id`
+- `identities.roles`
+
+Sources:
+- LinkedIn
+- Indeed
+- SimplyHired
+- Y Combinator
+- Wellfound
+
+DB writes:
+- Upsert into `companies` using canonicalized company name.
+- Preserve source attribution metadata when available.
+
+Output contract:
+- Companies become eligible input for workflow 2.
+
+#### Workflow 2: ATS Provider Detection and Slug Resolution
+
+Input:
+- Companies from `companies` collection (including newly discovered records).
+
+Processing:
+- Detect ATS compatibility from careers links/pages.
+- Resolve slug from hosted-board URLs or search dorking.
+- Validate provider/slug via provider API endpoint.
+
+DB writes:
+- Update company document with:
+  - `ats_provider` (`greenhouse`, `lever`, `ashby`)
+  - `ats_slug` (provider-specific slug)
+
+Output contract:
+- Companies with both `ats_provider` and `ats_slug` become eligible input for workflow 3.
+
+#### Workflow 3: Job Discovery from ATS Slugs
+
+Input:
+- Companies with `ats_provider` and `ats_slug`.
+
+Processing:
+- Call provider-specific ATS endpoints.
+- Normalize postings into shared job schema.
+
+DB writes:
+- Upsert into `job-descriptions` using (`platform`, `external_job_id`).
+- Update mutable fields and `updated_at` on recrawl.
+- Optionally enqueue scoring payload after successful write.
+
+#### Workflow 4: Independent 4dayweek Scraper
+
+Input:
+- 4dayweek sitemap/list-page discovery only (independent from workflows 1-3).
+
+Processing:
+- Discover job URLs.
+- Extract job and company details from JSON-LD or DOM fallback.
+
+DB writes:
+- Resolve/create company in `companies`.
+- Upsert job into `job-descriptions` with `platform=4dayweek`.
+
+Output contract:
+- Workflow 4 is independent and does not require ATS company metadata.
+
+### 5.9 Workflow Dependency and Persistence Policy
+
+Dependency rules:
+- Workflows 1, 2, and 4 can start in parallel.
+- Workflow 3 depends on workflow 2 output (`ats_provider` + `ats_slug`) but can begin as soon as any eligible company exists.
+
+Persistence policy:
+- Every workflow writes results immediately to MongoDB.
+- Partial successes are persisted.
+- Per-company or per-source failures are logged and do not trigger global rollback.
+- The run continues unless run-level abort conditions from section 12 occur.
 
 ---
 
@@ -327,7 +415,7 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 | Collection | Access | Purpose |
 |---|---|---|
 | `job-descriptions` | read/insert/update | Store normalized job records |
-| `companies` | read/insert | Resolve or create company documents |
+| `companies` | read/insert/update | Resolve, create, and ATS-enrich company documents |
 | `crawls` | optional insert/update | Store crawl run summaries/telemetry if implemented |
 
 ### 9.2 Required Job Fields on Insert
@@ -363,6 +451,20 @@ Company creation behavior:
 - Field linkage may be unresolved at creation time and can be assigned later by application flows.
 
 The crawler must tolerate mixed reference storage (`ObjectId` and string) in related documents where legacy data exists.
+
+### 9.4 Company ATS Enrichment Fields
+
+Workflow 2 writes ATS metadata directly on company documents.
+
+| BSON key | Type | Notes |
+|---|---|---|
+| `ats_provider` | string | Nullable; one of `greenhouse`, `lever`, `ashby` |
+| `ats_slug` | string | Nullable; provider-specific slug used for ATS extraction |
+
+Rules:
+- Missing ATS compatibility leaves both fields unset.
+- `ats_slug` is only valid when `ats_provider` is set.
+- Legacy company documents may not include these fields and must remain readable.
 
 ---
 
@@ -418,6 +520,11 @@ Throughput behavior:
 - Avoid burst patterns to one domain.
 - For high-volume crawls, support proxy rotation or distributed source partitions.
 
+Parallel workflow behavior:
+- Apply bounded worker pools per workflow.
+- Do not let one blocked workflow starve others.
+- Keep domain-level throttling independent per source type (aggregators, ATS APIs, 4dayweek).
+
 ---
 
 ## 12. Failure Handling
@@ -427,6 +534,7 @@ Recoverable failures (log and continue):
 - Slug resolution failure for one company.
 - Parsing failure for one posting.
 - Duplicate-key race conditions on upsert.
+- Per-workflow partial failures while other workflows continue.
 - Missing scoring prerequisites that require `scoring_status=skipped`.
 - Redis enqueue failure when scoring enqueue is enabled.
 
