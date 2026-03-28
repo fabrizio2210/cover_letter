@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from urllib.parse import quote_plus
 from urllib.parse import urlparse
 
@@ -57,6 +58,9 @@ class YCombinatorAdapter(SourceAdapter):
         algolia_app: str,
         algolia_key: str,
         timeout_seconds: int,
+        hits_per_page: int,
+        max_companies: int,
+        request_delay_seconds: float,
     ) -> list[DiscoveredCompany]:
         endpoint = f"https://{algolia_app}-dsn.algolia.net/1/indexes/*/queries"
         headers = {
@@ -64,45 +68,78 @@ class YCombinatorAdapter(SourceAdapter):
             "X-Algolia-API-Key": algolia_key,
             "Content-Type": "application/json",
         }
-        payload = {
-            "requests": [
-                {
-                    "indexName": self.algolia_index,
-                    "params": f"query={quote_plus(role)}&hitsPerPage=100&page=0",
-                }
-            ]
-        }
-
-        logger.debug("querying Algolia fallback endpoint for role %r", role)
-        response = session.post(endpoint, headers=headers, json=payload, timeout=timeout_seconds)
-        response.raise_for_status()
-        body = response.json()
-        hits = body.get("results", [{}])[0].get("hits", [])
-        logger.debug("Algolia fallback returned %d hits for role %r", len(hits), role)
 
         companies: list[DiscoveredCompany] = []
         seen_names: set[str] = set()
-        for hit in hits:
-            name = str(hit.get("name") or "").strip()
-            if not name or name in seen_names:
-                continue
-
-            seen_names.add(name)
-            slug = str(hit.get("slug") or "").strip()
-            website = str(hit.get("website") or "").strip()
-            one_liner = str(hit.get("one_liner") or "").strip()
-            source_url = f"https://www.ycombinator.com/companies/{slug}" if slug else self.base_url
-
-            companies.append(
-                DiscoveredCompany(
-                    name=name,
-                    description=one_liner,
-                    source=self.source_name,
-                    role=role,
-                    source_url=source_url,
-                    domain=self._extract_domain(website),
-                )
+        page = 0
+        total_pages: int | None = None
+        while len(companies) < max_companies:
+            payload = {
+                "requests": [
+                    {
+                        "indexName": self.algolia_index,
+                        "params": f"query={quote_plus(role)}&hitsPerPage={hits_per_page}&page={page}",
+                    }
+                ]
+            }
+            logger.debug(
+                "querying Algolia fallback endpoint for role %r page=%d hits_per_page=%d",
+                role,
+                page,
+                hits_per_page,
             )
+            response = session.post(endpoint, headers=headers, json=payload, timeout=timeout_seconds)
+            response.raise_for_status()
+            body = response.json()
+            result = body.get("results", [{}])[0]
+            hits = result.get("hits", [])
+            total_pages = int(result.get("nbPages") or 0)
+            logger.debug(
+                "Algolia fallback returned %d hits for role %r page=%d/%d",
+                len(hits),
+                role,
+                page,
+                max(total_pages - 1, 0),
+            )
+            if not hits:
+                break
+
+            for hit in hits:
+                name = str(hit.get("name") or "").strip()
+                if not name or name in seen_names:
+                    continue
+
+                seen_names.add(name)
+                slug = str(hit.get("slug") or "").strip()
+                website = str(hit.get("website") or "").strip()
+                one_liner = str(hit.get("one_liner") or "").strip()
+                source_url = f"https://www.ycombinator.com/companies/{slug}" if slug else self.base_url
+
+                companies.append(
+                    DiscoveredCompany(
+                        name=name,
+                        description=one_liner,
+                        source=self.source_name,
+                        role=role,
+                        source_url=source_url,
+                        domain=self._extract_domain(website),
+                    )
+                )
+                if len(companies) >= max_companies:
+                    logger.debug("reached configured max companies (%d)", max_companies)
+                    break
+
+            page += 1
+            if total_pages is not None and page >= total_pages:
+                break
+            if len(companies) >= max_companies:
+                break
+
+            if request_delay_seconds > 0:
+                logger.debug("sleeping %.2fs before next Algolia page", request_delay_seconds)
+                time.sleep(request_delay_seconds)
+
+        logger.debug("Algolia fallback collected %d unique companies for role %r", len(companies), role)
 
         return companies
 
@@ -135,6 +172,9 @@ class YCombinatorAdapter(SourceAdapter):
                     algolia_app=algolia_opts[0],
                     algolia_key=algolia_opts[1],
                     timeout_seconds=config.http_timeout_seconds,
+                    hits_per_page=config.yc_hits_per_page,
+                    max_companies=config.yc_max_companies,
+                    request_delay_seconds=max(config.base_delay_ms, 0) / 1000.0,
                 )
                 companies.extend(fallback_companies)
                 continue
