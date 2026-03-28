@@ -4,4 +4,4 @@ generate-proto:
 	# 2. Inject the BSON tags
 	protoc-go-inject-tag  --input=src/go/internal/proto/common/common.pb.go
 	# 3. Generate Python code
-	protoc --python_out=src/python/ai_querier/ --proto_path=src/go/internal/proto/common/ common.proto
+	protoc --plugin=protoc-gen-mypy=/usr/bin/protoc-gen-mypy --mypy_out=src/python/ai_querier/ --python_out=src/python/ai_querier/ --proto_path=src/go/internal/proto/common/ common.proto
