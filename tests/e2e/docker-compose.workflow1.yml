@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0
+
+  workflow1_integration_tests:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    environment:
+      - MONGO_HOST=mongodb://mongo:27017/
+      - DB_NAME=cover_letter_workflow1_it
+    entrypoint:
+      [
+        "bash",
+        "-lc",
+        "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 && pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 && python -m unittest -v /workspace/src/python/web_crawler/tests/test_workflow1_integration.py",
+      ]
+    depends_on:
+      - mongo
