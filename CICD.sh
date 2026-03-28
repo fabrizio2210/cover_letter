@@ -41,6 +41,7 @@ fi
 #######
 # TESTS
 tests/e2e.sh
+tests/e2e/test_workflow1_integration.sh
 
 #############
 # BUILD IMAGE
