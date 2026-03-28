@@ -27,6 +27,7 @@ export interface Identity {
   description?: string;
   field_id?: string;
   field_info?: Field;
+  roles?: string[];
   html_signature?: string;
 }
 

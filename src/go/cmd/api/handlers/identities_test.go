@@ -127,3 +127,40 @@ func TestUpdateIdentitySignature_TooLarge(t *testing.T) {
 	UpdateIdentitySignature(ctx2)
 	require.Equal(t, http.StatusBadRequest, w2.Code)
 }
+
+func TestUpdateIdentityRoles_Success(t *testing.T) {
+	fc := &fakeCollection{updateRes: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1}}
+	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"identities": fc}}
+	fakeClient := &fakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	id := primitive.NewObjectID().Hex()
+	body := bytes.NewBufferString(`{"roles":["software engineer","platform engineer"]}`)
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+id+"/roles", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPut, "/api/identities/"+id+"/roles", req)
+	ctx.Params = append(ctx.Params, gin.Param{Key: "id", Value: id})
+
+	UpdateIdentityRoles(ctx)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	updateDoc, ok := fc.updateDoc.(bson.M)
+	require.True(t, ok)
+
+	setDoc, ok := updateDoc["$set"].(bson.M)
+	require.True(t, ok)
+	require.Equal(t, []string{"software engineer", "platform engineer"}, setDoc["roles"])
+}
+
+func TestUpdateIdentityRoles_BadRequest(t *testing.T) {
+	body := bytes.NewBufferString(`{"roles":"not-an-array"}`)
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/some-id/roles", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPut, "/api/identities/some-id/roles", req)
+
+	UpdateIdentityRoles(ctx)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}

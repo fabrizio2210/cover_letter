@@ -36,6 +36,7 @@ func main() {
 		auth.PUT("/identities/:id/description", handlers.UpdateIdentityDescription)
 		auth.PUT("/identities/:id/name", handlers.UpdateIdentityName)
 		auth.PUT("/identities/:id/signature", handlers.UpdateIdentitySignature)
+		auth.PUT("/identities/:id/roles", handlers.UpdateIdentityRoles)
 		auth.PUT("/identities/:id/field", handlers.AssociateFieldWithIdentity)
 
 		auth.GET("/fields", handlers.GetFields)

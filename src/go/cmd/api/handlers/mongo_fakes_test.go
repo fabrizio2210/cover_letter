@@ -14,6 +14,7 @@ type fakeCollection struct {
 	insertRes  *mongo.InsertOneResult
 	insertDoc  interface{}
 	updateRes  *mongo.UpdateResult
+	updateDoc  interface{}
 	deleteRes  *mongo.DeleteResult
 	findOneDoc bson.M
 	docs       []bson.M
@@ -33,6 +34,7 @@ func (f *fakeCollection) FindOne(ctx context.Context, filter interface{}) MongoS
 }
 
 func (f *fakeCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	f.updateDoc = update
 	return f.updateRes, nil
 }
 

@@ -340,7 +340,7 @@ Base path prefix: `/api`
 - If a handler must persist ObjectID references (`field`, `company`), convert proto string IDs (`field_id`, `company_id`) to Mongo ObjectID before write.
 
 Allowed custom-payload exceptions (intentional, endpoint-specific):
-- Partial update endpoints whose body is not a full model (for example: `/name`, `/description`, `/signature`, `/field`, `/company`, `/preferences`).
+- Partial update endpoints whose body is not a full model (for example: `/name`, `/description`, `/signature`, `/field`, `/company`, `/roles`, `/preferences`).
 - `POST /api/login` (`{ password }`).
 - `PUT /api/cover-letters/:id` (`{ content }`) because payload key differs from model field name.
 - Queue-producing endpoints that build Redis payload objects.
@@ -547,7 +547,7 @@ Request (mirrors `Identity` model):
   "name":           "string",
   "description":    "string",
   "field_id":       "<hex or empty>",
-  "roles":          ["sring", "string"],
+  "roles":          ["string", "string"],
   "html_signature": "<html string or omit>"
 }
 ```
@@ -556,6 +556,21 @@ Response `201`: created `Identity` with `id` populated.
 `roles` behavior:
 - Role values are manually maintained by the user.
 - Crawler discovery uses this list as primary query seeds.
+
+#### `PUT /api/identities/:id/roles`
+Auth: required.
+Request:
+```json
+{ "roles": ["string"] }
+```
+Response `200`:
+```json
+{ "message": "Identity updated successfully" }
+```
+
+Rules:
+- This endpoint replaces the full roles list for the identity.
+- Role order is preserved as provided in the request.
 
 #### `DELETE /api/identities/:id`
 Auth: required.

@@ -78,6 +78,7 @@ export interface Identity {
   field_id?: string;
   field_info?: Field;
   html_signature?: string;
+  roles?: string[];
   preferences?: IdentityPreference[];
 }
 
@@ -156,6 +157,7 @@ Critical alignment rules:
 - `field_info` and `company_info` are objects, never arrays.
 - `company_id` is the JSON key for a recipient's company reference, except for `PUT /api/recipients/:id/company`, which uses `companyId`.
 - `field_id` is the JSON key for company and identity field references, except for `PUT /api/identities/:id/field`, which uses `fieldId`.
+- `roles` on an `Identity` is a manually curated string array used for crawler discovery scope.
 - `preferences` on an `Identity` is an array of weighted preference descriptors.
 - `scores` on a `JobDescription` is an array of per-preference score objects.
 - `created_at` and `updated_at` may be returned as protobuf-style timestamp objects: `{ seconds, nanos }`.
@@ -269,10 +271,11 @@ Response `401`:
 | Method | Path | Request body | Success response |
 |---|---|---|---|
 | GET | `/api/identities` | — | `Identity[]` with `field_info` embedded |
-| POST | `/api/identities` | `{ "identity": "string", "name": "string", "description": "string", "field_id": "<hex or empty>", "html_signature": "<html or omit>" }` | created `Identity` |
+| POST | `/api/identities` | `{ "identity": "string", "name": "string", "description": "string", "field_id": "<hex or empty>", "roles": ["string"], "html_signature": "<html or omit>" }` | created `Identity` |
 | PUT | `/api/identities/:id/name` | `{ "name": "string" }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/description` | `{ "description": "string" }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/field` | `{ "fieldId": "<hex>" }` | `{ "message": "Identity updated successfully" }` |
+| PUT | `/api/identities/:id/roles` | `{ "roles": ["string"] }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/preferences` | `{ "preferences": IdentityPreference[] }` | `{ "message": "Identity updated successfully" }` |
 | PUT | `/api/identities/:id/signature` | `{ "html_signature": "<html string>" }` | `{ "message": "Identity updated successfully" }` |
 | DELETE | `/api/identities/:id` | — | `{ "message": "Identity deleted successfully" }` |

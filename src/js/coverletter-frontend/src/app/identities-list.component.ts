@@ -24,6 +24,7 @@ import { Field, Identity } from './models/models';
             <th>Name</th>
             <th>Description</th>
             <th>Field</th>
+            <th>Roles</th>
             <th>Email signature</th>
             <th class="actions">Actions</th>
           </tr>
@@ -52,6 +53,15 @@ import { Field, Identity } from './models/models';
                   <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
                 </select>
               </span>
+            </td>
+
+            <td *ngIf="editIndex !== i">{{ formatRoles(id.roles) }}</td>
+            <td *ngIf="editIndex === i">
+              <div *ngFor="let role of editRoles; let roleIndex = index; trackBy: trackRoleIndex" class="role-row">
+                <input [(ngModel)]="editRoles[roleIndex]" placeholder="Role" />
+                <button (click)="removeEditRole(roleIndex)">Remove</button>
+              </div>
+              <button (click)="addEditRole()">Add role</button>
             </td>
 
             <td>
@@ -83,7 +93,11 @@ import { Field, Identity } from './models/models';
             <td>
               <input [(ngModel)]="newIdentity" placeholder="New identity id" />
             </td>
-            <td colspan="4"></td>
+            <td colspan="3"></td>
+            <td>
+              <input [(ngModel)]="newRoles" placeholder="Roles (comma separated)" />
+            </td>
+            <td></td>
             <td class="actions">
               <button (click)="createIdentity()">Create</button>
             </td>
@@ -106,8 +120,10 @@ export class IdentitiesListComponent implements OnInit {
   editName = '';
   editDescription = '';
   selectedFieldId = '';
+  editRoles: string[] = [];
 
   newIdentity = '';
+  newRoles = '';
   templateOpen: Record<number, boolean> = {};
 
   ngOnInit(): void {
@@ -134,11 +150,17 @@ export class IdentitiesListComponent implements OnInit {
       this.showFeedback('Identity id cannot be empty.', true);
       return;
     }
-    const payload = { identity: this.newIdentity.trim() };
+    const payload: { identity: string; roles?: string[] } = { identity: this.newIdentity.trim() };
+    const roles = this.parseRolesInput(this.newRoles);
+    if (roles.length > 0) {
+      payload.roles = roles;
+    }
+
     this.http.post('/api/identities', payload).subscribe({
       next: () => {
         this.showFeedback('Identity created.');
         this.newIdentity = '';
+        this.newRoles = '';
         this.getIdentities();
       },
       error: (err) => this.showFeedback('Failed to create identity.', true, err)
@@ -151,6 +173,10 @@ export class IdentitiesListComponent implements OnInit {
     this.editName = id?.name || '';
     this.editDescription = id?.description || '';
     this.selectedFieldId = id.field_info && id.field_info.id ? id.field_info.id : '';
+    this.editRoles = this.normalizeRoles(id.roles);
+    if (this.editRoles.length === 0) {
+      this.editRoles = [''];
+    }
     this.clearFeedback();
   }
 
@@ -159,6 +185,7 @@ export class IdentitiesListComponent implements OnInit {
     this.editName = '';
     this.editDescription = '';
     this.selectedFieldId = '';
+    this.editRoles = [];
   }
 
   saveEdit(identity: Identity): void {
@@ -171,6 +198,12 @@ export class IdentitiesListComponent implements OnInit {
     }
     if (this.selectedFieldId && (identity.field_info?.id !== this.selectedFieldId)) {
       ops.push(this.http.put(`/api/identities/${identity.id}/field`, { fieldId: this.selectedFieldId }));
+    }
+
+    const nextRoles = this.normalizeRoles(this.editRoles);
+    const currentRoles = this.normalizeRoles(identity.roles);
+    if (!this.sameRoles(nextRoles, currentRoles)) {
+      ops.push(this.http.put(`/api/identities/${identity.id}/roles`, { roles: nextRoles }));
     }
 
     if (ops.length === 0) {
@@ -210,6 +243,41 @@ export class IdentitiesListComponent implements OnInit {
       next: () => { this.showFeedback('Signature saved.'); this.getIdentities(); },
       error: (err) => this.showFeedback('Failed to save signature.', true, err)
     });
+  }
+
+  addEditRole(): void {
+    this.editRoles.push('');
+  }
+
+  removeEditRole(index: number): void {
+    this.editRoles.splice(index, 1);
+    if (this.editRoles.length === 0) {
+      this.editRoles.push('');
+    }
+  }
+
+  formatRoles(roles?: string[]): string {
+    const normalized = this.normalizeRoles(roles);
+    return normalized.length > 0 ? normalized.join(', ') : '-';
+  }
+
+  private parseRolesInput(rolesInput: string): string[] {
+    return this.normalizeRoles(rolesInput.split(','));
+  }
+
+  private normalizeRoles(roles?: string[]): string[] {
+    return (roles || []).map((role) => role.trim()).filter((role) => role.length > 0);
+  }
+
+  private sameRoles(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    return a.every((value, index) => value === b[index]);
+  }
+
+  trackRoleIndex(index: number): number {
+    return index;
   }
   
 
