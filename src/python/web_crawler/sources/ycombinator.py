@@ -148,6 +148,19 @@ class YCombinatorAdapter(SourceAdapter):
         session = requests.Session()
         session.headers.update({"User-Agent": config.user_agent})
 
+        num_roles = len(roles) or 1
+        per_role_limit = (
+            config.yc_max_companies_per_role
+            if config.yc_max_companies_per_role is not None
+            else max(1, config.yc_max_companies // num_roles)
+        )
+        logger.debug(
+            "per-role company limit: %d (total: %d, roles: %d)",
+            per_role_limit,
+            config.yc_max_companies,
+            num_roles,
+        )
+
         for role in roles:
             url = f"{self.base_url}?query={quote_plus(role)}"
             logger.debug("fetching YC URL: %s", url)
@@ -173,7 +186,7 @@ class YCombinatorAdapter(SourceAdapter):
                     algolia_key=algolia_opts[1],
                     timeout_seconds=config.http_timeout_seconds,
                     hits_per_page=config.yc_hits_per_page,
-                    max_companies=config.yc_max_companies,
+                    max_companies=per_role_limit,
                     request_delay_seconds=max(config.base_delay_ms, 0) / 1000.0,
                 )
                 companies.extend(fallback_companies)

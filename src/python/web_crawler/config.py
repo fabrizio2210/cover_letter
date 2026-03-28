@@ -26,6 +26,7 @@ class CrawlerConfig:
     enabled_sources: list[str] | None = None
     yc_hits_per_page: int = 100
     yc_max_companies: int = 500
+    yc_max_companies_per_role: int | None = None
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -41,4 +42,5 @@ class CrawlerConfig:
             enabled_sources=enabled_sources,
             yc_hits_per_page=max(1, min(int(os.getenv("CRAWLER_YC_HITS_PER_PAGE", "100")), 1000)),
             yc_max_companies=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES", "500"))),
+            yc_max_companies_per_role=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE"))) if os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE") else None,
         )
