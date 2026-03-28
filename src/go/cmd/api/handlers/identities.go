@@ -79,8 +79,26 @@ func GetIdentities(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode identities"})
 			return
 		}
+		// normalize _id → id
 		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
-			d["_id"] = idVal.Hex()
+			d["id"] = idVal.Hex()
+		} else if idStr, ok := d["_id"].(string); ok {
+			d["id"] = idStr
+		}
+		delete(d, "_id")
+		// normalize fieldInfo → field_info and its nested _id → id
+		if fi, ok := d["fieldInfo"]; ok {
+			if fiMap, ok := fi.(bson.M); ok {
+				if idVal, ok := fiMap["_id"].(primitive.ObjectID); ok {
+					fiMap["id"] = idVal.Hex()
+					delete(fiMap, "_id")
+				} else if idStr, ok := fiMap["_id"].(string); ok {
+					fiMap["id"] = idStr
+					delete(fiMap, "_id")
+				}
+				d["field_info"] = fiMap
+			}
+			delete(d, "fieldInfo")
 		}
 		docs = append(docs, d)
 	}
@@ -188,6 +206,18 @@ func UpdateIdentitySignature(c *gin.Context) {
 		return
 	}
 	UpdateIdentityGeneric(c, bson.M{"html_signature": req.HtmlSignature})
+}
+
+// UpdateIdentityRoles wrapper
+func UpdateIdentityRoles(c *gin.Context) {
+	var req struct {
+		Roles []string `json:"roles"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	UpdateIdentityGeneric(c, bson.M{"roles": req.Roles})
 }
 
 // AssociateFieldWithIdentity associates a field with an identity.

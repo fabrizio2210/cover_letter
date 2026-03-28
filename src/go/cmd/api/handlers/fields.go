@@ -76,10 +76,13 @@ func GetFields(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode fields"})
 			return
 		}
-		// convert _id to hex string when present
+		// normalize _id → id
 		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
-			d["_id"] = idVal.Hex()
+			d["id"] = idVal.Hex()
+		} else if idStr, ok := d["_id"].(string); ok {
+			d["id"] = idStr
 		}
+		delete(d, "_id")
 		docs = append(docs, d)
 	}
 	if docs == nil {
