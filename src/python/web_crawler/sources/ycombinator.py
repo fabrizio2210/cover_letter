@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from urllib.parse import quote_plus
 
 import requests
@@ -8,6 +9,8 @@ from bs4 import BeautifulSoup
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
 from src.python.web_crawler.sources.base import SourceAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class YCombinatorAdapter(SourceAdapter):
@@ -21,15 +24,20 @@ class YCombinatorAdapter(SourceAdapter):
 
         for role in roles:
             url = f"{self.base_url}?query={quote_plus(role)}"
+            logger.debug("fetching YC URL: %s", url)
             response = session.get(url, timeout=config.http_timeout_seconds)
+            logger.debug("HTTP %d for %s (content-length: %s)", response.status_code, url, len(response.content))
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, "html.parser")
+            anchors = soup.select("a[href^='/companies/']")
+            logger.debug("found %d raw anchors for role %r", len(anchors), role)
             seen_names: set[str] = set()
-            for anchor in soup.select("a[href^='/companies/']"):
+            for anchor in anchors:
                 name = anchor.get_text(" ", strip=True)
                 href = anchor.get("href")
                 if not name or not href or name in seen_names:
+                    logger.debug("skipping anchor name=%r href=%r (duplicate=%s)", name, href, name in seen_names)
                     continue
                 seen_names.add(name)
                 companies.append(
@@ -41,4 +49,5 @@ class YCombinatorAdapter(SourceAdapter):
                     )
                 )
 
+        logger.debug("YCombinator total companies found: %d", len(companies))
         return companies

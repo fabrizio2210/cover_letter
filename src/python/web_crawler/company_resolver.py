@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections import OrderedDict
 from typing import Iterable
@@ -9,6 +10,8 @@ from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.models import DiscoveredCompany
+
+logger = logging.getLogger(__name__)
 
 
 _LEGAL_SUFFIXES = {
@@ -45,11 +48,13 @@ def deduplicate_companies(companies: Iterable[DiscoveredCompany]) -> list[Discov
     for company in companies:
         canonical_name = canonicalize_company_name(company.name)
         if not canonical_name:
+            logger.debug("dropping company with empty canonical name: %r", company.name)
             continue
         if canonical_name not in deduped:
             deduped[canonical_name] = company
             continue
 
+        logger.debug("merging duplicate canonical_name=%r (incoming name=%r)", canonical_name, company.name)
         existing = deduped[canonical_name]
         if not existing.description and company.description:
             existing.description = company.description
@@ -58,6 +63,7 @@ def deduplicate_companies(companies: Iterable[DiscoveredCompany]) -> list[Discov
         if not existing.careers_url and company.careers_url:
             existing.careers_url = company.careers_url
 
+    logger.debug("deduplicate_companies: %d unique companies", len(deduped))
     return list(deduped.values())
 
 
@@ -96,6 +102,7 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
     for company in deduplicate_companies(companies):
         canonical_name = canonicalize_company_name(company.name)
         if not canonical_name:
+            logger.debug("upsert: skipping company with empty canonical name: %r", company.name)
             continue
 
         existing = collection.find_one({"canonical_name": canonical_name})
@@ -103,6 +110,7 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
         document["canonical_name"] = canonical_name
 
         if existing:
+            logger.debug("updating existing company canonical_name=%r _id=%s", canonical_name, existing["_id"])
             existing_sources = existing.get("discovery_sources", [])
             merged_sources = existing_sources + [src for src in document["discovery_sources"] if src not in existing_sources]
             update = {
@@ -120,6 +128,7 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
             company_ids.append(str(existing["_id"]))
             continue
 
+        logger.debug("inserting new company canonical_name=%r", canonical_name)
         insert_result = collection.insert_one(document)
         inserted_count += 1
         company_ids.append(str(insert_result.inserted_id))
