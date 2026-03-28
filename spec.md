@@ -93,6 +93,11 @@ The DB contains at least these collections:
 
 Exact model fields, API payload keys, and JSON/BSON mapping are defined in [Backend API Specification](src/go/cmd/api/SPEC.md).
 
+Cross-service persistence directive:
+- when reading from or writing to MongoDB for entities covered by the shared schema, services and workers must use the models defined in `src/go/internal/proto/common/common.proto` as the canonical contract;
+- ad hoc BSON/JSON shapes for canonical entities should be avoided because they can drift from the shared schema and break silently when the model evolves;
+- service-local raw BSON fields are allowed only for explicitly documented non-proto extensions, and those exceptions must be recorded in the relevant service specification.
+
 Companies and identities belong to a field/sector in order to associate companies, job descriptions, and recipients with a specific identity of the user. This keeps applications tailored to each professional domain. For example, a person can work in both charity and fashion. Keeping identities distinct allows us to describe strengths and job preferences for each field more precisely.
 
 Identities also store weighted job preferences. These preferences are used by the AI scoring flow to evaluate whether a job description matches the kind of work the user wants.
