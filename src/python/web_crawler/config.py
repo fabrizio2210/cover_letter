@@ -14,6 +14,17 @@ def _parse_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _parse_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 @dataclass(slots=True)
 class CrawlerConfig:
     mongo_host: str
@@ -27,10 +38,14 @@ class CrawlerConfig:
     yc_hits_per_page: int = 100
     yc_max_companies: int = 500
     yc_max_companies_per_role: int | None = None
+    serper_api_key: str | None = None
+    serper_search_url: str = "https://google.serper.dev/search"
+    force_serp_retry_on_prior_attempt: bool = False
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
         enabled_sources = _parse_csv(os.getenv("CRAWLER_ENABLED_SOURCES", "ycombinator"))
+        yc_max_companies_per_role = os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE")
         return cls(
             mongo_host=os.getenv("MONGO_HOST", "mongodb://localhost:27017/"),
             db_name=os.getenv("DB_NAME", "cover_letter"),
@@ -42,5 +57,8 @@ class CrawlerConfig:
             enabled_sources=enabled_sources,
             yc_hits_per_page=max(1, min(int(os.getenv("CRAWLER_YC_HITS_PER_PAGE", "100")), 1000)),
             yc_max_companies=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES", "500"))),
-            yc_max_companies_per_role=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE"))) if os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE") else None,
+            yc_max_companies_per_role=max(1, int(yc_max_companies_per_role)) if yc_max_companies_per_role else None,
+            serper_api_key=os.getenv("SERPER_API_KEY") or None,
+            serper_search_url=os.getenv("SERPER_SEARCH_URL", "https://google.serper.dev/search"),
+            force_serp_retry_on_prior_attempt=_parse_bool(os.getenv("CRAWLER_FORCE_SERP_RETRY_ON_PRIOR_ATTEMPT"), default=False),
         )

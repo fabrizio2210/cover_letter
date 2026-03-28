@@ -51,6 +51,19 @@ message DiscoveredCompany {
     string description = 7; // @gotags: bson:"description,omitempty"
 }
 
+message CompanySlugSearchAttempt {
+    google.protobuf.Timestamp attempted_at = 1; // @gotags: bson:"attempted_at,omitempty"
+    int32 attempts = 2; // @gotags: bson:"attempts,omitempty"
+    string outcome = 3; // @gotags: bson:"outcome,omitempty"
+}
+
+message Workflow2TerminalFailure {
+    string failure_type = 1; // @gotags: bson:"failure_type,omitempty"
+    google.protobuf.Timestamp failed_at = 2; // @gotags: bson:"failed_at,omitempty"
+    string last_url = 3; // @gotags: bson:"last_url,omitempty"
+    string message = 4; // @gotags: bson:"message,omitempty"
+}
+
 message Company {
     string id = 1; // @gotags: bson:"_id,omitempty"
     string name = 2; // @gotags: bson:"name"
@@ -59,6 +72,10 @@ message Company {
     string description = 5; // @gotags: bson:"description,omitempty"
     string canonical_name = 6; // @gotags: bson:"canonical_name,omitempty"
     repeated CompanyDiscoverySource discovery_sources = 7; // @gotags: bson:"discovery_sources,omitempty"
+    string ats_provider = 8; // @gotags: bson:"ats_provider,omitempty"
+    string ats_slug = 9; // @gotags: bson:"ats_slug,omitempty"
+    map<string, CompanySlugSearchAttempt> ats_slug_search_attempts = 10; // @gotags: bson:"ats_slug_search_attempts,omitempty"
+    Workflow2TerminalFailure workflow2_terminal_failure = 11; // @gotags: bson:"workflow2_terminal_failure,omitempty"
 }
 
 message Recipient {
