@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -48,78 +47,7 @@ func TestAssociateFieldWithCompany_InvalidCompanyID(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-// --- DB-backed tests and fakes ---
-
-// Fake implementations to satisfy mongo adapter interfaces for tests.
-type fakeCollection struct {
-	name       string
-	insertRes  *mongo.InsertOneResult
-	updateRes  *mongo.UpdateResult
-	deleteRes  *mongo.DeleteResult
-	findOneDoc bson.M
-	docs       []bson.M
-}
-
-func (f *fakeCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
-	return &fakeCursor{docs: f.docs}, nil
-}
-func (f *fakeCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
-	return f.insertRes, nil
-}
-func (f *fakeCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
-	return &fakeSingleResult{doc: f.findOneDoc}
-}
-func (f *fakeCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
-	return f.updateRes, nil
-}
-func (f *fakeCollection) DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error) {
-	return f.deleteRes, nil
-}
-
-type fakeCursor struct {
-	docs []bson.M
-	idx  int
-}
-
-func (f *fakeCursor) All(ctx context.Context, result interface{}) error {
-	b, _ := bson.Marshal(f.docs)
-	return bson.Unmarshal(b, result)
-}
-func (f *fakeCursor) Next(ctx context.Context) bool {
-	return f.idx < len(f.docs)
-}
-func (f *fakeCursor) Decode(v interface{}) error {
-	if f.idx >= len(f.docs) {
-		return mongo.ErrNoDocuments
-	}
-	b, _ := bson.Marshal(f.docs[f.idx])
-	f.idx++
-	return bson.Unmarshal(b, v)
-}
-func (f *fakeCursor) Close(ctx context.Context) error { return nil }
-
-type fakeSingleResult struct{ doc bson.M }
-
-func (f *fakeSingleResult) Decode(v interface{}) error {
-	if f.doc == nil {
-		return mongo.ErrNoDocuments
-	}
-	b, _ := bson.Marshal(f.doc)
-	return bson.Unmarshal(b, v)
-}
-
-type fakeDatabase struct{ cols map[string]*fakeCollection }
-
-func (d *fakeDatabase) Collection(name string) MongoCollectionIface {
-	if c, ok := d.cols[name]; ok {
-		return c
-	}
-	return &fakeCollection{name: name}
-}
-
-type fakeClient struct{ db *fakeDatabase }
-
-func (c *fakeClient) Database(name string) MongoDatabaseIface { return c.db }
+// --- DB-backed tests ---
 
 func TestCreateCompany_WithFieldLookup(t *testing.T) {
 	// setup fake client

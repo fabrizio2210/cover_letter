@@ -18,7 +18,7 @@ import (
 // Reuse fake types from other tests to mock mongo interactions
 
 func TestGetIdentities(t *testing.T) {
-	fc := &fakeCollection{docs: []bson.M{{"identity": "dev"}}}
+	fc := &fakeCollection{docs: []bson.M{{"identity": "dev", "roles": bson.A{"software engineer", "platform engineer"}}}}
 	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"identities": fc}}
 	fakeClient := &fakeClient{db: fakeDB}
 
@@ -33,6 +33,7 @@ func TestGetIdentities(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &got)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
+	require.Equal(t, []interface{}{"software engineer", "platform engineer"}, got[0]["roles"])
 }
 
 func TestCreateIdentity_BadRequest(t *testing.T) {
@@ -44,7 +45,7 @@ func TestCreateIdentity_BadRequest(t *testing.T) {
 
 func TestCreateIdentity_Success(t *testing.T) {
 	inserted := primitive.NewObjectID()
-	fc := &fakeCollection{insertRes: &mongo.InsertOneResult{InsertedID: inserted}, findOneDoc: bson.M{"_id": inserted, "identity": "Dev"}}
+	fc := &fakeCollection{insertRes: &mongo.InsertOneResult{InsertedID: inserted}, findOneDoc: bson.M{"_id": inserted, "identity": "Dev", "roles": bson.A{"software engineer", "platform engineer"}}}
 	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"identities": fc}}
 	fakeClient := &fakeClient{db: fakeDB}
 
@@ -52,7 +53,7 @@ func TestCreateIdentity_Success(t *testing.T) {
 	GetMongoClient = func() MongoClientIface { return fakeClient }
 	defer func() { GetMongoClient = old }()
 
-	body := bytes.NewBufferString(`{"identity":"Dev","email":"dev@example.com"}`)
+	body := bytes.NewBufferString(`{"identity":"Dev","name":"Developer","roles":["software engineer","platform engineer"]}`)
 	req, _ := http.NewRequest(http.MethodPost, "/api/identities", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -61,6 +62,16 @@ func TestCreateIdentity_Success(t *testing.T) {
 
 	CreateIdentity(c)
 	require.Equal(t, http.StatusCreated, w.Code)
+
+	encodedDoc, err := bson.Marshal(fc.insertDoc)
+	require.NoError(t, err)
+	var insertedDoc bson.M
+	require.NoError(t, bson.Unmarshal(encodedDoc, &insertedDoc))
+	require.Equal(t, bson.A{"software engineer", "platform engineer"}, insertedDoc["roles"])
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, []interface{}{"software engineer", "platform engineer"}, resp["roles"])
 }
 
 func TestDeleteIdentity_InvalidID(t *testing.T) {

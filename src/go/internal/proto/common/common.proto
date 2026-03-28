@@ -33,11 +33,32 @@ message Field {
     string field = 2; // @gotags: bson:"field"
 }
 
+message CompanyDiscoverySource {
+    string source = 1; // @gotags: bson:"source"
+    string role = 2; // @gotags: bson:"role"
+    string source_url = 3; // @gotags: bson:"source_url,omitempty"
+    string careers_url = 4; // @gotags: bson:"careers_url,omitempty"
+    string domain = 5; // @gotags: bson:"domain,omitempty"
+}
+
+message DiscoveredCompany {
+    string name = 1; // @gotags: bson:"name"
+    string source = 2; // @gotags: bson:"source"
+    string role = 3; // @gotags: bson:"role"
+    string source_url = 4; // @gotags: bson:"source_url,omitempty"
+    string careers_url = 5; // @gotags: bson:"careers_url,omitempty"
+    string domain = 6; // @gotags: bson:"domain,omitempty"
+    string description = 7; // @gotags: bson:"description,omitempty"
+}
+
 message Company {
     string id = 1; // @gotags: bson:"_id,omitempty"
     string name = 2; // @gotags: bson:"name"
     string field_id = 3; // @gotags: bson:"field"
     Field field_info = 4; // @gotags: bson:"fieldInfo,omitempty"
+    string description = 5; // @gotags: bson:"description,omitempty"
+    string canonical_name = 6; // @gotags: bson:"canonical_name,omitempty"
+    repeated CompanyDiscoverySource discovery_sources = 7; // @gotags: bson:"discovery_sources,omitempty"
 }
 
 message Recipient {
@@ -55,6 +76,7 @@ message Identity {
     string name = 3; // @gotags: bson:"name"
     string description = 4; // @gotags: bson:"description"
     string field_id = 5; // @gotags: bson:"field"
-    string html_signature = 6; // @gotags: bson:"html_signature,omitempty"
-    Field field_info = 7; // @gotags: bson:"fieldInfo,omitempty"
+    repeated string roles = 6; // @gotags: bson:"roles,omitempty"
+    string html_signature = 7; // @gotags: bson:"html_signature,omitempty"
+    Field field_info = 8; // @gotags: bson:"fieldInfo,omitempty"
 }

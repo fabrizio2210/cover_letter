@@ -63,16 +63,16 @@ Proto-first contract (applies to all APIs):
 
 ### 3.2 Company
 
-The proto message does not include `description`. It is stored as a raw BSON field by the handler.
-
 The proto message also does not include ATS enrichment fields. They are stored as raw BSON fields and may be written by crawler workflows.
 
 | JSON key | BSON key | Type | Notes |
 |---|---|---|---|
 | `id` | `_id` | `string` | Hex ObjectID; omitted on insert |
 | `name` | `name` | `string` | |
-| `description` | `description` | `string` | **Not in proto** — written directly as bson.M by handler |
+| `description` | `description` | `string` | |
 | `field_id` | `field` | `string` | Hex ObjectID ref → `fields` collection. **BSON key is `field`, not `field_id`** |
+| `canonical_name` | `canonical_name` | `string` | Crawler-managed normalized name used for idempotent company upserts |
+| `discovery_sources` | `discovery_sources` | `[]CompanyDiscoverySource` | Crawler-managed source attribution metadata |
 | `ats_provider` | `ats_provider` | `string` | Nullable; one of `greenhouse`, `lever`, `ashby`. **Not in proto** |
 | `ats_slug` | `ats_slug` | `string` | Nullable provider slug used for ATS extraction. **Not in proto** |
 | `field_info` | `fieldInfo` | `Field` | Populated by `$lookup` aggregation; omitted on insert |
@@ -391,8 +391,8 @@ Response `200`:
 ### 7.2 Companies
 
 Implementation guardrail for maintainers:
-- Use `models.Company` as the schema source for proto-defined fields (`id`, `name`, `field_id`, `field_info`).
-- `description`, `ats_provider`, and `ats_slug` are documented non-proto fields today; if they become canonical, add them to `common.proto` and regenerate.
+- Use `models.Company` as the schema source for proto-defined fields (`id`, `name`, `field_id`, `field_info`, `description`, `canonical_name`, `discovery_sources`).
+- `ats_provider` and `ats_slug` remain documented non-proto fields today; if they become canonical, add them to `common.proto` and regenerate.
 
 #### `GET /api/companies`
 Auth: required.
