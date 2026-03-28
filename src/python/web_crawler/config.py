@@ -24,6 +24,8 @@ class CrawlerConfig:
     max_delay_ms: int = 15000
     user_agent: str = DEFAULT_USER_AGENT
     enabled_sources: list[str] | None = None
+    yc_hits_per_page: int = 100
+    yc_max_companies: int = 500
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -37,4 +39,6 @@ class CrawlerConfig:
             max_delay_ms=int(os.getenv("CRAWLER_MAX_DELAY_MS", "15000")),
             user_agent=os.getenv("CRAWLER_USER_AGENT", DEFAULT_USER_AGENT),
             enabled_sources=enabled_sources,
+            yc_hits_per_page=max(1, min(int(os.getenv("CRAWLER_YC_HITS_PER_PAGE", "100")), 1000)),
+            yc_max_companies=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES", "500"))),
         )
