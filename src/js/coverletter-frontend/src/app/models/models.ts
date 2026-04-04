@@ -45,6 +45,39 @@ export interface Timestamp {
   nanos: number;
 }
 
+export interface IdentityPreference {
+  key: string;
+  value?: number;
+  guidance?: string;
+}
+
+export interface JobPreferenceScore {
+  id: string;
+  job_id: string;
+  identity_id: string;
+  preference_key: string;
+  score: number;
+  rationale?: string;
+  scored_at?: string | Timestamp;
+}
+
+export interface JobDescription {
+  id: string;
+  company_id?: string;
+  company_name?: string;
+  title: string;
+  description: string;
+  location: string;
+  platform: string;
+  external_job_id: string;
+  source_url: string;
+  created_at?: string | Timestamp;
+  updated_at?: string | Timestamp;
+  company_info?: Company;
+  scores?: JobPreferenceScore[];
+  weighted_score?: number;
+}
+
 export interface CoverLetter {
   id: string;
   recipient_id: string;

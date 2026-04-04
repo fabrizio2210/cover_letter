@@ -1,40 +1,81 @@
-<div class="feedback" [class.error]="isError" *ngIf="feedbackMessage">{{ feedbackMessage }}</div>
+<div class="dashboard-container">
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="sidebar-title">The Curator</h1>
+      <p class="sidebar-subtitle">AI Job Strategist</p>
+    </div>
 
-<!-- Top nav to switch lists -->
-<nav class="dashboard-nav">
-  <ul class="dashboard-nav-list">
-    <li>
-      <a routerLink="/dashboard/recipients" routerLinkActive="is-active">
-        <i class="fas fa-user-friends"></i>
-        <span>Recipients</span>
+    <nav class="sidebar-nav">
+      <a routerLink="." routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: true }" class="nav-item">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span>Dashboard</span>
       </a>
-    </li>
-    <li>
-      <a routerLink="/dashboard/fields" routerLinkActive="is-active">
-        <i class="fas fa-list-alt"></i>
-        <span>Fields</span>
+      <a routerLink="job-discovery" routerLinkActive="nav-active" class="nav-item">
+        <span class="material-symbols-outlined">search_insights</span>
+        <span>Job Discovery</span>
       </a>
-    </li>
-    <li>
-      <a routerLink="/dashboard/identities" routerLinkActive="is-active">
-        <i class="fas fa-id-badge"></i>
+      <a routerLink="identities" routerLinkActive="nav-active" class="nav-item">
+        <span class="material-symbols-outlined">person_search</span>
         <span>Identities</span>
       </a>
-    </li>
-    <li>
-      <a routerLink="/dashboard/cover-letters" routerLinkActive="is-active">
-        <i class="fas fa-envelope-open-text"></i>
-        <span>Cover Letters</span>
-      </a>
-    </li>
-    <li>
-      <a routerLink="/dashboard/companies" routerLinkActive="is-active">
-        <i class="fas fa-building"></i>
+      <a routerLink="companies" routerLinkActive="nav-active" class="nav-item">
+        <span class="material-symbols-outlined">business</span>
         <span>Companies</span>
       </a>
-    </li>
-  </ul>
-</nav>
+      <a routerLink="cover-letters" routerLinkActive="nav-active" class="nav-item">
+        <span class="material-symbols-outlined">edit_note</span>
+        <span>Cover Letters</span>
+      </a>
+    </nav>
 
-<!-- Child routes render inside the dashboard shell -->
-<router-outlet></router-outlet>
+    <div class="sidebar-footer">
+      <a href="#settings" class="nav-item-secondary">
+        <span class="material-symbols-outlined">settings</span>
+        <span>Settings</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Top App Bar -->
+    <header class="top-app-bar">
+      <div class="top-bar-left">
+        <h2 class="top-bar-title">The Digital Curator</h2>
+        <nav class="breadcrumb">
+          <span>Home</span>
+          <span class="material-symbols-outlined">chevron_right</span>
+          <span class="current">Dashboard</span>
+        </nav>
+      </div>
+      <div class="top-bar-right">
+        <div class="search-box">
+          <span class="material-symbols-outlined">search</span>
+          <input type="text" placeholder="Global Search..." />
+        </div>
+        <div class="top-bar-actions">
+          <button class="icon-button" title="Notifications">
+            <span class="material-symbols-outlined">notifications</span>
+          </button>
+          <button class="icon-button" title="History">
+            <span class="material-symbols-outlined">history</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Feedback Toast -->
+    <div class="toast-container" *ngIf="feedbackMessage">
+      <div class="message" [class.is-error]="isError" [class.is-success]="!isError">
+        <div class="message-body">{{ feedbackMessage }}</div>
+      </div>
+    </div>
+
+    <!-- Page Content via Router Outlet -->
+    <div class="page-content">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>
+

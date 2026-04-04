@@ -1,0 +1,84 @@
+<!-- Stats Grid - Bento Layout -->
+<section class="stats-section">
+  <div class="stats-grid">
+    <!-- Active Applications Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="material-symbols-outlined stat-icon">rocket_launch</span>
+        <span class="stat-badge">+12%</span>
+      </div>
+      <h3 class="stat-label">Active Applications</h3>
+      <p class="stat-value">{{ activeApplicationsCount }}</p>
+    </div>
+
+    <!-- Total Jobs Scraped Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="material-symbols-outlined stat-icon">dataset</span>
+        <span class="stat-badge">ALL TIME</span>
+      </div>
+      <h3 class="stat-label">Total Jobs Scraped</h3>
+      <p class="stat-value">{{ totalJobsScrapedCount }}</p>
+    </div>
+
+    <!-- Top AI-Scored Card (Featured) -->
+    <div class="stat-card stat-card-featured">
+      <div class="stat-header">
+        <span class="material-symbols-outlined stat-icon">auto_awesome</span>
+        <span class="stat-badge-featured">AI Insight</span>
+      </div>
+      <h3 class="stat-label">Top AI-Scored Jobs</h3>
+      <p class="stat-value">{{ topAiScoredCount }}</p>
+    </div>
+
+    <!-- Sent Letters Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="material-symbols-outlined stat-icon">mail</span>
+        <span class="stat-badge">CONVERSION 4%</span>
+      </div>
+      <h3 class="stat-label">Sent Letters</h3>
+      <p class="stat-value">{{ sentLettersCount }}</p>
+    </div>
+  </div>
+</section>
+
+<!-- Top Scored Opportunities Section -->
+<section class="opportunities-section">
+  <div class="section-header">
+    <h2>Top Scored Opportunities</h2>
+    <a href="#" class="view-all-link">View All →</a>
+  </div>
+
+  <div class="jobs-feed" *ngIf="!loadingJobs; else jobsLoading">
+    <div class="job-card" *ngFor="let job of topScoredJobs">
+      <div class="job-card-header">
+        <div class="company-avatar">{{ getCompanyInitials(job.company_name || '') }}</div>
+        <div class="job-details">
+          <div class="job-title-row">
+            <h4 class="job-title">{{ job.title }}</h4>
+            <span class="job-badge" *ngIf="job.weighted_score && job.weighted_score >= 4.5">New</span>
+          </div>
+          <p class="job-company">{{ job.company_name }} • {{ job.location }}</p>
+        </div>
+        <div class="job-score">
+          <div class="score-display">
+            <span class="material-symbols-outlined">star</span>
+            <span class="score-value">{{ job.weighted_score | number: '1.1-1' }}</span>
+          </div>
+          <p class="score-label">AI FIT SCORE</p>
+        </div>
+      </div>
+      <div class="job-card-footer">
+        <div class="job-tags">
+          <span class="tag" *ngFor="let tag of ['Design Systems', 'Tailwind CSS']">{{ tag }}</span>
+        </div>
+        <button class="draft-button" (click)="draftLetter(job.id)">Draft Letter</button>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #jobsLoading>
+    <div class="loading-placeholder">Loading opportunities...</div>
+  </ng-template>
+</section>

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './login.component';
 import { DashboardComponent } from './dashboard.component';
+import { DashboardOverviewComponent } from './dashboard-overview.component';
 import { FieldsListComponent } from './fields-list.component';
 import { IdentitiesListComponent } from './identities-list.component';
 import { CoverLettersListComponent } from './coverletters-list.component';
@@ -12,13 +13,13 @@ import { authGuard } from './auth.guard';
 export const routes: Routes = [
     { path: 'login', component: LoginComponent },
 
-    // Dashboard acts as a shell with a top nav and router-outlet for child pages
+    // Dashboard acts as a shell with sidebar nav and router-outlet for child pages
     {
         path: 'dashboard',
         component: DashboardComponent,
         canActivate: [authGuard],
         children: [
-            { path: '', redirectTo: 'recipients', pathMatch: 'full' },
+            { path: '', component: DashboardOverviewComponent }, // Overview page with stats & opportunities
             { path: 'recipients', component: RecipientsListComponent },
             { path: 'fields', component: FieldsListComponent },
             { path: 'identities', component: IdentitiesListComponent },
