@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -44,14 +42,52 @@ func GetCompanies(c *gin.Context) {
 	}
 	defer cursor.Close(context.Background())
 
-	var companies []models.Company
-	if err = cursor.All(context.Background(), &companies); err != nil {
-		log.Printf("Error decoding companies: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode companies"})
-		return
+	var docs []bson.M
+	for cursor.Next(context.Background()) {
+		var d bson.M
+		if err := cursor.Decode(&d); err != nil {
+			log.Printf("Error decoding company document: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode companies"})
+			return
+		}
+
+		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
+			d["id"] = idVal.Hex()
+		} else if idStr, ok := d["_id"].(string); ok {
+			d["id"] = idStr
+		}
+		delete(d, "_id")
+
+		fieldRaw := d["field_id"]
+		switch v := fieldRaw.(type) {
+		case primitive.ObjectID:
+			d["field_id"] = v.Hex()
+		case string:
+			d["field_id"] = v
+		}
+
+		if fi, ok := d["fieldInfo"]; ok {
+			if fiMap, ok := fi.(bson.M); ok {
+				if idVal, ok := fiMap["_id"].(primitive.ObjectID); ok {
+					fiMap["id"] = idVal.Hex()
+					delete(fiMap, "_id")
+				} else if idStr, ok := fiMap["_id"].(string); ok {
+					fiMap["id"] = idStr
+					delete(fiMap, "_id")
+				}
+				d["field_info"] = fiMap
+			}
+			delete(d, "fieldInfo")
+		}
+
+		docs = append(docs, d)
 	}
 
-	c.JSON(http.StatusOK, companies)
+	if docs == nil {
+		docs = []bson.M{}
+	}
+
+	c.JSON(http.StatusOK, docs)
 }
 
 // CreateCompany creates a new company.

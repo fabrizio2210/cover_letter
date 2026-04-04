@@ -15,6 +15,48 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+func TestGetCompanies_NormalizesObjectIDs(t *testing.T) {
+	companyID := primitive.NewObjectID()
+	fieldID := primitive.NewObjectID()
+
+	fc := &fakeCollection{
+		docs: []bson.M{
+			{
+				"_id":         companyID,
+				"name":        "ACME",
+				"description": "X",
+				"field_id":    fieldID,
+				"fieldInfo":   bson.M{"_id": fieldID, "field": "Engineering"},
+			},
+		},
+	}
+	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"companies": fc}}
+	fakeClient := &fakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/companies", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetCompanies(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp, 1)
+
+	require.Equal(t, companyID.Hex(), resp[0]["id"])
+	require.Equal(t, fieldID.Hex(), resp[0]["field_id"])
+	fi, ok := resp[0]["field_info"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, fieldID.Hex(), fi["id"])
+}
+
 func TestCreateCompany_InvalidFieldID(t *testing.T) {
 	body := bytes.NewBufferString(`{"name":"Acme","description":"X","field_id":"bad"}`)
 	req, _ := http.NewRequest(http.MethodPost, "/api/companies", body)
