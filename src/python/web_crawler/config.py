@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 
 
+JOB_SCORING_QUEUE = "job_scoring_queue"
+
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
@@ -41,6 +43,9 @@ class CrawlerConfig:
     serper_api_key: str | None = None
     serper_search_url: str = "https://google.serper.dev/search"
     force_serp_retry_on_prior_attempt: bool = False
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    enable_scoring_enqueue: bool = False
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -61,4 +66,7 @@ class CrawlerConfig:
             serper_api_key=os.getenv("SERPER_API_KEY") or None,
             serper_search_url=os.getenv("SERPER_SEARCH_URL", "https://google.serper.dev/search"),
             force_serp_retry_on_prior_attempt=_parse_bool(os.getenv("CRAWLER_FORCE_SERP_RETRY_ON_PRIOR_ATTEMPT"), default=False),
+            redis_host=os.getenv("REDIS_HOST", "localhost"),
+            redis_port=int(os.getenv("REDIS_PORT", "6379")),
+            enable_scoring_enqueue=_parse_bool(os.getenv("CRAWLER_ENABLE_SCORING_ENQUEUE"), default=False),
         )

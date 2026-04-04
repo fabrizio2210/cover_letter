@@ -5,12 +5,36 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import typing
 import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _ScoringStatus:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+class _ScoringStatusEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ScoringStatus.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    SCORING_STATUS_UNSPECIFIED: _ScoringStatus.ValueType  # 0
+    SCORING_STATUS_UNSCORED: _ScoringStatus.ValueType  # 1
+    SCORING_STATUS_QUEUED: _ScoringStatus.ValueType  # 2
+    SCORING_STATUS_SCORED: _ScoringStatus.ValueType  # 3
+    SCORING_STATUS_FAILED: _ScoringStatus.ValueType  # 4
+    SCORING_STATUS_SKIPPED: _ScoringStatus.ValueType  # 5
+class ScoringStatus(_ScoringStatus, metaclass=_ScoringStatusEnumTypeWrapper):
+    pass
+
+SCORING_STATUS_UNSPECIFIED: ScoringStatus.ValueType  # 0
+SCORING_STATUS_UNSCORED: ScoringStatus.ValueType  # 1
+SCORING_STATUS_QUEUED: ScoringStatus.ValueType  # 2
+SCORING_STATUS_SCORED: ScoringStatus.ValueType  # 3
+SCORING_STATUS_FAILED: ScoringStatus.ValueType  # 4
+SCORING_STATUS_SKIPPED: ScoringStatus.ValueType  # 5
+global___ScoringStatus = ScoringStatus
+
 
 class HistoryPart(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -426,3 +450,80 @@ class Identity(google.protobuf.message.Message):
     def HasField(self, field_name: typing_extensions.Literal["field_info",b"field_info"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["description",b"description","field_id",b"field_id","field_info",b"field_info","html_signature",b"html_signature","id",b"id","identity",b"identity","name",b"name","roles",b"roles"]) -> None: ...
 global___Identity = Identity
+
+class Job(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    ID_FIELD_NUMBER: builtins.int
+    COMPANY_ID_FIELD_NUMBER: builtins.int
+    COMPANY_INFO_FIELD_NUMBER: builtins.int
+    TITLE_FIELD_NUMBER: builtins.int
+    DESCRIPTION_FIELD_NUMBER: builtins.int
+    LOCATION_FIELD_NUMBER: builtins.int
+    PLATFORM_FIELD_NUMBER: builtins.int
+    EXTERNAL_JOB_ID_FIELD_NUMBER: builtins.int
+    SOURCE_URL_FIELD_NUMBER: builtins.int
+    CREATED_AT_FIELD_NUMBER: builtins.int
+    UPDATED_AT_FIELD_NUMBER: builtins.int
+    SCORING_STATUS_FIELD_NUMBER: builtins.int
+    WEIGHTED_SCORE_FIELD_NUMBER: builtins.int
+    id: typing.Text
+    """@gotags: bson:"_id,omitempty" """
+
+    company_id: typing.Text
+    """@gotags: bson:"company_id" """
+
+    @property
+    def company_info(self) -> global___Company:
+        """@gotags: bson:"companyInfo,omitempty" """
+        pass
+    title: typing.Text
+    """@gotags: bson:"title" """
+
+    description: typing.Text
+    """@gotags: bson:"description" """
+
+    location: typing.Text
+    """@gotags: bson:"location" """
+
+    platform: typing.Text
+    """@gotags: bson:"platform" """
+
+    external_job_id: typing.Text
+    """@gotags: bson:"external_job_id" """
+
+    source_url: typing.Text
+    """@gotags: bson:"source_url" """
+
+    @property
+    def created_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """@gotags: bson:"created_at" """
+        pass
+    @property
+    def updated_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """@gotags: bson:"updated_at" """
+        pass
+    scoring_status: global___ScoringStatus.ValueType
+    """@gotags: bson:"scoring_status" """
+
+    weighted_score: builtins.float
+    """@gotags: bson:"weighted_score" """
+
+    def __init__(self,
+        *,
+        id: typing.Text = ...,
+        company_id: typing.Text = ...,
+        company_info: typing.Optional[global___Company] = ...,
+        title: typing.Text = ...,
+        description: typing.Text = ...,
+        location: typing.Text = ...,
+        platform: typing.Text = ...,
+        external_job_id: typing.Text = ...,
+        source_url: typing.Text = ...,
+        created_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        updated_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        scoring_status: global___ScoringStatus.ValueType = ...,
+        weighted_score: builtins.float = ...,
+        ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["company_info",b"company_info","created_at",b"created_at","updated_at",b"updated_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","company_info",b"company_info","created_at",b"created_at","description",b"description","external_job_id",b"external_job_id","id",b"id","location",b"location","platform",b"platform","scoring_status",b"scoring_status","source_url",b"source_url","title",b"title","updated_at",b"updated_at","weighted_score",b"weighted_score"]) -> None: ...
+global___Job = Job

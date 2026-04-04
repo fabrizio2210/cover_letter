@@ -9,6 +9,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.workflow1 import run_workflow1
 from src.python.web_crawler.workflow2 import run_workflow2
+from src.python.web_crawler.workflow3 import run_workflow3
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,11 +34,13 @@ def main() -> None:
     database = get_database(config)
     workflow1_result = run_workflow1(database, config, args.identity_id)
     workflow2_result = run_workflow2(database, config, workflow1_result.company_ids)
+    workflow3_result = run_workflow3(database, config, workflow2_result.company_ids)
     print(
         json.dumps(
             {
                 "workflow1": asdict(workflow1_result),
                 "workflow2": asdict(workflow2_result),
+                "workflow3": asdict(workflow3_result),
             }
         )
     )

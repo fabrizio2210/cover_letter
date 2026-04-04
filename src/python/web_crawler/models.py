@@ -26,3 +26,15 @@ class Workflow2Result:
     ats_providers: dict[str, int] = field(default_factory=dict)
     failed_companies: list[dict[str, str]] = field(default_factory=list)
     company_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class Workflow3Result:
+    fetched_count: int = 0
+    inserted_count: int = 0
+    updated_count: int = 0
+    skipped_count: int = 0
+    enqueued_count: int = 0
+    enqueue_failed_count: int = 0
+    failed_companies: list[dict[str, str]] = field(default_factory=list)
+    job_ids: list[str] = field(default_factory=list)

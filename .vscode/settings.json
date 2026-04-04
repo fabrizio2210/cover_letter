@@ -4,6 +4,10 @@
         "/^bash tests/e2e\\.sh$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^make generate-proto 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

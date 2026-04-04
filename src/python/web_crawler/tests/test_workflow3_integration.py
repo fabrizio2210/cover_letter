@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+import os
+import unittest
+from unittest.mock import patch
+
+from bson import ObjectId
+from pymongo import MongoClient
+from pymongo.errors import OperationFailure
+
+from src.python.ai_querier import common_pb2
+from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.workflow3 import run_workflow3
+
+
+class Workflow3MongoIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        mongo_host = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")
+        db_name = os.getenv("DB_NAME", "cover_letter_integration")
+
+        cls.client = MongoClient(mongo_host, serverSelectionTimeoutMS=5000)
+        cls.client.admin.command("ping")
+        cls.database = cls.client[db_name]
+        cls.config = CrawlerConfig(mongo_host=mongo_host, db_name=db_name)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.close()
+
+    def setUp(self):
+        try:
+            self.database["companies"].delete_many({})
+            self.database["jobs"].delete_many({})
+        except OperationFailure as exc:
+            if exc.code == 13:
+                self.skipTest("Mongo integration tests require authenticated write access")
+            raise
+
+        self.company_id = ObjectId()
+        try:
+            self.database["companies"].insert_one(
+                {
+                    "_id": self.company_id,
+                    "name": "Acme Corp",
+                    "canonical_name": "acme corp",
+                    "ats_provider": "greenhouse",
+                    "ats_slug": "acme",
+                    "discovery_sources": [],
+                }
+            )
+        except OperationFailure as exc:
+            if exc.code == 13:
+                self.skipTest("Mongo integration tests require authenticated write access")
+            raise
+
+    def _fake_fetch_jobs(self, provider, slug, config, session):
+        return [
+            common_pb2.Job(
+                title="Integration Test Role",
+                description="Does things.",
+                location="Remote",
+                platform=provider,
+                external_job_id="int-test-1",
+                source_url=f"https://example.com/{slug}/1",
+            )
+        ]
+
+    def test_run_workflow3_inserts_job_into_jobs_collection(self):
+        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            result = run_workflow3(self.database, self.config)
+
+        self.assertEqual(result.inserted_count, 1)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(len(result.job_ids), 1)
+
+        doc = self.database["jobs"].find_one({"platform": "greenhouse", "external_job_id": "int-test-1"})
+        self.assertIsNotNone(doc)
+        self.assertEqual(doc["title"], "Integration Test Role")
+        self.assertEqual(doc["company"], self.company_id)
+        self.assertEqual(doc["scoring_status"], "unscored")
+        self.assertEqual(doc["weighted_score"], 0)
+        self.assertIn("seconds", doc["created_at"])
+        self.assertIn("seconds", doc["updated_at"])
+
+    def test_run_workflow3_is_idempotent_on_recrawl(self):
+        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            first = run_workflow3(self.database, self.config)
+
+        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            second = run_workflow3(self.database, self.config)
+
+        self.assertEqual(first.inserted_count, 1)
+        self.assertEqual(second.inserted_count, 0)
+        self.assertEqual(second.updated_count, 1)
+        self.assertEqual(self.database["jobs"].count_documents({}), 1)
+
+    def test_run_workflow3_filters_by_company_ids(self):
+        other_id = ObjectId()
+        self.database["companies"].insert_one(
+            {
+                "_id": other_id,
+                "name": "Other Corp",
+                "canonical_name": "other corp",
+                "ats_provider": "lever",
+                "ats_slug": "other",
+                "discovery_sources": [],
+            }
+        )
+
+        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs) as mock_fetch:
+            result = run_workflow3(self.database, self.config, company_ids=[str(self.company_id)])
+
+        self.assertEqual(mock_fetch.call_count, 1)
+        self.assertEqual(result.inserted_count, 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -64,6 +64,15 @@ message Workflow2TerminalFailure {
     string message = 4; // @gotags: bson:"message,omitempty"
 }
 
+enum ScoringStatus {
+    SCORING_STATUS_UNSPECIFIED = 0;
+    SCORING_STATUS_UNSCORED = 1;
+    SCORING_STATUS_QUEUED = 2;
+    SCORING_STATUS_SCORED = 3;
+    SCORING_STATUS_FAILED = 4;
+    SCORING_STATUS_SKIPPED = 5;
+}
+
 message Company {
     string id = 1; // @gotags: bson:"_id,omitempty"
     string name = 2; // @gotags: bson:"name"
@@ -96,4 +105,20 @@ message Identity {
     repeated string roles = 6; // @gotags: bson:"roles,omitempty"
     string html_signature = 7; // @gotags: bson:"html_signature,omitempty"
     Field field_info = 8; // @gotags: bson:"fieldInfo,omitempty"
+}
+
+message Job {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string company_id = 2; // @gotags: bson:"company_id"
+    Company company_info = 3; // @gotags: bson:"companyInfo,omitempty"
+    string title = 4; // @gotags: bson:"title"
+    string description = 5; // @gotags: bson:"description"
+    string location = 6; // @gotags: bson:"location"
+    string platform = 7; // @gotags: bson:"platform"
+    string external_job_id = 8; // @gotags: bson:"external_job_id"
+    string source_url = 9; // @gotags: bson:"source_url"
+    google.protobuf.Timestamp created_at = 10; // @gotags: bson:"created_at"
+    google.protobuf.Timestamp updated_at = 11; // @gotags: bson:"updated_at"
+    ScoringStatus scoring_status = 12; // @gotags: bson:"scoring_status"
+    double weighted_score = 13; // @gotags: bson:"weighted_score"
 }
