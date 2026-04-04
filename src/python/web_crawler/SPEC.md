@@ -11,7 +11,7 @@ It exists to prevent contract drift between crawl adapters, MongoDB job document
 
 ## 1. Purpose and Scope
 
-The `web_crawler` service discovers company targets and job opportunities from aggregators, curated communities, and ATS providers, normalizes postings to the shared internal job shape, and persists them into MongoDB.
+The `web_crawler` service discovers company targets and job opportunities from role-query job boards, curated startup communities, portfolio directories, community hiring threads, and ATS providers, normalizes postings to the shared internal job shape, and persists them into MongoDB.
 
 This document covers:
 - runtime behavior of the crawler service;
@@ -40,7 +40,7 @@ This document does **not** define:
 | Execution style | On-demand run or scheduled batch run |
 | Data store | MongoDB |
 | Queue integration | Optional Redis producer for job scoring |
-| Source types | ATS APIs (Greenhouse, Lever, Ashby), aggregator sources (LinkedIn, Indeed, SimplyHired), curated startup communities (Y Combinator, Wellfound), and aggregator HTML pages (4dayweek.io) |
+| Source types | ATS APIs (Greenhouse, Lever, Ashby), role-query job boards and search sources (LinkedIn, Indeed, SimplyHired, Built In, Otta), curated startup and job communities (Y Combinator, Wellfound, Work at a Startup), portfolio and investor directories (Crunchbase, Techstars, 500 Global, a16z, Sequoia), community hiring threads (Hacker News Who Is Hiring), and aggregator HTML pages (4dayweek.io) |
 
 The crawler runs as a bounded batch process and executes four workflows in parallel with DB-backed handoffs between them.
 
@@ -130,40 +130,97 @@ Query construction rules:
 - Keep query terms broad enough for discovery, then narrow results with ATS validation and dedup.
 - Do not mutate scoring contracts, queue payloads, or persistence keys when applying role filters.
 
-### 5.2 Aggregator Reverse Search (Company-First)
+### 5.2 Role-Query Job Boards and Search Sources
 
-Primary company-name discovery sources for v1:
-- LinkedIn
-- Indeed
-- SimplyHired
+Use role-query job boards and search-oriented discovery sources as the primary Workflow 1 input for currently hiring companies.
+
+Preferred sources:
+
+| Website | Root URL | Path / Pattern to Lookup | Discovery output |
+|---|---|---|---|
+| LinkedIn | `linkedin.com` | role/job search result pages | Role-filtered hiring signals, company names, and job-source attribution |
+| Indeed | `indeed.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
+| SimplyHired | `simplyhired.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
+| Built In | `builtin.com` | city or hub company pages such as `/sf`, `/nyc`, and related company listings | Company-first discovery within tech hubs, with role filters applied when available |
+| Otta | `otta.com` | `/companies` | Curated tech-company discovery with job and company metadata when publicly available |
 
 Objective:
-- Treat aggregator results as a source of truth for currently hiring companies for the requested role.
+- Treat role-query sources as high-signal evidence that companies are actively hiring for one or more requested identity roles.
 
 Discovery logic:
-1. Execute role query on each aggregator source.
-2. Extract at minimum: company name and company website domain (when present).
-3. Normalize and deduplicate companies before ATS checks (for example, one company listed across many postings is kept once).
-4. Preserve source attribution metadata for troubleshooting and recrawl decisions.
+1. Execute one or more role queries derived from `identity.roles` on each enabled role-query source.
+2. Extract at minimum: company name, source URL, and company website domain or careers URL when present.
+3. Preserve role association and source attribution metadata so repeated discoveries can be traced to the originating board or search result.
+4. Normalize and deduplicate companies before ATS checks (for example, one company listed across many postings is kept once).
 
 Compliance and safety:
 - Access patterns must respect legal and operational constraints of each source.
 - Use bounded concurrency and anti-bot controls defined in section 11.
+- Sources in this group are preferred inputs, but some may be skipped for a run if public accessibility, response format, or compliance posture makes extraction impractical.
 
-### 5.3 Niche Community Crawling
+### 5.3 Curated Startup and Job Communities
 
-Use curated startup communities as a complementary high-signal source for ATS-backed companies.
+Use curated startup and job communities as complementary high-signal sources for ATS-backed companies and startup-focused hiring activity.
 
-Priority niche sources:
-- Y Combinator company directory (`https://www.ycombinator.com/companies`)
-- Wellfound
+Preferred sources:
+
+| Website | Root URL | Path / Pattern to Lookup | Discovery output |
+|---|---|---|---|
+| Y Combinator | `ycombinator.com` | `/companies` | Company directory plus discoverable jobs/careers links when exposed |
+| Wellfound | `wellfound.com` | `/jobs` or `/company/:slug` | Startup job-board results plus company pages with links, hiring signals, and metadata when available |
+| Work at a Startup | `workatastartup.com` | `/companies` | YC-aligned company and hiring discovery with direct startup job signals |
 
 Expected behavior:
-- Extract company names and any discoverable domain/careers links.
-- Capture redirects or metadata that may reveal ATS provider hints.
-- Merge and deduplicate against aggregator-derived companies before ATS validation.
+- Extract company names and any discoverable domain, job-board, or careers links.
+- Capture redirects, company slugs, and metadata that may reveal ATS provider hints.
+- Merge and deduplicate against role-query-source discoveries before ATS validation.
 
-### 5.4 ATS Compatibility Validation
+Notes:
+- Sources in this group may expose either company-first discovery, job-first discovery, or both.
+- Workflow 1 should tolerate missing role filters on some community directories by treating them as supporting sources rather than the only source of truth for role relevance.
+
+### 5.4 Portfolio and Investor Directories
+
+Use public portfolio and investor directories as company-first discovery inputs for startup ecosystems where ATS-backed hiring is common, even when direct job signals are weaker than dedicated job boards.
+
+Preferred sources:
+
+| Website | Root URL | Path / Pattern to Lookup | Data type |
+|---|---|---|---|
+| Crunchbase | `crunchbase.com` | `/organization/:permalink` | Firmographics |
+| Techstars | `techstars.com` | `/portfolio` | Portfolio list |
+| 500 Global | `500.co` | `/startups/` | Portfolio list |
+| a16z | `a16z.com` | `/investment-list/` | Portfolio list |
+| Sequoia | `sequoiacap.com` | `/our-companies/` | Portfolio list |
+
+Expected behavior:
+- Extract at minimum the company name and any public website, domain, careers link, or company permalink that can support later ATS validation.
+- Treat these sources as company-first enrichment sources rather than direct proof of a matching open role.
+- Use identity roles to prioritize or filter follow-up ATS validation and downstream extraction, but do not require every portfolio source to natively support role search.
+
+Notes:
+- Portfolio directories are preferred Workflow 1 inputs when they expose enough public metadata to produce deduplicable company records.
+- If a portfolio source yields only firmographic metadata without usable company links, the crawler may record telemetry and skip the company for ATS validation in that run.
+
+### 5.5 Community Hiring Threads
+
+Use community hiring threads as opportunistic discovery sources for companies that may not be surfaced reliably by structured boards.
+
+Preferred sources:
+
+| Website | Root URL | Path / Pattern to Lookup | Note |
+|---|---|---|---|
+| Hacker News | `hn.algolia.com` | `/?query=Who%27s%20hiring&sort=byDate` | Search monthly `Who is Hiring` threads and extract company/hiring signals from thread content |
+
+Expected behavior:
+- Discover the current and recent `Who is Hiring` threads, then extract company names, careers URLs, domains, and role relevance from structured or semi-structured postings when feasible.
+- Treat thread-derived discoveries as lower-structure signals that must still pass normalization, deduplication, and ATS validation before downstream extraction.
+
+Notes:
+- Community-thread extraction is preferred but optional because post formatting and attribution quality may vary across runs.
+- When company identity cannot be resolved confidently from thread content, the crawler should preserve telemetry and skip ATS follow-up for that item.
+
+### 5.6 ATS Compatibility Validation
 
 Before slug dorking, validate whether a company appears compatible with Greenhouse, Lever, or Ashby.
 
@@ -183,7 +240,7 @@ Rules:
 - If multiple ATS hints appear, prioritize the strongest hosted-board signal and log ambiguity.
 - If careers content is client-rendered, optional headless rendering may be used under section 11 controls.
 
-### 5.5 ATS Slug Discovery
+### 5.7 ATS Slug Discovery
 
 To call ATS public APIs, the crawler needs the provider-specific company slug.
 
@@ -205,7 +262,7 @@ If slug cannot be resolved:
 - Log unresolved source with reason.
 - Skip source for this run.
 
-### 5.6 4dayweek Job URL Discovery
+### 5.8 4dayweek Job URL Discovery
 
 Preferred strategy: sitemap traversal.
 
@@ -221,16 +278,16 @@ Fallback strategy: list-page crawl.
 - Use headless browser only if required by client-side pagination/infinite scroll.
 - Capture job detail URLs from loaded content or intercepted XHR payloads.
 
-### 5.7 End-to-End Discovery Workflow
+### 5.9 End-to-End Discovery Workflow
 
 Engineer-oriented sequence:
 1. Load `identity_id` and `identity.roles`.
-2. In parallel, discover companies from role queries and run independent 4dayweek discovery.
+2. In parallel, discover companies and hiring signals from role-query boards, curated communities, portfolio directories, and community hiring threads, while also running independent 4dayweek discovery.
 3. In parallel, enrich discovered companies with ATS provider and ATS slug.
 4. Continuously extract jobs from ATS APIs for companies that already have ATS metadata.
 5. Normalize, upsert, and optionally enqueue scoring payloads.
 
-### 5.8 Parallel Workflow Contracts
+### 5.10 Parallel Workflow Contracts
 
 The crawler is organized as four workflows that may run concurrently in one run.
 
@@ -241,18 +298,28 @@ Input:
 - `identities.roles`
 
 Sources:
-- LinkedIn
-- Indeed
-- SimplyHired
-- Y Combinator
-- Wellfound
+- Role-query job boards and search sources: LinkedIn, Indeed, SimplyHired, Built In, Otta
+- Curated startup and job communities: Y Combinator, Wellfound, Work at a Startup
+- Portfolio and investor directories: Crunchbase, Techstars, 500 Global, a16z, Sequoia
+- Community hiring threads: Hacker News `Who is Hiring`
+
+Source-specific output expectations:
+- Job-board and search sources should provide role-filtered hiring signals plus company names and source attribution.
+- Curated startup and job communities may provide company-first discovery, job-first discovery, or both.
+- Portfolio directories may only provide company metadata and public links sufficient for company creation and later ATS validation.
+- Community-thread sources may require extracting company identity from unstructured post text and should be treated as lower-structure inputs.
+
+Workflow 1 source policy:
+- These sources are preferred Workflow 1 inputs, not a guarantee that identical adapters or extraction quality exist for every source.
+- A source may be enabled, skipped, or partially processed in a run depending on public accessibility, compliance posture, and whether it exposes enough company metadata for deduplication and downstream ATS enrichment.
 
 DB writes:
 - Upsert into `companies` using canonicalized company name.
 - Preserve source attribution metadata when available.
 
 Output contract:
-- Companies become eligible input for workflow 2.
+- Companies with sufficiently resolved names and public links become eligible input for workflow 2.
+- Companies discovered with incomplete metadata may still be persisted for telemetry or future enrichment, but Workflow 2 may skip them until ATS-validation prerequisites are available.
 
 #### Workflow 2: ATS Provider Detection and Slug Resolution
 
@@ -302,7 +369,7 @@ DB writes:
 Output contract:
 - Workflow 4 is independent and does not require ATS company metadata.
 
-### 5.9 Workflow Dependency and Persistence Policy
+### 5.11 Workflow Dependency and Persistence Policy
 
 Dependency rules:
 - Workflows 1, 2, and 4 can start in parallel.
@@ -313,6 +380,11 @@ Persistence policy:
 - Partial successes are persisted.
 - Per-company or per-source failures are logged and do not trigger global rollback.
 - The run continues unless run-level abort conditions from section 12 occur.
+
+Workflow 1 persistence notes:
+- Discoveries from role-query boards, communities, portfolio directories, and community threads all feed the same company deduplication path.
+- Source attribution should preserve enough detail to distinguish whether a company was discovered from a structured job board, a curated directory, or an unstructured hiring thread.
+- Expanding Workflow 1 inputs must not change Workflow 2 ATS enrichment rules, Workflow 3 ATS extraction rules, or Workflow 4 independence.
 
 ---
 
