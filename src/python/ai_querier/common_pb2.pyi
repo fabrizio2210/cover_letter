@@ -312,7 +312,7 @@ class Company(google.protobuf.message.Message):
     """@gotags: bson:"name" """
 
     field_id: typing.Text
-    """@gotags: bson:"field" """
+    """@gotags: bson:"field_id" """
 
     @property
     def field_info(self) -> global___Field:
@@ -381,7 +381,7 @@ class Recipient(google.protobuf.message.Message):
     """@gotags: bson:"description" """
 
     company_id: typing.Text
-    """@gotags: bson:"company" """
+    """@gotags: bson:"company_id" """
 
     @property
     def company_info(self) -> global___Company:
@@ -423,7 +423,7 @@ class Identity(google.protobuf.message.Message):
     """@gotags: bson:"description" """
 
     field_id: typing.Text
-    """@gotags: bson:"field" """
+    """@gotags: bson:"field_id" """
 
     @property
     def roles(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]:

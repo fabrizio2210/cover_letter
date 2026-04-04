@@ -29,7 +29,7 @@ func GetRecipients(c *gin.Context) {
 	pipeline := mongo.Pipeline{
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: "companies"},
-			{Key: "localField", Value: "company"},
+			{Key: "localField", Value: "company_id"},
 			{Key: "foreignField", Value: "_id"},
 			{Key: "as", Value: "companyInfo"},
 		}}},
@@ -90,7 +90,7 @@ func CreateRecipient(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid company_id"})
 			return
 		}
-		insertDoc["company"] = companyObjID
+		insertDoc["company_id"] = companyObjID
 	}
 
 	client := GetMongoClient()
@@ -116,7 +116,7 @@ func CreateRecipient(c *gin.Context) {
 		{{Key: "$match", Value: bson.D{{Key: "_id", Value: insertedID}}}},
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: "companies"},
-			{Key: "localField", Value: "company"},
+			{Key: "localField", Value: "company_id"},
 			{Key: "foreignField", Value: "_id"},
 			{Key: "as", Value: "companyInfo"},
 		}}},
@@ -326,14 +326,14 @@ func AssociateCompanyWithRecipient(c *gin.Context) {
 
 	var update bson.M
 	if req.CompanyID == nil {
-		update = bson.M{"$unset": bson.M{"company": ""}}
+		update = bson.M{"$unset": bson.M{"company_id": ""}}
 	} else {
 		companyObjID, err := primitive.ObjectIDFromHex(*req.CompanyID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Company ID"})
 			return
 		}
-		update = bson.M{"$set": bson.M{"company": companyObjID}}
+		update = bson.M{"$set": bson.M{"company_id": companyObjID}}
 	}
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)

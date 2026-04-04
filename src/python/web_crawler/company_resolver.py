@@ -90,7 +90,7 @@ def build_company_document(company: DiscoveredCompany, field_id: str | None = No
     company_data.setdefault("description", company.description.strip())
     company_data.setdefault("discovery_sources", [])
     if "field_id" in company_data:
-        company_data["field"] = ObjectId(company_data.pop("field_id"))
+        company_data["field_id"] = ObjectId(company_data["field_id"])
     return company_data
 
 
@@ -122,7 +122,7 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
                 }
             }
             if field_id:
-                update["$set"]["field"] = document["field"]
+                update["$set"]["field_id"] = document["field_id"]
             collection.update_one({"_id": existing["_id"]}, update)
             updated_count += 1
             company_ids.append(str(existing["_id"]))

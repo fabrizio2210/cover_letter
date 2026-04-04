@@ -77,7 +77,7 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
         doc = self.database["jobs"].find_one({"platform": "greenhouse", "external_job_id": "int-test-1"})
         self.assertIsNotNone(doc)
         self.assertEqual(doc["title"], "Integration Test Role")
-        self.assertEqual(doc["company"], self.company_id)
+        self.assertEqual(doc["company_id"], self.company_id)
         self.assertEqual(doc["scoring_status"], "unscored")
         self.assertEqual(doc["weighted_score"], 0)
         self.assertIn("seconds", doc["created_at"])

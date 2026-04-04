@@ -57,8 +57,8 @@ def list_emails(update: Update, context: CallbackContext) -> None:
 
     for email in emails:
         field_name = "No field associated"
-        if "field" in email:
-            field_id = str(email["field"])  # Convert ObjectId to string for comparison
+        if "field_id" in email:
+            field_id = str(email["field_id"])  # Convert ObjectId to string for comparison
             for field in field_list:
                 if field["_id"] == field_id:
                     field_name = field["field"]
@@ -189,7 +189,7 @@ def process_recipients_callback(query, context: CallbackContext) -> bool:
             # Store the field reference (_id) in the email document
             collection.update_one(
                 {"email": email_to_update},
-                {"$set": {"field": ObjectId(field_id)}}  # Use ObjectId for reference
+                {"$set": {"field_id": ObjectId(field_id)}}  # Use ObjectId for reference
             )
             query.edit_message_text(
                 f"Field successfully associated with email '{email_to_update}'."

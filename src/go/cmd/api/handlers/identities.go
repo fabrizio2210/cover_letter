@@ -59,7 +59,7 @@ func GetIdentities(c *gin.Context) {
 	collection := client.Database(dbName).Collection("identities")
 
 	pipeline := bson.A{
-		bson.D{{"$lookup", bson.D{{"from", "fields"}, {"localField", "field"}, {"foreignField", "_id"}, {"as", "fieldInfo"}}}},
+		bson.D{{"$lookup", bson.D{{"from", "fields"}, {"localField", "field_id"}, {"foreignField", "_id"}, {"as", "fieldInfo"}}}},
 		bson.D{{"$unwind", bson.D{{"path", "$fieldInfo"}, {"preserveNullAndEmptyArrays", true}}}},
 	}
 
@@ -234,5 +234,5 @@ func AssociateFieldWithIdentity(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Field ID"})
 		return
 	}
-	UpdateIdentityGeneric(c, bson.M{"field": fieldObjID})
+	UpdateIdentityGeneric(c, bson.M{"field_id": fieldObjID})
 }

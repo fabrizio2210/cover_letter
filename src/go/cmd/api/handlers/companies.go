@@ -26,7 +26,7 @@ func GetCompanies(c *gin.Context) {
 	pipeline := mongo.Pipeline{
 		{{"$lookup", bson.D{
 			{"from", "fields"},
-			{"localField", "field"},
+			{"localField", "field_id"},
 			{"foreignField", "_id"},
 			{"as", "fieldInfo"},
 		}}},
@@ -86,7 +86,7 @@ func CreateCompany(c *gin.Context) {
 		"description": req.Description,
 	}
 	if hasField {
-		company["field"] = fieldObjID
+		company["field_id"] = fieldObjID
 	}
 
 	client := GetMongoClient()
@@ -152,7 +152,7 @@ func UpdateCompany(c *gin.Context) {
 		"$set": bson.M{
 			"name":        req.Name,
 			"description": req.Description,
-			"field":       fieldObjID,
+			"field_id":    fieldObjID,
 		},
 	}
 
@@ -229,14 +229,14 @@ func AssociateFieldWithCompany(c *gin.Context) {
 
 	var update bson.M
 	if req.FieldID == nil || *req.FieldID == "" {
-		update = bson.M{"$unset": bson.M{"field": ""}}
+		update = bson.M{"$unset": bson.M{"field_id": ""}}
 	} else {
 		fieldObjID, err := primitive.ObjectIDFromHex(*req.FieldID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid field_id"})
 			return
 		}
-		update = bson.M{"$set": bson.M{"field": fieldObjID}}
+		update = bson.M{"$set": bson.M{"field_id": fieldObjID}}
 	}
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)

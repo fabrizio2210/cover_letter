@@ -77,8 +77,8 @@ class Workflow1Tests(unittest.TestCase):
             field_id=field_id,
         )
         self.assertEqual(document["name"], "Acme Inc")
-        self.assertEqual(document["field"], ObjectId(field_id))
-        self.assertNotIn("field_id", document)
+        self.assertEqual(document["field_id"], ObjectId(field_id))
+        self.assertNotIn("field", document)
 
     def test_upsert_companies_is_idempotent(self):
         companies = FakeCollection()
@@ -104,7 +104,7 @@ class Workflow1Tests(unittest.TestCase):
                 {
                     "_id": ObjectId(identity_id),
                     "roles": ["software engineer"],
-                    "field": ObjectId("507f1f77bcf86cd799439012"),
+                    "field_id": ObjectId("507f1f77bcf86cd799439012"),
                 }
             ]
         )

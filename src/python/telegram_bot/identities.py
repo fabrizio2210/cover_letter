@@ -21,8 +21,8 @@ def list_identities(update: Update, context: CallbackContext) -> None:
 
     for identity in identities:
         field_name = "No field associated"
-        if "field" in identity:
-            field_id = str(identity["field"])  # Convert ObjectId to string for comparison
+        if "field_id" in identity:
+            field_id = str(identity["field_id"])  # Convert ObjectId to string for comparison
             for field in field_list:
                 if field["_id"] == field_id:
                     field_name = field["field"]
@@ -172,7 +172,7 @@ def process_identity_callback(query, context: CallbackContext) -> bool:
             # Store the field reference (_id) in the identity document
             identity_collection.update_one(
                 {"identity": identity_to_update},
-                {"$set": {"field": ObjectId(field_id)}}  # Use ObjectId for reference
+                {"$set": {"field_id": ObjectId(field_id)}}  # Use ObjectId for reference
             )
             query.edit_message_text(
                 f"Field successfully associated with identity '{identity_to_update}'."

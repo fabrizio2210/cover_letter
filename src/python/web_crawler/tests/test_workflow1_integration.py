@@ -65,7 +65,7 @@ class Workflow1MongoIntegrationTests(unittest.TestCase):
         )
         identity_doc = MessageToDict(identity_proto, preserving_proto_field_name=True)
         identity_doc["_id"] = ObjectId(identity_doc.pop("id"))
-        identity_doc["field"] = ObjectId(identity_doc.pop("field_id"))
+        identity_doc["field_id"] = ObjectId(identity_doc["field_id"])
         try:
             self.database["identities"].insert_one(identity_doc)
         except OperationFailure as exc:
@@ -115,7 +115,7 @@ class Workflow1MongoIntegrationTests(unittest.TestCase):
         if acme is None:
             self.fail("expected Acme document to be persisted")
         self.assertEqual(acme["name"], "Acme, Inc.")
-        self.assertEqual(acme["field"], self.field_id)
+        self.assertEqual(acme["field_id"], self.field_id)
         self.assertEqual(len(acme["discovery_sources"]), 1)
         self.assertEqual(acme["discovery_sources"][0]["source"], "stub")
         self.assertEqual(acme["discovery_sources"][0]["source_url"], "https://example.test/acme")
@@ -148,7 +148,7 @@ class Workflow1MongoIntegrationTests(unittest.TestCase):
         acme_updated = self.database["companies"].find_one({"canonical_name": "acme"})
         if acme_updated is None:
             self.fail("expected Acme document to be updated")
-        self.assertEqual(acme_updated["field"], self.field_id)
+        self.assertEqual(acme_updated["field_id"], self.field_id)
         self.assertEqual(len(acme_updated["discovery_sources"]), 2)
 
         source_urls = {source["source_url"] for source in acme_updated["discovery_sources"]}

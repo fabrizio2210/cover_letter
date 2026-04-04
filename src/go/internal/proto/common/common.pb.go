@@ -663,7 +663,7 @@ type Company struct {
 
 	Id                       string                               `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty" bson:"_id,omitempty"`                                                                                                                                                                 // @gotags: bson:"_id,omitempty"
 	Name                     string                               `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                                                                                                                                                             // @gotags: bson:"name"
-	FieldId                  string                               `protobuf:"bytes,3,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field"`                                                                                                                                        // @gotags: bson:"field"
+	FieldId                  string                               `protobuf:"bytes,3,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field_id"`                                                                                                                                        // @gotags: bson:"field_id"
 	FieldInfo                *Field                               `protobuf:"bytes,4,opt,name=field_info,json=fieldInfo,proto3" json:"field_info,omitempty" bson:"fieldInfo,omitempty"`                                                                                                                                  // @gotags: bson:"fieldInfo,omitempty"
 	Description              string                               `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty" bson:"description,omitempty"`                                                                                                                                               // @gotags: bson:"description,omitempty"
 	CanonicalName            string                               `protobuf:"bytes,6,opt,name=canonical_name,json=canonicalName,proto3" json:"canonical_name,omitempty" bson:"canonical_name,omitempty"`                                                                                                                      // @gotags: bson:"canonical_name,omitempty"
@@ -792,7 +792,7 @@ type Recipient struct {
 	Email       string   `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty" bson:"email"`                                // @gotags: bson:"email"
 	Name        string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                                  // @gotags: bson:"name"
 	Description string   `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty" bson:"description"`                    // @gotags: bson:"description"
-	CompanyId   string   `protobuf:"bytes,5,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty" bson:"company"`       // @gotags: bson:"company"
+	CompanyId   string   `protobuf:"bytes,5,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty" bson:"company_id"`       // @gotags: bson:"company_id"
 	CompanyInfo *Company `protobuf:"bytes,6,opt,name=company_info,json=companyInfo,proto3" json:"company_info,omitempty" bson:"companyInfo,omitempty"` // @gotags: bson:"companyInfo,omitempty"
 }
 
@@ -879,7 +879,7 @@ type Identity struct {
 	Identity      string   `protobuf:"bytes,2,opt,name=identity,proto3" json:"identity,omitempty" bson:"identity"`                                // @gotags: bson:"identity"
 	Name          string   `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty" bson:"name"`                                        // @gotags: bson:"name"
 	Description   string   `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty" bson:"description"`                          // @gotags: bson:"description"
-	FieldId       string   `protobuf:"bytes,5,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field"`                   // @gotags: bson:"field"
+	FieldId       string   `protobuf:"bytes,5,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty" bson:"field_id"`                   // @gotags: bson:"field_id"
 	Roles         []string `protobuf:"bytes,6,rep,name=roles,proto3" json:"roles,omitempty" bson:"roles,omitempty"`                                      // @gotags: bson:"roles,omitempty"
 	HtmlSignature string   `protobuf:"bytes,7,opt,name=html_signature,json=htmlSignature,proto3" json:"html_signature,omitempty" bson:"html_signature,omitempty"` // @gotags: bson:"html_signature,omitempty"
 	FieldInfo     *Field   `protobuf:"bytes,8,opt,name=field_info,json=fieldInfo,proto3" json:"field_info,omitempty" bson:"fieldInfo,omitempty"`             // @gotags: bson:"fieldInfo,omitempty"

@@ -143,7 +143,7 @@ func (f *rFakeCursor) All(ctx context.Context, result interface{}) error {
 			if description, ok := doc["description"].(string); ok {
 				r.Description = description
 			}
-			if company, ok := doc["company"].(string); ok {
+			if company, ok := doc["company_id"].(string); ok {
 				r.CompanyId = company
 			}
 			out = append(out, r)
@@ -294,7 +294,7 @@ func TestCreateRecipient_ReturnsCompanyInfoWhenCompanyProvided(t *testing.T) {
 			"_id":         rid,
 			"email":       "sdfsf",
 			"name":        "sdfgsfd",
-			"company":     cid,
+			"company_id":  cid,
 			"companyInfo": bson.M{"_id": cid, "name": "Arriva"},
 		}},
 	}

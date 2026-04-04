@@ -132,7 +132,7 @@ def _company_from_document(company_doc: dict) -> common_pb2.Company:
         ats_slug=str(company_doc.get("ats_slug") or "").strip(),
     )
 
-    field_id = company_doc.get("field")
+    field_id = company_doc.get("field_id")
     if field_id is not None:
         company.field_id = str(field_id)
 

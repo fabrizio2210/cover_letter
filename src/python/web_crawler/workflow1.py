@@ -46,8 +46,8 @@ def load_identity_seed(identities_collection, identity_id: str) -> common_pb2.Id
         raise ValueError(f"identity {identity_id} has no roles")
 
     field_id = None
-    if identity.get("field") is not None:
-        field_id = str(identity["field"])
+    if identity.get("field_id") is not None:
+        field_id = str(identity["field_id"])
     logger.debug("field_id: %s", field_id)
 
     seed = common_pb2.Identity(id=identity_id, roles=roles)

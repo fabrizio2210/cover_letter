@@ -113,7 +113,7 @@ def process_cover_letter(cover_letters_col, recipient_id, cover_letter, prompt, 
 
 def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, companies_col, test_mode=False):
     # The recipient no longer holds the field directly; fetch the company then the field
-    company_id = recipient.get("company")
+    company_id = recipient.get("company_id")
     if not company_id:
         print(f"error: No company associated with recipient '{recipient.get('email', '')}'.")
         return
@@ -128,16 +128,16 @@ def generate_initial_cover_letter(recipient, identities_col, cover_letters_col, 
     if not company:
         print(f"error: Company '{company_id}' not found for recipient '{recipient.get('email', '')}'.")
         return
-    field_id = company.get("field")
+    field_id = company.get("field_id")
     if not field_id:
         print(f"error: No field associated with company '{company.get('name', '')}'.")
         return
     # Resolve identity by field (field may be a string or ObjectId)
     try:
         field_obj = field_id if isinstance(field_id, ObjectId) else ObjectId(field_id)
-        identity = identities_col.find_one({"field": field_obj})
+        identity = identities_col.find_one({"field_id": field_obj})
     except Exception:
-        identity = identities_col.find_one({"field": field_id})
+        identity = identities_col.find_one({"field_id": field_id})
     if not identity:
         print(f"error: No identity associated with field '{field_id}' for recipient '{recipient.get('email', '')}'.")
         return

@@ -76,7 +76,7 @@ enum ScoringStatus {
 message Company {
     string id = 1; // @gotags: bson:"_id,omitempty"
     string name = 2; // @gotags: bson:"name"
-    string field_id = 3; // @gotags: bson:"field"
+    string field_id = 3; // @gotags: bson:"field_id"
     Field field_info = 4; // @gotags: bson:"fieldInfo,omitempty"
     string description = 5; // @gotags: bson:"description,omitempty"
     string canonical_name = 6; // @gotags: bson:"canonical_name,omitempty"
@@ -92,7 +92,7 @@ message Recipient {
     string email = 2; // @gotags: bson:"email"
     string name = 3; // @gotags: bson:"name"
     string description = 4; // @gotags: bson:"description"
-    string company_id = 5; // @gotags: bson:"company"
+    string company_id = 5; // @gotags: bson:"company_id"
     Company company_info = 6; // @gotags: bson:"companyInfo,omitempty"
 }
 
@@ -101,7 +101,7 @@ message Identity {
     string identity = 2; // @gotags: bson:"identity"
     string name = 3; // @gotags: bson:"name"
     string description = 4; // @gotags: bson:"description"
-    string field_id = 5; // @gotags: bson:"field"
+    string field_id = 5; // @gotags: bson:"field_id"
     repeated string roles = 6; // @gotags: bson:"roles,omitempty"
     string html_signature = 7; // @gotags: bson:"html_signature,omitempty"
     Field field_info = 8; // @gotags: bson:"fieldInfo,omitempty"
