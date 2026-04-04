@@ -4,12 +4,14 @@ import logging
 import re
 from collections import OrderedDict
 from typing import Iterable
+from urllib.parse import urlparse
 
 from bson import ObjectId
 from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.models import DiscoveredCompany
+from src.python.web_crawler.sources.ats_slug_resolver import extract_slug_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,46 @@ _LEGAL_SUFFIXES = {
     "bv",
     "oy",
 }
+
+_ATS_HOST_PROVIDER_MAP = {
+    "boards.greenhouse.io": "greenhouse",
+    "jobs.lever.co": "lever",
+    "jobs.ashbyhq.com": "ashby",
+}
+
+
+def _extract_ats_from_url(url: str) -> tuple[str, str] | None:
+    if not url:
+        return None
+
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    host = parsed.netloc.casefold().removeprefix("www.")
+    provider = _ATS_HOST_PROVIDER_MAP.get(host)
+    if not provider:
+        return None
+
+    slug = extract_slug_from_url(parsed.geturl(), provider)
+    if not slug:
+        return None
+
+    return provider, slug
+
+
+def _extract_ats_from_company_document(document: dict) -> tuple[str, str] | None:
+    discovery_sources = document.get("discovery_sources", [])
+    if not isinstance(discovery_sources, list):
+        return None
+
+    for source in discovery_sources:
+        if not isinstance(source, dict):
+            continue
+        for key in ("careers_url", "source_url", "domain"):
+            value = str(source.get(key) or "").strip()
+            metadata = _extract_ats_from_url(value)
+            if metadata:
+                return metadata
+
+    return None
 
 
 def canonicalize_company_name(name: str) -> str:
@@ -109,6 +151,11 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
         document = build_company_document(company, field_id=field_id)
         document["canonical_name"] = canonical_name
 
+        discovered_ats = _extract_ats_from_company_document(document)
+        if discovered_ats:
+            document["ats_provider"] = discovered_ats[0]
+            document["ats_slug"] = discovered_ats[1]
+
         if existing:
             logger.debug("updating existing company canonical_name=%r _id=%s", canonical_name, existing["_id"])
             existing_sources = existing.get("discovery_sources", [])
@@ -123,6 +170,15 @@ def upsert_companies(collection, companies: Iterable[DiscoveredCompany], field_i
             }
             if field_id:
                 update["$set"]["field_id"] = document["field_id"]
+
+            if not existing.get("ats_provider") or not existing.get("ats_slug"):
+                merged_document = dict(existing)
+                merged_document["discovery_sources"] = merged_sources
+                merged_ats = _extract_ats_from_company_document(merged_document)
+                if merged_ats:
+                    update["$set"]["ats_provider"] = merged_ats[0]
+                    update["$set"]["ats_slug"] = merged_ats[1]
+
             collection.update_one({"_id": existing["_id"]}, update)
             updated_count += 1
             company_ids.append(str(existing["_id"]))

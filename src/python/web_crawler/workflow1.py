@@ -9,6 +9,7 @@ from src.python.web_crawler.company_resolver import deduplicate_companies, upser
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import Workflow1Result
 from src.python.web_crawler.sources.base import SourceAdapter
+from src.python.web_crawler.sources.hackernews import HackerNewsAdapter
 from src.python.web_crawler.sources.ycombinator import YCombinatorAdapter
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 def get_enabled_adapters(enabled_sources: list[str] | None) -> list[SourceAdapter]:
     source_map: dict[str, SourceAdapter] = {
+        "hackernews": HackerNewsAdapter(),
         "ycombinator": YCombinatorAdapter(),
     }
 

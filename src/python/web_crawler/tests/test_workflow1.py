@@ -7,7 +7,7 @@ from bson import ObjectId
 from src.python.web_crawler.company_resolver import build_company_document, canonicalize_company_name, upsert_companies
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
-from src.python.web_crawler.workflow1 import load_identity_seed, run_workflow1
+from src.python.web_crawler.workflow1 import get_enabled_adapters, load_identity_seed, run_workflow1
 
 
 class FakeInsertResult:
@@ -96,6 +96,62 @@ class Workflow1Tests(unittest.TestCase):
         self.assertEqual(inserted_count, 0)
         self.assertEqual(updated_count, 1)
         self.assertEqual(len(company_ids), 1)
+
+    def test_get_enabled_adapters_includes_hackernews(self):
+        adapters = get_enabled_adapters(["hackernews"])
+        self.assertEqual(len(adapters), 1)
+        self.assertEqual(adapters[0].source_name, "hackernews")
+
+    def test_upsert_companies_persists_ats_metadata_from_urls(self):
+        companies = FakeCollection()
+        discovered = [
+            DiscoveredCompany(
+                name="Acme",
+                source="hackernews",
+                role="software engineer",
+                source_url="https://news.ycombinator.com/item?id=1",
+                careers_url="https://jobs.lever.co/acme/abcd",
+            )
+        ]
+
+        inserted_count, updated_count, company_ids = upsert_companies(companies, discovered)
+        self.assertEqual(inserted_count, 1)
+        self.assertEqual(updated_count, 0)
+        self.assertEqual(len(company_ids), 1)
+
+        stored = companies.docs[0]
+        self.assertEqual(stored.get("ats_provider"), "lever")
+        self.assertEqual(stored.get("ats_slug"), "acme")
+
+    def test_upsert_companies_keeps_existing_ats_metadata(self):
+        companies = FakeCollection(
+            docs=[
+                {
+                    "_id": ObjectId("507f1f77bcf86cd799439014"),
+                    "name": "Acme",
+                    "canonical_name": "acme",
+                    "description": "",
+                    "ats_provider": "greenhouse",
+                    "ats_slug": "acme-gh",
+                    "discovery_sources": [],
+                }
+            ]
+        )
+
+        discovered = [
+            DiscoveredCompany(
+                name="Acme",
+                source="hackernews",
+                role="software engineer",
+                careers_url="https://jobs.lever.co/acme/job-123",
+            )
+        ]
+
+        inserted_count, updated_count, _ = upsert_companies(companies, discovered)
+        self.assertEqual(inserted_count, 0)
+        self.assertEqual(updated_count, 1)
+        self.assertEqual(companies.docs[0].get("ats_provider"), "greenhouse")
+        self.assertEqual(companies.docs[0].get("ats_slug"), "acme-gh")
 
     def test_run_workflow1_collects_partial_failures(self):
         identity_id = "507f1f77bcf86cd799439011"

@@ -40,6 +40,10 @@ class CrawlerConfig:
     yc_hits_per_page: int = 100
     yc_max_companies: int = 500
     yc_max_companies_per_role: int | None = None
+    hn_max_threads: int = 3
+    hn_comments_hits_per_page: int = 500
+    hn_max_comments_per_thread: int = 1000
+    hn_max_companies_per_role: int = 50
     serper_api_key: str | None = None
     serper_search_url: str = "https://google.serper.dev/search"
     force_serp_retry_on_prior_attempt: bool = False
@@ -49,7 +53,7 @@ class CrawlerConfig:
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
-        enabled_sources = _parse_csv(os.getenv("CRAWLER_ENABLED_SOURCES", "ycombinator"))
+        enabled_sources = _parse_csv(os.getenv("CRAWLER_ENABLED_SOURCES", "ycombinator,hackernews"))
         yc_max_companies_per_role = os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE")
         return cls(
             mongo_host=os.getenv("MONGO_HOST", "mongodb://localhost:27017/"),
@@ -63,6 +67,10 @@ class CrawlerConfig:
             yc_hits_per_page=max(1, min(int(os.getenv("CRAWLER_YC_HITS_PER_PAGE", "100")), 1000)),
             yc_max_companies=max(1, int(os.getenv("CRAWLER_YC_MAX_COMPANIES", "500"))),
             yc_max_companies_per_role=max(1, int(yc_max_companies_per_role)) if yc_max_companies_per_role else None,
+            hn_max_threads=max(1, int(os.getenv("CRAWLER_HN_MAX_THREADS", "5"))),
+            hn_comments_hits_per_page=max(1, min(int(os.getenv("CRAWLER_HN_COMMENTS_HITS_PER_PAGE", "500")), 1000)),
+            hn_max_comments_per_thread=max(1, int(os.getenv("CRAWLER_HN_MAX_COMMENTS_PER_THREAD", "1000"))),
+            hn_max_companies_per_role=max(1, int(os.getenv("CRAWLER_HN_MAX_COMPANIES_PER_ROLE", "50"))),
             serper_api_key=os.getenv("SERPER_API_KEY") or None,
             serper_search_url=os.getenv("SERPER_SEARCH_URL", "https://google.serper.dev/search"),
             force_serp_retry_on_prior_attempt=_parse_bool(os.getenv("CRAWLER_FORCE_SERP_RETRY_ON_PRIOR_ATTEMPT"), default=False),

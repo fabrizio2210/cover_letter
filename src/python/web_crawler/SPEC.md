@@ -384,6 +384,7 @@ Persistence policy:
 Workflow 1 persistence notes:
 - Discoveries from role-query boards, communities, portfolio directories, and community threads all feed the same company deduplication path.
 - Source attribution should preserve enough detail to distinguish whether a company was discovered from a structured job board, a curated directory, or an unstructured hiring thread.
+- If discovery URLs already expose an unambiguous hosted ATS slug (for example `boards.greenhouse.io/{slug}`, `jobs.lever.co/{slug}`, or `jobs.ashbyhq.com/{slug}`), workflow 1 may persist `ats_provider` and `ats_slug` directly on the company document during upsert.
 - Expanding Workflow 1 inputs must not change Workflow 2 ATS enrichment rules, Workflow 3 ATS extraction rules, or Workflow 4 independence.
 
 ---
