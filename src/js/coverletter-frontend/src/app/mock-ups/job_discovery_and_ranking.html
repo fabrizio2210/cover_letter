@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#eef0ff",
+                    "outline-variant": "#c6c6cd",
+                    "surface-container": "#eaedff",
+                    "tertiary-fixed": "#e1e0ff",
+                    "on-secondary-fixed-variant": "#3a485b",
+                    "surface-variant": "#dae2fd",
+                    "on-error": "#ffffff",
+                    "background": "#faf8ff",
+                    "primary-container": "#00174b",
+                    "on-background": "#131b2e",
+                    "tertiary-fixed-dim": "#c0c1ff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e2e7ff",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed": "#0d1c2e",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "surface-bright": "#faf8ff",
+                    "surface-dim": "#d2d9f4",
+                    "secondary-fixed": "#d5e3fc",
+                    "on-surface-variant": "#45464d",
+                    "on-primary-container": "#497cff",
+                    "primary": "#000000",
+                    "secondary-fixed-dim": "#b9c7df",
+                    "on-error-container": "#93000a",
+                    "inverse-surface": "#283044",
+                    "outline": "#76777d",
+                    "tertiary": "#000000",
+                    "surface-container-low": "#f2f3ff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#00174b",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#dbe1ff",
+                    "secondary-container": "#d5e3fc",
+                    "surface-container-highest": "#dae2fd",
+                    "on-surface": "#131b2e",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed": "#07006c",
+                    "surface": "#faf8ff",
+                    "secondary": "#515f74",
+                    "on-secondary-container": "#57657a",
+                    "inverse-primary": "#b4c5ff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-tint": "#0053db",
+                    "on-tertiary-container": "#7073ff",
+                    "tertiary-container": "#07006c",
+                    "on-tertiary-fixed-variant": "#2f2ebe"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .glass-header {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+        .primary-gradient-btn {
+            background: linear-gradient(135deg, #497cff 0%, #0053db 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex min-h-screen">
+<!-- SideNavBar Shell -->
+<aside class="hidden md:flex flex-col h-screen w-64 bg-slate-50 dark:bg-slate-900 border-r border-slate-200/50 dark:border-slate-800/50 p-4 gap-2 sticky top-0">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">The Curator</h1>
+<p class="text-[10px] uppercase tracking-widest font-bold text-on-primary-container opacity-80">AI Job Strategist</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-blue-600 font-semibold bg-white shadow-sm rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="search_insight">search_insights</span>
+<span class="font-medium">Job Discovery</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="font-medium">Letter Editor</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+<span class="font-medium">Identities</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="business">business</span>
+<span class="font-medium">Companies</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 flex flex-col gap-1 border-t border-slate-200/30">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full z-40 bg-white/70 backdrop-blur-xl flex items-center justify-between px-8 py-3 border-b border-slate-100">
+<div class="flex items-center gap-4">
+<h2 class="hidden md:block text-lg font-black text-slate-900 tracking-tight">Job Discovery</h2>
+<div class="h-6 w-[1px] bg-slate-200 hidden md:block"></div>
+<div class="flex items-center gap-2 text-slate-400 text-sm">
+<span>Identities</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-blue-600 font-medium">Full-Stack Lead</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center gap-4">
+<a class="text-slate-400 hover:text-blue-500 transition-all text-sm font-medium" href="#">Global Search</a>
+<a class="text-blue-600 border-b-2 border-blue-600 pb-1 text-sm font-medium" href="#">Recent Scrapes</a>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-600 transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+</div>
+</div>
+</header>
+<div class="p-8 max-w-7xl mx-auto w-full grid grid-cols-1 xl:grid-cols-12 gap-8">
+<!-- Filter & Search Section -->
+<section class="xl:col-span-12 bg-surface-container-low rounded-3xl p-6 mb-2">
+<div class="flex flex-col md:flex-row gap-4 items-center">
+<div class="flex-1 w-full relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full bg-white border-none rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-blue-600/20 text-on-surface shadow-sm transition-all" placeholder="Search by title, company, or keywords..." type="text"/>
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<div class="flex items-center gap-2 px-4 py-3 bg-white rounded-2xl border-none shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-blue-600 text-xl">tune</span>
+<span class="text-sm font-semibold whitespace-nowrap">Filter Options</span>
+</div>
+<button class="primary-gradient-btn text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-lg">bolt</span>
+<span>Re-Rank Now</span>
+</button>
+</div>
+</div>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider rounded-full flex items-center gap-1">
+                        Score &gt; 4.0 <span class="material-symbols-outlined text-sm">close</span>
+</span>
+<span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-slate-100 flex items-center gap-1 cursor-pointer">
+                        Remote Only
+                    </span>
+<span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-slate-100 flex items-center gap-1 cursor-pointer">
+                        Series C+
+                    </span>
+<span class="px-3 py-1 bg-white text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-slate-100 flex items-center gap-1 cursor-pointer">
+                        Full-Stack Lead identity
+                    </span>
+</div>
+</section>
+<!-- Main Job Feed -->
+<div class="xl:col-span-8 space-y-6">
+<!-- Job Card 1 -->
+<article class="bg-surface-container-lowest rounded-3xl p-6 transition-all border border-transparent hover:border-blue-100 group">
+<div class="flex flex-col md:flex-row gap-6">
+<div class="flex-shrink-0 w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-slate-300 text-3xl">domain</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-start justify-between mb-1">
+<div>
+<h3 class="text-xl font-bold text-on-surface truncate">Senior Engineering Manager</h3>
+<p class="text-blue-600 font-semibold text-sm">Anthropic</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-black text-blue-600 tracking-tighter">4.9<span class="text-sm font-normal text-slate-400">/5</span></div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Match Score</p>
+</div>
+</div>
+<div class="flex items-center gap-4 mb-4">
+<span class="flex items-center gap-1 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-sm">language</span> Ashby
+                                </span>
+<span class="flex items-center gap-1 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-sm">schedule</span> 2h ago
+                                </span>
+<span class="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+                                    High Priority
+                                </span>
+</div>
+<div class="bg-tertiary-container/5 rounded-2xl p-4 mb-6 border-l-4 border-blue-500">
+<p class="text-sm text-slate-600 leading-relaxed">
+<span class="font-bold text-blue-600">Rationale:</span> Your recent experience leading RLHF infrastructure teams directly matches their core requirement for technical leadership in LLM safety.
+                                </p>
+<button class="mt-2 text-blue-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1 hover:gap-2 transition-all">
+                                    Read Detailed Breakdown <span class="material-symbols-outlined text-xs">arrow_forward</span>
+</button>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="primary-gradient-btn text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:scale-[0.98] transition-transform">
+                                    Prepare Cover Letter
+                                </button>
+<button class="bg-surface-container-high text-on-secondary-container px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                                    Mark as Not Interested
+                                </button>
+</div>
+</div>
+</div>
+</article>
+<!-- Job Card 2 -->
+<article class="bg-surface-container-lowest rounded-3xl p-6 transition-all border border-transparent hover:border-blue-100 group">
+<div class="flex flex-col md:flex-row gap-6">
+<div class="flex-shrink-0 w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Abstract minimalist logo with clean geometric shapes in a soft blue and white circular frame" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7mVpuQUvldkJcaNSPlVEazwTzwKMPGQeIS_dYTKhAvs14D3viFhnPc7egUkvZCVZOCLE92VeiYeaL44bhK3ct-PjE20D0rHwTbKEyuINJsMxgeDz0uQPHLo8s4Z7UzWq2m8CFwpY7zhZmgvMS_vKXevRgB68eKJX7n7oRgzP2RM50u0-R_Nyp1GWopgTaoQIABfwQW2HkbvmxavQ6v5ywK_02Bapo6bob1vmyqbRdN4WVl_IqNE7CYfA2iijNNrKxVp1E47nq7H9h"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-start justify-between mb-1">
+<div>
+<h3 class="text-xl font-bold text-on-surface truncate">Full Stack Infrastructure Lead</h3>
+<p class="text-blue-600 font-semibold text-sm">Scale AI</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-black text-blue-600 tracking-tighter">4.7<span class="text-sm font-normal text-slate-400">/5</span></div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Match Score</p>
+</div>
+</div>
+<div class="flex items-center gap-4 mb-4">
+<span class="flex items-center gap-1 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-sm">language</span> Lever
+                                </span>
+<span class="flex items-center gap-1 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-sm">schedule</span> 5h ago
+                                </span>
+<span class="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+                                    Remote Friendly
+                                </span>
+</div>
+<div class="bg-slate-50 rounded-2xl p-4 mb-6 border-l-4 border-slate-200">
+<p class="text-sm text-slate-600 leading-relaxed">
+<span class="font-bold text-slate-900">Rationale:</span> Strong overlap with your Go and Kubernetes expertise. Ranks slightly lower due to a heavy focus on data labeling workflows vs architectural design.
+                                </p>
+<button class="mt-2 text-blue-600 font-bold text-xs uppercase tracking-wider flex items-center gap-1 hover:gap-2 transition-all">
+                                    Read Detailed Breakdown <span class="material-symbols-outlined text-xs">arrow_forward</span>
+</button>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="primary-gradient-btn text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:scale-[0.98] transition-transform">
+                                    Prepare Cover Letter
+                                </button>
+<button class="bg-surface-container-high text-on-secondary-container px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                                    Mark as Not Interested
+                                </button>
+</div>
+</div>
+</div>
+</article>
+<!-- Job Card 3 (Density/Bento style alternative) -->
+<article class="bg-surface-container-lowest rounded-3xl p-6 transition-all border border-transparent hover:border-blue-100 group opacity-75 grayscale-[0.5]">
+<div class="flex flex-col md:flex-row gap-6 opacity-60">
+<div class="flex-shrink-0 w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100">
+<span class="material-symbols-outlined text-slate-300 text-3xl">business</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-start justify-between mb-1">
+<div>
+<h3 class="text-xl font-bold text-on-surface truncate">Product Engineer</h3>
+<p class="text-slate-500 font-semibold text-sm">Mercury</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-black text-slate-400 tracking-tighter">3.2<span class="text-sm font-normal text-slate-300">/5</span></div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-300">AI Match Score</p>
+</div>
+</div>
+<p class="text-xs text-slate-400 italic">Score threshold filter hidden: Role requires heavy React/Frontend focus which is secondary to your profile.</p>
+</div>
+</div>
+</article>
+</div>
+<!-- Side Intelligence Panel -->
+<aside class="xl:col-span-4 space-y-6">
+<!-- Active Crawler Status -->
+<div class="bg-on-primary-container text-white rounded-3xl p-6 shadow-xl shadow-blue-900/10 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-7xl" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</span>
+<span class="text-[10px] font-black uppercase tracking-[0.2em]">Crawler Active</span>
+</div>
+<h4 class="text-xl font-bold mb-2">Deep Discovery Run</h4>
+<p class="text-blue-100 text-sm mb-6 leading-snug">Scanned 42 portals in the last hour. Found 12 matching your "Full-Stack Lead" identity.</p>
+<div class="space-y-4">
+<div class="flex items-center justify-between text-xs">
+<span class="text-blue-200">Processing Lever...</span>
+<span class="font-bold">88%</span>
+</div>
+<div class="w-full bg-blue-900/40 rounded-full h-1.5 overflow-hidden">
+<div class="bg-blue-400 h-full w-[88%]"></div>
+</div>
+</div>
+<button class="mt-8 w-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white py-3 rounded-2xl font-bold text-sm transition-all">
+                            Configure Crawler Slugs
+                        </button>
+</div>
+</div>
+<!-- Quick Identity Settings -->
+<div class="bg-surface-container-low rounded-3xl p-6">
+<h4 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6">Discovery Settings</h4>
+<div class="space-y-6">
+<div>
+<label class="block text-xs font-bold text-slate-900 mb-2">Primary Identity</label>
+<div class="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 cursor-pointer">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-blue-600"></div>
+<span class="text-sm font-medium">Full-Stack Lead</span>
+</div>
+<span class="material-symbols-outlined text-slate-400">unfold_more</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-900 mb-2">Min. AI Score Threshold</label>
+<input class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" max="5" min="0" step="0.1" type="range" value="4.0"/>
+<div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span>Strict (5.0)</span>
+<span class="text-blue-600">Current: 4.0</span>
+<span>Loose (0.0)</span>
+</div>
+</div>
+<div class="pt-4 border-t border-slate-200/50 space-y-3">
+<label class="flex items-center justify-between cursor-pointer group">
+<span class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Remote Jobs First</span>
+<div class="w-10 h-6 bg-blue-600 rounded-full p-1 transition-colors relative">
+<div class="bg-white w-4 h-4 rounded-full shadow-sm absolute right-1"></div>
+</div>
+</label>
+<label class="flex items-center justify-between cursor-pointer group">
+<span class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">AI Skill Gap Analysis</span>
+<div class="w-10 h-6 bg-slate-300 rounded-full p-1 transition-colors relative">
+<div class="bg-white w-4 h-4 rounded-full shadow-sm"></div>
+</div>
+</label>
+</div>
+</div>
+</div>
+<!-- Strategy Insights -->
+</aside>
+</div>
+</main>
+<!-- Bottom Navigation for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around py-4 z-50">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-bold uppercase">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-blue-600">
+<span class="material-symbols-outlined" data-icon="search_insight">search_insights</span>
+<span class="text-[10px] font-bold uppercase">Jobs</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="text-[10px] font-bold uppercase">Editor</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+<span class="text-[10px] font-bold uppercase">Identity</span>
+</button>
+</nav>
+</body></html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Letter Editor | The Digital Curator</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eef0ff",
+                        "outline-variant": "#c6c6cd",
+                        "surface-container": "#eaedff",
+                        "tertiary-fixed": "#e1e0ff",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "surface-variant": "#dae2fd",
+                        "on-error": "#ffffff",
+                        "background": "#faf8ff",
+                        "primary-container": "#00174b",
+                        "on-background": "#131b2e",
+                        "tertiary-fixed-dim": "#c0c1ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e2e7ff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "surface-bright": "#faf8ff",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-surface-variant": "#45464d",
+                        "on-primary-container": "#497cff",
+                        "primary": "#000000",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#283044",
+                        "outline": "#76777d",
+                        "tertiary": "#000000",
+                        "surface-container-low": "#f2f3ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#dbe1ff",
+                        "secondary-container": "#d5e3fc",
+                        "surface-container-highest": "#dae2fd",
+                        "on-surface": "#131b2e",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#07006c",
+                        "surface": "#faf8ff",
+                        "secondary": "#515f74",
+                        "on-secondary-container": "#57657a",
+                        "inverse-primary": "#b4c5ff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-tint": "#0053db",
+                        "on-tertiary-container": "#7073ff",
+                        "tertiary-container": "#07006c",
+                        "on-tertiary-fixed-variant": "#2f2ebe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .editor-glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body min-h-screen flex">
+<!-- SideNavBar Anchor -->
+<aside class="hidden md:flex flex-col h-screen w-64 bg-slate-50 border-r border-slate-200/50 p-4 gap-2">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-bold tracking-tight text-slate-900">The Curator</h1>
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-label">AI Job Strategist</p>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="search_insight">search_insights</span>
+<span class="font-medium">Job Discovery</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-blue-600 font-semibold bg-white shadow-sm rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="font-medium">Letter Editor</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+<span class="font-medium">Identities</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="business">business</span>
+<span class="font-medium">Companies</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-1 border-t border-slate-100 pt-4">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-medium">Settings</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface h-screen">
+<!-- TopAppBar Anchor -->
+<header class="sticky top-0 w-full z-40 flex items-center justify-between px-8 py-3 bg-white/70 backdrop-blur-xl border-b border-slate-100">
+<div class="flex items-center gap-4">
+<div class="flex flex-col">
+<h2 class="font-headline text-lg font-black text-slate-900 leading-tight">Senior Product Designer</h2>
+<nav class="flex items-center gap-2 text-xs text-slate-400 font-label">
+<span>Loom Inc.</span>
+<span class="material-symbols-outlined text-[12px]" data-icon="chevron_right">chevron_right</span>
+<span>Draft #4</span>
+</nav>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center gap-6 mr-6">
+<a class="text-slate-400 hover:text-blue-500 text-sm font-medium transition-all" href="#">Global Search</a>
+<a class="text-slate-400 hover:text-blue-500 text-sm font-medium transition-all" href="#">Recent Scrapes</a>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-blue-600 transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+</div>
+<button class="ml-4 px-6 py-2.5 bg-gradient-to-br from-on-primary-container to-surface-tint text-white font-semibold rounded-full text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98]">
+                    Send Letter
+                </button>
+</div>
+</header>
+<!-- Split-Pane Content -->
+<div class="flex-1 flex overflow-hidden p-4 gap-1 bg-surface-dim/20">
+<!-- Left Pane: Markdown Editor -->
+<section class="flex-1 flex flex-col bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden transition-all duration-300">
+<!-- Editor Toolbar -->
+<div class="px-6 py-3 border-b border-slate-50 flex items-center justify-between bg-white">
+<div class="flex items-center gap-1">
+<button class="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+<span class="material-symbols-outlined text-xl" data-icon="format_bold">format_bold</span>
+</button>
+<button class="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+<span class="material-symbols-outlined text-xl" data-icon="format_italic">format_italic</span>
+</button>
+<button class="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+<span class="material-symbols-outlined text-xl" data-icon="format_list_bulleted">format_list_bulleted</span>
+</button>
+<div class="w-px h-4 bg-slate-200 mx-2"></div>
+<button class="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+<span class="material-symbols-outlined text-xl" data-icon="link">link</span>
+</button>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label text-slate-400 uppercase tracking-widest">842 Words</span>
+<span class="text-[10px] font-label text-green-500 uppercase tracking-widest flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Saved
+                        </span>
+</div>
+</div>
+<!-- Text Area -->
+<div class="flex-1 p-10 overflow-y-auto font-body text-slate-800 leading-relaxed max-w-4xl mx-auto w-full focus:outline-none" contenteditable="true">
+<p class="mb-4">Dear Hiring Manager,</p>
+<p class="mb-6">I am writing to express my enthusiastic interest in the Senior Product Designer position at Loom. Having followed Loom’s journey in revolutionizing asynchronous communication, I am deeply impressed by how your team prioritizes human connection within digital interfaces—a philosophy that mirrors my own approach to design.</p>
+<p class="mb-6">In my previous role at Stripe, I led the redesign of the merchant onboarding flow, which resulted in a 24% increase in completion rates. My experience has taught me that the best products aren't just functional; they are editorial in nature, guiding users through complexity with clarity and intent. I specialize in building scalable design systems that bridge the gap between technical constraints and user delight.</p>
+<p class="mb-6">What excites me most about Loom is the opportunity to work on tools that empower teams to be more expressive. I am particularly drawn to your recent AI-driven summarization features and would love to bring my expertise in LLM-integrated UX to help further define the future of video-first collaboration.</p>
+<p class="mb-4">Thank you for your time and consideration. I look forward to the possibility of discussing how my background in high-growth SaaS environments can contribute to Loom's continued success.</p>
+<p class="mb-1">Sincerely,</p>
+<p class="font-semibold">Alex Rivera</p>
+</div>
+</section>
+<!-- Right Pane: AI Refiner Panel -->
+<aside class="w-[400px] flex flex-col bg-surface-container-low rounded-xl overflow-hidden">
+<!-- Panel Header -->
+<div class="p-5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg" data-icon="auto_awesome" data-weight="fill" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface">AI Refiner</h3>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-label text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-bold">PRO</span>
+</div>
+</div>
+<!-- Conversation History -->
+<div class="flex-1 overflow-y-auto px-5 py-2 flex flex-col gap-4">
+<!-- User Message -->
+<div class="flex flex-col items-end gap-1">
+<div class="bg-surface-container-highest p-3 rounded-2xl rounded-tr-none max-w-[85%] text-sm text-on-surface">
+                            Make the second paragraph sound more data-driven and mention my experience with React.
+                        </div>
+<span class="text-[10px] text-slate-400 font-label mr-1">2:41 PM</span>
+</div>
+<!-- AI Response -->
+<div class="flex flex-col items-start gap-1">
+<div class="flex items-start gap-2 max-w-[90%]">
+<div class="min-w-[32px] h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined text-sm" data-icon="smart_toy">smart_toy</span>
+</div>
+<div class="bg-white border border-blue-50 p-4 rounded-2xl rounded-tl-none shadow-sm">
+<p class="text-sm text-slate-700 leading-relaxed">
+                                    I've integrated those metrics. Here’s a refined version of that paragraph:
+                                </p>
+<div class="mt-3 bg-slate-50 p-3 rounded-lg border-l-4 border-blue-400 italic text-[13px] text-slate-600">
+                                    "In my role at Stripe, I leveraged React and advanced data visualization to overhaul onboarding, driving a 24% lift in user success..."
+                                </div>
+<div class="mt-3 flex gap-2">
+<button class="text-[11px] font-bold text-blue-600 hover:underline">Apply Change</button>
+<button class="text-[11px] font-bold text-slate-400 hover:underline">Undo</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Thinking State (Dynamic) -->
+<div class="flex items-center gap-3 px-2 py-3 animate-pulse">
+<div class="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+<span class="text-xs text-slate-400 italic">Curator is analyzing the job description...</span>
+</div>
+</div>
+<!-- Quick Actions Grid -->
+<div class="px-5 py-4 border-t border-slate-200/40 bg-slate-50/50">
+<p class="text-[10px] font-label text-slate-400 uppercase tracking-widest mb-3">Quick Refinements</p>
+<div class="grid grid-cols-2 gap-2">
+<button class="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 hover:bg-blue-50 hover:border-blue-100 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-sm" data-icon="compress">compress</span>
+                            Shorter
+                        </button>
+<button class="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 hover:bg-blue-50 hover:border-blue-100 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-sm" data-icon="work">work</span>
+                            More Formal
+                        </button>
+<button class="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 hover:bg-blue-50 hover:border-blue-100 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-sm" data-icon="spellcheck">spellcheck</span>
+                            Fix Grammar
+                        </button>
+<button class="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 hover:bg-blue-50 hover:border-blue-100 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-sm" data-icon="target">target</span>
+                            Match JD
+                        </button>
+</div>
+</div>
+<!-- AI Input -->
+<div class="p-5 pt-0">
+<div class="relative group">
+<textarea class="w-full bg-surface-container-high border-none rounded-2xl p-4 pr-12 text-sm focus:ring-0 focus:bg-white transition-all shadow-inner resize-none h-24" placeholder="Ask AI to refine..."></textarea>
+<div class="absolute left-0 top-4 w-1 h-8 bg-surface-tint rounded-r opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
+<button class="absolute bottom-4 right-4 w-8 h-8 bg-on-primary-container text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Contextual FAB (Suppressed on Editor/Details as per rule) -->
+<!-- Suppression Logic: Suppressing FAB on Details/Transactional Editor pages to prioritize Canvas focus. -->
+</body></html>

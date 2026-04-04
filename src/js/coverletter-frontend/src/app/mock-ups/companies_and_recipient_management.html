@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Digital Curator | Companies &amp; Recipients</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eef0ff",
+                        "outline-variant": "#c6c6cd",
+                        "surface-container": "#eaedff",
+                        "tertiary-fixed": "#e1e0ff",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "surface-variant": "#dae2fd",
+                        "on-error": "#ffffff",
+                        "background": "#faf8ff",
+                        "primary-container": "#00174b",
+                        "on-background": "#131b2e",
+                        "tertiary-fixed-dim": "#c0c1ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e2e7ff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "surface-bright": "#faf8ff",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-surface-variant": "#45464d",
+                        "on-primary-container": "#497cff",
+                        "primary": "#000000",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#283044",
+                        "outline": "#76777d",
+                        "tertiary": "#000000",
+                        "surface-container-low": "#f2f3ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#dbe1ff",
+                        "secondary-container": "#d5e3fc",
+                        "surface-container-highest": "#dae2fd",
+                        "on-surface": "#131b2e",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#07006c",
+                        "surface": "#faf8ff",
+                        "secondary": "#515f74",
+                        "on-secondary-container": "#57657a",
+                        "inverse-primary": "#b4c5ff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-tint": "#0053db",
+                        "on-tertiary-container": "#7073ff",
+                        "tertiary-container": "#07006c",
+                        "on-tertiary-fixed-variant": "#2f2ebe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body min-h-screen flex overflow-hidden">
+<!-- SideNavBar Component -->
+<aside class="flex flex-col h-full p-4 gap-2 h-screen w-64 border-r border-slate-200/50 bg-slate-50">
+<div class="mb-8 px-2 pt-2">
+<h1 class="text-xl font-bold tracking-tight text-slate-900 font-headline">The Curator</h1>
+<p class="text-xs font-label uppercase tracking-widest text-slate-500 mt-1">AI Job Strategist</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="search_insight">search_insights</span>
+<span class="text-sm font-medium">Job Discovery</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="text-sm font-medium">Letter Editor</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+<span class="text-sm font-medium">Identities</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-blue-600 font-semibold bg-white shadow-sm rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="business">business</span>
+<span class="text-sm font-medium">Companies</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 space-y-1">
+<button class="w-full bg-gradient-to-br from-on-primary-container to-surface-tint text-white rounded-xl py-3 px-4 font-bold text-sm mb-4 active:scale-95 transition-all shadow-md">
+            New Application
+        </button>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-100 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="text-sm font-medium">Support</span>
+</a>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- TopAppBar Component -->
+<header class="flex items-center justify-between px-8 py-3 w-full border-b border-slate-100 sticky top-0 z-40 bg-white/70 backdrop-blur-xl">
+<div class="flex items-center gap-8">
+<span class="hidden md:block text-lg font-black text-slate-900 font-headline">The Digital Curator</span>
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-sm font-medium text-slate-400 hover:text-blue-500 transition-all" href="#">Global Search</a>
+<a class="text-sm font-medium text-slate-400 hover:text-blue-500 transition-all" href="#">Recent Scrapes</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg" data-icon="search">search</span>
+<input class="bg-surface-container-high border-none rounded-full pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-surface-tint transition-all" placeholder="Search data..." type="text"/>
+</div>
+<button class="p-2 text-slate-400 hover:text-blue-500 transition-all relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-slate-200">
+<img alt="User profile" data-alt="Close-up portrait of a professional man with short hair and glasses in a brightly lit office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCanbjV0fQlkZgPwhiD3Konc1E68Xg26d2ciWTlEb9CRzukETHfveVzF6ebk5-UIjY9F5XF5bGPapu4_mHA6NqPJbUkuw_OEyvYexpBTpUObrFR3gJPYLagAiL9_3N0D3QZkKLN4kqnbaAo_6quPDnajD4InhsVyJ-H9rl3TiH922gJqt2qPCTY4TVZhQAXa1y2dEpd0moqUbFkxLdj-YN9hAN3ZK-LiedRdDifmV08FJb2KB9WuIv5VQqq88Db9CBtlRzCdkCdlQVp"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-hidden flex flex-row">
+<!-- List/Table Section -->
+<div class="flex-1 overflow-y-auto p-8">
+<div class="flex items-end justify-between mb-8">
+<div>
+<h2 class="text-3xl font-extrabold font-headline text-on-surface tracking-tight">Ecosystem Directory</h2>
+<p class="text-on-surface-variant mt-1">Manage your target organizations and professional contacts.</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-high text-on-secondary-container px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                        Add Recipient
+                    </button>
+<button class="bg-gradient-to-br from-on-primary-container to-surface-tint text-white px-6 py-2.5 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="corporate_fare">corporate_fare</span>
+                        Add Company
+                    </button>
+</div>
+</div>
+<!-- Toggle Tabs -->
+<div class="bg-surface-container-low p-1 rounded-full w-fit mb-8 flex">
+<button class="px-8 py-2 rounded-full bg-white shadow-sm text-sm font-bold text-blue-600 transition-all">Companies</button>
+<button class="px-8 py-2 rounded-full text-sm font-semibold text-slate-500 hover:text-slate-900 transition-all">Recipients</button>
+</div>
+<!-- Custom Table Grid -->
+<div class="space-y-3">
+<!-- Table Header -->
+<div class="grid grid-cols-12 px-6 py-3 text-xs font-label uppercase tracking-widest text-slate-400 font-bold">
+<div class="col-span-4">Company Name</div>
+<div class="col-span-3">Sector</div>
+<div class="col-span-2">Jobs Found</div>
+<div class="col-span-2">ATS Slug</div>
+<div class="col-span-1 text-right">Actions</div>
+</div>
+<!-- Row 1 (Active/Selected) -->
+<div class="grid grid-cols-12 px-6 py-5 bg-surface-container-lowest rounded-xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] items-center group cursor-pointer border-l-4 border-surface-tint">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center font-bold text-blue-600">NV</div>
+<div>
+<div class="font-bold text-on-surface">Nvidia Corp.</div>
+<div class="text-xs text-slate-400">nvidia.com</div>
+</div>
+</div>
+<div class="col-span-3">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full text-xs font-semibold">Semiconductors</span>
+</div>
+<div class="col-span-2 flex items-center gap-2">
+<span class="font-bold text-lg">24</span>
+<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-black">+4 new</span>
+</div>
+<div class="col-span-2">
+<code class="text-xs font-mono bg-surface-container-low px-2 py-1 rounded">nvidia-greenhouse</code>
+</div>
+<div class="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-error-container hover:text-error rounded-lg text-slate-400 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-12 px-6 py-5 bg-surface-container-lowest rounded-xl hover:shadow-md items-center group cursor-pointer transition-all border-l-4 border-transparent">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center font-bold text-purple-600">ST</div>
+<div>
+<div class="font-bold text-on-surface">Stripe, Inc.</div>
+<div class="text-xs text-slate-400">stripe.com</div>
+</div>
+</div>
+<div class="col-span-3">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full text-xs font-semibold">Fintech</span>
+</div>
+<div class="col-span-2">
+<span class="font-bold text-lg">12</span>
+</div>
+<div class="col-span-2">
+<code class="text-xs font-mono bg-surface-container-low px-2 py-1 rounded">stripe-lever</code>
+</div>
+<div class="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-error-container hover:text-error rounded-lg text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="grid grid-cols-12 px-6 py-5 bg-surface-container-lowest rounded-xl hover:shadow-md items-center group cursor-pointer transition-all border-l-4 border-transparent">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center font-bold text-red-600">AD</div>
+<div>
+<div class="font-bold text-on-surface">Adobe</div>
+<div class="text-xs text-slate-400">adobe.com</div>
+</div>
+</div>
+<div class="col-span-3">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant rounded-full text-xs font-semibold">Software</span>
+</div>
+<div class="col-span-2">
+<span class="font-bold text-lg">8</span>
+</div>
+<div class="col-span-2">
+<code class="text-xs font-mono bg-surface-container-low px-2 py-1 rounded">adobe-workday</code>
+</div>
+<div class="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-error-container hover:text-error rounded-lg text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Detail Panel -->
+<aside class="w-96 bg-surface-container-low border-l border-slate-200/50 p-6 flex flex-col gap-6 overflow-y-auto">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center font-black text-2xl text-blue-600">NV</div>
+<button class="text-slate-400 hover:text-slate-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<h3 class="text-2xl font-black font-headline">Nvidia Corp.</h3>
+<p class="text-sm text-slate-500">Santa Clara, California</p>
+</div>
+<div class="space-y-4">
+<h4 class="text-xs font-label uppercase tracking-widest text-slate-400 font-bold">Linked Recipients</h4>
+<div class="space-y-2">
+<div class="bg-white p-3 rounded-xl flex items-center gap-3 shadow-sm border border-transparent hover:border-surface-tint cursor-pointer transition-all">
+<img alt="Recruiter" class="w-8 h-8 rounded-full" data-alt="Portrait of a smiling woman with long brown hair wearing a blazer, professional headshot for a recruiter" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUZUawhx1vdMZ3_OPOS4ji6728xyemuVOZb-VLReaH5szl2ARC_xXrt1F9ZxipfUVxjhx06DgsF3uM4tYCxJMmjQ8mkdLYsGcLKP4sfWZf0r1y9Jfb_yH2JkOXNrGjz6e3TvS0XfjBjeTmFb4eLA7gES8N8u3CCsPzRP9nTk4OqlpQvpZTcCBQW9OtniA9Ephf_1yDVY9DcP8HWHzZiGD-F8MHY1-9_ZiOH3eAqlW-sQmqa9bWPXhF15fUQNzUdIeCQklWzkOfuO3s"/>
+<div>
+<div class="text-sm font-bold">Sarah Jenkins</div>
+<div class="text-xs text-slate-400">Technical Recruiter</div>
+</div>
+<span class="material-symbols-outlined text-slate-300 ml-auto text-sm" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="bg-white p-3 rounded-xl flex items-center gap-3 shadow-sm border border-transparent hover:border-surface-tint cursor-pointer transition-all">
+<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">ML</div>
+<div>
+<div class="text-sm font-bold">Marcus Low</div>
+<div class="text-xs text-slate-400">Engineering Manager</div>
+</div>
+<span class="material-symbols-outlined text-slate-300 ml-auto text-sm" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<h4 class="text-xs font-label uppercase tracking-widest text-slate-400 font-bold">Open Positions</h4>
+<span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">24 Active</span>
+</div>
+<div class="space-y-3">
+<div class="p-4 bg-white/50 rounded-xl border border-slate-100 hover:bg-white transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-900">Senior ML Engineer</span>
+<span class="text-[10px] text-slate-400 font-medium">2d ago</span>
+</div>
+<div class="flex gap-2 mb-3">
+<span class="text-[10px] bg-surface-container px-2 py-0.5 rounded font-semibold text-slate-600">PyTorch</span>
+<span class="text-[10px] bg-surface-container px-2 py-0.5 rounded font-semibold text-slate-600">CUDA</span>
+</div>
+<button class="w-full py-2 bg-surface-container-high rounded-lg text-xs font-bold text-on-secondary-container hover:bg-surface-container-highest transition-colors">
+                            Edit Draft Letter
+                        </button>
+</div>
+<div class="p-4 bg-white/50 rounded-xl border border-slate-100 hover:bg-white transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-slate-900">Infrastructure Architect</span>
+<span class="text-[10px] text-slate-400 font-medium">5d ago</span>
+</div>
+<button class="w-full py-2 bg-surface-container-high rounded-lg text-xs font-bold text-on-secondary-container hover:bg-surface-container-highest transition-colors">
+                            Generate New Letter
+                        </button>
+</div>
+</div>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

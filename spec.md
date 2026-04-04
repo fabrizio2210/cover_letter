@@ -121,23 +121,46 @@ Redis is used for:
 
 Queue payload contracts are defined in [Backend API Specification](src/go/cmd/api/SPEC.md) and [AI Querier Specification](src/python/ai_querier/SPEC.md).
 
-## Frontend 
+## Frontend
 
-It is an Angular application styled with Tailwind CSS, using JWT tokens for authentication. By using JWT, we can have multiple backends.
+The frontend is branded **"The Curator"** (subtitle: "AI Job Strategist"). It is an Angular application styled with Tailwind CSS using a Material Design 3 token palette, JWT tokens for authentication, and Material Symbols Outlined icons throughout.
 
-Implemented capabilities:
-- dashboard navigation and authenticated access;
-- CRUD management for recipients, companies, fields, and identities;
-- cover letter listing, detail editing, refinement requests, and send actions;
+### Navigation structure
+
+Five primary routes are accessible from the persistent sidebar, plus a Settings route reachable via the sidebar footer link:
+
+| Sidebar label | Route | Purpose |
+|---|---|---|
+| Dashboard | `/dashboard` | Overview stats and top-scored job feed |
+| Job Discovery | `/dashboard/job-discovery` | Ranked job feed, filter bar, crawler-status widget, per-identity discovery settings |
+| Letter Editor | `/dashboard/letter-editor/:id` | Split-pane: markdown editor (left) + AI Refiner chat (right) |
+| Identities | `/dashboard/identities` | Bento-grid identity cards with discovery-scope tags, quick stats, and preference weight bars; global curator preferences |
+| Companies | `/dashboard/companies` | Companies/Recipients toggle table with ATS slug column and right-side detail panel (linked recipients, open positions) |
+| Settings | `/dashboard/settings` | Fields CRUD management |
+
+Default redirect: `/dashboard` renders the overview directly (no longer redirects to recipients).
+
+### Implemented capabilities
+- authenticated dashboard access with stats overview and top-scored job cards;
+- CRUD management for companies, recipients (via Companies tab), fields (via Settings), and identities;
+- cover letter listing, split-pane editor, AI refinement requests, and send actions;
 - feedback toasts for asynchronous operations.
 
-Future features (not yet implemented):
-- jobs dashboard with ranking and filters;
-- identity preference editing for job scoring;
-- split-pane Markdown editor with live preview;
+### Target features (UX-specified, not yet built)
+- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, crawler-status widget with progress bar, per-identity discovery settings panel;
+- Identity preference editing: weight bars per preference, "Add Preference" action, Global Curator Preferences section (writing tone, discovery interval, AI creativity);
+- Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
+- Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters) and scrollable Top Scored Opportunities feed;
+- Companies/Recipients merged view with ATS Slug column and slide-in detail panel (linked recipients, open positions);
+- Settings page hosting Fields management.
+
+### Future features (no mock-up yet)
+- OTP-based login flow;
 - real-time cover-letter lifecycle notifications;
-- crawler tasks and settings UI;
-- skeleton loaders and richer sorting/filtering.
+- full crawler task administration UI;
+- skeleton loaders;
+- dedicated logout action in the sidebar;
+- dark mode.
 
 Routes, models, API usage, and frontend auth behavior are defined in [Frontend Specification](src/js/coverletter-frontend/src/app/SPEC.md).
 

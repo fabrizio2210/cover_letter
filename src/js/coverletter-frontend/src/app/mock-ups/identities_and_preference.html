@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Identities &amp; Preferences - The Digital Curator</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eef0ff",
+                        "outline-variant": "#c6c6cd",
+                        "surface-container": "#eaedff",
+                        "tertiary-fixed": "#e1e0ff",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "surface-variant": "#dae2fd",
+                        "on-error": "#ffffff",
+                        "background": "#faf8ff",
+                        "primary-container": "#00174b",
+                        "on-background": "#131b2e",
+                        "tertiary-fixed-dim": "#c0c1ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e2e7ff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "surface-bright": "#faf8ff",
+                        "surface-dim": "#d2d9f4",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-surface-variant": "#45464d",
+                        "on-primary-container": "#497cff",
+                        "primary": "#000000",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#283044",
+                        "outline": "#76777d",
+                        "tertiary": "#000000",
+                        "surface-container-low": "#f2f3ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#dbe1ff",
+                        "secondary-container": "#d5e3fc",
+                        "surface-container-highest": "#dae2fd",
+                        "on-surface": "#131b2e",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#07006c",
+                        "surface": "#faf8ff",
+                        "secondary": "#515f74",
+                        "on-secondary-container": "#57657a",
+                        "inverse-primary": "#b4c5ff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-tint": "#0053db",
+                        "on-tertiary-container": "#7073ff",
+                        "tertiary-container": "#07006c",
+                        "on-tertiary-fixed-variant": "#2f2ebe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(218, 226, 253, 0.7);
+            backdrop-filter: blur(20px);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #497cff 0%, #0053db 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full p-4 gap-2 h-screen w-64 border-r border-slate-200/50 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 font-headline">The Curator</h1>
+<p class="text-xs font-label uppercase tracking-widest text-slate-500 mt-1">AI Job Strategist</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl group active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl group active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">search_insights</span>
+<span class="font-medium">Job Discovery</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl group active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-medium">Letter Editor</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-blue-600 dark:text-blue-400 font-semibold bg-white dark:bg-slate-800 shadow-sm rounded-xl active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">person_search</span>
+<span class="font-medium">Identities</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl group active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">business</span>
+<span class="font-medium">Companies</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-slate-200/50 dark:border-slate-800/50 space-y-1">
+<button class="w-full flex items-center justify-center gap-2 primary-gradient text-white py-2.5 rounded-full font-semibold text-sm mb-4 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Application
+            </button>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-medium text-sm">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col overflow-hidden relative">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full z-40 flex items-center justify-between px-8 py-3 w-full border-b border-slate-100 dark:border-slate-800 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl">
+<div class="flex items-center gap-4">
+<h2 class="hidden md:block text-lg font-black text-slate-900 dark:text-slate-100 font-headline">Identities</h2>
+<div class="h-4 w-[1px] bg-slate-200 hidden md:block"></div>
+<nav class="flex items-center gap-6 text-sm font-medium">
+<a class="text-slate-400 hover:text-slate-600 transition-all" href="#">Global Search</a>
+<a class="text-slate-400 hover:text-slate-600 transition-all" href="#">Recent Scrapes</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-2 focus:ring-surface-tint/20 transition-all" placeholder="Search identities..." type="text"/>
+</div>
+<button class="p-2 text-slate-500 hover:text-blue-500 transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-500 hover:text-blue-500 transition-all">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+</header>
+<!-- Content Area -->
+<section class="flex-1 overflow-y-auto p-8 space-y-8 bg-surface">
+<!-- Header & Action -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h3 class="text-3xl font-extrabold font-headline tracking-tight text-on-surface">Curated Personas</h3>
+<p class="text-on-surface-variant mt-2 max-w-2xl">Define multiple professional identities to tailor your job discovery scope and fine-tune cover letter intelligence based on your specific career objectives.</p>
+</div>
+<button class="flex items-center gap-2 px-6 py-3 bg-on-primary-container text-white font-bold rounded-full primary-gradient shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+<span class="material-symbols-outlined">person_add</span>
+                    New Identity
+                </button>
+</div>
+<!-- Identities Bento Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+<!-- Identity Card 1 -->
+<article class="bg-surface-container-lowest rounded-full p-8 flex flex-col gap-8 shadow-sm transition-all hover:shadow-md border border-slate-100/50">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 rounded-2xl bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined text-3xl">terminal</span>
+</div>
+<div>
+<h4 class="text-xl font-bold font-headline">Software Engineer - Backend</h4>
+<p class="text-sm font-label uppercase tracking-widest text-on-surface-variant/70">Last updated 2 days ago</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined">edit</span></button>
+<button class="p-2 hover:bg-error-container hover:text-on-error-container rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined">delete</span></button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Discovery Scope -->
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<h5 class="font-bold text-sm uppercase tracking-wider text-on-surface">Discovery Scope</h5>
+<button class="text-xs font-bold text-surface-tint hover:underline">Manage Tags</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Backend Engineer</span>
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Distributed Systems</span>
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Golang Developer</span>
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Cloud Architect</span>
+</div>
+</div>
+<!-- Quick Stats -->
+<div class="bg-surface-container-low rounded-xl p-4 flex justify-around items-center border border-white/40">
+<div class="text-center">
+<p class="text-2xl font-black font-headline text-surface-tint">142</p>
+<p class="text-[10px] font-label uppercase text-on-surface-variant">Matches</p>
+</div>
+<div class="h-8 w-[1px] bg-slate-200"></div>
+<div class="text-center">
+<p class="text-2xl font-black font-headline text-on-surface">94%</p>
+<p class="text-[10px] font-label uppercase text-on-surface-variant">Affinity</p>
+</div>
+</div>
+</div>
+<!-- Preferences & Weights -->
+<div class="space-y-6 pt-4 border-t border-slate-50">
+<div class="flex items-center justify-between">
+<h5 class="font-bold text-sm uppercase tracking-wider text-on-surface">Preferences &amp; Weights</h5>
+<button class="flex items-center gap-1 text-xs font-bold text-surface-tint">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                                Add Preference
+                            </button>
+</div>
+<div class="space-y-4">
+<!-- Preference Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-surface-tint">distance</span>
+</div>
+<span class="text-sm font-medium text-on-surface">Remote work priority</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant w-4">5</span>
+</div>
+</div>
+<!-- Preference Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-surface-tint">payments</span>
+</div>
+<span class="text-sm font-medium text-on-surface">Fintech sector focus</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant w-4">3</span>
+</div>
+</div>
+<!-- Preference Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-surface-tint">code</span>
+</div>
+<span class="text-sm font-medium text-on-surface">Go/Golang projects</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant w-4">4</span>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Identity Card 2 -->
+<article class="bg-surface-container-lowest rounded-full p-8 flex flex-col gap-8 shadow-sm transition-all hover:shadow-md border border-slate-100/50">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-3xl">layers</span>
+</div>
+<div>
+<h4 class="text-xl font-bold font-headline">Platform Engineer</h4>
+<p class="text-sm font-label uppercase tracking-widest text-on-surface-variant/70">Last updated 1 week ago</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined">edit</span></button>
+<button class="p-2 hover:bg-error-container hover:text-on-error-container rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined">delete</span></button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<h5 class="font-bold text-sm uppercase tracking-wider text-on-surface">Discovery Scope</h5>
+<button class="text-xs font-bold text-surface-tint hover:underline">Manage Tags</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">DevOps</span>
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Infrastructure as Code</span>
+<span class="px-3 py-1 bg-surface-container text-on-secondary-container rounded-lg text-xs font-semibold">Kubernetes</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-4 flex justify-around items-center border border-white/40">
+<div class="text-center">
+<p class="text-2xl font-black font-headline text-surface-tint">31</p>
+<p class="text-[10px] font-label uppercase text-on-surface-variant">Matches</p>
+</div>
+<div class="h-8 w-[1px] bg-slate-200"></div>
+<div class="text-center">
+<p class="text-2xl font-black font-headline text-on-surface">88%</p>
+<p class="text-[10px] font-label uppercase text-on-surface-variant">Affinity</p>
+</div>
+</div>
+</div>
+<div class="space-y-6 pt-4 border-t border-slate-50">
+<div class="flex items-center justify-between">
+<h5 class="font-bold text-sm uppercase tracking-wider text-on-surface">Preferences &amp; Weights</h5>
+<button class="flex items-center gap-1 text-xs font-bold text-surface-tint">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                                Add Preference
+                            </button>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-surface-tint">bolt</span>
+</div>
+<span class="text-sm font-medium text-on-surface">Early-stage startups</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-container-high"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant w-4">2</span>
+</div>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-surface-tint">public</span>
+</div>
+<span class="text-sm font-medium text-on-surface">Open Source contributions</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+<div class="w-4 h-1.5 rounded-full bg-surface-tint"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant w-4">5</span>
+</div>
+</div>
+</div>
+</div>
+</article>
+</div>
+<!-- Global Preferences Section -->
+<div class="mt-12 p-8 rounded-full bg-surface-container-low border border-slate-200/50">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-surface-tint">tune</span>
+<h4 class="text-lg font-bold font-headline">Global Curator Preferences</h4>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Default Writing Tone</label>
+<select class="w-full bg-surface-container-lowest border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-surface-tint/20">
+<option>Highly Professional &amp; Formal</option>
+<option>Collaborative &amp; Conversational</option>
+<option>Direct &amp; Technical</option>
+<option>Enthusiastic Startup-style</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Discovery Interval</label>
+<select class="w-full bg-surface-container-lowest border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-surface-tint/20">
+<option>Real-time Scrape</option>
+<option>Every 6 Hours</option>
+<option selected="">Daily Digest</option>
+<option>Weekly Batch</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">AI Creativity Level</label>
+<div class="flex items-center h-11 px-2">
+<input class="w-full h-1.5 bg-surface-container-high rounded-full appearance-none cursor-pointer accent-surface-tint" max="5" min="1" type="range" value="3"/>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-200/50 flex justify-end">
+<button class="px-8 py-2 text-surface-tint font-bold text-sm hover:bg-surface-container rounded-full transition-colors">Discard Changes</button>
+<button class="px-8 py-2 bg-on-primary-container text-white font-bold text-sm rounded-full primary-gradient ml-4">Save Global Settings</button>
+</div>
+</div>
+</section>
+<!-- Contextual FAB -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-on-primary-container text-white rounded-full primary-gradient shadow-2xl flex items-center justify-center active:scale-90 transition-transform md:hidden">
+<span class="material-symbols-outlined">add</span>
+</button>
+</main>
+<!-- Glassmorphic Tooltip/Info Overlay (Example of Layering) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel border border-white/20 px-4 py-2 rounded-full shadow-2xl z-50 flex items-center gap-3 animate-pulse">
+<div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
+<p class="text-xs font-semibold text-on-primary-container">AI Scraper is currently active: 12 new matches found.</p>
+</div>
+</body></html>
