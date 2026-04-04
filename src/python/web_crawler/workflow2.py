@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Iterable
 from urllib.parse import urlsplit, urlunsplit
-from xml.etree import ElementTree
 
 import requests
 from bson import ObjectId
@@ -21,21 +20,14 @@ logger = logging.getLogger(__name__)
 
 _TERMINAL_FAILURE_FIELD = "workflow2_terminal_failure"
 _SEARCH_ATTEMPTS_FIELD = "ats_slug_search_attempts"
-_SITEMAP_PATHS = ("/sitemap.xml",)
 _CAREER_PATHS = (
     "/careers",
     "/jobs",
-    "/careers/jobs",
-    "/join-us",
     "/work-with-us",
     "/open-positions",
-    "/positions",
+    "/join-us",
     "/company/careers",
-    "/about/careers",
-    "/jobs/all",
-    "/careers/open-roles",
 )
-_SITEMAP_KEYWORDS = ("career", "careers", "job", "jobs", "join", "position", "positions", "open-role", "open-roles")
 
 
 def _normalize_domain(domain: str | None) -> str | None:
@@ -86,65 +78,7 @@ def _to_proto_timestamp(value) -> Timestamp | None:
     return timestamp
 
 
-def _is_sitemap_url_relevant(url: str) -> bool:
-    lowered = url.casefold()
-    return any(keyword in lowered for keyword in _SITEMAP_KEYWORDS)
 
-
-def _parse_sitemap_xml(xml_text: str) -> tuple[list[str], list[str]]:
-    try:
-        root = ElementTree.fromstring(xml_text)
-    except ElementTree.ParseError:
-        return [], []
-
-    urls: list[str] = []
-    sitemap_urls: list[str] = []
-    namespace = ""
-    if root.tag.startswith("{"):
-        namespace = root.tag.split("}", 1)[0] + "}"
-
-    if root.tag.endswith("urlset"):
-        for loc in root.findall(f".//{namespace}loc"):
-            value = (loc.text or "").strip()
-            if value:
-                urls.append(value)
-        return urls, []
-
-    if root.tag.endswith("sitemapindex"):
-        for loc in root.findall(f".//{namespace}loc"):
-            value = (loc.text or "").strip()
-            if value:
-                sitemap_urls.append(value)
-        return [], sitemap_urls
-
-    return [], []
-
-
-def _fetch_sitemap_candidate_urls(domain: str, config: CrawlerConfig, session: requests.Session) -> list[str]:
-    sitemap_candidates: list[str] = []
-    seen_sitemaps: set[str] = set()
-    pending = [f"https://{domain}{path}" for path in _SITEMAP_PATHS]
-
-    while pending:
-        sitemap_url = pending.pop(0)
-        canonical_sitemap_url = _canonicalize_url(sitemap_url)
-        if canonical_sitemap_url in seen_sitemaps:
-            continue
-        seen_sitemaps.add(canonical_sitemap_url)
-
-        response = session.get(sitemap_url, timeout=config.http_timeout_seconds, allow_redirects=True)
-        if response.status_code >= 400:
-            continue
-
-        url_entries, sitemap_entries = _parse_sitemap_xml(response.text)
-        for url in url_entries:
-            if _is_sitemap_url_relevant(url):
-                sitemap_candidates.append(url)
-        for nested_sitemap in sitemap_entries:
-            if nested_sitemap not in pending:
-                pending.append(nested_sitemap)
-
-    return _dedupe_urls(sitemap_candidates)
 
 
 def _record_terminal_failure(collection, company_object_id: ObjectId, failure_type: str, url: str, message: str | None = None) -> None:
@@ -250,26 +184,7 @@ def _candidate_urls_from_company(company: common_pb2.Company) -> list[str]:
 
 
 def _discover_candidate_urls(company: common_pb2.Company, config: CrawlerConfig, session: requests.Session) -> list[str]:
-    candidates = _candidate_urls_from_company(company)
-    sitemap_urls: list[str] = []
-    domains = {
-        normalized
-        for source in company.discovery_sources
-        if (normalized := _normalize_domain(source.domain)) is not None
-    }
-
-    for domain in sorted(domains):
-        try:
-            sitemap_urls.extend(_fetch_sitemap_candidate_urls(domain, config, session))
-        except requests.Timeout as exc:
-            raise ATSRequestFailure("timeout", f"https://{domain}/sitemap.xml", str(exc)) from exc
-        except requests.RequestException as exc:
-            message = str(exc)
-            lowered = message.casefold()
-            if "failed to resolve" in lowered or "name or service not known" in lowered:
-                raise ATSRequestFailure("dns_resolution", f"https://{domain}/sitemap.xml", message) from exc
-
-    return _dedupe_urls(sitemap_urls + candidates)
+    return _candidate_urls_from_company(company)
 
 
 def _to_object_id(value: str) -> ObjectId | None:

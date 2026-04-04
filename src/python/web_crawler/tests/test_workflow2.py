@@ -218,9 +218,6 @@ class Workflow2Tests(unittest.TestCase):
         ), patch(
             "src.python.web_crawler.workflow2.resolve_direct_slug",
             return_value="acme",
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
         ):
             result = run_workflow2(database, self.config, [str(company_id)])
 
@@ -256,9 +253,6 @@ class Workflow2Tests(unittest.TestCase):
         ), patch(
             "src.python.web_crawler.workflow2.resolve_direct_slug",
             return_value="beta",
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
         ):
             result = run_workflow2(database, self.config, [str(first_id), str(second_id)])
 
@@ -284,10 +278,7 @@ class Workflow2Tests(unittest.TestCase):
         )
         database = FakeDatabase({"companies": companies})
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock, patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
-        ):
+        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
             result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(result.enriched_count, 0)
@@ -316,10 +307,7 @@ class Workflow2Tests(unittest.TestCase):
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value=None,
-        ) as search_mock, patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
-        ):
+        ) as search_mock:
             first_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(first_result.skipped_count, 1)
@@ -336,10 +324,7 @@ class Workflow2Tests(unittest.TestCase):
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value="should-not-run",
-        ) as repeated_search_mock, patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
-        ):
+        ) as repeated_search_mock:
             second_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(second_result.skipped_count, 1)
@@ -362,25 +347,19 @@ class Workflow2Tests(unittest.TestCase):
         with patch(
             "src.python.web_crawler.workflow2.detect_ats_provider",
             side_effect=ATSRequestFailure("dns_resolution", "https://acme.test/careers", "failed to resolve"),
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
         ):
             first_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(first_result.skipped_count, 1)
         self.assertEqual(companies.docs[0]["workflow2_terminal_failure"]["failure_type"], "dns_resolution")
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock, patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
-        ):
+        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
             second_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(second_result.skipped_count, 1)
         detect_mock.assert_not_called()
 
-    def test_discover_candidate_urls_merges_sitemap_urls_and_dedupes(self):
+    def test_discover_candidate_urls_returns_careers_and_jobs_paths(self):
         company = self._company_proto(
             company_id=str(ObjectId()),
             name="Acme",
@@ -389,13 +368,9 @@ class Workflow2Tests(unittest.TestCase):
             ],
         )
 
-        with patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=["https://acme.test/careers", "https://acme.test/open-positions", "https://acme.test/jobs"],
-        ):
-            urls = _discover_candidate_urls(company, self.config, FakeSession())
+        urls = _discover_candidate_urls(company, self.config, FakeSession())
 
-        self.assertIn("https://acme.test/open-positions", urls)
+        self.assertIn("https://acme.test/careers", urls)
         self.assertIn("https://acme.test/jobs", urls)
         self.assertEqual(urls.count("https://acme.test/careers"), 1)
 
