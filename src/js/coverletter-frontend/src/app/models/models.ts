@@ -9,6 +9,8 @@ export interface Company {
   description?: string;
   field_id?: string;
   field_info?: Field;
+  ats_provider?: string;
+  ats_slug?: string;
 }
 
 export interface Recipient {

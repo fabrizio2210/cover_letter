@@ -13,21 +13,77 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   // Fields
+  listFields(): Observable<Field[]> {
+    return this.http.get<Field[]>(`${this.apiBase}/fields`);
+  }
+
   getFields(): Observable<Field[]> {
-    return this.http.get<Field[]>(`${this.apiBase}/fields`)
+    return this.listFields()
       .pipe(catchError(() => of([])));
   }
 
   // Companies
+  listCompanies(): Observable<Company[]> {
+    return this.http.get<Company[]>(`${this.apiBase}/companies`);
+  }
+
   getCompanies(): Observable<Company[]> {
-    return this.http.get<Company[]>(`${this.apiBase}/companies`)
+    return this.listCompanies()
       .pipe(catchError(() => of([])));
   }
 
+  createCompany(payload: Partial<Company>): Observable<Company> {
+    return this.http.post<Company>(`${this.apiBase}/companies`, payload);
+  }
+
+  updateCompany(id: string, payload: Partial<Company>): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.apiBase}/companies/${id}`, payload);
+  }
+
+  updateCompanyField(id: string, fieldId: string | null): Observable<{ message: string; modifiedCount: number }> {
+    return this.http.put<{ message: string; modifiedCount: number }>(`${this.apiBase}/companies/${id}/field`, {
+      field_id: fieldId
+    });
+  }
+
+  deleteCompany(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiBase}/companies/${id}`);
+  }
+
   // Recipients
+  listRecipients(): Observable<Recipient[]> {
+    return this.http.get<Recipient[]>(`${this.apiBase}/recipients`);
+  }
+
   getRecipients(): Observable<Recipient[]> {
-    return this.http.get<Recipient[]>(`${this.apiBase}/recipients`)
+    return this.listRecipients()
       .pipe(catchError(() => of([])));
+  }
+
+  createRecipient(payload: Partial<Recipient>): Observable<Recipient> {
+    return this.http.post<Recipient>(`${this.apiBase}/recipients`, payload);
+  }
+
+  updateRecipientName(id: string, name: string): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.apiBase}/recipients/${id}/name`, { name });
+  }
+
+  updateRecipientDescription(id: string, description: string): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.apiBase}/recipients/${id}/description`, { description });
+  }
+
+  updateRecipientCompany(id: string, companyId: string | null): Observable<{ message: string; modifiedCount: number }> {
+    return this.http.put<{ message: string; modifiedCount: number }>(`${this.apiBase}/recipients/${id}/company`, {
+      companyId
+    });
+  }
+
+  deleteRecipient(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiBase}/recipients/${id}`);
+  }
+
+  generateRecipientCoverLetter(id: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiBase}/recipients/${id}/generate-cover-letter`, {});
   }
 
   // Identities
@@ -37,8 +93,12 @@ export class ApiService {
   }
 
   // Job Descriptions
+  listJobDescriptions(): Observable<JobDescription[]> {
+    return this.http.get<JobDescription[]>(`${this.apiBase}/job-descriptions`);
+  }
+
   getJobDescriptions(): Observable<JobDescription[]> {
-    return this.http.get<JobDescription[]>(`${this.apiBase}/job-descriptions`)
+    return this.listJobDescriptions()
       .pipe(catchError(() => of([])));
   }
 

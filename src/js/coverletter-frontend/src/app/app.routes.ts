@@ -6,8 +6,7 @@ import { FieldsListComponent } from './fields-list.component';
 import { IdentitiesListComponent } from './identities-list.component';
 import { CoverLettersListComponent } from './coverletters-list.component';
 import { CoverLettersDetailComponent } from './coverletters-detail.component';
-import { CompaniesListComponent } from './companies-list.component';
-import { RecipientsListComponent } from './recipients-list.component';
+import { CompaniesRecipientsComponent } from './companies-recipients.component';
 import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
@@ -20,12 +19,11 @@ export const routes: Routes = [
         canActivate: [authGuard],
         children: [
             { path: '', component: DashboardOverviewComponent }, // Overview page with stats & opportunities
-            { path: 'recipients', component: RecipientsListComponent },
             { path: 'fields', component: FieldsListComponent },
             { path: 'identities', component: IdentitiesListComponent },
             { path: 'cover-letters', component: CoverLettersListComponent },
             { path: 'cover-letters/:id', component: CoverLettersDetailComponent },
-            { path: 'companies', component: CompaniesListComponent }
+            { path: 'companies', component: CompaniesRecipientsComponent }
         ]
     },
 
