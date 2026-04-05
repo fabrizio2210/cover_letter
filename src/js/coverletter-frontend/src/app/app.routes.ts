@@ -4,7 +4,7 @@ import { DashboardComponent } from './dashboard.component';
 import { DashboardOverviewComponent } from './dashboard-overview.component';
 import { JobDiscoveryComponent } from './job-discovery.component';
 import { FieldsListComponent } from './fields-list.component';
-import { IdentitiesListComponent } from './identities-list.component';
+import { IdentitiesComponent } from './identities.component';
 import { CoverLettersListComponent } from './coverletters-list.component';
 import { CoverLettersDetailComponent } from './coverletters-detail.component';
 import { CompaniesRecipientsComponent } from './companies-recipients.component';
@@ -22,7 +22,7 @@ export const routes: Routes = [
             { path: '', component: DashboardOverviewComponent }, // Overview page with stats & opportunities
             { path: 'job-discovery', component: JobDiscoveryComponent },
             { path: 'fields', component: FieldsListComponent },
-            { path: 'identities', component: IdentitiesListComponent },
+            { path: 'identities', component: IdentitiesComponent },
             { path: 'cover-letters', component: CoverLettersListComponent },
             { path: 'cover-letters/:id', component: CoverLettersDetailComponent },
             { path: 'companies', component: CompaniesRecipientsComponent }

@@ -1,0 +1,291 @@
+<section class="identities-page">
+
+  <!-- Page Header -->
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">The Curator</p>
+      <h3>Curated Personas</h3>
+      <p class="page-description">Define multiple professional identities to tailor your job discovery scope and fine-tune cover letter intelligence based on your specific career objectives.</p>
+    </div>
+    <button class="primary-button" type="button" (click)="openCreateModal()">
+      <span class="material-symbols-outlined">person_add</span>
+      <span>Add Identity</span>
+    </button>
+  </header>
+
+  <!-- Loading state -->
+  <div *ngIf="loading" class="empty-state">
+    <span class="material-symbols-outlined spin">progress_activity</span>
+    <p>Loading identities&hellip;</p>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!loading && identities.length === 0" class="empty-state">
+    <span class="material-symbols-outlined">person_search</span>
+    <p>No identities yet. Create one to get started.</p>
+    <button class="primary-button" type="button" (click)="openCreateModal()">Create your first identity</button>
+  </div>
+
+  <!-- Bento Grid -->
+  <div *ngIf="!loading && identities.length > 0" class="identities-grid">
+
+    <article
+      *ngFor="let identity of identities; let i = index"
+      class="identity-card"
+      [class.is-editing]="editCardIndex === i"
+    >
+
+      <!-- ── Card Header (view mode) ── -->
+      <div *ngIf="editCardIndex !== i" class="card-header">
+        <div class="avatar-block">
+          <div
+            class="avatar-icon"
+            [style.background]="getIconBg(i)"
+            [style.color]="getIconColor(i)"
+          >
+            <span class="material-symbols-outlined">{{ getIdentityIcon(i) }}</span>
+          </div>
+          <div>
+            <h4 class="card-title">{{ identity.identity }}</h4>
+            <p class="card-subtitle">{{ identity.name || '—' }}</p>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button type="button" class="icon-btn" title="Edit" (click)="startEdit(i)">
+            <span class="material-symbols-outlined">edit</span>
+          </button>
+          <button type="button" class="icon-btn danger" title="Delete" (click)="confirmDelete(identity)">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Card Header (edit mode) ── -->
+      <div *ngIf="editCardIndex === i" class="card-edit-header">
+        <div class="avatar-block">
+          <div
+            class="avatar-icon"
+            [style.background]="getIconBg(i)"
+            [style.color]="getIconColor(i)"
+          >
+            <span class="material-symbols-outlined">{{ getIdentityIcon(i) }}</span>
+          </div>
+          <h4 class="card-title">{{ identity.identity }}</h4>
+        </div>
+        <div class="edit-fields">
+          <div class="edit-row">
+            <input [(ngModel)]="editName" type="text" placeholder="Full name" class="field-input" />
+            <select [(ngModel)]="selectedFieldId" class="field-input">
+              <option value="">— no sector —</option>
+              <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
+            </select>
+          </div>
+          <textarea [(ngModel)]="editDescription" placeholder="Description" rows="2" class="field-input full-width"></textarea>
+        </div>
+      </div>
+
+      <!-- ── Body grid: Scope + Stats ── -->
+      <div class="body-grid">
+
+        <!-- Discovery Scope -->
+        <div class="scope-section">
+          <div class="section-title-row">
+            <h5 class="section-title">Discovery Scope</h5>
+            <button
+              *ngIf="editCardIndex !== i"
+              type="button"
+              class="link-btn"
+              (click)="startEdit(i)"
+            >Manage Tags</button>
+          </div>
+
+          <!-- View mode tags -->
+          <div *ngIf="editCardIndex !== i" class="tag-list">
+            <span
+              *ngFor="let role of normalizeRoles(identity.roles)"
+              class="role-tag"
+            >{{ role }}</span>
+            <span *ngIf="normalizeRoles(identity.roles).length === 0" class="empty-hint">
+              No roles defined.
+            </span>
+          </div>
+
+          <!-- Edit mode roles -->
+          <div *ngIf="editCardIndex === i" class="roles-editor">
+            <div
+              *ngFor="let role of editRoles; let rIdx = index; trackBy: trackByIndex"
+              class="role-input-row"
+            >
+              <input
+                [(ngModel)]="editRoles[rIdx]"
+                type="text"
+                placeholder="Role"
+                class="field-input"
+              />
+              <button type="button" class="icon-btn danger small" (click)="removeRole(rIdx)" title="Remove">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <button type="button" class="link-btn" (click)="addRole()">
+              <span class="material-symbols-outlined">add_circle</span> Add role
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+          <div class="stat-item">
+            <p class="stat-value">—</p>
+            <p class="stat-label">Matches</p>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <p class="stat-value">—</p>
+            <p class="stat-label">Affinity</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Preferences & Weights ── -->
+      <div class="preferences-section">
+        <div class="section-title-row">
+          <h5 class="section-title">Preferences &amp; Weights</h5>
+          <button
+            *ngIf="editCardIndex === i"
+            type="button"
+            class="link-btn"
+            (click)="addPreference()"
+          >
+            <span class="material-symbols-outlined">add_circle</span> Add Preference
+          </button>
+        </div>
+
+        <!-- View mode preferences -->
+        <div *ngIf="editCardIndex !== i" class="pref-list">
+          <div *ngFor="let pref of identity.preferences" class="pref-row">
+            <div class="pref-label-block">
+              <div class="pref-icon">
+                <span class="material-symbols-outlined">label</span>
+              </div>
+              <span class="pref-label">{{ pref.label || pref.key }}</span>
+            </div>
+            <div class="pref-weight-block">
+              <div class="weight-dots">
+                <div
+                  *ngFor="let dot of dotRange"
+                  class="weight-dot"
+                  [class.is-filled]="dot <= pref.weight"
+                ></div>
+              </div>
+              <span class="weight-number">{{ pref.weight }}</span>
+            </div>
+          </div>
+          <p *ngIf="!identity.preferences || identity.preferences.length === 0" class="empty-hint">
+            No preferences defined.
+          </p>
+        </div>
+
+        <!-- Edit mode preferences -->
+        <div *ngIf="editCardIndex === i" class="pref-edit-list">
+          <div *ngFor="let pref of editPreferences; let pIdx = index" class="pref-edit-row">
+            <input [(ngModel)]="pref.key" type="text" placeholder="key" class="field-input pref-key-input" />
+            <input [(ngModel)]="pref.label" type="text" placeholder="Label" class="field-input pref-label-input" />
+            <div class="weight-dots editable">
+              <div
+                *ngFor="let dot of dotRange"
+                class="weight-dot"
+                [class.is-filled]="dot <= pref.weight"
+                (click)="setPrefWeight(pIdx, dot)"
+                title="Set weight {{ dot }}"
+              ></div>
+            </div>
+            <span class="weight-number">{{ pref.weight }}</span>
+            <button type="button" class="icon-btn danger small" (click)="removePreference(pIdx)" title="Remove">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+          <p *ngIf="editPreferences.length === 0" class="empty-hint">No preferences yet.</p>
+        </div>
+      </div>
+
+      <!-- ── Email Signature ── -->
+      <div class="signature-section">
+        <div class="section-title-row">
+          <h5 class="section-title">Email Signature</h5>
+          <button type="button" class="link-btn" (click)="toggleSignature(i)">
+            {{ editSignatureIndex === i ? 'Close' : 'Edit Signature' }}
+          </button>
+        </div>
+        <div *ngIf="editSignatureIndex === i" class="signature-editor">
+          <textarea
+            [(ngModel)]="identities[i].html_signature"
+            rows="4"
+            placeholder="<p>Your HTML signature...</p>"
+            class="field-input full-width mono"
+          ></textarea>
+          <button type="button" class="primary-button small" (click)="saveSignature(identity)">Save Signature</button>
+        </div>
+      </div>
+
+      <!-- ── Edit mode controls ── -->
+      <div *ngIf="editCardIndex === i" class="card-edit-controls">
+        <button type="button" class="secondary-button" (click)="cancelEdit()">Cancel</button>
+        <button type="button" class="primary-button" (click)="saveEdit(identity)">Save Changes</button>
+      </div>
+
+    </article>
+  </div>
+
+</section>
+
+<!-- ── Create Identity Modal ── -->
+<div *ngIf="showCreateModal" class="modal-backdrop" (click)="closeCreateModal()">
+  <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
+    <div class="modal-header">
+      <h4 id="create-modal-title">New Identity</h4>
+      <button type="button" class="icon-btn" (click)="closeCreateModal()" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Identity slug <span class="required">*</span></label>
+        <input
+          [(ngModel)]="newIdentityId"
+          type="text"
+          placeholder="e.g. backend-eng"
+          class="field-input full-width"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Full name</label>
+        <input [(ngModel)]="newName" type="text" placeholder="Your name" class="field-input full-width" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea [(ngModel)]="newDescription" rows="2" placeholder="Brief description" class="field-input full-width"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sector</label>
+        <select [(ngModel)]="newFieldId" class="field-input full-width">
+          <option value="">— none —</option>
+          <option *ngFor="let f of fields" [value]="f.id">{{ f.field }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Roles <span class="hint">(comma-separated)</span></label>
+        <input
+          [(ngModel)]="newRolesInput"
+          type="text"
+          placeholder="backend engineer, golang developer"
+          class="field-input full-width"
+        />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary-button" (click)="closeCreateModal()">Cancel</button>
+      <button type="button" class="primary-button" (click)="createIdentity()">Create Identity</button>
+    </div>
+  </div>
+</div>
