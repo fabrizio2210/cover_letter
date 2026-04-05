@@ -8,6 +8,8 @@ import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { Identity, JobDescription } from './models/models';
 
+type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
+
 @Component({
   selector: 'app-job-discovery',
   standalone: true,
@@ -30,6 +32,8 @@ export class JobDiscoveryComponent implements OnInit {
   selectedIdentityId = '';
   searchQuery = '';
   scoreThreshold = 0.0;
+  scoreFilterMode: ScoreFilterMode = 'atLeast';
+  readonly scorePresetValues = [0, 1, 2, 3, 4, 5];
   remoteOnly = false;
   aiSkillGapAnalysis = false;
 
@@ -62,10 +66,21 @@ export class JobDiscoveryComponent implements OnInit {
   get filteredJobs(): JobDescription[] {
     return this.jobs
       .filter((job) => !this.hiddenJobIds.has(job.id))
-      .filter((job) => (job.weighted_score || 0) >= this.scoreThreshold)
+      .filter((job) => this.passesScoreFilter(job))
       .filter((job) => this.matchesSearch(job))
       .filter((job) => !this.remoteOnly || this.isRemote(job.location))
       .sort((a, b) => (b.weighted_score || 0) - (a.weighted_score || 0));
+  }
+
+  get scoreFilterLabel(): string {
+    switch (this.scoreFilterMode) {
+      case 'exactly':
+        return `Score = ${this.scoreThreshold.toFixed(1)}`;
+      case 'atMost':
+        return `Score <= ${this.scoreThreshold.toFixed(1)}`;
+      default:
+        return `Score >= ${this.scoreThreshold.toFixed(1)}`;
+    }
   }
 
   get activeIdentityName(): string {
@@ -127,6 +142,32 @@ export class JobDiscoveryComponent implements OnInit {
 
   formatScore(score?: number): string {
     return (score ?? 0).toFixed(1);
+  }
+
+  setScorePreset(value: number): void {
+    this.scoreThreshold = value;
+  }
+
+  updateScoreThreshold(value: number | string): void {
+    const parsed = typeof value === 'string' ? parseFloat(value) : value;
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+    this.scoreThreshold = Math.max(0, Math.min(5, parsed));
+  }
+
+  private passesScoreFilter(job: JobDescription): boolean {
+    const score = Number(job.weighted_score ?? 0);
+    const threshold = this.scoreThreshold;
+
+    switch (this.scoreFilterMode) {
+      case 'exactly':
+        return Math.abs(score - threshold) < 0.05;
+      case 'atMost':
+        return score <= threshold;
+      default:
+        return score >= threshold;
+    }
   }
 
   private matchesSearch(job: JobDescription): boolean {

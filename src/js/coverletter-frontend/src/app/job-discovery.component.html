@@ -22,10 +22,11 @@
   </header>
 
   <div class="filter-chips">
-    <span class="chip chip-active">Score >= {{ scoreThreshold | number:'1.1-1' }}</span>
+    <span class="chip chip-active">{{ scoreFilterLabel }}</span>
     <span class="chip" [class.chip-active]="remoteOnly">Remote Only</span>
     <span class="chip" [class.chip-active]="aiSkillGapAnalysis">AI Skill Gap Analysis</span>
     <span class="chip">{{ activeIdentityName }}</span>
+    <span class="chip">Showing {{ filteredJobs.length }} / {{ jobs.length }}</span>
   </div>
 
   <div class="content-grid" *ngIf="!loading; else loadingState">
@@ -96,9 +97,37 @@
         </label>
 
         <label>
-          Min AI Score: {{ scoreThreshold | number:'1.1-1' }}
-          <input type="range" min="0" max="5" step="0.1" [(ngModel)]="scoreThreshold" />
+          Score Filter Mode
+          <select [(ngModel)]="scoreFilterMode">
+            <option value="atLeast">At least</option>
+            <option value="exactly">Exactly</option>
+            <option value="atMost">At most</option>
+          </select>
         </label>
+
+        <label>
+          Score Threshold: {{ scoreThreshold | number:'1.1-1' }}
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="0.1"
+            [ngModel]="scoreThreshold"
+            (ngModelChange)="updateScoreThreshold($event)"
+          />
+        </label>
+
+        <div class="score-presets">
+          <button
+            type="button"
+            class="score-preset-btn"
+            *ngFor="let value of scorePresetValues"
+            [class.score-preset-btn-active]="scoreThreshold === value"
+            (click)="setScorePreset(value)"
+          >
+            {{ value }}
+          </button>
+        </div>
 
         <label class="toggle-row">
           <span>Remote Jobs First</span>

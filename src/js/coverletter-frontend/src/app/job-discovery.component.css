@@ -291,6 +291,30 @@
   margin-top: 0.35rem;
 }
 
+.score-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.score-preset-btn {
+  border: 1px solid #d4def1;
+  background: #f7f9ff;
+  color: #37527e;
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.score-preset-btn-active {
+  background: #dbe8ff;
+  border-color: #9ab8f3;
+  color: #1648b3;
+}
+
 .settings-card select {
   border: 1px solid #d4def1;
   border-radius: 0.65rem;
