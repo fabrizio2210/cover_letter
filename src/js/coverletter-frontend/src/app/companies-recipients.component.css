@@ -153,6 +153,28 @@
   overflow: hidden;
 }
 
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.filter-toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #2563eb;
+}
+
 .directory-table {
   width: 100%;
   border-collapse: collapse;

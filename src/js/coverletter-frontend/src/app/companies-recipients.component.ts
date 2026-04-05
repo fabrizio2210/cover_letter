@@ -38,6 +38,7 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   activeTab: ManagementTab = 'companies';
   loading = false;
+  showCompaniesWithJobsOnly = false;
 
   companies: Company[] = [];
   recipients: Recipient[] = [];
@@ -80,6 +81,11 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   switchTab(tab: ManagementTab): void {
     this.activeTab = tab;
+    this.ensureSelections();
+  }
+
+  toggleCompaniesWithJobsOnly(value: boolean): void {
+    this.showCompaniesWithJobsOnly = value;
     this.ensureSelections();
   }
 
@@ -335,6 +341,14 @@ export class CompaniesRecipientsComponent implements OnInit {
     return this.companies.find((company) => company.id === this.selectedCompanyId) || null;
   }
 
+  get visibleCompanies(): Company[] {
+    if (!this.showCompaniesWithJobsOnly) {
+      return this.companies;
+    }
+
+    return this.companies.filter((company) => this.companyJobsCount(company) > 0);
+  }
+
   get selectedRecipient(): Recipient | null {
     return this.recipients.find((recipient) => recipient.id === this.selectedRecipientId) || null;
   }
@@ -404,8 +418,9 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   private ensureSelections(): void {
     if (this.activeTab === 'companies') {
-      const hasSelectedCompany = !!this.selectedCompanyId && this.companies.some((company) => company.id === this.selectedCompanyId);
-      this.selectedCompanyId = hasSelectedCompany ? this.selectedCompanyId : this.companies[0]?.id || null;
+      const currentCompanySet = this.visibleCompanies;
+      const hasSelectedCompany = !!this.selectedCompanyId && currentCompanySet.some((company) => company.id === this.selectedCompanyId);
+      this.selectedCompanyId = hasSelectedCompany ? this.selectedCompanyId : currentCompanySet[0]?.id || null;
       return;
     }
 

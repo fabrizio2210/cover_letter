@@ -45,13 +45,30 @@
       </div>
 
       <ng-container *ngIf="!loading && activeTab === 'companies'">
+        <div class="table-toolbar" *ngIf="companies.length > 0">
+          <label class="filter-toggle" aria-label="Company visibility filter">
+            <input
+              type="checkbox"
+              [ngModel]="showCompaniesWithJobsOnly"
+              (ngModelChange)="toggleCompaniesWithJobsOnly($event)"
+            />
+            <span>Only companies with open roles</span>
+          </label>
+        </div>
+
         <div *ngIf="companies.length === 0" class="empty-state">
           <span class="material-symbols-outlined">business_center</span>
           <p>No companies yet.</p>
           <button class="primary-button" type="button" (click)="openCompanyCreateModal()">Create the first company</button>
         </div>
 
-        <div *ngIf="companies.length > 0" class="table-card">
+        <div *ngIf="companies.length > 0 && visibleCompanies.length === 0" class="empty-state">
+          <span class="material-symbols-outlined">filter_alt_off</span>
+          <p>No companies match the current filter.</p>
+          <button class="secondary-button" type="button" (click)="toggleCompaniesWithJobsOnly(false)">Show all companies</button>
+        </div>
+
+        <div *ngIf="visibleCompanies.length > 0" class="table-card">
           <table class="directory-table" aria-label="Companies table">
             <thead>
               <tr>
@@ -64,7 +81,7 @@
             </thead>
             <tbody>
               <tr
-                *ngFor="let company of companies"
+                *ngFor="let company of visibleCompanies"
                 (click)="selectCompany(company)"
                 [class.is-selected]="selectedCompanyId === company.id"
               >
