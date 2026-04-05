@@ -31,6 +31,7 @@ export interface Identity {
   field_info?: Field;
   roles?: string[];
   html_signature?: string;
+  preferences?: IdentityPreference[];
 }
 
 export interface HistoryPart {
@@ -49,7 +50,9 @@ export interface Timestamp {
 
 export interface IdentityPreference {
   key: string;
-  value?: number;
+  label?: string;
+  weight: number;
+  enabled: boolean;
   guidance?: string;
 }
 
@@ -58,6 +61,8 @@ export interface JobPreferenceScore {
   job_id: string;
   identity_id: string;
   preference_key: string;
+  preference_label?: string;
+  preference_weight?: number;
   score: number;
   rationale?: string;
   scored_at?: string | Timestamp;
@@ -78,6 +83,8 @@ export interface JobDescription {
   company_info?: Company;
   scores?: JobPreferenceScore[];
   weighted_score?: number;
+  max_score?: number;
+  scoring_status?: string;
 }
 
 export interface CoverLetter {

@@ -105,6 +105,27 @@ message Identity {
     repeated string roles = 6; // @gotags: bson:"roles,omitempty"
     string html_signature = 7; // @gotags: bson:"html_signature,omitempty"
     Field field_info = 8; // @gotags: bson:"fieldInfo,omitempty"
+    repeated IdentityPreference preferences = 9; // @gotags: bson:"preferences,omitempty"
+}
+
+message IdentityPreference {
+    string key = 1; // @gotags: bson:"key"
+    string label = 2; // @gotags: bson:"label,omitempty"
+    double weight = 3; // @gotags: bson:"weight"
+    bool enabled = 4; // @gotags: bson:"enabled"
+    string guidance = 5; // @gotags: bson:"guidance,omitempty"
+}
+
+message JobPreferenceScore {
+    string id = 1; // @gotags: bson:"_id,omitempty"
+    string job_id = 2; // @gotags: bson:"job_id"
+    string identity_id = 3; // @gotags: bson:"identity_id"
+    string preference_key = 4; // @gotags: bson:"preference_key"
+    string preference_label = 5; // @gotags: bson:"preference_label,omitempty"
+    double preference_weight = 6; // @gotags: bson:"preference_weight,omitempty"
+    int32 score = 7; // @gotags: bson:"score"
+    string rationale = 8; // @gotags: bson:"rationale,omitempty"
+    google.protobuf.Timestamp scored_at = 9; // @gotags: bson:"scored_at,omitempty"
 }
 
 message Job {
@@ -121,4 +142,6 @@ message Job {
     google.protobuf.Timestamp updated_at = 11; // @gotags: bson:"updated_at"
     ScoringStatus scoring_status = 12; // @gotags: bson:"scoring_status"
     double weighted_score = 13; // @gotags: bson:"weighted_score"
+    int32 max_score = 14; // @gotags: bson:"max_score,omitempty"
+    repeated JobPreferenceScore scores = 15; // @gotags: bson:"scores,omitempty"
 }

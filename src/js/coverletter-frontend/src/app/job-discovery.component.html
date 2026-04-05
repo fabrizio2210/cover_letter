@@ -1,0 +1,119 @@
+<section class="job-discovery-page">
+  <header class="discovery-header">
+    <div class="search-wrap">
+      <span class="material-symbols-outlined">search</span>
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        placeholder="Search by title, company, or keywords..."
+      />
+    </div>
+
+    <div class="header-actions">
+      <button class="ghost-btn" type="button">
+        <span class="material-symbols-outlined">tune</span>
+        Filter Options
+      </button>
+      <button class="primary-btn" type="button" [disabled]="reranking" (click)="rerankVisibleJobs()">
+        <span class="material-symbols-outlined">bolt</span>
+        {{ reranking ? 'Queueing...' : 'Re-Rank Visible' }}
+      </button>
+    </div>
+  </header>
+
+  <div class="filter-chips">
+    <span class="chip chip-active">Score >= {{ scoreThreshold | number:'1.1-1' }}</span>
+    <span class="chip" [class.chip-active]="remoteOnly">Remote Only</span>
+    <span class="chip" [class.chip-active]="aiSkillGapAnalysis">AI Skill Gap Analysis</span>
+    <span class="chip">{{ activeIdentityName }}</span>
+  </div>
+
+  <div class="content-grid" *ngIf="!loading; else loadingState">
+    <div class="job-feed">
+      <article class="job-card" *ngFor="let job of filteredJobs">
+        <div class="job-card-top">
+          <div class="company-avatar">{{ (job.company_info?.name || job.company_name || 'J').charAt(0).toUpperCase() }}</div>
+          <div class="job-title-block">
+            <h3>{{ job.title }}</h3>
+            <p>{{ job.company_info?.name || job.company_name || 'Unknown company' }}</p>
+          </div>
+          <div class="score-block">
+            <strong>{{ formatScore(job.weighted_score) }}</strong>
+            <small>AI Match</small>
+          </div>
+        </div>
+
+        <div class="job-meta">
+          <span><span class="material-symbols-outlined">language</span> {{ job.platform || 'Unknown' }}</span>
+          <span><span class="material-symbols-outlined">pin_drop</span> {{ job.location || 'Location not set' }}</span>
+          <span class="status-chip">{{ job.scoring_status || 'unscored' }}</span>
+        </div>
+
+        <div class="rationale-box">
+          <p>
+            <strong>Rationale:</strong>
+            {{ getFirstRationale(job) }}
+          </p>
+        </div>
+
+        <div class="job-actions">
+          <button type="button" class="primary-btn" (click)="prepareCoverLetter(job)">Prepare Cover Letter</button>
+          <button type="button" class="ghost-btn" (click)="markAsNotInterested(job)">Mark as Not Interested</button>
+          <button type="button" class="ghost-btn" (click)="rerankSingleJob(job)">Queue Score</button>
+        </div>
+      </article>
+
+      <div class="empty-state" *ngIf="filteredJobs.length === 0">
+        No jobs match the current filters.
+      </div>
+    </div>
+
+    <aside class="insights-panel">
+      <section class="crawler-card">
+        <p class="eyebrow">Crawler Active</p>
+        <h4>Deep Discovery Run</h4>
+        <p>Use rerank to queue score updates while crawler results stream in.</p>
+        <div class="progress-row">
+          <span>Processing ATS feeds</span>
+          <span>88%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill"></div>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h4>Discovery Settings</h4>
+
+        <label>
+          Primary Identity
+          <select [(ngModel)]="selectedIdentityId">
+            <option value="" disabled>Select identity</option>
+            <option *ngFor="let identity of identities" [value]="identity.id">
+              {{ identity.name || identity.identity }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Min AI Score: {{ scoreThreshold | number:'1.1-1' }}
+          <input type="range" min="0" max="5" step="0.1" [(ngModel)]="scoreThreshold" />
+        </label>
+
+        <label class="toggle-row">
+          <span>Remote Jobs First</span>
+          <input type="checkbox" [(ngModel)]="remoteOnly" />
+        </label>
+
+        <label class="toggle-row">
+          <span>AI Skill Gap Analysis</span>
+          <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
+        </label>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<ng-template #loadingState>
+  <div class="empty-state">Loading Job Discovery...</div>
+</ng-template>

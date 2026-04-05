@@ -27,7 +27,7 @@ func CreateIdentity(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("identities")
 
-	result, err := collection.InsertOne(context.Background(), identity)
+	result, err := collection.InsertOne(context.Background(), &identity)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create identity"})
 		return
@@ -59,8 +59,8 @@ func GetIdentities(c *gin.Context) {
 	collection := client.Database(dbName).Collection("identities")
 
 	pipeline := bson.A{
-		bson.D{{"$lookup", bson.D{{"from", "fields"}, {"localField", "field_id"}, {"foreignField", "_id"}, {"as", "fieldInfo"}}}},
-		bson.D{{"$unwind", bson.D{{"path", "$fieldInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+		bson.M{"$lookup": bson.M{"from": "fields", "localField": "field_id", "foreignField": "_id", "as": "fieldInfo"}},
+		bson.M{"$unwind": bson.M{"path": "$fieldInfo", "preserveNullAndEmptyArrays": true}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -218,6 +218,47 @@ func UpdateIdentityRoles(c *gin.Context) {
 		return
 	}
 	UpdateIdentityGeneric(c, bson.M{"roles": req.Roles})
+}
+
+// UpdateIdentityPreferences replaces the identity preference list.
+func UpdateIdentityPreferences(c *gin.Context) {
+	var req struct {
+		Preferences []struct {
+			Key      string  `json:"key"`
+			Label    string  `json:"label"`
+			Weight   float64 `json:"weight"`
+			Enabled  bool    `json:"enabled"`
+			Guidance string  `json:"guidance"`
+		} `json:"preferences"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	seen := map[string]struct{}{}
+	preferences := make([]bson.M, 0, len(req.Preferences))
+	for _, preference := range req.Preferences {
+		if preference.Key == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Preference key is required"})
+			return
+		}
+		if _, ok := seen[preference.Key]; ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Duplicate preference key"})
+			return
+		}
+		seen[preference.Key] = struct{}{}
+		preferences = append(preferences, bson.M{
+			"key":      preference.Key,
+			"label":    preference.Label,
+			"weight":   preference.Weight,
+			"enabled":  preference.Enabled,
+			"guidance": preference.Guidance,
+		})
+	}
+
+	UpdateIdentityGeneric(c, bson.M{"preferences": preferences})
 }
 
 // AssociateFieldWithIdentity associates a field with an identity.

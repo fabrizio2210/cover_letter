@@ -107,6 +107,10 @@ export class ApiService {
       .pipe(catchError(() => of({} as JobDescription)));
   }
 
+  scoreJobDescription(id: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, {});
+  }
+
   // Cover Letters
   getCoverLetters(): Observable<CoverLetter[]> {
     return this.http.get<CoverLetter[]>(`${this.apiBase}/cover-letters`)

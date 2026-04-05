@@ -8,3 +8,6 @@ type Company = common.Company
 type Recipient = common.Recipient
 type Identity = common.Identity
 type CoverLetter = common.CoverLetter
+type Job = common.Job
+type JobPreferenceScore = common.JobPreferenceScore
+type IdentityPreference = common.IdentityPreference

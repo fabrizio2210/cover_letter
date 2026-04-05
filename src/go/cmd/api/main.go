@@ -37,6 +37,7 @@ func main() {
 		auth.PUT("/identities/:id/name", handlers.UpdateIdentityName)
 		auth.PUT("/identities/:id/signature", handlers.UpdateIdentitySignature)
 		auth.PUT("/identities/:id/roles", handlers.UpdateIdentityRoles)
+		auth.PUT("/identities/:id/preferences", handlers.UpdateIdentityPreferences)
 		auth.PUT("/identities/:id/field", handlers.AssociateFieldWithIdentity)
 
 		auth.GET("/fields", handlers.GetFields)
@@ -57,6 +58,13 @@ func main() {
 		auth.PUT("/cover-letters/:id", handlers.UpdateCoverLetter)
 		auth.POST("/cover-letters/:id/refine", handlers.RefineCoverLetter)
 		auth.POST("/cover-letters/:id/send", handlers.SendCoverLetter)
+
+		auth.GET("/job-descriptions", handlers.GetJobDescriptions)
+		auth.GET("/job-descriptions/:id", handlers.GetJobDescription)
+		auth.POST("/job-descriptions", handlers.CreateJobDescription)
+		auth.PUT("/job-descriptions/:id", handlers.UpdateJobDescription)
+		auth.DELETE("/job-descriptions/:id", handlers.DeleteJobDescription)
+		auth.POST("/job-descriptions/:id/score", handlers.ScoreJobDescription)
 	}
 
 	r.Run(":8080")

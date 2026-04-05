@@ -410,6 +410,7 @@ class Identity(google.protobuf.message.Message):
     ROLES_FIELD_NUMBER: builtins.int
     HTML_SIGNATURE_FIELD_NUMBER: builtins.int
     FIELD_INFO_FIELD_NUMBER: builtins.int
+    PREFERENCES_FIELD_NUMBER: builtins.int
     id: typing.Text
     """@gotags: bson:"_id,omitempty" """
 
@@ -436,6 +437,10 @@ class Identity(google.protobuf.message.Message):
     def field_info(self) -> global___Field:
         """@gotags: bson:"fieldInfo,omitempty" """
         pass
+    @property
+    def preferences(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___IdentityPreference]:
+        """@gotags: bson:"preferences,omitempty" """
+        pass
     def __init__(self,
         *,
         id: typing.Text = ...,
@@ -446,10 +451,99 @@ class Identity(google.protobuf.message.Message):
         roles: typing.Optional[typing.Iterable[typing.Text]] = ...,
         html_signature: typing.Text = ...,
         field_info: typing.Optional[global___Field] = ...,
+        preferences: typing.Optional[typing.Iterable[global___IdentityPreference]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["field_info",b"field_info"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["description",b"description","field_id",b"field_id","field_info",b"field_info","html_signature",b"html_signature","id",b"id","identity",b"identity","name",b"name","roles",b"roles"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["description",b"description","field_id",b"field_id","field_info",b"field_info","html_signature",b"html_signature","id",b"id","identity",b"identity","name",b"name","preferences",b"preferences","roles",b"roles"]) -> None: ...
 global___Identity = Identity
+
+class IdentityPreference(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    KEY_FIELD_NUMBER: builtins.int
+    LABEL_FIELD_NUMBER: builtins.int
+    WEIGHT_FIELD_NUMBER: builtins.int
+    ENABLED_FIELD_NUMBER: builtins.int
+    GUIDANCE_FIELD_NUMBER: builtins.int
+    key: typing.Text
+    """@gotags: bson:"key" """
+
+    label: typing.Text
+    """@gotags: bson:"label,omitempty" """
+
+    weight: builtins.float
+    """@gotags: bson:"weight" """
+
+    enabled: builtins.bool
+    """@gotags: bson:"enabled" """
+
+    guidance: typing.Text
+    """@gotags: bson:"guidance,omitempty" """
+
+    def __init__(self,
+        *,
+        key: typing.Text = ...,
+        label: typing.Text = ...,
+        weight: builtins.float = ...,
+        enabled: builtins.bool = ...,
+        guidance: typing.Text = ...,
+        ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["enabled",b"enabled","guidance",b"guidance","key",b"key","label",b"label","weight",b"weight"]) -> None: ...
+global___IdentityPreference = IdentityPreference
+
+class JobPreferenceScore(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    ID_FIELD_NUMBER: builtins.int
+    JOB_ID_FIELD_NUMBER: builtins.int
+    IDENTITY_ID_FIELD_NUMBER: builtins.int
+    PREFERENCE_KEY_FIELD_NUMBER: builtins.int
+    PREFERENCE_LABEL_FIELD_NUMBER: builtins.int
+    PREFERENCE_WEIGHT_FIELD_NUMBER: builtins.int
+    SCORE_FIELD_NUMBER: builtins.int
+    RATIONALE_FIELD_NUMBER: builtins.int
+    SCORED_AT_FIELD_NUMBER: builtins.int
+    id: typing.Text
+    """@gotags: bson:"_id,omitempty" """
+
+    job_id: typing.Text
+    """@gotags: bson:"job_id" """
+
+    identity_id: typing.Text
+    """@gotags: bson:"identity_id" """
+
+    preference_key: typing.Text
+    """@gotags: bson:"preference_key" """
+
+    preference_label: typing.Text
+    """@gotags: bson:"preference_label,omitempty" """
+
+    preference_weight: builtins.float
+    """@gotags: bson:"preference_weight,omitempty" """
+
+    score: builtins.int
+    """@gotags: bson:"score" """
+
+    rationale: typing.Text
+    """@gotags: bson:"rationale,omitempty" """
+
+    @property
+    def scored_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """@gotags: bson:"scored_at,omitempty" """
+        pass
+    def __init__(self,
+        *,
+        id: typing.Text = ...,
+        job_id: typing.Text = ...,
+        identity_id: typing.Text = ...,
+        preference_key: typing.Text = ...,
+        preference_label: typing.Text = ...,
+        preference_weight: builtins.float = ...,
+        score: builtins.int = ...,
+        rationale: typing.Text = ...,
+        scored_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["scored_at",b"scored_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["id",b"id","identity_id",b"identity_id","job_id",b"job_id","preference_key",b"preference_key","preference_label",b"preference_label","preference_weight",b"preference_weight","rationale",b"rationale","score",b"score","scored_at",b"scored_at"]) -> None: ...
+global___JobPreferenceScore = JobPreferenceScore
 
 class Job(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -466,6 +560,8 @@ class Job(google.protobuf.message.Message):
     UPDATED_AT_FIELD_NUMBER: builtins.int
     SCORING_STATUS_FIELD_NUMBER: builtins.int
     WEIGHTED_SCORE_FIELD_NUMBER: builtins.int
+    MAX_SCORE_FIELD_NUMBER: builtins.int
+    SCORES_FIELD_NUMBER: builtins.int
     id: typing.Text
     """@gotags: bson:"_id,omitempty" """
 
@@ -508,6 +604,13 @@ class Job(google.protobuf.message.Message):
     weighted_score: builtins.float
     """@gotags: bson:"weighted_score" """
 
+    max_score: builtins.int
+    """@gotags: bson:"max_score,omitempty" """
+
+    @property
+    def scores(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___JobPreferenceScore]:
+        """@gotags: bson:"scores,omitempty" """
+        pass
     def __init__(self,
         *,
         id: typing.Text = ...,
@@ -523,7 +626,9 @@ class Job(google.protobuf.message.Message):
         updated_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         scoring_status: global___ScoringStatus.ValueType = ...,
         weighted_score: builtins.float = ...,
+        max_score: builtins.int = ...,
+        scores: typing.Optional[typing.Iterable[global___JobPreferenceScore]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["company_info",b"company_info","created_at",b"created_at","updated_at",b"updated_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","company_info",b"company_info","created_at",b"created_at","description",b"description","external_job_id",b"external_job_id","id",b"id","location",b"location","platform",b"platform","scoring_status",b"scoring_status","source_url",b"source_url","title",b"title","updated_at",b"updated_at","weighted_score",b"weighted_score"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","company_info",b"company_info","created_at",b"created_at","description",b"description","external_job_id",b"external_job_id","id",b"id","location",b"location","max_score",b"max_score","platform",b"platform","scores",b"scores","scoring_status",b"scoring_status","source_url",b"source_url","title",b"title","updated_at",b"updated_at","weighted_score",b"weighted_score"]) -> None: ...
 global___Job = Job

@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './login.component';
 import { DashboardComponent } from './dashboard.component';
 import { DashboardOverviewComponent } from './dashboard-overview.component';
+import { JobDiscoveryComponent } from './job-discovery.component';
 import { FieldsListComponent } from './fields-list.component';
 import { IdentitiesListComponent } from './identities-list.component';
 import { CoverLettersListComponent } from './coverletters-list.component';
@@ -19,6 +20,7 @@ export const routes: Routes = [
         canActivate: [authGuard],
         children: [
             { path: '', component: DashboardOverviewComponent }, // Overview page with stats & opportunities
+            { path: 'job-discovery', component: JobDiscoveryComponent },
             { path: 'fields', component: FieldsListComponent },
             { path: 'identities', component: IdentitiesListComponent },
             { path: 'cover-letters', component: CoverLettersListComponent },
