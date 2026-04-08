@@ -74,6 +74,7 @@ export class JobDiscoveryComponent implements OnInit {
   get filteredJobs(): JobDescription[] {
     return this.jobs
       .filter((job) => !this.hiddenJobIds.has(job.id))
+      .filter((job) => this.matchesIdentity(job))
       .filter((job) => this.matchesCompany(job))
       .filter((job) => this.passesScoreFilter(job))
       .filter((job) => this.matchesSearch(job))
@@ -99,6 +100,10 @@ export class JobDiscoveryComponent implements OnInit {
       default:
         return `Score >= ${this.scoreThreshold.toFixed(1)}`;
     }
+  }
+
+  get identityScopedJobsCount(): number {
+    return this.jobs.filter((job) => this.matchesIdentity(job)).length;
   }
 
   get activeIdentityName(): string {
@@ -205,6 +210,30 @@ export class JobDiscoveryComponent implements OnInit {
     }
 
     return this.getJobCompanyId(job) === this.selectedCompanyId;
+  }
+
+  private matchesIdentity(job: JobDescription): boolean {
+    if (!this.selectedIdentityId) {
+      return true;
+    }
+
+    if ((job.scores || []).some((score) => score.identity_id === this.selectedIdentityId)) {
+      return true;
+    }
+
+    // Fallback for jobs that are not scored yet: match by identity/company field.
+    const selectedIdentity = this.identities.find((identity) => identity.id === this.selectedIdentityId);
+    if (!selectedIdentity) {
+      return false;
+    }
+
+    const identityFieldId = selectedIdentity.field_id || selectedIdentity.field_info?.id || '';
+    if (!identityFieldId) {
+      return false;
+    }
+
+    const companyFieldId = job.company_info?.field_id || job.company_info?.field_info?.id || '';
+    return companyFieldId === identityFieldId;
   }
 
   private matchesSearch(job: JobDescription): boolean {

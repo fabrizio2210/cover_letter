@@ -30,7 +30,7 @@
     <span class="chip" [class.chip-active]="remoteOnly">Remote Only</span>
     <span class="chip" [class.chip-active]="aiSkillGapAnalysis">AI Skill Gap Analysis</span>
     <span class="chip">{{ activeIdentityName }}</span>
-    <span class="chip">Showing {{ filteredJobs.length }} / {{ jobs.length }}</span>
+    <span class="chip">Showing {{ filteredJobs.length }} / {{ identityScopedJobsCount }}</span>
   </div>
 
   <div class="content-grid" *ngIf="!loading; else loadingState">
