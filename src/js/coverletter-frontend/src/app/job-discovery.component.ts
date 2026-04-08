@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ApiService } from './services/api.service';
@@ -21,6 +21,7 @@ export class JobDiscoveryComponent implements OnInit {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   jobs: JobDescription[] = [];
   identities: Identity[] = [];
@@ -30,6 +31,8 @@ export class JobDiscoveryComponent implements OnInit {
   reranking = false;
 
   selectedIdentityId = '';
+  selectedCompanyId = '';
+  selectedCompanyName = '';
   searchQuery = '';
   scoreThreshold = 0.0;
   scoreFilterMode: ScoreFilterMode = 'atLeast';
@@ -38,6 +41,11 @@ export class JobDiscoveryComponent implements OnInit {
   aiSkillGapAnalysis = false;
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      this.selectedCompanyId = params.get('companyId') || '';
+      this.selectedCompanyName = params.get('companyName') || '';
+    });
+
     this.loadData();
   }
 
@@ -66,10 +74,20 @@ export class JobDiscoveryComponent implements OnInit {
   get filteredJobs(): JobDescription[] {
     return this.jobs
       .filter((job) => !this.hiddenJobIds.has(job.id))
+      .filter((job) => this.matchesCompany(job))
       .filter((job) => this.passesScoreFilter(job))
       .filter((job) => this.matchesSearch(job))
       .filter((job) => !this.remoteOnly || this.isRemote(job.location))
       .sort((a, b) => (b.weighted_score || 0) - (a.weighted_score || 0));
+  }
+
+  get activeCompanyLabel(): string {
+    if (!this.selectedCompanyId) {
+      return '';
+    }
+
+    const matchingJob = this.jobs.find((job) => this.getJobCompanyId(job) === this.selectedCompanyId);
+    return this.selectedCompanyName || matchingJob?.company_info?.name || matchingJob?.company_name || 'Selected company';
   }
 
   get scoreFilterLabel(): string {
@@ -156,6 +174,17 @@ export class JobDiscoveryComponent implements OnInit {
     this.scoreThreshold = Math.max(0, Math.min(5, parsed));
   }
 
+  clearCompanyFilter(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        companyId: null,
+        companyName: null
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+
   private passesScoreFilter(job: JobDescription): boolean {
     const score = Number(job.weighted_score ?? 0);
     const threshold = this.scoreThreshold;
@@ -168,6 +197,14 @@ export class JobDiscoveryComponent implements OnInit {
       default:
         return score >= threshold;
     }
+  }
+
+  private matchesCompany(job: JobDescription): boolean {
+    if (!this.selectedCompanyId) {
+      return true;
+    }
+
+    return this.getJobCompanyId(job) === this.selectedCompanyId;
   }
 
   private matchesSearch(job: JobDescription): boolean {
@@ -189,6 +226,10 @@ export class JobDiscoveryComponent implements OnInit {
     }
     const normalized = location.toLowerCase();
     return normalized.includes('remote') || normalized.includes('worldwide') || normalized.includes('anywhere');
+  }
+
+  private getJobCompanyId(job: JobDescription): string {
+    return job.company_info?.id || job.company_id || '';
   }
 
   private finishRerank(completed: number, failed: number): void {

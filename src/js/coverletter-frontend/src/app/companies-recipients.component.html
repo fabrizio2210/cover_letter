@@ -98,10 +98,16 @@
                   <span class="chip">{{ fieldName(company) }}</span>
                 </td>
                 <td>
-                  <div class="count-stack">
+                  <button
+                    type="button"
+                    class="count-stack text-button"
+                    (click)="openCompanyRoles(company, $event)"
+                    [disabled]="companyJobsCount(company) === 0"
+                    [attr.aria-label]="'Open roles for ' + company.name"
+                  >
                     <strong>{{ companyJobsCount(company) }}</strong>
                     <span>open roles</span>
-                  </div>
+                  </button>
                 </td>
                 <td>
                   <code class="inline-code">{{ companyAtsLabel(company) }}</code>
@@ -232,6 +238,15 @@
             <span class="chip subtle">{{ selectedCompanyJobs.length }} active</span>
           </div>
 
+          <button
+            *ngIf="selectedCompanyJobs.length > 0"
+            class="text-button"
+            type="button"
+            (click)="openCompanyRoles(selectedCompany)"
+          >
+            Open all in Job Discovery
+          </button>
+
           <div *ngIf="selectedCompanyJobs.length === 0" class="inline-empty">No jobs linked to this company yet.</div>
 
           <article *ngFor="let job of selectedCompanyJobs" class="job-card">
@@ -243,8 +258,8 @@
               <span class="chip subtle">{{ job.platform || 'manual' }}</span>
               <span class="chip subtle" *ngIf="job.weighted_score">AI {{ job.weighted_score | number:'1.1-1' }}</span>
             </div>
-            <button class="secondary-button is-disabled" type="button" disabled>
-              Letter actions planned next
+            <button class="secondary-button" type="button" (click)="openCompanyRoles(selectedCompany)">
+              Open in Job Discovery
             </button>
           </article>
         </div>

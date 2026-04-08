@@ -87,6 +87,18 @@
   color: #4f6282;
 }
 
+.chip-button {
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chip-button .material-symbols-outlined {
+  font-size: 1rem;
+}
+
 .chip-active {
   background: #d9e6ff;
   color: #0b4fd1;

@@ -23,6 +23,10 @@
 
   <div class="filter-chips">
     <span class="chip chip-active">{{ scoreFilterLabel }}</span>
+    <button *ngIf="selectedCompanyId" type="button" class="chip chip-button chip-active" (click)="clearCompanyFilter()">
+      Company: {{ activeCompanyLabel }}
+      <span class="material-symbols-outlined">close</span>
+    </button>
     <span class="chip" [class.chip-active]="remoteOnly">Remote Only</span>
     <span class="chip" [class.chip-active]="aiSkillGapAnalysis">AI Skill Gap Analysis</span>
     <span class="chip">{{ activeIdentityName }}</span>

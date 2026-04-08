@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
@@ -35,6 +36,7 @@ interface RecipientFormState {
 export class CompaniesRecipientsComponent implements OnInit {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
+  private router = inject(Router);
 
   activeTab: ManagementTab = 'companies';
   loading = false;
@@ -91,6 +93,23 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   selectCompany(company: Company): void {
     this.selectedCompanyId = company.id;
+  }
+
+  openCompanyRoles(company: Company, event?: Event): void {
+    event?.stopPropagation();
+
+    const totalJobs = this.companyJobsCount(company);
+    if (totalJobs === 0) {
+      this.showFeedback(`No open roles found for ${company.name}.`, true);
+      return;
+    }
+
+    this.router.navigate(['/dashboard/job-discovery'], {
+      queryParams: {
+        companyId: company.id,
+        companyName: company.name
+      }
+    });
   }
 
   selectRecipient(recipient: Recipient): void {
