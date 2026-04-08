@@ -7,30 +7,30 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a routerLink="." routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: true }" class="nav-item">
+      <a [routerLink]="['/dashboard']" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: true }" class="nav-item">
         <span class="material-symbols-outlined">dashboard</span>
         <span>Dashboard</span>
       </a>
-      <a routerLink="job-discovery" routerLinkActive="nav-active" class="nav-item">
+      <a [routerLink]="['/dashboard', 'job-discovery']" routerLinkActive="nav-active" class="nav-item">
         <span class="material-symbols-outlined">search_insights</span>
         <span>Job Discovery</span>
       </a>
-      <a routerLink="identities" routerLinkActive="nav-active" class="nav-item">
+      <a [routerLink]="['/dashboard', 'identities']" routerLinkActive="nav-active" class="nav-item">
         <span class="material-symbols-outlined">person_search</span>
         <span>Identities</span>
       </a>
-      <a routerLink="companies" routerLinkActive="nav-active" class="nav-item">
+      <a [routerLink]="['/dashboard', 'companies']" routerLinkActive="nav-active" class="nav-item">
         <span class="material-symbols-outlined">business</span>
         <span>Companies</span>
       </a>
-      <a routerLink="cover-letters" routerLinkActive="nav-active" class="nav-item">
+      <a [routerLink]="['/dashboard', 'cover-letters']" routerLinkActive="nav-active" class="nav-item">
         <span class="material-symbols-outlined">edit_note</span>
-        <span>Cover Letters</span>
+        <span>Letter Editor</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
-      <a href="#settings" class="nav-item-secondary">
+      <a [routerLink]="['/dashboard', 'settings']" routerLinkActive="nav-active" class="nav-item-secondary">
         <span class="material-symbols-outlined">settings</span>
         <span>Settings</span>
       </a>

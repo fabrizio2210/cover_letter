@@ -7,13 +7,13 @@ import { FeedbackService } from './services/feedback.service';
 import { CoverLetter } from './models/models';
 
 @Component({
-  selector: 'app-coverletters-detail',
+  selector: 'app-letter-editor',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
-  templateUrl: './coverletters-detail.component.html',
-  styleUrls: ['./coverletters-detail.component.css']
+  templateUrl: './letter-editor.component.html',
+  styleUrls: ['./letter-editor.component.css']
 })
-export class CoverLettersDetailComponent implements OnInit {
+export class LetterEditorComponent implements OnInit {
   id: string | null = null;
   letter: CoverLetter | null = null;
   content = '';
@@ -43,7 +43,7 @@ export class CoverLettersDetailComponent implements OnInit {
         this.content = data?.cover_letter || '';
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.feedback.showFeedback('Failed to load cover letter', true);
       }
@@ -54,8 +54,15 @@ export class CoverLettersDetailComponent implements OnInit {
     if (!this.id) return;
     this.saving = true;
     this.http.put(`/api/cover-letters/${this.id}`, { content: this.content }).subscribe({
-      next: () => { this.saving = false; this.feedback.showFeedback('Cover letter saved'); this.fetchLetter(); },
-      error: () => { this.saving = false; this.feedback.showFeedback('Failed to save', true); }
+      next: () => {
+        this.saving = false;
+        this.feedback.showFeedback('Cover letter saved');
+        this.fetchLetter();
+      },
+      error: () => {
+        this.saving = false;
+        this.feedback.showFeedback('Failed to save', true);
+      }
     });
   }
 
@@ -65,8 +72,14 @@ export class CoverLettersDetailComponent implements OnInit {
     if (!prompt) return;
     this.refining = true;
     this.http.post(`/api/cover-letters/${this.id}/refine`, { prompt }).subscribe({
-      next: () => { this.refining = false; this.feedback.showFeedback('Refinement queued'); },
-      error: () => { this.refining = false; this.feedback.showFeedback('Failed to queue refinement', true); }
+      next: () => {
+        this.refining = false;
+        this.feedback.showFeedback('Refinement queued');
+      },
+      error: () => {
+        this.refining = false;
+        this.feedback.showFeedback('Failed to queue refinement', true);
+      }
     });
   }
 
@@ -75,8 +88,14 @@ export class CoverLettersDetailComponent implements OnInit {
     if (!confirm('Send this cover letter?')) return;
     this.sending = true;
     this.http.post(`/api/cover-letters/${this.id}/send`, {}).subscribe({
-      next: () => { this.sending = false; this.feedback.showFeedback('Email queued successfully'); },
-      error: () => { this.sending = false; this.feedback.showFeedback('Failed to queue email', true); }
+      next: () => {
+        this.sending = false;
+        this.feedback.showFeedback('Email queued successfully');
+      },
+      error: () => {
+        this.sending = false;
+        this.feedback.showFeedback('Failed to queue email', true);
+      }
     });
   }
 
@@ -84,8 +103,13 @@ export class CoverLettersDetailComponent implements OnInit {
     if (!this.id) return;
     if (!confirm('Delete this cover letter?')) return;
     this.http.delete(`/api/cover-letters/${this.id}`).subscribe({
-      next: () => { this.feedback.showFeedback('Cover letter deleted'); this.router.navigate(['/dashboard', 'cover-letters']); },
-      error: () => { this.feedback.showFeedback('Failed to delete', true); }
+      next: () => {
+        this.feedback.showFeedback('Cover letter deleted');
+        this.router.navigate(['/dashboard', 'cover-letters']);
+      },
+      error: () => {
+        this.feedback.showFeedback('Failed to delete', true);
+      }
     });
   }
 }

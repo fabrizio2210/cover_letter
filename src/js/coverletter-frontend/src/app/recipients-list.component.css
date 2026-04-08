@@ -1,8 +1,0 @@
-@import './shared-styles/tables.css';
-
-section.recipients {
-  max-width: 1000px;
-  margin: 0 auto; 
-  padding: 20px 16px; 
-  color: #111827; 
-}

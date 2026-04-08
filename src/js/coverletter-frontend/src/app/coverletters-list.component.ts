@@ -44,7 +44,7 @@ export class CoverLettersListComponent implements OnInit {
 
   viewLetter(id: string | undefined): void {
     if (!id) return;
-    this.router.navigate(['/dashboard', 'cover-letters', id]);
+    this.router.navigate(['/dashboard', 'letter-editor', id]);
   }
 
   snippet(letter: CoverLetter): string {
