@@ -1,4 +1,63 @@
 <section class="job-discovery-page">
+  <aside class="insights-panel" *ngIf="!loading">
+    <section class="settings-card">
+      <h4>Discovery Settings</h4>
+
+      <label>
+        Identity View
+        <select [ngModel]="selectedIdentityId" (ngModelChange)="onIdentityChange($event)">
+          <option value="" disabled>Select identity</option>
+          <option *ngFor="let identity of identities" [value]="identity.id">
+            {{ identity.name || identity.identity }}
+          </option>
+        </select>
+      </label>
+
+      <label>
+        Score Filter Mode
+        <select [(ngModel)]="scoreFilterMode">
+          <option value="atLeast">At least</option>
+          <option value="exactly">Exactly</option>
+          <option value="atMost">At most</option>
+        </select>
+      </label>
+
+      <label>
+        Score Threshold: {{ scoreThreshold | number:'1.1-1' }}
+        <input
+          type="range"
+          min="0"
+          max="5"
+          step="0.1"
+          [ngModel]="scoreThreshold"
+          (ngModelChange)="updateScoreThreshold($event)"
+        />
+      </label>
+
+      <div class="score-presets">
+        <button
+          type="button"
+          class="score-preset-btn"
+          *ngFor="let value of scorePresetValues"
+          [class.score-preset-btn-active]="scoreThreshold === value"
+          (click)="setScorePreset(value)"
+        >
+          {{ value }}
+        </button>
+      </div>
+
+      <label class="toggle-row">
+        <span>Remote Jobs First</span>
+        <input type="checkbox" [(ngModel)]="remoteOnly" />
+      </label>
+
+      <label class="toggle-row">
+        <span>AI Skill Gap Analysis</span>
+        <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
+      </label>
+    </section>
+  </aside>
+
   <header class="discovery-header">
     <div class="search-wrap">
       <span class="material-symbols-outlined">search</span>
@@ -20,18 +79,6 @@
       </button>
     </div>
   </header>
-
-  <div class="filter-chips">
-    <span class="chip chip-active">{{ scoreFilterLabel }}</span>
-    <button *ngIf="selectedCompanyId" type="button" class="chip chip-button chip-active" (click)="clearCompanyFilter()">
-      Company: {{ activeCompanyLabel }}
-      <span class="material-symbols-outlined">close</span>
-    </button>
-    <span class="chip" [class.chip-active]="remoteOnly">Remote Only</span>
-    <span class="chip" [class.chip-active]="aiSkillGapAnalysis">AI Skill Gap Analysis</span>
-    <span class="chip">{{ activeIdentityName }}</span>
-    <span class="chip">Showing {{ filteredJobs.length }} / {{ identityScopedJobsCount }}</span>
-  </div>
 
   <div class="content-grid" *ngIf="!loading; else loadingState">
     <div class="job-feed">
@@ -72,78 +119,6 @@
         No jobs match the current filters.
       </div>
     </div>
-
-    <aside class="insights-panel">
-      <section class="crawler-card">
-        <p class="eyebrow">Crawler Active</p>
-        <h4>Deep Discovery Run</h4>
-        <p>Use rerank to queue score updates while crawler results stream in.</p>
-        <div class="progress-row">
-          <span>Processing ATS feeds</span>
-          <span>88%</span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill"></div>
-        </div>
-      </section>
-
-      <section class="settings-card">
-        <h4>Discovery Settings</h4>
-
-        <label>
-          Primary Identity
-          <select [(ngModel)]="selectedIdentityId">
-            <option value="" disabled>Select identity</option>
-            <option *ngFor="let identity of identities" [value]="identity.id">
-              {{ identity.name || identity.identity }}
-            </option>
-          </select>
-        </label>
-
-        <label>
-          Score Filter Mode
-          <select [(ngModel)]="scoreFilterMode">
-            <option value="atLeast">At least</option>
-            <option value="exactly">Exactly</option>
-            <option value="atMost">At most</option>
-          </select>
-        </label>
-
-        <label>
-          Score Threshold: {{ scoreThreshold | number:'1.1-1' }}
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="0.1"
-            [ngModel]="scoreThreshold"
-            (ngModelChange)="updateScoreThreshold($event)"
-          />
-        </label>
-
-        <div class="score-presets">
-          <button
-            type="button"
-            class="score-preset-btn"
-            *ngFor="let value of scorePresetValues"
-            [class.score-preset-btn-active]="scoreThreshold === value"
-            (click)="setScorePreset(value)"
-          >
-            {{ value }}
-          </button>
-        </div>
-
-        <label class="toggle-row">
-          <span>Remote Jobs First</span>
-          <input type="checkbox" [(ngModel)]="remoteOnly" />
-        </label>
-
-        <label class="toggle-row">
-          <span>AI Skill Gap Analysis</span>
-          <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
-        </label>
-      </section>
-    </aside>
   </div>
 </section>
 

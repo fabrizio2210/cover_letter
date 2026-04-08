@@ -44,9 +44,24 @@
         <p>Loading management data...</p>
       </div>
 
-      <ng-container *ngIf="!loading && activeTab === 'companies'">
-        <div class="table-toolbar" *ngIf="companies.length > 0">
-          <label class="filter-toggle" aria-label="Company visibility filter">
+      <section class="table-card" *ngIf="!loading && (companies.length > 0 || recipients.length > 0)">
+        <div class="modal-body">
+          <div class="section-title-row">
+            <h5>Discovery Settings</h5>
+            <span class="chip subtle">{{ activeTab === 'companies' ? 'Companies View' : 'Recipients View' }}</span>
+          </div>
+
+          <label aria-label="Identity filter">
+            <span>Identity View</span>
+            <select [ngModel]="selectedIdentityId" (ngModelChange)="onIdentityFilterChange($event)">
+              <option value="" disabled>Select identity</option>
+              <option *ngFor="let identity of identities" [value]="identity.id">
+                {{ identity.name || identity.identity }}
+              </option>
+            </select>
+          </label>
+
+          <label class="filter-toggle" aria-label="Company visibility filter" *ngIf="activeTab === 'companies'">
             <input
               type="checkbox"
               [ngModel]="showCompaniesWithJobsOnly"
@@ -55,7 +70,9 @@
             <span>Only companies with open roles</span>
           </label>
         </div>
+      </section>
 
+      <ng-container *ngIf="!loading && activeTab === 'companies'">
         <div *ngIf="companies.length === 0" class="empty-state">
           <span class="material-symbols-outlined">business_center</span>
           <p>No companies yet.</p>
@@ -65,7 +82,7 @@
         <div *ngIf="companies.length > 0 && visibleCompanies.length === 0" class="empty-state">
           <span class="material-symbols-outlined">filter_alt_off</span>
           <p>No companies match the current filter.</p>
-          <button class="secondary-button" type="button" (click)="toggleCompaniesWithJobsOnly(false)">Show all companies</button>
+          <button class="secondary-button" type="button" (click)="toggleCompaniesWithJobsOnly(false)">Disable open roles filter</button>
         </div>
 
         <div *ngIf="visibleCompanies.length > 0" class="table-card">
@@ -135,7 +152,12 @@
           <button class="primary-button" type="button" (click)="openRecipientCreateModal(selectedCompanyId || '')">Create the first recipient</button>
         </div>
 
-        <div *ngIf="recipients.length > 0" class="table-card">
+        <div *ngIf="recipients.length > 0 && visibleRecipients.length === 0" class="empty-state">
+          <span class="material-symbols-outlined">filter_alt_off</span>
+          <p>No recipients match the selected identity view.</p>
+        </div>
+
+        <div *ngIf="visibleRecipients.length > 0" class="table-card">
           <table class="directory-table" aria-label="Recipients table">
             <thead>
               <tr>
@@ -148,7 +170,7 @@
             </thead>
             <tbody>
               <tr
-                *ngFor="let recipient of recipients"
+                *ngFor="let recipient of visibleRecipients"
                 (click)="selectRecipient(recipient)"
                 [class.is-selected]="selectedRecipientId === recipient.id"
               >

@@ -5,7 +5,8 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
-import { Company, Field, JobDescription, Recipient } from './models/models';
+import { IdentityContextService } from './services/identity-context.service';
+import { Company, Field, Identity, JobDescription, Recipient } from './models/models';
 
 type ManagementTab = 'companies' | 'recipients';
 
@@ -36,15 +37,18 @@ interface RecipientFormState {
 export class CompaniesRecipientsComponent implements OnInit {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
+  private identityContext = inject(IdentityContextService);
   private router = inject(Router);
 
   activeTab: ManagementTab = 'companies';
   loading = false;
   showCompaniesWithJobsOnly = false;
+  selectedIdentityId = '';
 
   companies: Company[] = [];
   recipients: Recipient[] = [];
   fields: Field[] = [];
+  identities: Identity[] = [];
   jobs: JobDescription[] = [];
 
   selectedCompanyId: string | null = null;
@@ -68,13 +72,22 @@ export class CompaniesRecipientsComponent implements OnInit {
       companies: this.api.getCompanies(),
       recipients: this.api.getRecipients(),
       fields: this.api.getFields(),
+      identities: this.api.getIdentities(),
       jobs: this.api.getJobDescriptions()
     }).subscribe({
-      next: ({ companies, recipients, fields, jobs }) => {
+      next: ({ companies, recipients, fields, identities, jobs }) => {
         this.companies = [...companies].sort((left, right) => left.name.localeCompare(right.name));
         this.recipients = [...recipients].sort((left, right) => (left.name || left.email).localeCompare(right.name || right.email));
         this.fields = [...fields].sort((left, right) => left.field.localeCompare(right.field));
+        this.identities = [...identities].sort((left, right) => (left.name || left.identity).localeCompare(right.name || right.identity));
         this.jobs = [...jobs].sort((left, right) => (right.updated_at ? 1 : 0) - (left.updated_at ? 1 : 0));
+
+        const availableIdentityIds = this.identities.map((identity) => identity.id).filter(Boolean);
+        this.selectedIdentityId = this.identityContext.ensureValidIdentityId(
+          availableIdentityIds,
+          this.selectedIdentityId || this.identityContext.getSelectedIdentityId()
+        );
+
         this.ensureSelections();
         this.loading = false;
       }
@@ -88,6 +101,13 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   toggleCompaniesWithJobsOnly(value: boolean): void {
     this.showCompaniesWithJobsOnly = value;
+    this.ensureSelections();
+  }
+
+  onIdentityFilterChange(identityId: string): void {
+    const normalizedIdentityId = (identityId || '').trim();
+    this.selectedIdentityId = normalizedIdentityId;
+    this.identityContext.setSelectedIdentityId(normalizedIdentityId);
     this.ensureSelections();
   }
 
@@ -107,7 +127,8 @@ export class CompaniesRecipientsComponent implements OnInit {
     this.router.navigate(['/dashboard/job-discovery'], {
       queryParams: {
         companyId: company.id,
-        companyName: company.name
+        companyName: company.name,
+        identityId: this.selectedIdentityId
       }
     });
   }
@@ -361,15 +382,21 @@ export class CompaniesRecipientsComponent implements OnInit {
   }
 
   get visibleCompanies(): Company[] {
-    if (!this.showCompaniesWithJobsOnly) {
-      return this.companies;
+    let companySet = this.companies.filter((company) => this.matchesSelectedIdentity(company));
+
+    if (this.showCompaniesWithJobsOnly) {
+      companySet = companySet.filter((company) => this.companyJobsCount(company) > 0);
     }
 
-    return this.companies.filter((company) => this.companyJobsCount(company) > 0);
+    return companySet;
   }
 
   get selectedRecipient(): Recipient | null {
-    return this.recipients.find((recipient) => recipient.id === this.selectedRecipientId) || null;
+    return this.visibleRecipients.find((recipient) => recipient.id === this.selectedRecipientId) || null;
+  }
+
+  get visibleRecipients(): Recipient[] {
+    return this.recipients.filter((recipient) => this.matchesSelectedIdentityForRecipient(recipient));
   }
 
   get selectedCompanyRecipients(): Recipient[] {
@@ -443,8 +470,9 @@ export class CompaniesRecipientsComponent implements OnInit {
       return;
     }
 
-    const hasSelectedRecipient = !!this.selectedRecipientId && this.recipients.some((recipient) => recipient.id === this.selectedRecipientId);
-    this.selectedRecipientId = hasSelectedRecipient ? this.selectedRecipientId : this.recipients[0]?.id || null;
+    const currentRecipientSet = this.visibleRecipients;
+    const hasSelectedRecipient = !!this.selectedRecipientId && currentRecipientSet.some((recipient) => recipient.id === this.selectedRecipientId);
+    this.selectedRecipientId = hasSelectedRecipient ? this.selectedRecipientId : currentRecipientSet[0]?.id || null;
   }
 
   private getRecipientCompanyId(recipient: Recipient): string {
@@ -453,6 +481,43 @@ export class CompaniesRecipientsComponent implements OnInit {
 
   private getJobCompanyId(job: JobDescription): string {
     return job.company_info?.id || job.company_id || '';
+  }
+
+  private matchesSelectedIdentity(company: Company): boolean {
+    if (!this.selectedIdentityId) {
+      return true;
+    }
+
+    const selectedIdentity = this.identities.find((identity) => identity.id === this.selectedIdentityId);
+    if (!selectedIdentity) {
+      return false;
+    }
+
+    const identityFieldId = selectedIdentity.field_id || selectedIdentity.field_info?.id || '';
+    if (!identityFieldId) {
+      return false;
+    }
+
+    const companyFieldId = company.field_id || company.field_info?.id || '';
+    return companyFieldId === identityFieldId;
+  }
+
+  private matchesSelectedIdentityForRecipient(recipient: Recipient): boolean {
+    if (!this.selectedIdentityId) {
+      return true;
+    }
+
+    const recipientCompanyId = this.getRecipientCompanyId(recipient);
+    if (!recipientCompanyId) {
+      return false;
+    }
+
+    const linkedCompany = this.companies.find((company) => company.id === recipientCompanyId);
+    if (!linkedCompany) {
+      return false;
+    }
+
+    return this.matchesSelectedIdentity(linkedCompany);
   }
 
   private createEmptyCompanyForm(): CompanyFormState {

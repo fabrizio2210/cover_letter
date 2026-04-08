@@ -70,40 +70,6 @@
   border: 1px solid #d5dff5;
 }
 
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.chip {
-  border-radius: 999px;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 700;
-  background: #eef3ff;
-  color: #4f6282;
-}
-
-.chip-button {
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.chip-button .material-symbols-outlined {
-  font-size: 1rem;
-}
-
-.chip-active {
-  background: #d9e6ff;
-  color: #0b4fd1;
-}
-
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -224,64 +190,16 @@
 }
 
 .insights-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  width: 100%;
 }
 
-.crawler-card,
 .settings-card {
+  width: 100%;
   border-radius: 1rem;
   padding: 1rem;
-  border: 1px solid #dae3fb;
-  background: #ffffff;
-}
-
-.crawler-card {
-  background: linear-gradient(145deg, #0d2c70 0%, #1d3e89 100%);
-  color: #eff4ff;
-  border: none;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #8ec3ff;
-  font-weight: 700;
-}
-
-.crawler-card h4 {
-  margin: 0.5rem 0;
-}
-
-.crawler-card p {
-  margin: 0;
-  color: #c8daff;
-  font-size: 0.85rem;
-}
-
-.progress-row {
-  margin-top: 0.85rem;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
-  color: #d6e5ff;
-}
-
-.progress-track {
-  margin-top: 0.4rem;
-  background: rgba(255, 255, 255, 0.2);
-  height: 0.4rem;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  width: 88%;
-  height: 100%;
-  background: linear-gradient(90deg, #66b4ff 0%, #9dd1ff 100%);
+  border: 1px solid #dbe4ff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 244, 255, 0.96));
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
 }
 
 .settings-card h4 {
@@ -356,6 +274,6 @@
 
 @media (min-width: 1200px) {
   .content-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 }

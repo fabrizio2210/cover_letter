@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
+import { IdentityContextService } from './services/identity-context.service';
 import { Identity, JobDescription } from './models/models';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
@@ -20,6 +21,7 @@ type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
 export class JobDiscoveryComponent implements OnInit {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
+  private identityContext = inject(IdentityContextService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -31,6 +33,7 @@ export class JobDiscoveryComponent implements OnInit {
   reranking = false;
 
   selectedIdentityId = '';
+  private routeIdentityId = '';
   selectedCompanyId = '';
   selectedCompanyName = '';
   searchQuery = '';
@@ -44,6 +47,14 @@ export class JobDiscoveryComponent implements OnInit {
     this.route.queryParamMap.subscribe((params) => {
       this.selectedCompanyId = params.get('companyId') || '';
       this.selectedCompanyName = params.get('companyName') || '';
+
+      this.routeIdentityId = (params.get('identityId') || '').trim();
+      const sharedIdentityId = this.identityContext.getSelectedIdentityId();
+      this.selectedIdentityId = this.routeIdentityId || sharedIdentityId;
+
+      if (this.routeIdentityId && this.routeIdentityId !== sharedIdentityId) {
+        this.identityContext.setSelectedIdentityId(this.routeIdentityId);
+      }
     });
 
     this.loadData();
@@ -59,9 +70,14 @@ export class JobDiscoveryComponent implements OnInit {
       next: ({ jobs, identities }) => {
         this.jobs = jobs || [];
         this.identities = identities || [];
-        if (!this.selectedIdentityId && this.identities.length > 0) {
-          this.selectedIdentityId = this.identities[0].id;
+
+        const availableIdentityIds = this.identities.map((identity) => identity.id).filter(Boolean);
+        const resolvedIdentityId = this.identityContext.ensureValidIdentityId(availableIdentityIds, this.selectedIdentityId);
+        this.selectedIdentityId = resolvedIdentityId;
+        if (this.routeIdentityId !== resolvedIdentityId) {
+          this.updateIdentityQueryParam(resolvedIdentityId);
         }
+
         this.loading = false;
       },
       error: () => {
@@ -190,6 +206,13 @@ export class JobDiscoveryComponent implements OnInit {
     });
   }
 
+  onIdentityChange(identityId: string): void {
+    const normalizedIdentityId = (identityId || '').trim();
+    this.selectedIdentityId = normalizedIdentityId;
+    this.identityContext.setSelectedIdentityId(normalizedIdentityId);
+    this.updateIdentityQueryParam(normalizedIdentityId);
+  }
+
   private passesScoreFilter(job: JobDescription): boolean {
     const score = Number(job.weighted_score ?? 0);
     const threshold = this.scoreThreshold;
@@ -270,5 +293,15 @@ export class JobDiscoveryComponent implements OnInit {
     }
 
     this.feedbackService.showFeedback(`Queued ${completed} jobs, ${failed} failed.`, failed > 0);
+  }
+
+  private updateIdentityQueryParam(identityId: string): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        identityId: identityId || null
+      },
+      queryParamsHandling: 'merge'
+    });
   }
 }
