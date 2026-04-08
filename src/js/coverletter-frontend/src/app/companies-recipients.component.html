@@ -56,7 +56,7 @@
             <select [ngModel]="selectedIdentityId" (ngModelChange)="onIdentityFilterChange($event)">
               <option value="" disabled>Select identity</option>
               <option *ngFor="let identity of identities" [value]="identity.id">
-                {{ identity.name || identity.identity }}
+                {{ identity.identity }}
               </option>
             </select>
           </label>
