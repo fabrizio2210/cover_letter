@@ -175,6 +175,7 @@ If vetted by the user, the cover letter will be sent via email.
 Current state:
 - password-based login for the web app;
 - JWT-based authenticated API access.
+- AI implementation testing can be performed from http://localhost/dashboard; use password "password" at login.
 
 Future state:
 - OTP login via email for allowed addresses;
