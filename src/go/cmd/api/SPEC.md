@@ -35,6 +35,8 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `REDIS_HOST` | `localhost` | No | `handlers/cover_letters.go` `init()` |
 | `REDIS_PORT` | `6379` | No | `handlers/cover_letters.go` `init()` |
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `handlers/recipients.go`, `handlers/cover_letters.go` |
+| `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | crawl-trigger producer handlers |
+| `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | crawler-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | planned job-description scoring producer handlers |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
@@ -217,7 +219,7 @@ They are **not** ISO 8601 strings. The Python `ai_querier` writes them this way;
 
 ## 5. Redis Queue Contracts
 
-The API is a **producer only**. It uses `RPUSH`; consumers use `BLPOP`.
+The API is a Redis **producer** for list-backed work queues and a Redis **consumer/relay** for crawler progress events. List-backed work dispatch uses `RPUSH`; workers consume with `BLPOP`. Crawler progress is published by the worker and relayed by the API to browser clients through a server-side stream endpoint.
 
 ### 5.1 `cover_letter_generation_queue`
 
@@ -292,6 +294,79 @@ The emailer is expected to:
 - Wrap the HTML body in the `html_signature`.
 - Send via SMTP.
 
+### 5.4 `crawler_trigger_queue`
+
+Env var: `CRAWLER_TRIGGER_QUEUE_NAME` (default: `crawler_trigger_queue`)
+Consumer: Python `web_crawler` service.
+
+**Payload** (from `POST /api/crawls`):
+
+```json
+{
+  "run_id": "<server-generated crawl run id>",
+  "identity_id": "<identity hex object id>",
+  "requested_at": { "seconds": 1711234567, "nanos": 0 }
+}
+```
+
+Rules enforced by the consumer:
+- Missing `run_id` or `identity_id` → message is rejected with an error log.
+- A run without a valid `identity_id` must not start.
+- If a crawl for the same `identity_id` is already active, the worker must reject the new request and publish a terminal progress event with `status = "rejected"` and `reason = "already_running"`.
+
+Producer-side expectations:
+- The API must generate a stable `run_id` before enqueueing.
+- The API should reject duplicate active-run requests for the same identity with HTTP `409` whenever current active state is known.
+- Queueing the crawl request is asynchronous; success means the request was accepted for worker pickup, not that crawling has started yet.
+
+### 5.5 `crawler_progress_channel`
+
+Env var: `CRAWLER_PROGRESS_CHANNEL_NAME` (default: `crawler_progress_channel`)
+Publisher: Python `web_crawler` service.
+Consumer: Go API service, which relays updates to authenticated browser clients.
+
+**Payload**:
+
+```json
+{
+  "run_id": "<crawl run id>",
+  "identity_id": "<identity hex object id>",
+  "status": "queued",
+  "phase": "queued",
+  "message": "Waiting for worker pickup",
+  "estimated_total": 100,
+  "completed": 0,
+  "percent": 0,
+  "started_at": null,
+  "updated_at": { "seconds": 1711234567, "nanos": 0 },
+  "finished_at": null,
+  "reason": ""
+}
+```
+
+Status values:
+- `queued`
+- `running`
+- `completed`
+- `failed`
+- `rejected`
+
+Phase values:
+- `queued`
+- `workflow1_company_discovery`
+- `workflow2_ats_enrichment`
+- `workflow3_ats_job_extraction`
+- `workflow4_4dayweek`
+- `finalizing`
+
+Rules:
+- `percent` must be an integer from `0` to `100`.
+- `estimated_total` and `completed` represent best-effort work units, such as pages, companies, or jobs depending on the active phase; both must be present even when estimated totals are approximate.
+- `started_at` is set on the first `running` event.
+- `finished_at` is set only for terminal states: `completed`, `failed`, or `rejected`.
+- `reason` is reserved for terminal diagnostics, for example `already_running` or a short failure code.
+- The API must treat the most recent event per `run_id` as the authoritative live snapshot exposed to clients.
+
 ---
 
 ## 6. Authentication
@@ -331,8 +406,11 @@ Base path prefix: `/api`
 ### Conventions
 - All request bodies are JSON (`Content-Type: application/json`).
 - All `200`/`201` responses are JSON.
+- Long-lived progress subscriptions use `text/event-stream` and are documented explicitly where applicable.
 - `:id` path parameters are MongoDB hex ObjectID strings.
 - `201` is used for successful creation; `200` for everything else.
+- `202` is used for accepted asynchronous crawl-trigger requests.
+- `409` is returned for identity-scoped crawl trigger conflicts when an active run already exists for that identity.
 - `404` is returned when a document matching `:id` is not found.
 - Aggregation responses embed lookup results (`field_info`, `company_info`, `recipient_info`) directly in the returned object.
 - Proto-first implementation rule: when an endpoint body matches a domain model, bind and validate with `models.<Type>` generated from `common.proto`.
@@ -791,6 +869,86 @@ Response `200`:
 ```json
 { "message": "Email queued successfully" }
 ```
+
+---
+
+### 7.7 Crawl Control And Progress
+
+Implementation guardrail for maintainers:
+- Crawl control payloads are endpoint-specific queue wrappers; they are intentionally not full proto-backed domain models.
+- Frontend clients do not read Redis directly. The API is responsible for exposing the latest crawl state and a live push stream.
+
+#### `POST /api/crawls`
+Auth: required.
+Request:
+```json
+{ "identity_id": "<hex>" }
+```
+
+Behavior:
+- Enqueues a crawl request onto `crawler_trigger_queue` (see §5.4).
+- Generates a `run_id` before enqueueing.
+- Rejects the request with `409` when an active crawl already exists for the same `identity_id`.
+
+Response `202`:
+```json
+{
+  "message": "Crawl queued successfully",
+  "run_id": "<crawl run id>",
+  "identity_id": "<hex>",
+  "status": "queued"
+}
+```
+
+Response `409`:
+```json
+{
+  "error": "A crawl is already running for this identity",
+  "run_id": "<active crawl run id>",
+  "identity_id": "<hex>",
+  "status": "running"
+}
+```
+
+#### `GET /api/crawls/active`
+Auth: required.
+Response `200`: array of active or recently terminal crawl snapshots.
+
+```json
+[
+  {
+    "run_id": "<crawl run id>",
+    "identity_id": "<hex>",
+    "status": "running",
+    "phase": "workflow1_company_discovery",
+    "message": "Collecting company candidates",
+    "estimated_total": 120,
+    "completed": 36,
+    "percent": 30,
+    "started_at": { "seconds": 1711234567, "nanos": 0 },
+    "updated_at": { "seconds": 1711234600, "nanos": 0 },
+    "finished_at": null,
+    "reason": ""
+  }
+]
+```
+
+Rules:
+- This endpoint provides the latest server-side snapshot used to bootstrap UI state after refresh.
+- Filtering by `identity_id` may be supported via query string when only one identity view is needed.
+
+#### `GET /api/crawls/stream`
+Auth: required.
+Response `200`: `text/event-stream`.
+
+Event name: `crawl-progress`
+
+Event data payload matches the §5.5 `crawler_progress_channel` payload.
+
+Rules:
+- The stream is server-to-client only.
+- The API may multiplex updates for multiple identities on one stream; clients are expected to filter by `identity_id`.
+- The Dashboard and Job Discovery views both consume this stream.
 
 ---
 

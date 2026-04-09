@@ -31,7 +31,7 @@ The frontend is served behind an Nginx reverse proxy that routes `/api/*` to the
 | `/` | — | Redirects to `/login` | |
 | `/login` | `LoginComponent` | None | |
 | `/dashboard` | `DashboardComponent` | `authGuard` | Overview: stats cards + top-scored job feed |
-| `/dashboard/job-discovery` | `JobDiscoveryComponent` | Inherited | Ranked job feed, filter bar, crawler panel |
+| `/dashboard/job-discovery` | `JobDiscoveryComponent` | Inherited | Ranked job feed, filter bar, identity-scoped crawl controls, crawler panel |
 | `/dashboard/letter-editor/:id` | `LetterEditorComponent` | Inherited | Split-pane editor + AI Refiner chat |
 | `/dashboard/identities` | `IdentitiesComponent` | Inherited | Bento-grid cards, preference weights, global prefs |
 | `/dashboard/recipients` | `RecipientsComponent` | Inherited | Recipients list and lifecycle actions |
@@ -151,6 +151,27 @@ export interface JobDescription {
   scores?: JobPreferenceScore[];
 }
 
+export interface CrawlProgress {
+  run_id: string;
+  identity_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
+  phase:
+    | 'queued'
+    | 'workflow1_company_discovery'
+    | 'workflow2_ats_enrichment'
+    | 'workflow3_ats_job_extraction'
+    | 'workflow4_4dayweek'
+    | 'finalizing';
+  message?: string;
+  estimated_total: number;
+  completed: number;
+  percent: number;
+  started_at?: string | Timestamp | null;
+  updated_at?: string | Timestamp;
+  finished_at?: string | Timestamp | null;
+  reason?: string;
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;
@@ -164,6 +185,8 @@ Critical alignment rules:
 - `roles` on an `Identity` is a manually curated string array used for crawler discovery scope.
 - `preferences` on an `Identity` is an array of weighted preference descriptors.
 - `scores` on a `JobDescription` is an array of per-preference score objects.
+- `run_id` and `identity_id` on a `CrawlProgress` are required and are stable across stream reconnections for the same active run.
+- `percent` on a `CrawlProgress` is an integer from `0` to `100` and is the primary UI progress-bar input.
 - `created_at` and `updated_at` may be returned as protobuf-style timestamp objects: `{ seconds, nanos }`.
 
 ---
@@ -208,6 +231,17 @@ feedback$: Observable<FeedbackMessage>
 ```
 
 `DashboardComponent` is the only component that renders toast UI. Child components should emit feedback through the service and not maintain duplicate toast state.
+
+### Crawl progress consumption
+
+Crawler progress is consumed from the backend, never directly from Redis.
+
+Required frontend behavior:
+- Fetch an initial crawl snapshot from `GET /api/crawls/active` when Dashboard or Job Discovery loads.
+- Subscribe to `GET /api/crawls/stream` as a server-sent events stream for live updates.
+- Filter stream events by the currently selected identity in Job Discovery.
+- Allow Dashboard to show active progress even when the user is not on Job Discovery.
+- Treat `completed`, `failed`, and `rejected` as terminal UI states.
 
 ---
 
@@ -304,7 +338,22 @@ Notes:
 - `weighted_score` is a deterministic aggregate computed by the backend from the stored per-preference scores.
 - Per-preference values shown in the UI come from `scores`, not from re-running ranking logic in the browser.
 
-### 6.7 Cover Letters
+### 6.7 Crawl Control And Progress
+
+| Method | Path | Request body | Success response |
+|---|---|---|---|
+| POST | `/api/crawls` | `{ "identity_id": "<hex>" }` | `{ "message": "Crawl queued successfully", "run_id": "string", "identity_id": "string", "status": "queued" }` |
+| GET | `/api/crawls/active` | — | `CrawlProgress[]` |
+| GET | `/api/crawls/stream` | — | `text/event-stream` carrying `crawl-progress` events |
+
+Notes:
+- Job Discovery is the primary screen that starts crawls.
+- The selected identity in Job Discovery is the `identity_id` sent to `POST /api/crawls`.
+- The backend rejects a new crawl for an identity that already has an active run with HTTP `409`.
+- The stream event payload matches `CrawlProgress` exactly.
+- Dashboard and Job Discovery both listen for the same crawl-progress event shape.
+
+### 6.8 Cover Letters
 
 | Method | Path | Request body | Success response |
 |---|---|---|---|
@@ -327,8 +376,8 @@ Notes:
 |---|---|---|
 | `AppComponent` | inline | Root router outlet only |
 | `LoginComponent` | external HTML | Login form, token storage, redirect to dashboard |
-| `DashboardComponent` | external HTML | Full-page layout: sidebar, glassmorphism top bar, toast rendering, child route outlet; at `/dashboard` also renders stats cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters) and a Top Scored Opportunities scrollable feed |
-| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, rationale, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
+| `DashboardComponent` | external HTML | Full-page layout: sidebar, glassmorphism top bar, toast rendering, child route outlet; at `/dashboard` also renders stats cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), a Top Scored Opportunities scrollable feed, and live crawler progress for active runs |
+| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, rationale, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger, and identity-scoped crawl trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, phase text, and per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
 | `LetterEditorComponent` | external HTML | Split-pane layout: left pane = rich-text editor with formatting toolbar and word count; right pane = AI Refiner chat panel with conversation history, "Apply Change" / "Undo" actions. Accessed via `/dashboard/letter-editor/:id` |
 | `IdentitiesComponent` | external HTML | Bento-grid of identity cards; each card shows: header (icon, name, last-updated), Discovery Scope tag chips with "Manage Tags", Quick Stats (matches count, affinity %), Preferences & Weights bar rows with "Add Preference"; below grid: Global Curator Preferences section (writing tone, discovery interval, AI creativity slider) |
 | `RecipientsComponent` | external HTML | Recipients list shell at `/dashboard/recipients`; recipients table supports CRUD and lifecycle actions. |
@@ -438,8 +487,8 @@ Remaining caveat:
 
 ### Target features (UX-specified in mock-ups, not yet built in Angular)
 
-- `DashboardComponent` overview page: stats cards and Top Scored Opportunities feed.
-- `JobDiscoveryComponent`: ranked job feed, filter chips, Re-Rank trigger, crawler-status widget with live progress bar, per-identity discovery settings panel, and company detail context from selected jobs.
+- `DashboardComponent` overview page: stats cards, Top Scored Opportunities feed, and live crawl-progress card fed by backend stream updates.
+- `JobDiscoveryComponent`: ranked job feed, filter chips, Re-Rank trigger, manual crawl trigger for the selected identity, crawler-status widget with live progress bar and phase text, per-identity discovery settings panel, and company detail context from selected jobs.
 - `IdentitiesComponent`: bento-grid cards with Discovery Scope tag chips, Quick Stats, preference weight bars, Add Preference action, Global Curator Preferences section.
 - `LetterEditorComponent`: split-pane layout with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo).
 - `RecipientsComponent`: recipients UX refinements (sorting/filtering/lifecycle controls).

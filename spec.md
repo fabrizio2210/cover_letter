@@ -18,7 +18,7 @@ The stack consists of:
 - a backend in Golang exposing HTTP API with GinTonic, served from one or multiple Docker containers.
 - batch workers in Python and Golang to asynchronously process data, in Docker containers.
 - a MongoDB database to store the data, still in containerized form.
-- a Redis instance to queue cover-letter jobs, job-scoring jobs, emails, and temporary codes.
+- a Redis instance to queue cover-letter jobs, crawler-trigger jobs, job-scoring jobs, crawler progress events, emails, and temporary codes.
 
 ### Workflow
 
@@ -26,7 +26,11 @@ The stack consists of:
 
 The primary acquisition flow is now job discovery rather than recipient-email discovery. An async crawler will query common hiring platforms such as Ashby, Greenhouse, Lever, and 4dayweek.io, which typically expose structured job APIs. The crawler normalizes jobs into a shared internal shape and persists all discovered job descriptions first, together with source metadata and company linkage.
 
+The Job Discovery tab can trigger a crawl for an arbitrary selected identity. The frontend sends the trigger to the Go API, the API enqueues a crawl request on Redis, and the `web_crawler` worker consumes that request asynchronously.
+
 Each crawl execution is scoped by an explicit `identity_id`. Runs without `identity_id` are invalid.
+
+Only one active crawl per identity is allowed at a time. A second trigger for the same identity is rejected until the active crawl reaches a terminal state.
 
 Identity profiles include a manually curated `roles` list (for example, `software engineer`, `platform engineer`). The crawler uses this list as the primary input for role-first company discovery.
 
@@ -37,6 +41,8 @@ Crawler architecture is organized as four workflows running in parallel with DB-
 4. run an independent 4dayweek scraper that discovers companies and job descriptions.
 
 Each workflow persists intermediate results directly to MongoDB so downstream workflows can consume partial progress during the same run.
+
+While a crawl is running, the crawler emits progress updates via Redis. These updates include the crawl run identifier, the identity being processed, the current phase, completed work, estimated total work, and a derived percentage. The backend relays the latest crawl progress to the frontend so it can be shown live on both the Dashboard and Job Discovery views.
 
 If a scraped job references a company not yet present in the database, the system should create the company automatically and link the job description to it. This keeps the discovery pipeline autonomous while preserving the company-centric data model already used by the application.
 
@@ -115,6 +121,8 @@ Crawler-enriched company metadata may also include ATS linkage fields (`ats_prov
 
 Redis is used for:
 - cover-letter generation and refinement jobs;
+- crawler-trigger jobs;
+- crawler progress events used to update backend push streams;
 - job-description scoring jobs;
 - queued outgoing emails;
 - temporary OTP code storage.
@@ -147,10 +155,10 @@ Default redirect: `/dashboard` renders the overview directly (no longer redirect
 - feedback toasts for asynchronous operations.
 
 ### Target features (UX-specified, not yet built)
-- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, crawler-status widget with progress bar, per-identity discovery settings panel; company details and open positions are shown when a job is selected;
+- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, identity selector, manual crawl trigger, crawler-status widget with progress bar and live phase updates, per-identity discovery settings panel; company details and open positions are shown when a job is selected;
 - Identity preference editing: weight bars per preference, "Add Preference" action, Global Curator Preferences section (writing tone, discovery interval, AI creativity);
 - Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
-- Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters) and scrollable Top Scored Opportunities feed;
+- Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), scrollable Top Scored Opportunities feed, and live crawler progress for the currently active identity run;
 - Recipients page refinements (sorting/filtering and lifecycle actions);
 - Settings page hosting Fields management.
 

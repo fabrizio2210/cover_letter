@@ -37,20 +37,25 @@ This document does **not** define:
 |---|---|
 | Language | Python |
 | Service folder | `src/python/web_crawler` |
-| Execution style | On-demand run or scheduled batch run |
+| Execution style | On-demand run, Redis-driven worker mode, or scheduled batch run |
 | Data store | MongoDB |
-| Queue integration | Optional Redis producer for job scoring |
+| Queue integration | Redis consumer for crawl requests, Redis publisher for crawl progress, optional Redis producer for job scoring |
 | Source types | ATS APIs (Greenhouse, Lever, Ashby), role-query job boards and search sources (LinkedIn, Indeed, SimplyHired, Built In, Otta), curated startup and job communities (Y Combinator, Wellfound, Work at a Startup), portfolio and investor directories (Crunchbase, Techstars, 500 Global, a16z, Sequoia), community hiring threads (Hacker News Who Is Hiring), and aggregator HTML pages (4dayweek.io) |
 
-The crawler runs as a bounded batch process and executes four workflows in parallel with DB-backed handoffs between them.
+The crawler supports two runtime modes:
+1. bounded execution for one explicit `identity_id`;
+2. long-lived worker mode that listens on Redis for crawl requests and runs the same identity-scoped execution flow on demand.
+
+Each accepted crawl request generates a `run_id`. The crawler executes four workflows in parallel with DB-backed handoffs between them.
 
 High-level orchestration:
 1. Load crawler configuration, enabled sources, explicit `identity_id`, and the selected identity's `roles` list.
 2. Start workflow 1 (company discovery from identity roles), workflow 2 (ATS enrichment of companies), and workflow 4 (independent 4dayweek scraper) in parallel.
 3. Continuously run workflow 3 (ATS job extraction) against companies already enriched with `ats_provider` and `ats_slug`.
 4. Persist each workflow output immediately to MongoDB so downstream workflows can consume partial progress without waiting for run completion.
-5. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
-6. Emit crawl summary logs and counters, including per-workflow success/failure counts.
+5. Publish progress snapshots to Redis for the active `run_id` during queue, start, workflow, and terminal transitions.
+6. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
+7. Emit crawl summary logs and counters, including per-workflow success/failure counts.
 
 ---
 
@@ -62,6 +67,8 @@ High-level orchestration:
 | `DB_NAME` | `cover_letter` | No | MongoDB database name |
 | `REDIS_HOST` | `localhost` | No | Redis host for scoring queue output |
 | `REDIS_PORT` | `6379` | No | Redis port for scoring queue output |
+| `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Redis queue name for crawl requests consumed by the worker |
+| `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Redis channel used to publish crawl progress snapshots |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Redis queue name for scoring payloads |
 | `CRAWLER_ENABLE_SCORING_ENQUEUE` | `0` | No | If `1`, enqueue job ids after successful persistence |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | No | HTTP timeout per request |
@@ -75,6 +82,7 @@ Platform-specific configuration may include source names, ATS slugs, and source 
 
 Rules:
 - `DB_NAME` must match the database used by the Go API.
+- Worker mode requires Redis connectivity for both crawl request consumption and progress publication.
 - If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`, Redis connectivity is required for queue handoff.
 - Missing platform credentials are not fatal when the platform can be scraped from public endpoints.
 
@@ -83,6 +91,9 @@ Rules:
 ## 4. Responsibilities
 
 The crawler is responsible for:
+- consuming crawl requests from Redis and starting identity-scoped runs;
+- rejecting duplicate active crawl requests for the same identity;
+- publishing progress snapshots for active runs so the API can relay them to clients;
 - taking an explicit `identity_id` plus role-focused discovery input and using it to discover actively hiring companies;
 - discovering company slugs for ATS-hosted boards when not preconfigured;
 - validating ATS compatibility from company careers pages before slug resolution;
@@ -97,6 +108,7 @@ The crawler is responsible for:
 The crawler is not responsible for:
 - deterministic weighted score computation;
 - writing per-preference scoring results;
+- exposing HTTP endpoints or pushing directly to browser clients;
 - requiring external enrichment APIs for company-to-domain resolution;
 - cover-letter writing or refinement;
 - auth, JWT, or API route validation.
@@ -109,11 +121,14 @@ The crawler is not responsible for:
 
 The crawler discovery input must include:
 - `identity_id` (required, hex MongoDB ObjectId string).
+- `run_id` (required in Redis-driven worker mode; server-generated unique crawl run identifier).
 
 The selected identity must include:
 - `roles` (required for role-first discovery): user-maintained list of role keywords, for example `software engineer`, `platform engineer`.
 
 Runs missing `identity_id` are invalid and must fail fast before discovery starts.
+
+Only one active crawl per `identity_id` is allowed at a time. In worker mode, a second request for the same identity must be rejected and reported through a terminal progress event with `status = "rejected"`.
 
 Identity role rules:
 - `roles` are manually typed and curated by the user on the identity profile.
@@ -618,7 +633,75 @@ Ownership boundary:
 
 ---
 
-## 11. Rate Limiting, Retry, and Anti-Bot Strategy
+## 11. Redis Crawl Trigger And Progress Contract
+
+### 11.1 Crawl Request Consumption
+
+In worker mode, the crawler listens on `CRAWLER_TRIGGER_QUEUE_NAME` using blocking Redis queue consumption.
+
+Expected payload:
+
+```json
+{
+  "run_id": "<crawl run id>",
+  "identity_id": "<identity hex object id>",
+  "requested_at": { "seconds": 1711234567, "nanos": 0 }
+}
+```
+
+Rules:
+- Missing `run_id` or `identity_id` is a malformed request and must be rejected.
+- The worker must emit an initial `queued` or immediate `running` progress snapshot for accepted work.
+- Only one active crawl may exist for a given `identity_id`.
+- If another crawl is already active for the same `identity_id`, the worker must not start a second run. It must instead publish a terminal progress snapshot with `status = "rejected"` and `reason = "already_running"`.
+
+### 11.2 Progress Publication
+
+The crawler publishes progress snapshots on `CRAWLER_PROGRESS_CHANNEL_NAME` for every accepted run.
+
+Payload:
+
+```json
+{
+  "run_id": "<crawl run id>",
+  "identity_id": "<identity hex object id>",
+  "status": "running",
+  "phase": "workflow1_company_discovery",
+  "message": "Collecting company candidates",
+  "estimated_total": 120,
+  "completed": 36,
+  "percent": 30,
+  "started_at": { "seconds": 1711234567, "nanos": 0 },
+  "updated_at": { "seconds": 1711234600, "nanos": 0 },
+  "finished_at": null,
+  "reason": ""
+}
+```
+
+Publication lifecycle:
+1. `queued` when the request has been accepted but execution has not started yet.
+2. `running` when the crawler begins work for the `run_id`.
+3. incremental `running` updates during each workflow using best-effort `estimated_total` and `completed` counters.
+4. terminal event with `status = "completed"`, `"failed"`, or `"rejected"`.
+
+Rules:
+- `percent` must be derived from the best available estimate and must stay in the inclusive range `0..100`.
+- `phase` must reflect the active workflow or terminal finalization state.
+- `finished_at` is populated only for terminal events.
+- Terminal `failed` events should include a short machine-readable `reason` and a human-readable `message`.
+
+### 11.3 Failure Tolerance
+
+Progress publication failure does not invalidate crawl persistence work already completed.
+
+Rules:
+- If the crawler cannot publish one progress snapshot, it should log the failure and continue the crawl when the main crawl work can still proceed safely.
+- If the crawler cannot consume the trigger queue at startup, worker mode cannot start and the process should fail fast.
+- If the crawler loses Redis connectivity after starting a run, it should continue best-effort crawl execution and resume progress publication when connectivity returns if practical.
+
+---
+
+## 12. Rate Limiting, Retry, and Anti-Bot Strategy
 
 Baseline behavior:
 - Use realistic browser user-agent and stable request headers.
@@ -642,7 +725,7 @@ Parallel workflow behavior:
 
 ---
 
-## 12. Failure Handling
+## 13. Failure Handling
 
 Recoverable failures (log and continue):
 - Invalid source configuration for one source.
@@ -650,12 +733,15 @@ Recoverable failures (log and continue):
 - Parsing failure for one posting.
 - Duplicate-key race conditions on upsert.
 - Per-workflow partial failures while other workflows continue.
+- Rejected duplicate trigger for an already active identity.
+- Redis progress publication failure for one update.
 - Missing scoring prerequisites that require `scoring_status=skipped`.
 - Redis enqueue failure when scoring enqueue is enabled.
 
 Run-level failures (abort run):
 - MongoDB connection unavailable at startup.
 - No enabled sources configured.
+- Redis trigger-queue connection unavailable at startup when worker mode is enabled.
 
 Each run should emit summary counters:
 - sources processed;
@@ -663,12 +749,13 @@ Each run should emit summary counters:
 - jobs inserted;
 - jobs updated;
 - jobs skipped;
+- progress events published or failed;
 - enqueue success/fail counts;
 - run duration.
 
 ---
 
-## 13. Editing Guardrails for Agents
+## 14. Editing Guardrails for Agents
 
 Before changing crawler code in this folder:
 1. Read this file.
@@ -685,6 +772,8 @@ Before changing crawler code in this folder:
 - If filtering rules must change (for example substring vs. word-boundary matching), update this spec section 8.2 first, then update code and tests together.
 
 Do not change these names without coordinated cross-service updates:
+- `run_id`
+- `identity_id`
 - `job_id`
 - `title`
 - `description`
@@ -698,7 +787,7 @@ Do not change these names without coordinated cross-service updates:
 
 ---
 
-## 14. Source of Truth Hierarchy
+## 15. Source of Truth Hierarchy
 
 Use these references in this order when working on crawler contracts:
 1. this file for crawler-local behavior and source extraction rules;
