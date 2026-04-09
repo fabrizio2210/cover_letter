@@ -343,13 +343,17 @@ Output contract:
 
 Input:
 - Companies with `ats_provider` and `ats_slug`.
+- `identity_id` (to load and apply `identity.roles` filtering).
 
 Processing:
+- Load identity and extract `roles` list from identity document.
 - Call provider-specific ATS endpoints.
 - Normalize postings into shared job schema.
+- **Validate each extracted job against identity roles before insertion** (see section 8.2 for role filtering rules).
+- Skip jobs that do not match any identity role.
 
 DB writes:
-- Upsert into `job-descriptions` using (`platform`, `external_job_id`).
+- Upsert into `job-descriptions` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
 - Update mutable fields and `updated_at` on recrawl.
 - Optionally enqueue scoring payload after successful write.
 
@@ -462,7 +466,9 @@ Optional non-contract metadata may be stored in source-specific fields, but must
 
 ---
 
-## 8. Idempotency and Deduplication
+## 8. Idempotency, Deduplication, and Role-Based Filtering
+
+### 8.1 Idempotency and Deduplication
 
 Repeated crawls must not create duplicate job records for the same external posting.
 
@@ -478,6 +484,37 @@ Persistence behavior:
 - If not found, insert new document with lifecycle defaults.
 
 Mutable field updates should preserve contract keys while allowing refreshed description/location updates from source.
+
+### 8.2 Role-Based Filtering Before Insertion
+
+Before inserting extracted jobs into the database, each job must be validated against the identity's roles to ensure relevance.
+
+**Filtering scope**:
+- Applied in Workflow 3 (ATS job extraction).
+- Workflows 1, 2, and 4 are not affected by role filtering.
+
+**Filtering mechanism**:
+- Load the identity document using `identity_id` and extract the `roles` array (for example `["software engineer", "platform engineer"]`).
+- For each extracted job, check if the job's `title` or `description` contains any role keyword from `identity.roles`.
+- Matching is case-insensitive substring matching.
+- Job is accepted if ANY role keyword appears in title or description (OR logic).
+- Empty `roles` list accepts all jobs (treat as "discover broadly").
+
+**Filtering behavior**:
+- Jobs matching at least one role: proceed to deduplication and insertion.
+- Jobs not matching any role: skip insertion, log skipped reason, increment skip counter.
+- No tombstone or skip marker is created for non-matching jobs.
+
+**Example**:
+- Identity roles: `["software engineer", "platform engineer"]`
+- Job 1 title: "Senior Software Engineer" → matches "software engineer" → accepted
+- Job 2 title: "Data Scientist" → does not match any role → skipped
+- Job 3 description: "...responsible for platform engineering tasks..." → matches "platform engineer" → accepted
+
+**Role matching rules**:
+- Matching is case-insensitive ("Software Engineer", "software engineer", "SOFTWARE ENGINEER" all match).
+- Substring matching is used ("engineer" as a role matches "engineering role" in description).
+- Both `title` and `description` fields are checked independently; job is accepted if either field contains any role keyword.
 
 ---
 
@@ -510,6 +547,11 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 Reference compatibility note:
 - New crawler writes for references must use MongoDB `ObjectId`.
 - Legacy string references may still exist and must be tolerated during reads.
+
+Role filtering note:
+- Jobs inserted at this stage have already passed role-based filtering (section 8.2).
+- Do not add `identity_id` or `role_matched` fields to job documents during insertion.
+- Role filtering is a validation gate, not persisted metadata.
 
 ### 9.3 Company Resolution Contract
 
@@ -634,6 +676,13 @@ Before changing crawler code in this folder:
 3. Check `../ai_querier/SPEC.md` for scoring consumer expectations.
 4. Preserve exact field names in MongoDB documents and queue messages.
 5. Update this spec and related service specs together when shared contracts change.
+
+**Role-based filtering guardrails**:
+- Role filtering (section 8.2) is a validation gate in Workflow 3 only; do not add filtering to Workflows 1, 2, or 4.
+- Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
+- Role filtering happens per-crawl, per-identity execution; filtering state is not persisted downstream.
+- Modify role filtering logic ONLY in Workflow 3 job extraction (before `upsert_job()` calls).
+- If filtering rules must change (for example substring vs. word-boundary matching), update this spec section 8.2 first, then update code and tests together.
 
 Do not change these names without coordinated cross-service updates:
 - `job_id`

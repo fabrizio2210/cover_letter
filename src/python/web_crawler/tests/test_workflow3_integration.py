@@ -32,12 +32,14 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
         try:
             self.database["companies"].delete_many({})
             self.database["jobs"].delete_many({})
+            self.database["identities"].delete_many({})
         except OperationFailure as exc:
             if exc.code == 13:
                 self.skipTest("Mongo integration tests require authenticated write access")
             raise
 
         self.company_id = ObjectId()
+        self.identity_id = ObjectId()
         try:
             self.database["companies"].insert_one(
                 {
@@ -47,6 +49,12 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
                     "ats_provider": "greenhouse",
                     "ats_slug": "acme",
                     "discovery_sources": [],
+                }
+            )
+            self.database["identities"].insert_one(
+                {
+                    "_id": self.identity_id,
+                    "roles": ["software engineer"],
                 }
             )
         except OperationFailure as exc:
@@ -76,6 +84,8 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
 
         doc = self.database["jobs"].find_one({"platform": "greenhouse", "external_job_id": "int-test-1"})
         self.assertIsNotNone(doc)
+        if doc is None:
+            self.fail("expected job document to be inserted")
         self.assertEqual(doc["title"], "Integration Test Role")
         self.assertEqual(doc["company_id"], self.company_id)
         self.assertEqual(doc["scoring_status"], "unscored")
@@ -113,6 +123,27 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
 
         self.assertEqual(mock_fetch.call_count, 1)
         self.assertEqual(result.inserted_count, 1)
+
+    def test_run_workflow3_skips_non_matching_jobs_for_identity_roles(self):
+        def fake_fetch_jobs(provider, slug, config, session):
+            return [
+                common_pb2.Job(
+                    title="Data Scientist",
+                    description="Analyze metrics and forecasts.",
+                    location="Remote",
+                    platform=provider,
+                    external_job_id="int-role-miss",
+                    source_url=f"https://example.com/{slug}/role-miss",
+                )
+            ]
+
+        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=fake_fetch_jobs):
+            result = run_workflow3(self.database, self.config, identity_id=str(self.identity_id))
+
+        self.assertEqual(result.fetched_count, 1)
+        self.assertEqual(result.inserted_count, 0)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertEqual(self.database["jobs"].count_documents({}), 0)
 
 
 if __name__ == "__main__":

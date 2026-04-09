@@ -101,9 +101,7 @@ class FakeDatabase(dict):
 
 
 def _make_config(**kwargs) -> CrawlerConfig:
-    defaults = dict(mongo_host="mongodb://localhost:27017/", db_name="test")
-    defaults.update(kwargs)
-    return CrawlerConfig(**defaults)
+    return CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="test", **kwargs)
 
 
 class AtsFetcherGreenhouseTests(unittest.TestCase):
@@ -315,11 +313,13 @@ class Workflow3Tests(unittest.TestCase):
     def setUp(self):
         self.config = _make_config()
         self.company_oid = ObjectId()
+        self.identity_oid = ObjectId()
 
-    def _make_fake_database(self, companies=None, jobs=None):
+    def _make_fake_database(self, companies=None, jobs=None, identities=None):
         db = FakeDatabase()
         db["companies"] = FakeCollection(docs=companies or [])
         db["jobs"] = FakeCollection(docs=jobs or [])
+        db["identities"] = FakeCollection(docs=identities or [])
         return db
 
     def _make_company_doc(self, provider="greenhouse", slug="acme"):
@@ -328,6 +328,12 @@ class Workflow3Tests(unittest.TestCase):
             "name": "Acme",
             "ats_provider": provider,
             "ats_slug": slug,
+        }
+
+    def _make_identity_doc(self, roles=None):
+        return {
+            "_id": self.identity_oid,
+            "roles": ["software engineer"] if roles is None else roles,
         }
 
     def _stub_fetch_jobs(self, *args, **kwargs):
@@ -341,6 +347,16 @@ class Workflow3Tests(unittest.TestCase):
                 source_url="https://example.com/1",
             )
         ]
+
+    def _make_job(self, title="Stub Engineer", description="Stub desc", external_job_id="stub-1"):
+        return common_pb2.Job(
+            title=title,
+            description=description,
+            location="Remote",
+            platform="greenhouse",
+            external_job_id=external_job_id,
+            source_url=f"https://example.com/{external_job_id}",
+        )
 
     def test_run_workflow3_returns_inserted_count(self):
         db = self._make_fake_database(companies=[self._make_company_doc()])
@@ -470,6 +486,75 @@ class Workflow3Tests(unittest.TestCase):
         self.assertEqual(result.enqueued_count, 0)
         doc = db["jobs"].docs[0]
         self.assertEqual(doc["scoring_status"], "unscored")
+
+    def test_run_workflow3_skips_jobs_that_do_not_match_identity_roles(self):
+        db = self._make_fake_database(
+            companies=[self._make_company_doc()],
+            identities=[self._make_identity_doc(["software engineer"])],
+        )
+
+        with patch(
+            "src.python.web_crawler.workflow3.fetch_jobs",
+            return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-miss")],
+        ):
+            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+
+        self.assertEqual(result.fetched_count, 1)
+        self.assertEqual(result.inserted_count, 0)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertEqual(len(db["jobs"].docs), 0)
+
+    def test_run_workflow3_inserts_job_when_title_matches_identity_role(self):
+        db = self._make_fake_database(
+            companies=[self._make_company_doc()],
+            identities=[self._make_identity_doc(["software engineer"])],
+        )
+
+        with patch(
+            "src.python.web_crawler.workflow3.fetch_jobs",
+            return_value=[self._make_job(title="Senior Software Engineer", description="Build systems", external_job_id="role-title")],
+        ):
+            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+
+        self.assertEqual(result.fetched_count, 1)
+        self.assertEqual(result.inserted_count, 1)
+        self.assertEqual(result.skipped_count, 0)
+        self.assertEqual(len(db["jobs"].docs), 1)
+
+    def test_run_workflow3_inserts_job_when_description_matches_identity_role(self):
+        db = self._make_fake_database(
+            companies=[self._make_company_doc()],
+            identities=[self._make_identity_doc(["platform engineer"])],
+        )
+
+        with patch(
+            "src.python.web_crawler.workflow3.fetch_jobs",
+            return_value=[self._make_job(title="Infrastructure Specialist", description="You will work as a platform engineer across our stack", external_job_id="role-description")],
+        ):
+            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+
+        self.assertEqual(result.fetched_count, 1)
+        self.assertEqual(result.inserted_count, 1)
+        self.assertEqual(result.skipped_count, 0)
+        self.assertEqual(db["jobs"].docs[0]["external_job_id"], "role-description")
+
+    def test_run_workflow3_accepts_all_jobs_when_identity_roles_are_empty(self):
+        db = self._make_fake_database(
+            companies=[self._make_company_doc()],
+            identities=[self._make_identity_doc([])],
+        )
+
+        with patch(
+            "src.python.web_crawler.workflow3.fetch_jobs",
+            return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-empty")],
+        ):
+            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+
+        self.assertEqual(result.fetched_count, 1)
+        self.assertEqual(result.inserted_count, 1)
+        self.assertEqual(result.skipped_count, 0)
+        self.assertEqual(len(db["jobs"].docs), 1)
 
 
 if __name__ == "__main__":

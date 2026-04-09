@@ -34,7 +34,7 @@ def main() -> None:
     database = get_database(config)
     workflow1_result = run_workflow1(database, config, args.identity_id)
     workflow2_result = run_workflow2(database, config, workflow1_result.company_ids)
-    workflow3_result = run_workflow3(database, config, workflow2_result.company_ids)
+    workflow3_result = run_workflow3(database, config, workflow2_result.company_ids, args.identity_id)
     print(
         json.dumps(
             {

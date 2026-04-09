@@ -80,6 +80,56 @@ def _connect_redis(config: CrawlerConfig):
         return None
 
 
+def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
+    """
+    Load identity document and extract roles list.
+    
+    Returns list of role keywords. Empty list if identity not found or has no roles.
+    """
+    if not identity_id:
+        logger.warning("workflow3: identity_id is empty; role filtering disabled")
+        return []
+    
+    try:
+        identity_oid = _to_object_id(identity_id)
+        if identity_oid is None:
+            logger.warning("workflow3: invalid identity_id %r; role filtering disabled", identity_id)
+            return []
+        
+        identity = identities_collection.find_one({"_id": identity_oid})
+        if identity is None:
+            logger.warning("workflow3: identity %s not found; role filtering disabled", identity_id)
+            return []
+        
+        roles = [role.strip() for role in identity.get("roles", []) if isinstance(role, str) and role.strip()]
+        logger.debug("workflow3: loaded %d roles from identity %s: %s", len(roles), identity_id, roles)
+        return roles
+    except Exception as exc:
+        logger.exception("workflow3: failed to load identity %s: %s", identity_id, exc)
+        return []
+
+
+def _job_matches_roles(job: common_pb2.Job, roles: list[str]) -> bool:
+    """
+    Check if job title or description matches any role keyword.
+    
+    Matching is case-insensitive substring search.
+    Empty roles list accepts all jobs (pass-through).
+    """
+    if not roles:
+        return True
+    
+    title_lower = job.title.lower()
+    description_lower = job.description.lower()
+    
+    for role in roles:
+        role_lower = role.lower()
+        if role_lower in title_lower or role_lower in description_lower:
+            return True
+    
+    return False
+
+
 def upsert_job(
     jobs_collection,
     job: common_pb2.Job,
@@ -131,10 +181,15 @@ def _load_ats_companies(companies_collection, company_ids: Iterable[str] | None)
     return [_company_from_document(doc) for doc in docs]
 
 
-def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None = None) -> Workflow3Result:
+def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None = None, identity_id: str | None = None) -> Workflow3Result:
     companies_collection = database["companies"]
+    identities_collection = database["identities"]
     jobs_collection = database["jobs"]
     result = Workflow3Result()
+
+    # Load identity roles for filtering
+    identity_roles = _load_identity_roles(identities_collection, identity_id) if identity_id else []
+    logger.debug("workflow3: role filtering enabled with %d roles", len(identity_roles))
 
     companies = _load_ats_companies(companies_collection, company_ids)
     logger.debug("workflow3: loaded %d ATS-enriched companies", len(companies))
@@ -165,6 +220,12 @@ def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None
 
                 for job in jobs:
                     try:
+                        # Filter job by identity roles before insertion
+                        if not _job_matches_roles(job, identity_roles):
+                            logger.debug("workflow3: job %s (external_id=%s) does not match identity roles; skipping", job.title, job.external_job_id)
+                            result.skipped_count += 1
+                            continue
+
                         job_id, inserted = upsert_job(jobs_collection, job, company_oid)
                         result.job_ids.append(job_id)
 
