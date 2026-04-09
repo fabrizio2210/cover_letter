@@ -135,23 +135,23 @@ Five primary routes are accessible from the persistent sidebar, plus a Settings 
 | Job Discovery | `/dashboard/job-discovery` | Ranked job feed, filter bar, crawler-status widget, per-identity discovery settings |
 | Letter Editor | `/dashboard/letter-editor/:id` | Split-pane: markdown editor (left) + AI Refiner chat (right) |
 | Identities | `/dashboard/identities` | Bento-grid identity cards with discovery-scope tags, quick stats, and preference weight bars; global curator preferences |
-| Companies | `/dashboard/companies` | Companies/Recipients toggle table with ATS slug column and right-side detail panel (linked recipients, open positions) |
+| Recipients | `/dashboard/recipients` | Recipients list and management |
 | Settings | `/dashboard/settings` | Fields CRUD management |
 
 Default redirect: `/dashboard` renders the overview directly (no longer redirects to recipients).
 
 ### Implemented capabilities
 - authenticated dashboard access with stats overview and top-scored job cards;
-- CRUD management for companies, recipients (via Companies tab), fields (via Settings), and identities;
+- CRUD management for companies (via Job discovery tab), recipients (via Recipients tab), fields (via Settings), and identities;
 - cover letter listing, split-pane editor, AI refinement requests, and send actions;
 - feedback toasts for asynchronous operations.
 
 ### Target features (UX-specified, not yet built)
-- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, crawler-status widget with progress bar, per-identity discovery settings panel;
+- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, crawler-status widget with progress bar, per-identity discovery settings panel; company details and open positions are shown when a job is selected;
 - Identity preference editing: weight bars per preference, "Add Preference" action, Global Curator Preferences section (writing tone, discovery interval, AI creativity);
 - Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
 - Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters) and scrollable Top Scored Opportunities feed;
-- Companies/Recipients merged view with ATS Slug column and slide-in detail panel (linked recipients, open positions);
+- Recipients page refinements (sorting/filtering and lifecycle actions);
 - Settings page hosting Fields management.
 
 ### Future features (no mock-up yet)

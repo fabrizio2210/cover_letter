@@ -34,13 +34,13 @@ The frontend is served behind an Nginx reverse proxy that routes `/api/*` to the
 | `/dashboard/job-discovery` | `JobDiscoveryComponent` | Inherited | Ranked job feed, filter bar, crawler panel |
 | `/dashboard/letter-editor/:id` | `LetterEditorComponent` | Inherited | Split-pane editor + AI Refiner chat |
 | `/dashboard/identities` | `IdentitiesComponent` | Inherited | Bento-grid cards, preference weights, global prefs |
-| `/dashboard/companies` | `CompaniesRecipientsComponent` | Inherited | Companies/Recipients toggle, ATS slugs, detail panel |
+| `/dashboard/recipients` | `RecipientsComponent` | Inherited | Recipients list and lifecycle actions |
 | `/dashboard/settings` | `SettingsComponent` | Inherited | Fields CRUD; linked from sidebar Settings link |
 
 Default redirect: `/dashboard` renders the overview page directly — no child redirect.
 
 Removed from primary nav (routes retired):
-- `/dashboard/recipients` — recipients are now managed as a toggle tab inside `/dashboard/companies`.
+- `/dashboard/companies` — companies listing was removed from primary nav; recipients are managed at `/dashboard/recipients`.
 - `/dashboard/fields` — fields are now managed under `/dashboard/settings`.
 - `/dashboard/jobs` — superseded by `/dashboard/job-discovery`.
 - `/dashboard/cover-letters` and `/dashboard/cover-letters/:id` — superseded by `/dashboard/letter-editor/:id`.
@@ -328,17 +328,17 @@ Notes:
 | `AppComponent` | inline | Root router outlet only |
 | `LoginComponent` | external HTML | Login form, token storage, redirect to dashboard |
 | `DashboardComponent` | external HTML | Full-page layout: sidebar, glassmorphism top bar, toast rendering, child route outlet; at `/dashboard` also renders stats cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters) and a Top Scored Opportunities scrollable feed |
-| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, rationale, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger; right-side intelligence panel: crawler-status widget with live progress bar, per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
+| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, rationale, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
 | `LetterEditorComponent` | external HTML | Split-pane layout: left pane = rich-text editor with formatting toolbar and word count; right pane = AI Refiner chat panel with conversation history, "Apply Change" / "Undo" actions. Accessed via `/dashboard/letter-editor/:id` |
 | `IdentitiesComponent` | external HTML | Bento-grid of identity cards; each card shows: header (icon, name, last-updated), Discovery Scope tag chips with "Manage Tags", Quick Stats (matches count, affinity %), Preferences & Weights bar rows with "Add Preference"; below grid: Global Curator Preferences section (writing tone, discovery interval, AI creativity slider) |
-| `CompaniesRecipientsComponent` | external HTML | Toggle pill to switch Companies / Recipients table views; companies table columns: Company Name, Sector, Jobs Found, ATS Slug, Actions; right-side detail panel (slide-in): company logo, linked recipients list, open positions cards with "Edit Draft Letter" / "Generate New Letter"; recipients table shares the same shell |
+| `RecipientsComponent` | external HTML | Recipients list shell at `/dashboard/recipients`; recipients table supports CRUD and lifecycle actions. |
 | `SettingsComponent` | external HTML | Settings shell hosting `FieldsListComponent`; accessible via sidebar Settings link at `/dashboard/settings` |
 | `FieldsListComponent` | inline or external | Field CRUD; rendered inside `SettingsComponent` |
 
 ### Retired components (superseded)
 The following components are replaced by the new inventory above and should not be used for new development:
-- `RecipientsListComponent` → `CompaniesRecipientsComponent`
-- `CompaniesListComponent` → `CompaniesRecipientsComponent`
+- `RecipientsListComponent` → `RecipientsComponent`
+- `CompaniesListComponent` → `RecipientsComponent`
 - `IdentitiesListComponent` → `IdentitiesComponent`
 - `JobsListComponent` → `JobDiscoveryComponent`
 - `CoverLettersListComponent` → `LetterEditorComponent`
@@ -423,14 +423,14 @@ Resolved and carried forward:
 - Feedback handling is centralized through `FeedbackService` and rendered by `DashboardComponent`.
 
 Component renames (old → new):
-- `RecipientsListComponent` + `CompaniesListComponent` → `CompaniesRecipientsComponent`
+- `RecipientsListComponent` + `CompaniesListComponent` → `RecipientsComponent`
 - `IdentitiesListComponent` → `IdentitiesComponent`
 - `JobsListComponent` → `JobDiscoveryComponent`
 - `CoverLettersListComponent` + `CoverLettersDetailComponent` → `LetterEditorComponent`
 - `FieldsListComponent` hosted inside new `SettingsComponent`
 
 Remaining caveat:
-- In `CompaniesRecipientsComponent`, a name-only update is intentionally blocked in the UI when no field is associated yet, because the backend update endpoint requires a full payload including field context.
+- Company detail exploration should happen from `JobDiscoveryComponent` job selection; `RecipientsComponent` focuses only on recipients.
 
 ---
 
@@ -439,10 +439,10 @@ Remaining caveat:
 ### Target features (UX-specified in mock-ups, not yet built in Angular)
 
 - `DashboardComponent` overview page: stats cards and Top Scored Opportunities feed.
-- `JobDiscoveryComponent`: ranked job feed, filter chips, Re-Rank trigger, crawler-status widget with live progress bar, per-identity discovery settings panel.
+- `JobDiscoveryComponent`: ranked job feed, filter chips, Re-Rank trigger, crawler-status widget with live progress bar, per-identity discovery settings panel, and company detail context from selected jobs.
 - `IdentitiesComponent`: bento-grid cards with Discovery Scope tag chips, Quick Stats, preference weight bars, Add Preference action, Global Curator Preferences section.
 - `LetterEditorComponent`: split-pane layout with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo).
-- `CompaniesRecipientsComponent`: ATS Slug column, right-side detail panel with linked recipients and open positions.
+- `RecipientsComponent`: recipients UX refinements (sorting/filtering/lifecycle controls).
 - `SettingsComponent` wrapping `FieldsListComponent`.
 - Sorting and filtering across entity tables.
 
