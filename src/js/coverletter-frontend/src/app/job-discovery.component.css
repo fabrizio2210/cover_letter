@@ -341,6 +341,21 @@
   margin-bottom: 0.3rem;
 }
 
+.details-description {
+  margin-top: 0.55rem;
+  max-height: 16rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.details-description :first-child {
+  margin-top: 0;
+}
+
+.details-description :last-child {
+  margin-bottom: 0;
+}
+
 @media (min-width: 1200px) {
   .content-grid {
     grid-template-columns: minmax(0, 1fr) 320px;

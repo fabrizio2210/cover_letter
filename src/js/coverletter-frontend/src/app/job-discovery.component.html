@@ -135,12 +135,6 @@
       </div>
 
       <div class="company-details-section">
-        <h4>Selected Opportunity</h4>
-        <p class="details-title">{{ job.title }}</p>
-        <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
-      </div>
-
-      <div class="company-details-section">
         <h4>Company Details</h4>
         <p>{{ selectedCompanyDescription }}</p>
       </div>
@@ -148,6 +142,13 @@
       <div class="company-details-section">
         <h4>Why this role</h4>
         <p>{{ getFirstRationale(job) }}</p>
+      </div>
+
+      <div class="company-details-section">
+        <h4>Selected Opportunity</h4>
+        <p class="details-title">{{ job.title }}</p>
+        <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
+        <div class="details-description" [innerHTML]="renderJobDescription(job.description)"></div>
       </div>
     </aside>
   </div>

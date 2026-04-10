@@ -244,6 +244,21 @@ export class JobDiscoveryComponent implements OnInit {
     return rationale || 'No rationale available yet. Trigger reranking to enrich this job.';
   }
 
+  renderJobDescription(description?: string): string {
+    const rawDescription = (description || '').trim();
+    if (!rawDescription) {
+      return 'No job description available for this role yet.';
+    }
+
+    const decoded = this.decodeHtmlEntities(rawDescription);
+
+    if (this.looksLikeHtml(decoded)) {
+      return decoded;
+    }
+
+    return this.escapeHtml(decoded).replace(/\n/g, '<br>');
+  }
+
   formatScore(score?: number): string {
     return (score ?? 0).toFixed(1);
   }
@@ -343,6 +358,29 @@ export class JobDiscoveryComponent implements OnInit {
     }
     const normalized = location.toLowerCase();
     return normalized.includes('remote') || normalized.includes('worldwide') || normalized.includes('anywhere');
+  }
+
+  private decodeHtmlEntities(value: string): string {
+    if (typeof document === 'undefined') {
+      return value;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+
+  private looksLikeHtml(value: string): boolean {
+    return /<\/?[a-z][\s\S]*>/i.test(value);
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private getJobCompanyId(job: JobDescription): string {
