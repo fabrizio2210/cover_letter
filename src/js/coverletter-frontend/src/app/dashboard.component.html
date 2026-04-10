@@ -1,9 +1,22 @@
 <div class="dashboard-container">
   <!-- Sidebar Navigation -->
-  <aside class="sidebar">
+  <aside class="sidebar" [class.sidebar-collapsed]="isSidebarCollapsed" [class.sidebar-expanded]="!isSidebarCollapsed">
     <div class="sidebar-header">
       <h1 class="sidebar-title">The Curator</h1>
       <p class="sidebar-subtitle">AI Job Strategist</p>
+    </div>
+
+    <div class="sidebar-toggle-wrapper">
+      <button
+        class="icon-button sidebar-toggle-button"
+        type="button"
+        (click)="toggleSidebar()"
+        [attr.aria-label]="isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        [attr.title]="isSidebarCollapsed ? 'Expand menu' : 'Collapse menu'"
+        [attr.aria-expanded]="!isSidebarCollapsed"
+      >
+        <span class="material-symbols-outlined">{{ isSidebarCollapsed ? 'menu' : 'menu_open' }}</span>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
