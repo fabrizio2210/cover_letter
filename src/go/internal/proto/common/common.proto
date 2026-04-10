@@ -145,3 +145,28 @@ message Job {
     int32 max_score = 14; // @gotags: bson:"max_score,omitempty"
     repeated JobPreferenceScore scores = 15; // @gotags: bson:"scores,omitempty"
 }
+
+message CrawlTriggerRequest {
+    string identity_id = 1;
+}
+
+message CrawlTriggerQueuePayload {
+    string run_id = 1;
+    string identity_id = 2;
+    google.protobuf.Timestamp requested_at = 3;
+}
+
+message CrawlProgress {
+    string run_id = 1;
+    string identity_id = 2;
+    string status = 3;
+    string phase = 4;
+    string message = 5;
+    int32 estimated_total = 6;
+    int32 completed = 7;
+    int32 percent = 8;
+    google.protobuf.Timestamp started_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    google.protobuf.Timestamp finished_at = 11;
+    string reason = 12;
+}

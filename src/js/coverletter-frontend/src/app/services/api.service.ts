@@ -2,7 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, CoverLetter } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, CoverLetter, CrawlProgress } from '../models/models';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
@@ -10,7 +11,7 @@ import { Field, Company, Recipient, Identity, JobDescription, CoverLetter } from
 export class ApiService {
   private apiBase = '/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
   // Fields
   listFields(): Observable<Field[]> {
@@ -109,6 +110,96 @@ export class ApiService {
 
   scoreJobDescription(id: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, {});
+  }
+
+  triggerCrawl(identityId: string): Observable<{ message: string; run_id: string; identity_id: string; status: string }> {
+    return this.http.post<{ message: string; run_id: string; identity_id: string; status: string }>(`${this.apiBase}/crawls`, {
+      identity_id: identityId,
+    });
+  }
+
+  getActiveCrawls(identityId?: string): Observable<CrawlProgress[]> {
+    const url = identityId
+      ? `${this.apiBase}/crawls/active?identity_id=${encodeURIComponent(identityId)}`
+      : `${this.apiBase}/crawls/active`;
+
+    return this.http.get<CrawlProgress[]>(url)
+      .pipe(catchError(() => of([])));
+  }
+
+  subscribeToCrawlProgress(): Observable<CrawlProgress> {
+    return new Observable<CrawlProgress>((observer) => {
+      const token = this.authService.getToken();
+      if (!token) {
+        observer.error(new Error('Missing auth token'));
+        return undefined;
+      }
+
+      const abortController = new AbortController();
+
+      void fetch(`${this.apiBase}/crawls/stream`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/event-stream',
+        },
+        signal: abortController.signal,
+      })
+        .then(async (response) => {
+          if (response.status === 401) {
+            this.authService.logout();
+            throw new Error('Unauthorized');
+          }
+
+          if (!response.ok || !response.body) {
+            throw new Error(`Failed to open crawl progress stream (${response.status})`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+
+            for (const eventChunk of events) {
+              const lines = eventChunk
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+              const dataLine = lines.find((line) => line.startsWith('data:'));
+              if (!dataLine) {
+                continue;
+              }
+
+              const payload = dataLine.slice(5).trim();
+              if (!payload) {
+                continue;
+              }
+
+              observer.next(JSON.parse(payload) as CrawlProgress);
+            }
+          }
+
+          observer.complete();
+        })
+        .catch((error) => {
+          if (abortController.signal.aborted) {
+            return;
+          }
+          observer.error(error);
+        });
+
+      return () => abortController.abort();
+    });
   }
 
   // Cover Letters

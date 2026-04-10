@@ -87,6 +87,27 @@ services:
     networks:
       - backends
 
+  web-crawler:
+    image: fabrizio2210/coverletter-web-crawler-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-web-crawler-dev
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "0"
+      SERPER_API_KEY: ${SERPER_API_KEY}
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
   mongo:
     image: mongo
     restart: always

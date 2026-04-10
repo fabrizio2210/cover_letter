@@ -55,6 +55,23 @@
         <span>AI Skill Gap Analysis</span>
         <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
       </label>
+
+      <div class="crawl-status-card" *ngIf="selectedIdentityCrawlProgress as crawlProgress">
+        <div class="crawl-status-header">
+          <strong>{{ getCrawlPhaseLabel(crawlProgress) }}</strong>
+          <span class="crawl-status-badge" [class.crawl-status-terminal]="!selectedIdentityHasActiveCrawl">
+            {{ crawlProgress.status }}
+          </span>
+        </div>
+        <p>{{ crawlProgress.message || 'No crawl message available.' }}</p>
+        <div class="crawl-progress-row">
+          <span>{{ crawlProgress.completed }} / {{ crawlProgress.estimated_total }}</span>
+          <span>{{ crawlProgress.percent }}%</span>
+        </div>
+        <div class="crawl-progress-track">
+          <div class="crawl-progress-fill" [style.width.%]="crawlProgress.percent"></div>
+        </div>
+      </div>
     </section>
   </aside>
 
@@ -72,6 +89,10 @@
       <button class="ghost-btn" type="button">
         <span class="material-symbols-outlined">tune</span>
         Filter Options
+      </button>
+      <button class="primary-btn" type="button" [disabled]="triggeringCrawl || selectedIdentityHasActiveCrawl" (click)="triggerCrawl()">
+        <span class="material-symbols-outlined">travel_explore</span>
+        {{ crawlActionLabel }}
       </button>
       <button class="primary-btn" type="button" [disabled]="reranking" (click)="rerankVisibleJobs()">
         <span class="material-symbols-outlined">bolt</span>

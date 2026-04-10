@@ -1,13 +1,13 @@
-import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
-import { Identity, JobDescription } from './models/models';
+import { CrawlProgress, Identity, JobDescription } from './models/models';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
 
@@ -18,7 +18,7 @@ type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
   templateUrl: './job-discovery.component.html',
   styleUrls: ['./job-discovery.component.css']
 })
-export class JobDiscoveryComponent implements OnInit {
+export class JobDiscoveryComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
   private identityContext = inject(IdentityContextService);
@@ -32,6 +32,7 @@ export class JobDiscoveryComponent implements OnInit {
 
   loading = false;
   reranking = false;
+  triggeringCrawl = false;
 
   selectedIdentityId = '';
   private routeIdentityId = '';
@@ -43,6 +44,8 @@ export class JobDiscoveryComponent implements OnInit {
   readonly scorePresetValues = [0, 1, 2, 3, 4, 5];
   remoteOnly = false;
   aiSkillGapAnalysis = false;
+  private crawlStreamSubscription?: Subscription;
+  private crawlSnapshotsByIdentity = new Map<string, CrawlProgress>();
 
   @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
@@ -62,6 +65,11 @@ export class JobDiscoveryComponent implements OnInit {
     });
 
     this.loadData();
+    this.subscribeToCrawlProgress();
+  }
+
+  ngOnDestroy(): void {
+    this.crawlStreamSubscription?.unsubscribe();
   }
 
   loadData(): void {
@@ -69,11 +77,13 @@ export class JobDiscoveryComponent implements OnInit {
 
     forkJoin({
       jobs: this.api.getJobDescriptions(),
-      identities: this.api.getIdentities()
+      identities: this.api.getIdentities(),
+      activeCrawls: this.api.getActiveCrawls(),
     }).subscribe({
-      next: ({ jobs, identities }) => {
+      next: ({ jobs, identities, activeCrawls }) => {
         this.jobs = jobs || [];
         this.identities = identities || [];
+        this.setCrawlSnapshots(activeCrawls || []);
 
         if (this.jobs.length > 0) {
           if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
@@ -178,6 +188,84 @@ export class JobDiscoveryComponent implements OnInit {
 
   get activeIdentityName(): string {
     return this.identities.find((identity) => identity.id === this.selectedIdentityId)?.name || 'No identity selected';
+  }
+
+  get selectedIdentityCrawlProgress(): CrawlProgress | null {
+    return this.crawlSnapshotsByIdentity.get(this.selectedIdentityId) || null;
+  }
+
+  get selectedIdentityHasActiveCrawl(): boolean {
+    const progress = this.selectedIdentityCrawlProgress;
+    return progress?.status === 'queued' || progress?.status === 'running';
+  }
+
+  get crawlActionLabel(): string {
+    if (this.triggeringCrawl) {
+      return 'Queueing Crawl...';
+    }
+    if (this.selectedIdentityHasActiveCrawl) {
+      return 'Crawl Running';
+    }
+    return 'Start Crawl';
+  }
+
+  triggerCrawl(): void {
+    if (!this.selectedIdentityId) {
+      this.feedbackService.showFeedback('Select an identity before starting a crawl.', true);
+      return;
+    }
+
+    if (this.selectedIdentityHasActiveCrawl) {
+      this.feedbackService.showFeedback(`A crawl is already active for ${this.activeIdentityName}.`, true);
+      return;
+    }
+
+    this.triggeringCrawl = true;
+    this.api.triggerCrawl(this.selectedIdentityId).subscribe({
+      next: ({ identity_id, run_id }) => {
+        this.triggeringCrawl = false;
+        this.crawlSnapshotsByIdentity.set(identity_id, {
+          run_id,
+          identity_id,
+          status: 'queued',
+          phase: 'queued',
+          message: 'Waiting for worker pickup',
+          estimated_total: 4,
+          completed: 0,
+          percent: 0,
+          started_at: null,
+          updated_at: {
+            seconds: Math.floor(Date.now() / 1000),
+            nanos: 0,
+          },
+          finished_at: null,
+          reason: '',
+        });
+        this.feedbackService.showFeedback(`Crawl queued for ${this.activeIdentityName}.`);
+      },
+      error: (error) => {
+        this.triggeringCrawl = false;
+        const apiMessage = error?.error?.error || 'Failed to queue crawl.';
+        this.feedbackService.showFeedback(apiMessage, true);
+      },
+    });
+  }
+
+  getCrawlPhaseLabel(progress: CrawlProgress | null): string {
+    switch (progress?.phase) {
+      case 'workflow1_company_discovery':
+        return 'Company discovery';
+      case 'workflow2_ats_enrichment':
+        return 'ATS enrichment';
+      case 'workflow3_ats_job_extraction':
+        return 'Job extraction';
+      case 'workflow4_4dayweek':
+        return '4dayweek scraping';
+      case 'finalizing':
+        return 'Finalizing';
+      default:
+        return 'Queued';
+    }
   }
 
   rerankVisibleJobs(): void {
@@ -426,5 +514,49 @@ export class JobDiscoveryComponent implements OnInit {
       },
       queryParamsHandling: 'merge'
     });
+  }
+
+  private subscribeToCrawlProgress(): void {
+    this.crawlStreamSubscription?.unsubscribe();
+    this.crawlStreamSubscription = this.api.subscribeToCrawlProgress().subscribe({
+      next: (progress) => {
+        this.crawlSnapshotsByIdentity.set(progress.identity_id, progress);
+
+        if (progress.identity_id !== this.selectedIdentityId) {
+          return;
+        }
+
+        if (progress.status === 'completed') {
+          this.feedbackService.showFeedback(`Crawl completed for ${this.activeIdentityName}.`);
+        }
+
+        if (progress.status === 'failed' || progress.status === 'rejected') {
+          this.feedbackService.showFeedback(progress.message || `Crawl ${progress.status} for ${this.activeIdentityName}.`, true);
+        }
+      },
+      error: () => {
+        this.feedbackService.showFeedback('Lost crawl progress stream connection.', true);
+      },
+    });
+  }
+
+  private setCrawlSnapshots(snapshots: CrawlProgress[]): void {
+    this.crawlSnapshotsByIdentity.clear();
+    snapshots.forEach((snapshot) => {
+      const existing = this.crawlSnapshotsByIdentity.get(snapshot.identity_id);
+      if (!existing || this.getTimestampSeconds(snapshot.updated_at) >= this.getTimestampSeconds(existing.updated_at)) {
+        this.crawlSnapshotsByIdentity.set(snapshot.identity_id, snapshot);
+      }
+    });
+  }
+
+  private getTimestampSeconds(value?: string | { seconds: number; nanos: number } | null): number {
+    if (!value) {
+      return 0;
+    }
+    if (typeof value === 'string') {
+      return Math.floor(new Date(value).getTime() / 1000);
+    }
+    return value.seconds || 0;
   }
 }

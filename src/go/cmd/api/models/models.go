@@ -11,3 +11,6 @@ type CoverLetter = common.CoverLetter
 type Job = common.Job
 type JobPreferenceScore = common.JobPreferenceScore
 type IdentityPreference = common.IdentityPreference
+type CrawlTriggerRequest = common.CrawlTriggerRequest
+type CrawlTriggerQueuePayload = common.CrawlTriggerQueuePayload
+type CrawlProgress = common.CrawlProgress

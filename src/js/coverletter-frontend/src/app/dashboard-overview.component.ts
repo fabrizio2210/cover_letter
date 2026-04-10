@@ -1,8 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
-import { JobDescription } from './models/models';
+import { CrawlProgress, JobDescription } from './models/models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard-overview',
@@ -11,7 +12,7 @@ import { JobDescription } from './models/models';
   templateUrl: './dashboard-overview.component.html',
   styleUrls: ['./dashboard-overview.component.css']
 })
-export class DashboardOverviewComponent implements OnInit {
+export class DashboardOverviewComponent implements OnInit, OnDestroy {
   private apiService = inject(ApiService);
   private feedbackService = inject(FeedbackService);
 
@@ -25,6 +26,8 @@ export class DashboardOverviewComponent implements OnInit {
   topScoredJobs: JobDescription[] = [];
   loadingJobs = false;
   loadingStats = false;
+  activeCrawl: CrawlProgress | null = null;
+  private crawlStreamSubscription?: Subscription;
 
   // Placeholder data for now (will replace with real data from API)
   placeholderJobs: JobDescription[] = [
@@ -66,6 +69,12 @@ export class DashboardOverviewComponent implements OnInit {
   ngOnInit(): void {
     this.loadStats();
     this.loadTopScoredJobs();
+    this.loadActiveCrawls();
+    this.subscribeToCrawlProgress();
+  }
+
+  ngOnDestroy(): void {
+    this.crawlStreamSubscription?.unsubscribe();
   }
 
   private async loadStats(): Promise<void> {
@@ -108,6 +117,23 @@ export class DashboardOverviewComponent implements OnInit {
     this.feedbackService.showFeedback('Letter drafting coming soon!', false);
   }
 
+  get crawlPhaseLabel(): string {
+    switch (this.activeCrawl?.phase) {
+      case 'workflow1_company_discovery':
+        return 'Company discovery';
+      case 'workflow2_ats_enrichment':
+        return 'ATS enrichment';
+      case 'workflow3_ats_job_extraction':
+        return 'Job extraction';
+      case 'workflow4_4dayweek':
+        return '4dayweek scraping';
+      case 'finalizing':
+        return 'Finalizing';
+      default:
+        return 'Queued';
+    }
+  }
+
   getCompanyInitials(company: string): string {
     return company
       .split(' ')
@@ -115,5 +141,64 @@ export class DashboardOverviewComponent implements OnInit {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  }
+
+  private loadActiveCrawls(): void {
+    this.apiService.getActiveCrawls().subscribe({
+      next: (crawls) => {
+        this.activeCrawl = this.pickMostRelevantCrawl(crawls);
+      },
+    });
+  }
+
+  private subscribeToCrawlProgress(): void {
+    this.crawlStreamSubscription = this.apiService.subscribeToCrawlProgress().subscribe({
+      next: (progress) => {
+        this.activeCrawl = this.pickMostRelevantCrawl([
+          ...(this.activeCrawl ? [this.activeCrawl] : []),
+          progress,
+        ]);
+      },
+      error: () => {
+        // Avoid duplicate toasts here; Job Discovery already surfaces stream failures more directly.
+      },
+    });
+  }
+
+  private pickMostRelevantCrawl(crawls: CrawlProgress[]): CrawlProgress | null {
+    if (!crawls.length) {
+      return null;
+    }
+
+    const prioritized = [...crawls].sort((left, right) => {
+      const leftRank = this.getStatusRank(left.status);
+      const rightRank = this.getStatusRank(right.status);
+      if (leftRank !== rightRank) {
+        return rightRank - leftRank;
+      }
+      return this.getTimestampSeconds(right.updated_at) - this.getTimestampSeconds(left.updated_at);
+    });
+
+    return prioritized[0] || null;
+  }
+
+  private getStatusRank(status: CrawlProgress['status']): number {
+    if (status === 'running') {
+      return 3;
+    }
+    if (status === 'queued') {
+      return 2;
+    }
+    return 1;
+  }
+
+  private getTimestampSeconds(value?: string | { seconds: number; nanos: number } | null): number {
+    if (!value) {
+      return 0;
+    }
+    if (typeof value === 'string') {
+      return Math.floor(new Date(value).getTime() / 1000);
+    }
+    return value.seconds || 0;
   }
 }

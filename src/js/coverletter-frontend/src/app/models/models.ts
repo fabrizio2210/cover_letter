@@ -100,6 +100,27 @@ export interface CoverLetter {
   recipient_info?: Recipient;
 }
 
+export interface CrawlProgress {
+  run_id: string;
+  identity_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
+  phase:
+    | 'queued'
+    | 'workflow1_company_discovery'
+    | 'workflow2_ats_enrichment'
+    | 'workflow3_ats_job_extraction'
+    | 'workflow4_4dayweek'
+    | 'finalizing';
+  message?: string;
+  estimated_total: number;
+  completed: number;
+  percent: number;
+  started_at?: string | Timestamp | null;
+  updated_at?: string | Timestamp;
+  finished_at?: string | Timestamp | null;
+  reason?: string;
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;

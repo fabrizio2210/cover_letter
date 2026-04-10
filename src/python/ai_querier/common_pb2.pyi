@@ -632,3 +632,81 @@ class Job(google.protobuf.message.Message):
     def HasField(self, field_name: typing_extensions.Literal["company_info",b"company_info","created_at",b"created_at","updated_at",b"updated_at"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","company_info",b"company_info","created_at",b"created_at","description",b"description","external_job_id",b"external_job_id","id",b"id","location",b"location","max_score",b"max_score","platform",b"platform","scores",b"scores","scoring_status",b"scoring_status","source_url",b"source_url","title",b"title","updated_at",b"updated_at","weighted_score",b"weighted_score"]) -> None: ...
 global___Job = Job
+
+class CrawlTriggerRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    IDENTITY_ID_FIELD_NUMBER: builtins.int
+    identity_id: typing.Text
+    def __init__(self,
+        *,
+        identity_id: typing.Text = ...,
+        ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["identity_id",b"identity_id"]) -> None: ...
+global___CrawlTriggerRequest = CrawlTriggerRequest
+
+class CrawlTriggerQueuePayload(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    RUN_ID_FIELD_NUMBER: builtins.int
+    IDENTITY_ID_FIELD_NUMBER: builtins.int
+    REQUESTED_AT_FIELD_NUMBER: builtins.int
+    run_id: typing.Text
+    identity_id: typing.Text
+    @property
+    def requested_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    def __init__(self,
+        *,
+        run_id: typing.Text = ...,
+        identity_id: typing.Text = ...,
+        requested_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["requested_at",b"requested_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["identity_id",b"identity_id","requested_at",b"requested_at","run_id",b"run_id"]) -> None: ...
+global___CrawlTriggerQueuePayload = CrawlTriggerQueuePayload
+
+class CrawlProgress(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    RUN_ID_FIELD_NUMBER: builtins.int
+    IDENTITY_ID_FIELD_NUMBER: builtins.int
+    STATUS_FIELD_NUMBER: builtins.int
+    PHASE_FIELD_NUMBER: builtins.int
+    MESSAGE_FIELD_NUMBER: builtins.int
+    ESTIMATED_TOTAL_FIELD_NUMBER: builtins.int
+    COMPLETED_FIELD_NUMBER: builtins.int
+    PERCENT_FIELD_NUMBER: builtins.int
+    STARTED_AT_FIELD_NUMBER: builtins.int
+    UPDATED_AT_FIELD_NUMBER: builtins.int
+    FINISHED_AT_FIELD_NUMBER: builtins.int
+    REASON_FIELD_NUMBER: builtins.int
+    run_id: typing.Text
+    identity_id: typing.Text
+    status: typing.Text
+    phase: typing.Text
+    message: typing.Text
+    estimated_total: builtins.int
+    completed: builtins.int
+    percent: builtins.int
+    @property
+    def started_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def updated_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def finished_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    reason: typing.Text
+    def __init__(self,
+        *,
+        run_id: typing.Text = ...,
+        identity_id: typing.Text = ...,
+        status: typing.Text = ...,
+        phase: typing.Text = ...,
+        message: typing.Text = ...,
+        estimated_total: builtins.int = ...,
+        completed: builtins.int = ...,
+        percent: builtins.int = ...,
+        started_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        updated_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        finished_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        reason: typing.Text = ...,
+        ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["finished_at",b"finished_at","started_at",b"started_at","updated_at",b"updated_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["completed",b"completed","estimated_total",b"estimated_total","finished_at",b"finished_at","identity_id",b"identity_id","message",b"message","percent",b"percent","phase",b"phase","reason",b"reason","run_id",b"run_id","started_at",b"started_at","status",b"status","updated_at",b"updated_at"]) -> None: ...
+global___CrawlProgress = CrawlProgress

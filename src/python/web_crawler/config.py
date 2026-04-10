@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 
 JOB_SCORING_QUEUE = "job_scoring_queue"
+CRAWLER_TRIGGER_QUEUE = "crawler_trigger_queue"
+CRAWLER_PROGRESS_CHANNEL = "crawler_progress_channel"
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -50,6 +52,9 @@ class CrawlerConfig:
     redis_host: str = "localhost"
     redis_port: int = 6379
     enable_scoring_enqueue: bool = False
+    crawler_trigger_queue_name: str = CRAWLER_TRIGGER_QUEUE
+    crawler_progress_channel_name: str = CRAWLER_PROGRESS_CHANNEL
+    job_scoring_queue_name: str = JOB_SCORING_QUEUE
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -77,4 +82,7 @@ class CrawlerConfig:
             redis_host=os.getenv("REDIS_HOST", "localhost"),
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
             enable_scoring_enqueue=_parse_bool(os.getenv("CRAWLER_ENABLE_SCORING_ENQUEUE"), default=False),
+            crawler_trigger_queue_name=os.getenv("CRAWLER_TRIGGER_QUEUE_NAME", CRAWLER_TRIGGER_QUEUE),
+            crawler_progress_channel_name=os.getenv("CRAWLER_PROGRESS_CHANNEL_NAME", CRAWLER_PROGRESS_CHANNEL),
+            job_scoring_queue_name=os.getenv("JOB_SCORING_QUEUE_NAME", JOB_SCORING_QUEUE),
         )
