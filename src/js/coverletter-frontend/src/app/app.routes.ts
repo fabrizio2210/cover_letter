@@ -28,7 +28,8 @@ export const routes: Routes = [
             { path: 'letter-editor/:id', component: LetterEditorComponent },
             { path: 'cover-letters', component: CoverLettersListComponent },
             { path: 'cover-letters/:id', redirectTo: 'letter-editor/:id', pathMatch: 'full' },
-            { path: 'companies', component: CompaniesRecipientsComponent }
+            { path: 'recipients', component: CompaniesRecipientsComponent },
+            { path: 'companies', redirectTo: 'recipients', pathMatch: 'full' }
         ]
     },
 
