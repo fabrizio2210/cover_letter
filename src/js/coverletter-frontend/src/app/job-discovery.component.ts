@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -43,6 +43,9 @@ export class JobDiscoveryComponent implements OnInit {
   readonly scorePresetValues = [0, 1, 2, 3, 4, 5];
   remoteOnly = false;
   aiSkillGapAnalysis = false;
+
+  @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
+  @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
@@ -233,6 +236,7 @@ export class JobDiscoveryComponent implements OnInit {
 
   selectJob(job: JobDescription): void {
     this.selectedJobId = job.id;
+    this.focusSelectedOpportunity();
   }
 
   isSelectedJob(job: JobDescription): boolean {
@@ -381,6 +385,22 @@ export class JobDiscoveryComponent implements OnInit {
       .replace(/>/g, '&gt;')
       .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  private focusSelectedOpportunity(): void {
+    requestAnimationFrame(() => {
+      const panel = this.companyDetailsPanel?.nativeElement;
+      const selectedOpportunity = this.selectedOpportunitySection?.nativeElement;
+
+      if (!panel || !selectedOpportunity) {
+        return;
+      }
+
+      panel.scrollTo({
+        top: Math.max(selectedOpportunity.offsetTop - 8, 0),
+        behavior: 'smooth'
+      });
+    });
   }
 
   private getJobCompanyId(job: JobDescription): string {

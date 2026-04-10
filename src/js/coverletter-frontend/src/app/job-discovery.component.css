@@ -360,4 +360,11 @@
   .content-grid {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
+
+  .company-details {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 8rem);
+    overflow: auto;
+  }
 }

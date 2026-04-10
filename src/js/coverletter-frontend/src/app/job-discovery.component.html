@@ -125,7 +125,7 @@
       </div>
     </div>
 
-    <aside class="company-details" *ngIf="selectedJob as job">
+    <aside class="company-details" *ngIf="selectedJob as job" #companyDetailsPanel>
       <div class="company-details-header">
         <div class="company-avatar">{{ selectedCompanyDisplayName.charAt(0).toUpperCase() }}</div>
         <div>
@@ -144,7 +144,7 @@
         <p>{{ getFirstRationale(job) }}</p>
       </div>
 
-      <div class="company-details-section">
+      <div class="company-details-section" #selectedOpportunitySection>
         <h4>Selected Opportunity</h4>
         <p class="details-title">{{ job.title }}</p>
         <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
