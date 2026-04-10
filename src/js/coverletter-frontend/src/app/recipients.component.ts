@@ -16,13 +16,13 @@ interface RecipientFormState {
 }
 
 @Component({
-  selector: 'app-companies-recipients',
+  selector: 'app-recipients',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './companies-recipients.component.html',
-  styleUrls: ['./companies-recipients.component.css']
+  templateUrl: './recipients.component.html',
+  styleUrls: ['./recipients.component.css']
 })
-export class CompaniesRecipientsComponent implements OnInit {
+export class RecipientsComponent implements OnInit {
   private api = inject(ApiService);
   private feedbackService = inject(FeedbackService);
   private identityContext = inject(IdentityContextService);
