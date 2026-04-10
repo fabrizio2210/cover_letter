@@ -88,6 +88,19 @@
   padding: 1rem;
   border: 1px solid #dfe8fa;
   box-shadow: 0 6px 22px rgba(18, 38, 74, 0.05);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.job-card:hover {
+  border-color: #b8cfff;
+  box-shadow: 0 10px 28px rgba(20, 42, 83, 0.1);
+  transform: translateY(-1px);
+}
+
+.job-card-selected {
+  border-color: #4f82ff;
+  box-shadow: 0 12px 30px rgba(22, 72, 179, 0.16);
 }
 
 .job-card-top {
@@ -272,8 +285,64 @@
   color: #61779a;
 }
 
+.company-details {
+  border-radius: 1rem;
+  border: 1px solid #dbe4ff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 244, 255, 0.96));
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.company-details-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.company-details-header h3 {
+  margin: 0;
+  color: #1d2d48;
+}
+
+.company-details-header p {
+  margin: 0.2rem 0 0;
+  color: #5d708f;
+  font-size: 0.82rem;
+}
+
+.company-details-section {
+  border-radius: 0.8rem;
+  border: 1px solid #d8e3ff;
+  background: #ffffff;
+  padding: 0.75rem;
+}
+
+.company-details-section h4 {
+  margin: 0 0 0.45rem;
+  color: #2b4775;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.company-details-section p {
+  margin: 0;
+  color: #3f5477;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.details-title {
+  font-weight: 700;
+  color: #1d2d48;
+  margin-bottom: 0.3rem;
+}
+
 @media (min-width: 1200px) {
   .content-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 320px;
   }
 }

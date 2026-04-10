@@ -28,6 +28,7 @@ export class JobDiscoveryComponent implements OnInit {
   jobs: JobDescription[] = [];
   identities: Identity[] = [];
   hiddenJobIds = new Set<string>();
+  selectedJobId = '';
 
   loading = false;
   reranking = false;
@@ -70,6 +71,14 @@ export class JobDiscoveryComponent implements OnInit {
       next: ({ jobs, identities }) => {
         this.jobs = jobs || [];
         this.identities = identities || [];
+
+        if (this.jobs.length > 0) {
+          if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
+            this.selectedJobId = this.jobs[0].id;
+          }
+        } else {
+          this.selectedJobId = '';
+        }
 
         const availableIdentityIds = this.identities.map((identity) => identity.id).filter(Boolean);
         const resolvedIdentityId = this.identityContext.ensureValidIdentityId(availableIdentityIds, this.selectedIdentityId);
@@ -122,6 +131,48 @@ export class JobDiscoveryComponent implements OnInit {
     return this.jobs.filter((job) => this.matchesIdentity(job)).length;
   }
 
+  get selectedJob(): JobDescription | null {
+    if (!this.selectedJobId) {
+      return this.filteredJobs[0] || null;
+    }
+    return this.filteredJobs.find((job) => job.id === this.selectedJobId) || this.filteredJobs[0] || null;
+  }
+
+  get selectedCompanyDisplayName(): string {
+    const selected = this.selectedJob;
+    if (!selected) {
+      return 'Select a job';
+    }
+    return selected.company_info?.name || selected.company_name || 'Unknown company';
+  }
+
+  get selectedCompanyDescription(): string {
+    const selected = this.selectedJob;
+    return selected?.company_info?.description || 'No company description available for this job yet.';
+  }
+
+  get selectedCompanyOpenPositions(): number {
+    const selected = this.selectedJob;
+    if (!selected) {
+      return 0;
+    }
+
+    const selectedCompanyId = this.getJobCompanyId(selected);
+    if (selectedCompanyId) {
+      return this.filteredJobs.filter((job) => this.getJobCompanyId(job) === selectedCompanyId).length;
+    }
+
+    const selectedCompanyName = (selected.company_info?.name || selected.company_name || '').trim().toLowerCase();
+    if (!selectedCompanyName) {
+      return 0;
+    }
+
+    return this.filteredJobs.filter((job) => {
+      const companyName = (job.company_info?.name || job.company_name || '').trim().toLowerCase();
+      return companyName === selectedCompanyName;
+    }).length;
+  }
+
   get activeIdentityName(): string {
     return this.identities.find((identity) => identity.id === this.selectedIdentityId)?.name || 'No identity selected';
   }
@@ -171,7 +222,21 @@ export class JobDiscoveryComponent implements OnInit {
 
   markAsNotInterested(job: JobDescription): void {
     this.hiddenJobIds.add(job.id);
+
+    if (this.selectedJobId === job.id) {
+      const replacement = this.filteredJobs.find((candidate) => candidate.id !== job.id);
+      this.selectedJobId = replacement?.id || '';
+    }
+
     this.feedbackService.showFeedback(`Hidden ${job.title} from this view.`);
+  }
+
+  selectJob(job: JobDescription): void {
+    this.selectedJobId = job.id;
+  }
+
+  isSelectedJob(job: JobDescription): boolean {
+    return this.selectedJob?.id === job.id;
   }
 
   getFirstRationale(job: JobDescription): string {

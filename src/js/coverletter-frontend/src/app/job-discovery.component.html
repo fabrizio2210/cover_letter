@@ -82,7 +82,12 @@
 
   <div class="content-grid" *ngIf="!loading; else loadingState">
     <div class="job-feed">
-      <article class="job-card" *ngFor="let job of filteredJobs">
+      <article
+        class="job-card"
+        *ngFor="let job of filteredJobs"
+        [class.job-card-selected]="isSelectedJob(job)"
+        (click)="selectJob(job)"
+      >
         <div class="job-card-top">
           <div class="company-avatar">{{ (job.company_info?.name || job.company_name || 'J').charAt(0).toUpperCase() }}</div>
           <div class="job-title-block">
@@ -109,9 +114,9 @@
         </div>
 
         <div class="job-actions">
-          <button type="button" class="primary-btn" (click)="prepareCoverLetter(job)">Prepare Cover Letter</button>
-          <button type="button" class="ghost-btn" (click)="markAsNotInterested(job)">Mark as Not Interested</button>
-          <button type="button" class="ghost-btn" (click)="rerankSingleJob(job)">Queue Score</button>
+          <button type="button" class="primary-btn" (click)="prepareCoverLetter(job); $event.stopPropagation()">Prepare Cover Letter</button>
+          <button type="button" class="ghost-btn" (click)="markAsNotInterested(job); $event.stopPropagation()">Mark as Not Interested</button>
+          <button type="button" class="ghost-btn" (click)="rerankSingleJob(job); $event.stopPropagation()">Queue Score</button>
         </div>
       </article>
 
@@ -119,6 +124,32 @@
         No jobs match the current filters.
       </div>
     </div>
+
+    <aside class="company-details" *ngIf="selectedJob as job">
+      <div class="company-details-header">
+        <div class="company-avatar">{{ selectedCompanyDisplayName.charAt(0).toUpperCase() }}</div>
+        <div>
+          <h3>{{ selectedCompanyDisplayName }}</h3>
+          <p>{{ selectedCompanyOpenPositions }} open positions in current view</p>
+        </div>
+      </div>
+
+      <div class="company-details-section">
+        <h4>Selected Opportunity</h4>
+        <p class="details-title">{{ job.title }}</p>
+        <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
+      </div>
+
+      <div class="company-details-section">
+        <h4>Company Details</h4>
+        <p>{{ selectedCompanyDescription }}</p>
+      </div>
+
+      <div class="company-details-section">
+        <h4>Why this role</h4>
+        <p>{{ getFirstRationale(job) }}</p>
+      </div>
+    </aside>
   </div>
 </section>
 
