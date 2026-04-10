@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Callable, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -28,6 +28,17 @@ _CAREER_PATHS = (
     "/join-us",
     "/company/careers",
 )
+
+
+def estimate_workflow2_url_checks(company_count: int) -> int:
+    """
+    Best-effort estimate for URL checks in workflow2.
+
+    For each company we budget one probe per known career path.
+    """
+    normalized_count = max(company_count, 0)
+    per_company_budget = max(len(_CAREER_PATHS), 1)
+    return max(1, normalized_count * per_company_budget)
 
 
 def _normalize_domain(domain: str | None) -> str | None:
@@ -203,18 +214,43 @@ def _load_companies(collection, company_ids: Iterable[str] | None) -> list[commo
     return [_company_from_document(document) for document in documents]
 
 
-def run_workflow2(database, config: CrawlerConfig, company_ids: list[str] | None = None) -> Workflow2Result:
+def run_workflow2(
+    database,
+    config: CrawlerConfig,
+    company_ids: list[str] | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> Workflow2Result:
     companies_collection = database["companies"]
     companies = _load_companies(companies_collection, company_ids)
     result = Workflow2Result()
+
+    total_companies = len(companies)
+    per_company_budget = max(len(_CAREER_PATHS), 1)
+    completed_checks = 0
+    estimated_checks = estimate_workflow2_url_checks(total_companies)
+
+    if progress_callback:
+        progress_callback(
+            completed_checks,
+            estimated_checks,
+            f"Preparing ATS enrichment for {total_companies} companies",
+        )
 
     session = requests.Session()
     session.headers.update({"User-Agent": config.user_agent})
 
     try:
-        for company_proto in companies:
+        for company_index, company_proto in enumerate(companies, start=1):
             company_id = company_proto.id
             result.company_ids.append(company_id)
+            company_checks = per_company_budget
+
+            if progress_callback:
+                progress_callback(
+                    completed_checks,
+                    estimated_checks,
+                    f"Analyzing company {company_index}/{total_companies}: {company_proto.name or company_id}",
+                )
 
             company_object_id = _to_object_id(company_id)
             if company_object_id is None:
@@ -253,6 +289,13 @@ def run_workflow2(database, config: CrawlerConfig, company_ids: list[str] | None
 
             try:
                 candidate_urls = _discover_candidate_urls(company_proto, config, session)
+                company_checks = max(company_checks, len(candidate_urls) or 1)
+                remaining_companies = max(total_companies - company_index, 0)
+                estimated_checks = max(
+                    estimated_checks,
+                    completed_checks + company_checks + (remaining_companies * per_company_budget),
+                )
+
                 if not candidate_urls:
                     result.skipped_count += 1
                     result.failed_companies.append({"company_id": company_id, "company_name": company_proto.name, "error": "no candidate URLs"})
@@ -327,6 +370,14 @@ def run_workflow2(database, config: CrawlerConfig, company_ids: list[str] | None
                         "error": str(exc),
                     }
                 )
+            finally:
+                completed_checks += company_checks
+                if progress_callback:
+                    progress_callback(
+                        completed_checks,
+                        estimated_checks,
+                        f"Workflow2 progress: {company_index}/{total_companies} companies processed",
+                    )
 
         return result
     finally:

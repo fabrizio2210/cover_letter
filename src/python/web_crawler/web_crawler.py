@@ -15,8 +15,8 @@ from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.workflow1 import run_workflow1
-from src.python.web_crawler.workflow2 import run_workflow2
-from src.python.web_crawler.workflow3 import run_workflow3
+from src.python.web_crawler.workflow2 import estimate_workflow2_url_checks, run_workflow2
+from src.python.web_crawler.workflow3 import estimate_workflow3_job_checks, run_workflow3
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -160,7 +160,12 @@ def _publish_progress(
 def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redis_client: redis.Redis | None) -> dict[str, dict]:
     database = get_database(config)
     started_at = _utc_timestamp()
-    estimated_total = 4
+    workflow1_units = 1
+    workflow2_units = 1
+    workflow3_units = 1
+    finalizing_units = 1
+    estimated_total = workflow1_units + workflow2_units + workflow3_units + finalizing_units
+    completed_units = 0
 
     _publish_progress(
         redis_client,
@@ -170,10 +175,14 @@ def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redi
         status="running",
         phase="workflow1_company_discovery",
         estimated_total=estimated_total,
-        completed=0,
+        completed=completed_units,
         started_at=started_at,
     )
     workflow1_result = run_workflow1(database, config, identity_id)
+    completed_units += workflow1_units
+
+    workflow2_units = estimate_workflow2_url_checks(len(workflow1_result.company_ids))
+    estimated_total = workflow1_units + workflow2_units + workflow3_units + finalizing_units
 
     _publish_progress(
         redis_client,
@@ -183,10 +192,40 @@ def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redi
         status="running",
         phase="workflow2_ats_enrichment",
         estimated_total=estimated_total,
-        completed=1,
+        completed=completed_units,
         started_at=started_at,
+        message=f"Preparing ATS enrichment for {len(workflow1_result.company_ids)} discovered companies",
     )
-    workflow2_result = run_workflow2(database, config, workflow1_result.company_ids)
+
+    def _publish_workflow2_progress(workflow_completed: int, workflow_estimated: int, message: str) -> None:
+        nonlocal workflow2_units, estimated_total
+        if workflow_estimated != workflow2_units:
+            workflow2_units = max(workflow_estimated, 1)
+            estimated_total = workflow1_units + workflow2_units + workflow3_units + finalizing_units
+
+        _publish_progress(
+            redis_client,
+            config,
+            run_id=run_id,
+            identity_id=identity_id,
+            status="running",
+            phase="workflow2_ats_enrichment",
+            estimated_total=estimated_total,
+            completed=completed_units + max(workflow_completed, 0),
+            started_at=started_at,
+            message=message,
+        )
+
+    workflow2_result = run_workflow2(
+        database,
+        config,
+        workflow1_result.company_ids,
+        progress_callback=_publish_workflow2_progress,
+    )
+    completed_units += workflow2_units
+
+    workflow3_units = estimate_workflow3_job_checks(len(workflow2_result.company_ids))
+    estimated_total = workflow1_units + workflow2_units + workflow3_units + finalizing_units
 
     _publish_progress(
         redis_client,
@@ -196,10 +235,38 @@ def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redi
         status="running",
         phase="workflow3_ats_job_extraction",
         estimated_total=estimated_total,
-        completed=2,
+        completed=completed_units,
         started_at=started_at,
+        message=f"Preparing job extraction for {len(workflow2_result.company_ids)} ATS-enriched companies",
     )
-    workflow3_result = run_workflow3(database, config, workflow2_result.company_ids, identity_id)
+
+    def _publish_workflow3_progress(workflow_completed: int, workflow_estimated: int, message: str) -> None:
+        nonlocal workflow3_units, estimated_total
+        if workflow_estimated != workflow3_units:
+            workflow3_units = max(workflow_estimated, 1)
+            estimated_total = workflow1_units + workflow2_units + workflow3_units + finalizing_units
+
+        _publish_progress(
+            redis_client,
+            config,
+            run_id=run_id,
+            identity_id=identity_id,
+            status="running",
+            phase="workflow3_ats_job_extraction",
+            estimated_total=estimated_total,
+            completed=completed_units + max(workflow_completed, 0),
+            started_at=started_at,
+            message=message,
+        )
+
+    workflow3_result = run_workflow3(
+        database,
+        config,
+        workflow2_result.company_ids,
+        identity_id,
+        progress_callback=_publish_workflow3_progress,
+    )
+    completed_units += workflow3_units
 
     _publish_progress(
         redis_client,
@@ -209,9 +276,10 @@ def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redi
         status="running",
         phase="finalizing",
         estimated_total=estimated_total,
-        completed=3,
+        completed=completed_units,
         started_at=started_at,
     )
+    completed_units += finalizing_units
 
     finished_at = _utc_timestamp()
     _publish_progress(
@@ -222,7 +290,7 @@ def _run_single_crawl(config: CrawlerConfig, identity_id: str, run_id: str, redi
         status="completed",
         phase="finalizing",
         estimated_total=estimated_total,
-        completed=estimated_total,
+        completed=completed_units,
         started_at=started_at,
         finished_at=finished_at,
         message="Crawl completed",

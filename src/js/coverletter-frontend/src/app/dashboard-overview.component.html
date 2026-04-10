@@ -52,6 +52,10 @@
       <span>{{ crawl.status }} for {{ crawl.identity_id }}</span>
       <span>{{ crawl.percent }}%</span>
     </div>
+    <div class="crawler-progress-row">
+      <span>{{ crawl.completed }} / {{ crawl.estimated_total }} checks</span>
+      <span>{{ crawl.phase }}</span>
+    </div>
     <div class="crawler-progress-track">
       <div class="crawler-progress-fill" [style.width.%]="crawl.percent"></div>
     </div>

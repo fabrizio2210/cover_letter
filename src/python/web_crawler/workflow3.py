@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Iterable
+from typing import Callable, Iterable
 
 import requests
 from bson import ObjectId
@@ -25,6 +25,15 @@ _SCORING_STATUS_BSON: dict[int, str] = {
     common_pb2.SCORING_STATUS_FAILED: "failed",
     common_pb2.SCORING_STATUS_SKIPPED: "skipped",
 }
+
+
+def estimate_workflow3_job_checks(company_count: int) -> int:
+    """
+    Best-effort estimate for workflow3 extraction work.
+
+    We budget at least one extraction unit per ATS-enriched company.
+    """
+    return max(company_count, 1)
 
 
 def _scoring_status_to_bson(status: int) -> str:
@@ -181,7 +190,13 @@ def _load_ats_companies(companies_collection, company_ids: Iterable[str] | None)
     return [_company_from_document(doc) for doc in docs]
 
 
-def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None = None, identity_id: str | None = None) -> Workflow3Result:
+def run_workflow3(
+    database,
+    config: CrawlerConfig,
+    company_ids: list[str] | None = None,
+    identity_id: str | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> Workflow3Result:
     companies_collection = database["companies"]
     identities_collection = database["identities"]
     jobs_collection = database["jobs"]
@@ -193,6 +208,16 @@ def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None
 
     companies = _load_ats_companies(companies_collection, company_ids)
     logger.debug("workflow3: loaded %d ATS-enriched companies", len(companies))
+    total_companies = len(companies)
+    completed_checks = 0
+    estimated_checks = estimate_workflow3_job_checks(total_companies)
+
+    if progress_callback:
+        progress_callback(
+            completed_checks,
+            estimated_checks,
+            f"Preparing job extraction for {total_companies} ATS-enriched companies",
+        )
 
     redis_client = None
     if config.enable_scoring_enqueue:
@@ -202,11 +227,19 @@ def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None
     session.headers.update({"User-Agent": config.user_agent})
 
     try:
-        for company in companies:
+        for company_index, company in enumerate(companies, start=1):
             company_id = company.id
             company_name = company.name
             provider = company.ats_provider
             slug = company.ats_slug
+            company_checks = 1
+
+            if progress_callback:
+                progress_callback(
+                    completed_checks,
+                    estimated_checks,
+                    f"Fetching jobs for company {company_index}/{total_companies}: {company_name or company_id}",
+                )
 
             company_oid = _to_object_id(company_id)
             if company_oid is None:
@@ -217,6 +250,9 @@ def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None
             try:
                 jobs = fetch_jobs(provider, slug, config, session)
                 result.fetched_count += len(jobs)
+                company_checks = max(len(jobs), 1)
+                remaining_companies = max(total_companies - company_index, 0)
+                estimated_checks = max(estimated_checks, completed_checks + company_checks + remaining_companies)
 
                 for job in jobs:
                     try:
@@ -252,6 +288,14 @@ def run_workflow3(database, config: CrawlerConfig, company_ids: list[str] | None
             except Exception as exc:
                 logger.exception("workflow3: failed for company %s (%s): %s", company_id, company_name, exc)
                 result.failed_companies.append({"company_id": company_id, "company_name": company_name, "error": str(exc)})
+            finally:
+                completed_checks += company_checks
+                if progress_callback:
+                    progress_callback(
+                        completed_checks,
+                        estimated_checks,
+                        f"Workflow3 progress: {company_index}/{total_companies} companies processed",
+                    )
 
     finally:
         session.close()
