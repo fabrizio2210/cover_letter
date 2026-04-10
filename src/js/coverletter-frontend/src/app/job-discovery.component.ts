@@ -191,7 +191,17 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   get selectedIdentityCrawlProgress(): CrawlProgress | null {
-    return this.crawlSnapshotsByIdentity.get(this.selectedIdentityId) || null;
+    const progress = this.crawlSnapshotsByIdentity.get(this.selectedIdentityId);
+    if (!progress) {
+      return null;
+    }
+    // Ensure completed and percent are properly initialized
+    return {
+      ...progress,
+      completed: progress.completed ?? 0,
+      percent: progress.percent ?? 0,
+      estimated_total: progress.estimated_total ?? 0,
+    };
   }
 
   get selectedIdentityHasActiveCrawl(): boolean {

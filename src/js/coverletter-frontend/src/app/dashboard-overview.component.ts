@@ -179,7 +179,17 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       return this.getTimestampSeconds(right.updated_at) - this.getTimestampSeconds(left.updated_at);
     });
 
-    return prioritized[0] || null;
+    const selected = prioritized[0] || null;
+    if (!selected) {
+      return null;
+    }
+    // Ensure completed, estimated_total, and percent are properly initialized
+    return {
+      ...selected,
+      completed: selected.completed ?? 0,
+      percent: selected.percent ?? 0,
+      estimated_total: selected.estimated_total ?? 0,
+    };
   }
 
   private getStatusRank(status: CrawlProgress['status']): number {
