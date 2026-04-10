@@ -5,7 +5,7 @@ import { DashboardOverviewComponent } from './dashboard-overview.component';
 import { JobDiscoveryComponent } from './job-discovery.component';
 import { IdentitiesComponent } from './identities.component';
 import { CoverLettersListComponent } from './coverletters-list.component';
-import { CompaniesRecipientsComponent } from './companies-recipients.component';
+import { RecipientsComponent } from './recipients.component';
 import { SettingsComponent } from './settings.component';
 import { LetterEditorComponent } from './letter-editor.component';
 import { authGuard } from './auth.guard';
@@ -28,7 +28,8 @@ export const routes: Routes = [
             { path: 'letter-editor/:id', component: LetterEditorComponent },
             { path: 'cover-letters', component: CoverLettersListComponent },
             { path: 'cover-letters/:id', redirectTo: 'letter-editor/:id', pathMatch: 'full' },
-            { path: 'companies', component: CompaniesRecipientsComponent }
+            { path: 'recipients', component: RecipientsComponent },
+            { path: 'companies', redirectTo: 'recipients', pathMatch: 'full' }
         ]
     },
 

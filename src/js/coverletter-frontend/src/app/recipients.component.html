@@ -1,0 +1,199 @@
+<section class="directory-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">The Curator</p>
+      <h3>Recipient List</h3>
+      <p class="page-description">Manage recipient relationships and generate cover letters.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="primary-button" type="button" (click)="openRecipientCreateModal()">
+        <span class="material-symbols-outlined">add</span>
+        <span>Add Recipient</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="content-grid">
+    <div class="table-shell">
+      <div *ngIf="loading" class="empty-state is-loading">
+        <span class="material-symbols-outlined">progress_activity</span>
+        <p>Loading recipients...</p>
+      </div>
+
+      <section class="table-card" *ngIf="!loading && recipients.length > 0">
+        <div class="modal-body">
+          <div class="section-title-row">
+            <h5>Discovery Settings</h5>
+          </div>
+
+          <label aria-label="Identity filter">
+            <span>Identity View</span>
+            <select [ngModel]="selectedIdentityId" (ngModelChange)="onIdentityFilterChange($event)">
+              <option value="" disabled>Select identity</option>
+              <option *ngFor="let identity of identities" [value]="identity.id">
+                {{ identity.identity }}
+              </option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <div *ngIf="!loading && recipients.length === 0" class="empty-state">
+        <span class="material-symbols-outlined">person_search</span>
+        <p>No recipients yet.</p>
+        <button class="primary-button" type="button" (click)="openRecipientCreateModal()">Create the first recipient</button>
+      </div>
+
+      <div *ngIf="!loading && recipients.length > 0 && visibleRecipients.length === 0" class="empty-state">
+        <span class="material-symbols-outlined">filter_alt_off</span>
+        <p>No recipients match the selected identity view.</p>
+      </div>
+
+      <div *ngIf="!loading && visibleRecipients.length > 0" class="table-card">
+        <table class="directory-table" aria-label="Recipients table">
+          <thead>
+            <tr>
+              <th>Recipient</th>
+              <th>Email</th>
+              <th>Company</th>
+              <th>Description</th>
+              <th class="actions-column">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let recipient of visibleRecipients"
+              (click)="selectRecipient(recipient)"
+              [class.is-selected]="selectedRecipientId === recipient.id"
+            >
+              <td>
+                <div class="entity-cell">
+                  <div class="avatar is-recipient">{{ recipientInitials(recipient) }}</div>
+                  <div>
+                    <div class="entity-name">{{ recipient.name || 'Unnamed recipient' }}</div>
+                    <div class="entity-meta">{{ recipient.company_info?.name || 'Unlinked company' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>{{ recipient.email }}</td>
+              <td>{{ recipient.company_info?.name || 'Unassigned' }}</td>
+              <td>{{ recipient.description || 'No notes yet.' }}</td>
+              <td class="actions-column">
+                <div class="row-actions">
+                  <button type="button" class="icon-button" (click)="openRecipientEditModal(recipient, $event)" aria-label="Edit recipient">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-button"
+                    (click)="generateRecipientCoverLetter(recipient, $event)"
+                    [disabled]="generatingRecipientId === recipient.id"
+                    aria-label="Generate cover letter"
+                  >
+                    <span class="material-symbols-outlined">edit_note</span>
+                  </button>
+                  <button type="button" class="icon-button danger" (click)="deleteRecipient(recipient, $event)" aria-label="Delete recipient">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside class="detail-panel">
+      <ng-container *ngIf="selectedRecipient; else recipientFallback">
+        <div class="detail-header">
+          <div class="detail-avatar is-recipient">{{ recipientInitials(selectedRecipient) }}</div>
+          <div>
+            <h4>{{ selectedRecipient.name || 'Unnamed recipient' }}</h4>
+            <p>{{ selectedRecipient.email }}</p>
+          </div>
+        </div>
+
+        <p class="detail-description">{{ selectedRecipient.description || 'Add notes to capture relationship context, hiring role, or preferred outreach style.' }}</p>
+
+        <div class="detail-section">
+          <div class="section-title-row">
+            <h5>Company</h5>
+          </div>
+          <div class="linked-card is-static">
+            <div class="linked-card-main">
+              <div class="mini-avatar">{{ companyInitials(selectedRecipient.company_info || null) }}</div>
+              <div>
+                <div class="linked-card-title">{{ selectedRecipient.company_info?.name || 'No linked company' }}</div>
+                <div class="linked-card-meta">{{ selectedRecipient.company_info?.ats_slug || 'No ATS slug recorded' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section recipient-actions">
+          <button class="secondary-button" type="button" (click)="openRecipientEditModal(selectedRecipient)">Edit recipient</button>
+          <button
+            class="primary-button"
+            type="button"
+            (click)="generateRecipientCoverLetter(selectedRecipient)"
+            [disabled]="generatingRecipientId === selectedRecipient.id"
+          >
+            Generate Cover Letter
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-template #recipientFallback>
+        <div class="empty-state detail-empty">
+          <span class="material-symbols-outlined">person_search</span>
+          <p>Select a recipient to inspect company linkage and actions.</p>
+        </div>
+      </ng-template>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="isRecipientModalOpen">
+    <section class="modal-card" *ngIf="isRecipientModalOpen" aria-label="Recipient form">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Recipients</p>
+          <h4>{{ recipientForm.id ? 'Edit recipient' : 'Add recipient' }}</h4>
+        </div>
+        <button type="button" class="icon-button" (click)="closeRecipientModal()" aria-label="Close recipient form">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </header>
+
+      <div class="modal-body">
+        <label>
+          <span>Name</span>
+          <input [(ngModel)]="recipientForm.name" placeholder="Sarah Jenkins" />
+        </label>
+
+        <label>
+          <span>Email</span>
+          <input [(ngModel)]="recipientForm.email" [disabled]="!!recipientForm.id" placeholder="sarah@example.com" />
+        </label>
+
+        <label>
+          <span>Company</span>
+          <select [(ngModel)]="recipientForm.company_id">
+            <option value="">-- none --</option>
+            <option *ngFor="let company of companies" [value]="company.id">{{ company.name }}</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Description</span>
+          <textarea [(ngModel)]="recipientForm.description" placeholder="Technical recruiter, platform hiring, warm intro via ..."></textarea>
+        </label>
+      </div>
+
+      <footer class="modal-footer">
+        <button type="button" class="secondary-button" (click)="closeRecipientModal()">Cancel</button>
+        <button type="button" class="primary-button" (click)="saveRecipient()">Save Recipient</button>
+      </footer>
+    </section>
+  </div>
+</section>
