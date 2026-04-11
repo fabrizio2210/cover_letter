@@ -188,6 +188,15 @@ class AiScorerUnitTests(unittest.TestCase):
             self.fail("Expected Ollama messages to be captured")
         prompt_text = client.last_messages[1]["content"]
         self.assertIn("Preference Guidance:", prompt_text)
+        self.assertIn("Job Title:", prompt_text)
+        self.assertIn("Job Description:", prompt_text)
+        self.assertIn("Job Location:", prompt_text)
+        self.assertNotIn("Source Platform:", prompt_text)
+        self.assertNotIn("Company Name:", prompt_text)
+        self.assertNotIn("Company Description:", prompt_text)
+        self.assertNotIn("Candidate Identity Name:", prompt_text)
+        self.assertNotIn("Candidate Identity Description:", prompt_text)
+        self.assertNotIn("Preference Key:", prompt_text)
         self.assertNotIn("Preference Weight:", prompt_text)
 
     def test_compute_and_persist_aggregate_updates_job_document(self):

@@ -168,13 +168,8 @@ Expected BSON keys used by the worker:
 | `job-descriptions` | `title` | job title |
 | `job-descriptions` | `description` | job description body |
 | `job-descriptions` | `location` | location text |
-| `job-descriptions` | `platform` | source platform |
 | `job-descriptions` | `company` | company reference |
-| `companies` | `name` | company name |
-| `companies` | `description` | company description |
 | `companies` | `field` | field reference |
-| `identities` | `name` | candidate display name |
-| `identities` | `description` | candidate description |
 | `identities` | `preferences` | weighted preference list |
 
 ### 6.3 Reference Storage Notes
@@ -220,10 +215,14 @@ At minimum this applies to:
 ## 8. Prompt Construction Contract
 
 Scoring prompt inputs must include:
-- job title, description, location, and source platform;
-- company name and description when available;
-- identity name and description;
-- one enabled identity preference at a time with its `key`, `guidance`, and `weight`.
+- job title, description, and location;
+- one enabled identity preference guidance at a time.
+
+Scoring prompt inputs must exclude:
+- source platform;
+- company name and company description;
+- identity name and identity description.
+- preference key.
 
 For each enabled preference, the prompt must ask Ollama for:
 - an integer score from 1 to 5.

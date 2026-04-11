@@ -178,35 +178,22 @@ def build_prompt(job, company, identity, preference):
     job_title = get_field(job, "title", "")
     job_description = get_field(job, "description", "")
     job_location = get_field(job, "location", "")
-    job_platform = get_field(job, "platform", "")
 
-    company_name = get_field(company, "name", "")
-    company_description = get_field(company, "description", "")
-
-    identity_name = get_field(identity, "name", "")
-    identity_description = get_field(identity, "description", "")
-
-    preference_key = get_field(preference, "key", "")
     preference_guidance = get_field(preference, "guidance", "")
 
     system_instruction = (
-        "You are an objective HR analyzer. Evaluate one candidate preference against one job posting. "
+        "You are an objective HR analyzer. Evaluate one candidate preference against one job posting using the preference guidance. "
         "Return only one integer score from 1 to 5. "
         "Do not return JSON and do not add any explanation text."
     )
 
     user_prompt = (
+        f"Preference Guidance: {preference_guidance}\n\n"
+        "Respond only with one number in range 1..5.\n\n"
         f"Job Title: {job_title}\n"
         f"Job Description: {job_description}\n"
         f"Job Location: {job_location}\n"
-        f"Source Platform: {job_platform}\n\n"
-        f"Company Name: {company_name}\n"
-        f"Company Description: {company_description}\n\n"
-        f"Candidate Identity Name: {identity_name}\n"
-        f"Candidate Identity Description: {identity_description}\n\n"
-        f"Preference Key: {preference_key}\n"
-        f"Preference Guidance: {preference_guidance}\n\n"
-        "Respond only with one number in range 1..5."
+        "\n"
     )
 
     return system_instruction, user_prompt
