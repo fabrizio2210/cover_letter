@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import ollama  # type: ignore
+import ollama
 import redis
 from bson.objectid import ObjectId
 from pymongo import MongoClient
