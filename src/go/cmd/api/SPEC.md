@@ -37,7 +37,7 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `handlers/recipients.go`, `handlers/cover_letters.go` |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | crawl-trigger producer handlers |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | crawler-progress consumer and SSE relay |
-| `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | planned job-description scoring producer handlers |
+| `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
 ---
@@ -254,7 +254,7 @@ Rules enforced by the consumer:
 ### 5.2 `job_scoring_queue`
 
 Env var: `JOB_SCORING_QUEUE_NAME` (default: `job_scoring_queue`)
-Consumer: Python `ai_querier` service.
+Consumer: Python `ai_scorer` service.
 
 **Payload** (from `POST /api/job-descriptions/:id/score` or automatic post-crawl enqueue):
 
@@ -268,6 +268,7 @@ Rules enforced by the consumer:
 - Missing `job_id` → message is dropped with an error log.
 - The worker resolves the job description, company, field, identity, and identity preferences from MongoDB.
 - AI returns only per-preference score and rationale; the weighted aggregate is computed deterministically by application logic and persisted back onto the job description.
+- Queue ownership split: `ai_querier` consumes only cover-letter jobs; `ai_scorer` consumes only job-scoring jobs.
 
 Producer-side lifecycle expectations:
 - Post-crawl producers enqueue on both insert and update when scoring enqueue is enabled.
@@ -959,4 +960,4 @@ The following services exist as empty stubs (`src/go/cmd/emailer/`, `src/go/cmd/
 - **`emailer`** — consumes `emails_to_send` queue and sends emails via SMTP. When implemented, it will need `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` environment variables.
 - **`authentication`** — future dedicated auth service. Currently auth is embedded in the API handler (`handlers/auth.go`).
 
-For Python worker specs (`ai_querier`, `telegram_bot`, `web_crawler`) see a separate spec file if created.
+For Python worker specs (`ai_querier`, `ai_scorer`, `telegram_bot`, `web_crawler`) see separate spec files.

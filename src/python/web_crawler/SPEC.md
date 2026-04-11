@@ -5,7 +5,7 @@ Agents editing files in this folder MUST consult this file before making changes
 
 It exists to prevent contract drift between crawl adapters, MongoDB job documents, company resolution behavior, and downstream scoring queue integration.
 
-> Shared references: `web_crawler.py` (or equivalent entry script), `../../go/cmd/api/SPEC.md`, `../ai_querier/SPEC.md`, `../../../spec.md`
+> Shared references: `web_crawler.py` (or equivalent entry script), `../../go/cmd/api/SPEC.md`, `../ai_scorer/SPEC.md`, `../../../spec.md`
 
 ---
 
@@ -628,7 +628,7 @@ Scoring lifecycle contract:
 
 Ownership boundary:
 - Crawler produces job ids for scoring.
-- `ai_querier` consumes queue and writes per-preference scores.
+- `ai_scorer` consumes queue and writes per-preference scores.
 - Deterministic aggregate ranking remains outside crawler responsibility.
 
 ---
@@ -760,7 +760,7 @@ Each run should emit summary counters:
 Before changing crawler code in this folder:
 1. Read this file.
 2. Check `../../go/cmd/api/SPEC.md` for canonical job fields and queue payload contract.
-3. Check `../ai_querier/SPEC.md` for scoring consumer expectations.
+3. Check `../ai_scorer/SPEC.md` for scoring consumer expectations.
 4. Preserve exact field names in MongoDB documents and queue messages.
 5. Update this spec and related service specs together when shared contracts change.
 
@@ -792,7 +792,7 @@ Do not change these names without coordinated cross-service updates:
 Use these references in this order when working on crawler contracts:
 1. this file for crawler-local behavior and source extraction rules;
 2. `../../go/cmd/api/SPEC.md` for API-side model and queue contracts;
-3. `../ai_querier/SPEC.md` for downstream scoring worker expectations;
+3. `../ai_scorer/SPEC.md` for downstream scoring worker expectations;
 4. `../../../spec.md` for broader product intent only.
 
 If references disagree on a shared contract, resolve explicitly in code and docs rather than assuming intent.

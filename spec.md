@@ -1,13 +1,14 @@
 # Cover Letter
 
 This is a web application which allows users, currently just one, to manage the life cycle of a cover letter for a job application and to evaluate job opportunities before applying.
-The idea is to discover relevant openings, rank them against user preferences, and send highly customised cover letters to potential employers by leveraging LLM (i.e. Gemini).
+The idea is to discover relevant openings, rank them against user preferences, and send highly customised cover letters to potential employers by leveraging LLM services (Gemini for cover letters, Ollama for local job scoring).
 
 This document describes product and architecture intent at a high level.
 Implementation contracts are defined in:
 - [Backend API Specification](src/go/cmd/api/SPEC.md)
 - [Frontend Specification](src/js/coverletter-frontend/src/app/SPEC.md)
 - [AI Querier Specification](src/python/ai_querier/SPEC.md)
+- [AI Scorer Specification](src/python/ai_scorer/SPEC.md)
 
 ## Structure of the application
 
@@ -62,7 +63,7 @@ If a job cannot resolve required scoring prerequisites (for example company-fiel
 
 Re-crawled jobs are always re-enqueued for scoring when scoring enqueue is enabled.
 
-The `ai_querier` service is reused for this scoring flow. It remains the Gemini-facing worker for both cover-letter generation/refinement and job-preference scoring.
+The scoring flow is handled by a dedicated `ai_scorer` worker service. `ai_scorer` consumes job-scoring queue messages and evaluates job/preference fit using a local model exposed by Ollama on LAN. The `ai_querier` service remains dedicated to cover-letter generation and refinement through Gemini.
 
 #### Prepare Cover Letters
 
@@ -127,7 +128,7 @@ Redis is used for:
 - queued outgoing emails;
 - temporary OTP code storage.
 
-Queue payload contracts are defined in [Backend API Specification](src/go/cmd/api/SPEC.md) and [AI Querier Specification](src/python/ai_querier/SPEC.md).
+Queue payload contracts are defined in [Backend API Specification](src/go/cmd/api/SPEC.md), [AI Querier Specification](src/python/ai_querier/SPEC.md), and [AI Scorer Specification](src/python/ai_scorer/SPEC.md).
 
 ## Frontend
 
