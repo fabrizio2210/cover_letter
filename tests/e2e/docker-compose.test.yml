@@ -23,6 +23,24 @@ services:
       - mongo
       - redis
 
+  ai_scorer:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ../..:/workspace:delegated
+    command: bash -c "pip install -r /workspace/src/python/ai_scorer/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_scorer/ai_scorer.py"
+    environment:
+      - AI_SCORER_TEST_MODE=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_HOST=mongodb://mongo:27017/
+      - DB_NAME=cover_letter
+      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
+      - OLLAMA_MODEL=test-mode-model
+    depends_on:
+      - mongo
+      - redis
+
   api:
     image: golang:1.25
     working_dir: /workspace/src/go/cmd/api
@@ -48,7 +66,7 @@ services:
     working_dir: /workspace
     volumes:
       - ../..:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/seed_mongo.py"]
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo.py"]
     depends_on:
       - mongo
 
@@ -66,6 +84,24 @@ services:
     working_dir: /workspace
     volumes:
       - ../..:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/check_coverletter.py"]
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_coverletter.py"]
+    depends_on:
+      - mongo
+
+  scorer_pusher:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "python /workspace/tests/e2e/push_score_via_api.py"]
+    depends_on:
+      - redis
+
+  scorer_checker:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer.py"]
     depends_on:
       - mongo

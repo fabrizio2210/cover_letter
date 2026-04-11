@@ -17,15 +17,23 @@ ADMIN_PASSWORD = 'testpassword'
 # Obtain token
 req = urllib.request.Request(API_HOST + LOGIN_PATH, method='POST')
 req.add_header('Content-Type', 'application/json')
-try:
-    with urllib.request.urlopen(req, data=json.dumps({'password': ADMIN_PASSWORD}).encode('utf-8'), timeout=5) as resp:
-        body = resp.read()
-        parsed = json.loads(body)
-        token = parsed.get('token')
-        if not token:
-            raise SystemExit('No token returned')
-except urllib.error.HTTPError as e:
-    raise SystemExit(f'Login failed: {e.code} {e.reason}')
+token = None
+login_deadline = time.time() + 30
+while time.time() < login_deadline:
+    try:
+        with urllib.request.urlopen(req, data=json.dumps({'password': ADMIN_PASSWORD}).encode('utf-8'), timeout=5) as resp:
+            body = resp.read()
+            parsed = json.loads(body)
+            token = parsed.get('token')
+            if token:
+                break
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f'Login failed: {e.code} {e.reason}')
+    except urllib.error.URLError:
+        time.sleep(0.5)
+
+if not token:
+    raise SystemExit('Login failed: API not reachable')
 
 results = {}
 
