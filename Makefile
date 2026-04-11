@@ -3,5 +3,7 @@ generate-proto:
 	protoc --go_out=paths=source_relative:. src/go/internal/proto/common/common.proto
 	# 2. Inject the BSON tags
 	protoc-go-inject-tag  --input=src/go/internal/proto/common/common.pb.go
-	# 3. Generate Python code
+	# 3. Generate Python code for ai_querier
 	protoc --plugin=protoc-gen-mypy=/usr/bin/protoc-gen-mypy --mypy_out=src/python/ai_querier/ --python_out=src/python/ai_querier/ --proto_path=src/go/internal/proto/common/ common.proto
+	# 4. Generate Python code for ai_scorer
+	protoc --plugin=protoc-gen-mypy=/usr/bin/protoc-gen-mypy --mypy_out=src/python/ai_scorer/ --python_out=src/python/ai_scorer/ --proto_path=src/go/internal/proto/common/ common.proto

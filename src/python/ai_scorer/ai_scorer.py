@@ -7,7 +7,102 @@ from typing import Any
 import ollama
 import redis
 from bson.objectid import ObjectId
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.timestamp_pb2 import Timestamp
 from pymongo import MongoClient
+import common_pb2
+
+
+_SCORING_STATUS_BSON: dict[int, str] = {
+    common_pb2.SCORING_STATUS_UNSCORED: "unscored",
+    common_pb2.SCORING_STATUS_QUEUED: "queued",
+    common_pb2.SCORING_STATUS_SCORED: "scored",
+    common_pb2.SCORING_STATUS_FAILED: "failed",
+    common_pb2.SCORING_STATUS_SKIPPED: "skipped",
+}
+
+
+def scoring_status_to_bson(status: int) -> str:
+    return _SCORING_STATUS_BSON.get(status, "unscored")
+
+
+def to_string_id(value):
+    if value is None:
+        return ""
+    if isinstance(value, ObjectId):
+        return str(value)
+    return str(value)
+
+
+def get_field(obj, field_name, default_value: Any = ""):
+    if isinstance(obj, dict):
+        return obj.get(field_name, default_value)
+    return getattr(obj, field_name, default_value)
+
+
+def get_message_id(value):
+    if isinstance(value, dict):
+        return to_string_id(value.get("_id") if value.get("_id") is not None else value.get("id"))
+    return to_string_id(getattr(value, "id", ""))
+
+
+def timestamp_dict_from_proto(ts: Timestamp):
+    return {"seconds": int(ts.seconds), "nanos": int(ts.nanos)}
+
+
+def now_proto_timestamp():
+    ts = Timestamp()
+    ts.GetCurrentTime()
+    return ts
+
+
+def job_proto_from_doc(job_doc):
+    job_proto = common_pb2.Job(
+        id=to_string_id(job_doc.get("_id")),
+        company_id=to_string_id(job_doc.get("company_id") if job_doc.get("company_id") is not None else job_doc.get("company")),
+        title=str(job_doc.get("title", "")),
+        description=str(job_doc.get("description", "")),
+        location=str(job_doc.get("location", "")),
+        platform=str(job_doc.get("platform", "")),
+        weighted_score=float(job_doc.get("weighted_score", 0) or 0),
+        max_score=int(job_doc.get("max_score", 0) or 0),
+    )
+    return job_proto
+
+
+def company_proto_from_doc(company_doc):
+    company_proto = common_pb2.Company(
+        id=to_string_id(company_doc.get("_id")),
+        name=str(company_doc.get("name", "")),
+        field_id=to_string_id(company_doc.get("field_id") if company_doc.get("field_id") is not None else company_doc.get("field")),
+        description=str(company_doc.get("description", "")),
+    )
+    return company_proto
+
+
+def identity_proto_from_doc(identity_doc):
+    identity_proto = common_pb2.Identity(
+        id=to_string_id(identity_doc.get("_id")),
+        identity=str(identity_doc.get("identity", "")),
+        name=str(identity_doc.get("name", "")),
+        description=str(identity_doc.get("description", "")),
+        field_id=to_string_id(identity_doc.get("field_id") if identity_doc.get("field_id") is not None else identity_doc.get("field")),
+    )
+
+    for preference in identity_doc.get("preferences", []):
+        if not isinstance(preference, dict):
+            continue
+        identity_proto.preferences.append(
+            common_pb2.IdentityPreference(
+                key=str(preference.get("key", "")),
+                label=str(preference.get("label", "")),
+                weight=float(preference.get("weight", 0) or 0),
+                enabled=bool(preference.get("enabled", False)),
+                guidance=str(preference.get("guidance", "")),
+            )
+        )
+
+    return identity_proto
 
 
 def now_timestamp_dict():
@@ -73,22 +168,22 @@ def parse_ollama_response(content):
     return None
 
 
-def build_prompt(job_doc, company_doc, identity_doc, preference):
-    job_title = job_doc.get("title", "")
-    job_description = job_doc.get("description", "")
-    job_location = job_doc.get("location", "")
-    job_platform = job_doc.get("platform", "")
+def build_prompt(job, company, identity, preference):
+    job_title = get_field(job, "title", "")
+    job_description = get_field(job, "description", "")
+    job_location = get_field(job, "location", "")
+    job_platform = get_field(job, "platform", "")
 
-    company_name = company_doc.get("name", "")
-    company_description = company_doc.get("description", "")
+    company_name = get_field(company, "name", "")
+    company_description = get_field(company, "description", "")
 
-    identity_name = identity_doc.get("name", "")
-    identity_description = identity_doc.get("description", "")
+    identity_name = get_field(identity, "name", "")
+    identity_description = get_field(identity, "description", "")
 
-    preference_key = preference.get("key", "")
-    preference_label = preference.get("label", "")
-    preference_weight = preference.get("weight", 0)
-    preference_guidance = preference.get("guidance", "")
+    preference_key = get_field(preference, "key", "")
+    preference_label = get_field(preference, "label", "")
+    preference_weight = get_field(preference, "weight", 0)
+    preference_guidance = get_field(preference, "guidance", "")
 
     system_instruction = (
         "You are an objective HR analyzer. Evaluate one candidate preference against one job posting. "
@@ -117,8 +212,8 @@ def build_prompt(job_doc, company_doc, identity_doc, preference):
 
 def set_job_status(job_descriptions_col, job_object_id, status, extra_fields=None):
     payload = {
-        "scoring_status": status,
-        "updated_at": now_timestamp_dict(),
+        "scoring_status": scoring_status_to_bson(status),
+        "updated_at": timestamp_dict_from_proto(now_proto_timestamp()),
     }
     if extra_fields:
         payload.update(extra_fields)
@@ -154,29 +249,19 @@ def resolve_scoring_context(job_descriptions_col, companies_col, identities_col,
 
     identity_doc = None
     if field_object_id:
-        identity_doc = identities_col.find_one(
-            {
-                "$or": [
-                    {"field": field_object_id},
-                    {"field_id": field_object_id},
-                ]
-            }
-        )
+        identity_doc = identities_col.find_one({"field": field_object_id})
+        if not identity_doc:
+            identity_doc = identities_col.find_one({"field_id": field_object_id})
     if not identity_doc and isinstance(field_ref, str):
-        identity_doc = identities_col.find_one(
-            {
-                "$or": [
-                    {"field": field_ref},
-                    {"field_id": field_ref},
-                ]
-            }
-        )
+        identity_doc = identities_col.find_one({"field": field_ref})
+        if not identity_doc:
+            identity_doc = identities_col.find_one({"field_id": field_ref})
 
     if not identity_doc:
         return (job_doc, company_doc, None, None), "identity_not_found"
 
     preferences = identity_doc.get("preferences", [])
-    enabled_preferences = [pref for pref in preferences if pref.get("enabled", False)]
+    enabled_preferences = [pref for pref in preferences if isinstance(pref, dict) and pref.get("enabled", False)]
     if not enabled_preferences:
         return (job_doc, company_doc, identity_doc, []), "no_enabled_preferences"
 
@@ -193,7 +278,7 @@ def score_preference(
     company_doc,
     identity_doc,
 ):
-    preference_key = preference.get("key", "")
+    preference_key = get_field(preference, "key", "")
 
     if test_mode:
         return stable_test_score(job_id, preference_key)
@@ -225,19 +310,24 @@ def score_preference(
 
 
 def persist_preference_score(job_preference_scores_col, job_doc, identity_doc, preference, score):
-    job_id_str = str(job_doc.get("_id"))
-    identity_id_str = str(identity_doc.get("_id"))
-    preference_key = preference.get("key", "")
+    job_id_str = get_message_id(job_doc)
+    identity_id_str = get_message_id(identity_doc)
+    preference_key = get_field(preference, "key", "")
 
-    score_doc = {
-        "job_id": job_id_str,
-        "identity_id": identity_id_str,
-        "preference_key": preference_key,
-        "preference_label": preference.get("label", ""),
-        "preference_weight": float(preference.get("weight", 0)),
-        "score": int(score),
-        "scored_at": now_timestamp_dict(),
-    }
+    scored_at = now_proto_timestamp()
+    score_proto = common_pb2.JobPreferenceScore(
+        job_id=job_id_str,
+        identity_id=identity_id_str,
+        preference_key=preference_key,
+        preference_label=str(get_field(preference, "label", "")),
+        preference_weight=float(get_field(preference, "weight", 0) or 0),
+        score=int(score),
+        scored_at=scored_at,
+    )
+
+    score_doc = MessageToDict(score_proto, preserving_proto_field_name=True)
+    score_doc.pop("id", None)
+    score_doc["scored_at"] = timestamp_dict_from_proto(scored_at)
 
     job_preference_scores_col.update_one(
         {
@@ -251,8 +341,8 @@ def persist_preference_score(job_preference_scores_col, job_doc, identity_doc, p
 
 
 def compute_and_persist_aggregate(job_descriptions_col, job_preference_scores_col, job_doc, identity_doc):
-    job_id_str = str(job_doc.get("_id"))
-    identity_id_str = str(identity_doc.get("_id"))
+    job_id_str = get_message_id(job_doc)
+    identity_id_str = get_message_id(identity_doc)
 
     score_docs = list(
         job_preference_scores_col.find(
@@ -284,8 +374,8 @@ def compute_and_persist_aggregate(job_descriptions_col, job_preference_scores_co
 
     set_job_status(
         job_descriptions_col,
-        job_doc.get("_id"),
-        "scored",
+        parse_object_id(job_id_str),
+        common_pb2.SCORING_STATUS_SCORED,
         extra_fields={
             "weighted_score": weighted_score,
             "max_score": max_score,
@@ -320,34 +410,39 @@ def process_scoring_job(
     job_doc, company_doc, identity_doc, enabled_preferences = context
     job_object_id = job_doc.get("_id")
 
-    if enabled_preferences is None:
-        set_job_status(job_descriptions_col, job_object_id, "skipped")
-        print(f"warn: Skipping job '{job_id}' due to missing preferences list.")
-        return
-
     if error in {"company_not_found", "identity_not_found", "no_enabled_preferences"}:
-        set_job_status(job_descriptions_col, job_object_id, "skipped")
+        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
         print(f"warn: Skipping job '{job_id}' due to missing prerequisites ({error}).")
         return
 
-    set_job_status(job_descriptions_col, job_object_id, "queued")
+    job_proto = job_proto_from_doc(job_doc)
+    company_proto = company_proto_from_doc(company_doc)
+    identity_proto = identity_proto_from_doc(identity_doc)
+    enabled_preferences_proto = [pref for pref in identity_proto.preferences if pref.enabled]
+
+    if not enabled_preferences_proto:
+        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
+        print(f"warn: Skipping job '{job_id}' due to missing preferences list.")
+        return
+
+    set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_QUEUED)
 
     try:
-        for preference in enabled_preferences:
+        for preference in enabled_preferences_proto:
             score = score_preference(
                 ollama_client,
                 model_name,
                 test_mode,
                 str(job_object_id),
                 preference,
-                job_doc,
-                company_doc,
-                identity_doc,
+                job_proto,
+                company_proto,
+                identity_proto,
             )
             persist_preference_score(
                 job_preference_scores_col,
-                job_doc,
-                identity_doc,
+                job_proto,
+                identity_proto,
                 preference,
                 score,
             )
@@ -355,14 +450,14 @@ def process_scoring_job(
         compute_and_persist_aggregate(
             job_descriptions_col,
             job_preference_scores_col,
-            job_doc,
-            identity_doc,
+            job_proto,
+            identity_proto,
         )
 
         print(f"info: Successfully scored job '{job_id}'.")
 
     except Exception as exc:
-        set_job_status(job_descriptions_col, job_object_id, "failed")
+        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_FAILED)
         print(f"error: Failed to score job '{job_id}': {exc}")
 
 
