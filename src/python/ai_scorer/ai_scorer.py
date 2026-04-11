@@ -174,6 +174,34 @@ def parse_ollama_response(content):
     return None, f"unsupported_content_type:{type(content).__name__}"
 
 
+def extract_ollama_content(response):
+    if response is None:
+        return ""
+
+    if isinstance(response, dict):
+        message = response.get("message", {})
+        if isinstance(message, dict):
+            return str(message.get("content", "") or "")
+        return str(getattr(message, "content", "") or "")
+
+    message = getattr(response, "message", None)
+    if message is not None:
+        return str(getattr(message, "content", "") or "")
+
+    model_dump = getattr(response, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+            if isinstance(dumped, dict):
+                message = dumped.get("message", {})
+                if isinstance(message, dict):
+                    return str(message.get("content", "") or "")
+        except Exception:
+            return ""
+
+    return ""
+
+
 def build_prompt(job, company, identity, preference):
     job_title = get_field(job, "title", "")
     job_description = get_field(job, "description", "")
@@ -302,9 +330,7 @@ def score_preference(
         )
     )
 
-    content = ""
-    if isinstance(response, dict):
-        content = response.get("message", {}).get("content", "")
+    content = extract_ollama_content(response)
     print(
         "debug: Ollama response content: "
         + safe_json_dump(
