@@ -158,7 +158,6 @@ Storage note:
 | `preference_label` | `preference_label` | `string` | Human-friendly copy snapshot |
 | `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking |
 | `score` | `score` | `integer` | AI-generated score from 1 to 5 |
-| `rationale` | `rationale` | `string` | Short explanation of the score |
 | `scored_at` | `scored_at` | Timestamp object | See §3.7 |
 
 ### 3.5 CoverLetter
@@ -267,7 +266,7 @@ Consumer: Python `ai_scorer` service.
 Rules enforced by the consumer:
 - Missing `job_id` → message is dropped with an error log.
 - The worker resolves the job description, company, field, identity, and identity preferences from MongoDB.
-- AI returns only per-preference score and rationale; the weighted aggregate is computed deterministically by application logic and persisted back onto the job description.
+- AI returns only per-preference score; the weighted aggregate is computed deterministically by application logic and persisted back onto the job description.
 - Queue ownership split: `ai_querier` consumes only cover-letter jobs; `ai_scorer` consumes only job-scoring jobs.
 
 Producer-side lifecycle expectations:

@@ -87,6 +87,26 @@ services:
     networks:
       - backends
 
+  ai-scorer:
+    image: fabrizio2210/coverletter-ai-scorer-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-ai-scorer-dev
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      OLLAMA_HOST: 192.168.100.253:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
+      AI_SCORER_TEST_MODE: 0
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
   web-crawler:
     image: fabrizio2210/coverletter-web-crawler-dev
     build:

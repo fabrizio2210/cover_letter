@@ -2,6 +2,7 @@
 
 docker build -t fabrizio2210/coverletter-telegram-bot-dev -f docker/x86_64/Dockerfile-bot-dev .
 docker build -t fabrizio2210/coverletter-ai-querier-dev -f docker/x86_64/Dockerfile-ai-dev .
+docker build -t fabrizio2210/coverletter-ai-scorer-dev -f docker/x86_64/Dockerfile-ai-scorer-dev .
 docker build -t fabrizio2210/coverletter-web-crawler-dev -f docker/x86_64/Dockerfile-web-crawler-dev .
 docker build -t fabrizio2210/coverletter-api-dev -f docker/x86_64/Dockerfile-api-dev .
 docker build -t fabrizio2210/coverletter-frontend-dev -f docker/x86_64/Dockerfile-frontend-dev .

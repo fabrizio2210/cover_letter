@@ -129,7 +129,6 @@ export interface JobPreferenceScore {
   preference_label?: string;
   preference_weight?: number;
   score: number;
-  rationale?: string;
   scored_at?: string | Timestamp;
 }
 
@@ -377,7 +376,7 @@ Notes:
 | `AppComponent` | inline | Root router outlet only |
 | `LoginComponent` | external HTML | Login form, token storage, redirect to dashboard |
 | `DashboardComponent` | external HTML | Full-page layout: sidebar, glassmorphism top bar, toast rendering, child route outlet; at `/dashboard` also renders stats cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), a Top Scored Opportunities scrollable feed, and live crawler progress for active runs |
-| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, rationale, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger, and identity-scoped crawl trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, phase text, and per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
+| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger, and identity-scoped crawl trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, phase text, and per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
 | `LetterEditorComponent` | external HTML | Split-pane layout: left pane = rich-text editor with formatting toolbar and word count; right pane = AI Refiner chat panel with conversation history, "Apply Change" / "Undo" actions. Accessed via `/dashboard/letter-editor/:id` |
 | `IdentitiesComponent` | external HTML | Bento-grid of identity cards; each card shows: header (icon, name, last-updated), Discovery Scope tag chips with "Manage Tags", Quick Stats (matches count, affinity %), Preferences & Weights bar rows with "Add Preference"; below grid: Global Curator Preferences section (writing tone, discovery interval, AI creativity slider) |
 | `RecipientsComponent` | external HTML | Recipients list shell at `/dashboard/recipients`; recipients table supports CRUD and lifecycle actions. |

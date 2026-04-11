@@ -1,0 +1,5 @@
+pymongo==4.5.0
+redis==5.0.8
+protobuf==5.29.4
+ollama==0.4.7
+watchdog==6.0.0

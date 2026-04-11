@@ -80,7 +80,7 @@ The worker is responsible for:
 - consuming jobs from the job scoring queue;
 - resolving job/company/identity scoring context from MongoDB;
 - scoring stored job descriptions against enabled weighted identity preferences;
-- storing per-preference scores and rationales in `job-preference-scores`;
+- storing per-preference scores in `job-preference-scores`;
 - computing weighted aggregate ranking deterministically;
 - updating `job-descriptions` scoring fields and status lifecycle.
 
@@ -204,7 +204,6 @@ At minimum this applies to:
 | `preference_label` | string | Label snapshot |
 | `preference_weight` | number | Weight snapshot |
 | `score` | integer | Integer score in range `1..5` |
-| `rationale` | string | Short explanation grounded in job text |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 
 ### 7.2 Required aggregate fields (`job-descriptions`)
@@ -227,8 +226,7 @@ Scoring prompt inputs must include:
 - one enabled identity preference at a time with its `key`, `label`, `weight`, and optional `guidance`.
 
 For each enabled preference, the prompt must ask Ollama for:
-- an integer score from 1 to 5;
-- a short rationale tied to concrete job details.
+- an integer score from 1 to 5.
 
 The worker must treat model output as per-preference evidence only. Weighted aggregate ranking is computed deterministically outside the model output.
 
@@ -241,7 +239,7 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 3. Resolve company via `job-descriptions.company`.
 4. Resolve identity via the company field.
 5. Keep only enabled preferences from `identities.preferences`.
-6. For each enabled preference, request score + rationale from Ollama.
+6. For each enabled preference, request a score from Ollama.
 7. Persist one `job-preference-scores` document per preference.
 8. Compute weighted aggregate from stored scores and weights.
 9. Update `job-descriptions` aggregate fields, `scoring_status`, and `updated_at`.
@@ -307,7 +305,6 @@ Do not change these names without coordinated cross-service updates:
 - `job_id`
 - `preference_key`
 - `score`
-- `rationale`
 - `preference_weight`
 - `weighted_score`
 - `max_score`
