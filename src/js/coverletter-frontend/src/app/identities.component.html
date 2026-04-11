@@ -168,7 +168,7 @@
               <div class="pref-icon">
                 <span class="material-symbols-outlined">label</span>
               </div>
-              <span class="pref-label">{{ pref.label || pref.key }}</span>
+              <span class="pref-label">{{ pref.guidance || pref.key }}</span>
             </div>
             <div class="pref-weight-block">
               <div class="weight-dots">
@@ -190,7 +190,7 @@
         <div *ngIf="editCardIndex === i" class="pref-edit-list">
           <div *ngFor="let pref of editPreferences; let pIdx = index" class="pref-edit-row">
             <input [(ngModel)]="pref.key" type="text" placeholder="key" class="field-input pref-key-input" />
-            <input [(ngModel)]="pref.label" type="text" placeholder="Label" class="field-input pref-label-input" />
+            <input [(ngModel)]="pref.guidance" type="text" placeholder="Guidance" class="field-input pref-label-input" />
             <div class="weight-dots editable">
               <div
                 *ngFor="let dot of dotRange"

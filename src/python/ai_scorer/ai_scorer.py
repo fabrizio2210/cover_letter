@@ -95,10 +95,9 @@ def identity_proto_from_doc(identity_doc):
         identity_proto.preferences.append(
             common_pb2.IdentityPreference(
                 key=str(preference.get("key", "")),
-                label=str(preference.get("label", "")),
+                guidance=str(preference.get("guidance", "") or preference.get("label", "")),
                 weight=float(preference.get("weight", 0) or 0),
                 enabled=bool(preference.get("enabled", False)),
-                guidance=str(preference.get("guidance", "")),
             )
         )
 
@@ -130,9 +129,16 @@ def stable_test_score(job_id, preference_key):
     return (seed % 5) + 1
 
 
+def safe_json_dump(value):
+    try:
+        return json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        return repr(value)
+
+
 def parse_ollama_response(content):
     if not content:
-        return None
+        return None, "empty_content"
 
     if isinstance(content, str):
         stripped = content.strip()
@@ -141,31 +147,31 @@ def parse_ollama_response(content):
             if isinstance(payload, dict) and "score" in payload:
                 score_value = payload.get("score")
                 if score_value is not None:
-                    return int(score_value)
+                    return int(score_value), "json_dict_score"
             if isinstance(payload, int):
-                return payload
+                return payload, "json_integer"
         except Exception:
             pass
 
         if stripped.isdigit():
-            return int(stripped)
+            return int(stripped), "plain_integer"
 
         digits = [ch for ch in stripped if ch.isdigit()]
         if digits:
-            return int(digits[0])
+            return int(digits[0]), "first_digit_fallback"
 
-        return None
+        return None, "string_without_parseable_score"
 
     if isinstance(content, dict):
         try:
             score_value = content.get("score")
             if score_value is None:
-                return None
-            return int(score_value)
+                return None, "dict_without_score"
+            return int(score_value), "dict_score"
         except Exception:
-            return None
+            return None, "dict_score_cast_failed"
 
-    return None
+    return None, f"unsupported_content_type:{type(content).__name__}"
 
 
 def build_prompt(job, company, identity, preference):
@@ -181,8 +187,6 @@ def build_prompt(job, company, identity, preference):
     identity_description = get_field(identity, "description", "")
 
     preference_key = get_field(preference, "key", "")
-    preference_label = get_field(preference, "label", "")
-    preference_weight = get_field(preference, "weight", 0)
     preference_guidance = get_field(preference, "guidance", "")
 
     system_instruction = (
@@ -201,8 +205,6 @@ def build_prompt(job, company, identity, preference):
         f"Candidate Identity Name: {identity_name}\n"
         f"Candidate Identity Description: {identity_description}\n\n"
         f"Preference Key: {preference_key}\n"
-        f"Preference Label: {preference_label}\n"
-        f"Preference Weight: {preference_weight}\n"
         f"Preference Guidance: {preference_guidance}\n\n"
         "Respond only with one number in range 1..5."
     )
@@ -285,26 +287,85 @@ def score_preference(
 
     system_instruction, user_prompt = build_prompt(job_doc, company_doc, identity_doc, preference)
 
-    response = ollama_client.chat(
-        model=model_name,
-        messages=[
+    request_payload = {
+        "job_id": job_id,
+        "preference_key": preference_key,
+        "model": model_name,
+        "messages": [
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": user_prompt},
         ],
+        "options": {"temperature": 0},
+    }
+    print(f"debug: Ollama request: {safe_json_dump(request_payload)}")
+
+    response = ollama_client.chat(
+        model=model_name,
+        messages=request_payload["messages"],
         options={"temperature": 0},
+    )
+    print(
+        "debug: Ollama response: "
+        + safe_json_dump(
+            {
+                "job_id": job_id,
+                "preference_key": preference_key,
+                "response": response,
+            }
+        )
     )
 
     content = ""
     if isinstance(response, dict):
         content = response.get("message", {}).get("content", "")
+    print(
+        "debug: Ollama response content: "
+        + safe_json_dump(
+            {
+                "job_id": job_id,
+                "preference_key": preference_key,
+                "content": content,
+            }
+        )
+    )
 
-    score = parse_ollama_response(content)
+    score, parse_strategy = parse_ollama_response(content)
 
     if score is None:
-        raise ValueError("Invalid model response: missing score")
+        raise ValueError(
+            "Invalid model response: missing score "
+            + safe_json_dump(
+                {
+                    "parse_reason": parse_strategy,
+                    "response_content": content,
+                    "raw_response": response,
+                }
+            )
+        )
 
     if score < 1 or score > 5:
-        raise ValueError(f"Invalid model response: score out of range ({score})")
+        raise ValueError(
+            f"Invalid model response: score out of range ({score}) "
+            + safe_json_dump(
+                {
+                    "parse_reason": parse_strategy,
+                    "response_content": content,
+                    "raw_response": response,
+                }
+            )
+        )
+
+    print(
+        "debug: Parsed model score: "
+        + safe_json_dump(
+            {
+                "job_id": job_id,
+                "preference_key": preference_key,
+                "score": score,
+                "parse_strategy": parse_strategy,
+            }
+        )
+    )
 
     return score
 
@@ -319,7 +380,7 @@ def persist_preference_score(job_preference_scores_col, job_doc, identity_doc, p
         job_id=job_id_str,
         identity_id=identity_id_str,
         preference_key=preference_key,
-        preference_label=str(get_field(preference, "label", "")),
+        preference_guidance=str(get_field(preference, "guidance", "") or get_field(preference, "label", "")),
         preference_weight=float(get_field(preference, "weight", 0) or 0),
         score=int(score),
         scored_at=scored_at,
@@ -357,20 +418,16 @@ def compute_and_persist_aggregate(job_descriptions_col, job_preference_scores_co
         raise ValueError("No preference scores found to aggregate")
 
     weighted_sum = 0.0
-    total_weight = 0.0
-    max_score = 0
+    max_score = len(score_docs) * 5
 
     for doc in score_docs:
         score = int(doc.get("score", 0))
         weight = float(doc.get("preference_weight", 0))
-        weighted_sum += score * weight
-        total_weight += weight
-        if score > max_score:
-            max_score = score
+        weighted_sum += score * (weight / max_score)
 
     weighted_score = 0.0
-    if total_weight > 0:
-        weighted_score = weighted_sum / total_weight
+    if max_score > 0:
+        weighted_score = weighted_sum
 
     set_job_status(
         job_descriptions_col,

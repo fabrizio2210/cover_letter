@@ -204,7 +204,7 @@ export class IdentitiesComponent implements OnInit {
   // ─── Preference editing ──────────────────────────────────────────────────────
 
   addPreference(): void {
-    this.editPreferences.push({ key: '', label: '', weight: 3, enabled: true });
+    this.editPreferences.push({ key: '', guidance: '', weight: 3, enabled: true });
   }
 
   removePreference(index: number): void {

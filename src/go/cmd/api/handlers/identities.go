@@ -225,7 +225,6 @@ func UpdateIdentityPreferences(c *gin.Context) {
 	var req struct {
 		Preferences []struct {
 			Key      string  `json:"key"`
-			Label    string  `json:"label"`
 			Weight   float64 `json:"weight"`
 			Enabled  bool    `json:"enabled"`
 			Guidance string  `json:"guidance"`
@@ -251,7 +250,6 @@ func UpdateIdentityPreferences(c *gin.Context) {
 		seen[preference.Key] = struct{}{}
 		preferences = append(preferences, bson.M{
 			"key":      preference.Key,
-			"label":    preference.Label,
 			"weight":   preference.Weight,
 			"enabled":  preference.Enabled,
 			"guidance": preference.Guidance,

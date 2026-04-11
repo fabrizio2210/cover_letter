@@ -32,12 +32,12 @@ func TestGetJobDescriptions_NormalizesIDsAndScores(t *testing.T) {
 		},
 	}}}
 	scoresCollection := &fakeCollection{docs: []bson.M{{
-		"_id":              scoreID,
-		"job_id":           jobID,
-		"identity_id":      identityID,
-		"preference_key":   "remote_work",
-		"preference_label": "Remote work",
-		"score":            5,
+		"_id":                 scoreID,
+		"job_id":              jobID,
+		"identity_id":         identityID,
+		"preference_key":      "remote_work",
+		"preference_guidance": "Remote work",
+		"score":               5,
 	}}}
 
 	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{
@@ -200,7 +200,7 @@ func TestUpdateIdentityPreferences_Success(t *testing.T) {
 	defer func() { GetMongoClient = old }()
 
 	id := primitive.NewObjectID().Hex()
-	body := bytes.NewBufferString(`{"preferences":[{"key":"remote_work","label":"Remote work","weight":2,"enabled":true,"guidance":"Prefer remote"}]}`)
+	body := bytes.NewBufferString(`{"preferences":[{"key":"remote_work","weight":2,"enabled":true,"guidance":"Prefer remote"}]}`)
 	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+id+"/preferences", body)
 	req.Header.Set("Content-Type", "application/json")
 	ctx, w := thelpers.CreateGinTestContext(http.MethodPut, "/api/identities/"+id+"/preferences", req)

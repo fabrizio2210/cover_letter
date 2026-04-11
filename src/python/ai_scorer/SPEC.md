@@ -201,7 +201,7 @@ At minimum this applies to:
 | `job_id` | string | String form of `job-descriptions._id` |
 | `identity_id` | string | String form of `identities._id` |
 | `preference_key` | string | Stable key from identity preference |
-| `preference_label` | string | Label snapshot |
+| `preference_guidance` | string | Guidance snapshot |
 | `preference_weight` | number | Weight snapshot |
 | `score` | integer | Integer score in range `1..5` |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
@@ -223,7 +223,7 @@ Scoring prompt inputs must include:
 - job title, description, location, and source platform;
 - company name and description when available;
 - identity name and description;
-- one enabled identity preference at a time with its `key`, `label`, `weight`, and optional `guidance`.
+- one enabled identity preference at a time with its `key`, `guidance`, and `weight`.
 
 For each enabled preference, the prompt must ask Ollama for:
 - an integer score from 1 to 5.

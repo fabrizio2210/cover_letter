@@ -68,8 +68,10 @@ class FakeCollection:
 class FakeOllamaClient:
     def __init__(self, response):
         self.response = response
+        self.last_messages = None
 
     def chat(self, model, messages, options):
+        self.last_messages = messages
         return self.response
 
 
@@ -111,8 +113,8 @@ class AiScorerUnitTests(unittest.TestCase):
                     "field": field_id,
                     "name": "Fab",
                     "preferences": [
-                        {"key": "remote", "label": "Remote", "weight": 2, "enabled": True},
-                        {"key": "onsite", "label": "Onsite", "weight": 1, "enabled": False},
+                        {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                        {"key": "onsite", "guidance": "Onsite", "weight": 1, "enabled": False},
                     ],
                 }
             ]
@@ -151,7 +153,7 @@ class AiScorerUnitTests(unittest.TestCase):
             model_name="unused",
             test_mode=True,
             job_id="507f1f77bcf86cd799439011",
-            preference={"key": "remote", "label": "Remote", "weight": 1, "enabled": True},
+            preference={"key": "remote", "guidance": "Remote", "weight": 1, "enabled": True},
             job_doc={},
             company_doc={},
             identity_doc={},
@@ -174,13 +176,19 @@ class AiScorerUnitTests(unittest.TestCase):
             model_name="qwen2.5:1.5b",
             test_mode=False,
             job_id="507f1f77bcf86cd799439011",
-            preference={"key": "remote", "label": "Remote", "weight": 1, "enabled": True},
+            preference={"key": "remote", "guidance": "Remote", "weight": 1, "enabled": True},
             job_doc={"title": "Engineer", "description": "desc", "location": "EU", "platform": "ashby"},
             company_doc={"name": "Acme", "description": "Infra"},
             identity_doc={"name": "Fab", "description": "Platform"},
         )
 
         self.assertEqual(score, 4)
+        self.assertIsNotNone(client.last_messages)
+        if client.last_messages is None:
+            self.fail("Expected Ollama messages to be captured")
+        prompt_text = client.last_messages[1]["content"]
+        self.assertIn("Preference Guidance:", prompt_text)
+        self.assertNotIn("Preference Weight:", prompt_text)
 
     def test_compute_and_persist_aggregate_updates_job_document(self):
         job_id = ObjectId()
@@ -213,8 +221,8 @@ class AiScorerUnitTests(unittest.TestCase):
         if updated is None:
             self.fail("Expected updated job document")
         self.assertEqual(updated.get("scoring_status"), "scored")
-        self.assertAlmostEqual(updated.get("weighted_score"), 13.0 / 3.0)
-        self.assertEqual(updated.get("max_score"), 5)
+        self.assertAlmostEqual(updated.get("weighted_score"), (5 * (2 / 10)) + (3 * (1 / 10)))
+        self.assertEqual(updated.get("max_score"), 10)
         self.assertIsInstance(updated.get("updated_at"), dict)
 
     def test_process_scoring_job_success_path(self):
@@ -254,8 +262,8 @@ class AiScorerUnitTests(unittest.TestCase):
                     "name": "Fab",
                     "description": "Platform profile",
                     "preferences": [
-                        {"key": "remote", "label": "Remote", "weight": 2, "enabled": True},
-                        {"key": "backend", "label": "Backend", "weight": 1, "enabled": True},
+                        {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                        {"key": "backend", "guidance": "Backend", "weight": 1, "enabled": True},
                     ],
                 }
             ]
@@ -278,7 +286,7 @@ class AiScorerUnitTests(unittest.TestCase):
         if job is None:
             self.fail("Expected scored job document")
         self.assertEqual(job.get("scoring_status"), "scored")
-        self.assertEqual(job.get("max_score") in {1, 2, 3, 4, 5}, True)
+        self.assertEqual(job.get("max_score"), 10)
 
         stored_scores = score_docs.find({"job_id": str(job_id), "identity_id": str(identity_id)})
         self.assertEqual(len(stored_scores), 2)

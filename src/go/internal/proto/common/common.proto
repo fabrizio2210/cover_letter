@@ -110,10 +110,9 @@ message Identity {
 
 message IdentityPreference {
     string key = 1; // @gotags: bson:"key"
-    string label = 2; // @gotags: bson:"label,omitempty"
+    string guidance = 2; // @gotags: bson:"guidance,omitempty"
     double weight = 3; // @gotags: bson:"weight"
     bool enabled = 4; // @gotags: bson:"enabled"
-    string guidance = 5; // @gotags: bson:"guidance,omitempty"
 }
 
 message JobPreferenceScore {
@@ -121,7 +120,7 @@ message JobPreferenceScore {
     string job_id = 2; // @gotags: bson:"job_id"
     string identity_id = 3; // @gotags: bson:"identity_id"
     string preference_key = 4; // @gotags: bson:"preference_key"
-    string preference_label = 5; // @gotags: bson:"preference_label,omitempty"
+    string preference_guidance = 5; // @gotags: bson:"preference_guidance,omitempty"
     double preference_weight = 6; // @gotags: bson:"preference_weight,omitempty"
     int32 score = 7; // @gotags: bson:"score"
     string rationale = 8; // @gotags: bson:"rationale,omitempty"

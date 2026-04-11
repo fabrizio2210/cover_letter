@@ -116,10 +116,9 @@ Role and preference boundary:
 | JSON key | BSON key | Type | Notes |
 |---|---|---|---|
 | `key` | `key` | `string` | Stable preference identifier, for example `remote_work` |
-| `label` | `label` | `string` | Human-friendly label |
+| `guidance` | `guidance` | `string` | Human-friendly preference guidance |
 | `weight` | `weight` | `number` | Deterministic aggregate ranking uses this value |
 | `enabled` | `enabled` | `bool` | Disabled preferences are ignored by scoring |
-| `guidance` | `guidance` | `string` | Optional extra instruction for AI scoring |
 
 The `preferences` field on `Identity` is therefore a JSON array and BSON array of `IdentityPreference` objects.
 
@@ -155,7 +154,7 @@ Storage note:
 | `job_id` | `job_id` | `string` | Hex ObjectID ref → `job-descriptions` |
 | `identity_id` | `identity_id` | `string` | Hex ObjectID ref → `identities` |
 | `preference_key` | `preference_key` | `string` | Stable preference identifier |
-| `preference_label` | `preference_label` | `string` | Human-friendly copy snapshot |
+| `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot |
 | `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking |
 | `score` | `score` | `integer` | AI-generated score from 1 to 5 |
 | `scored_at` | `scored_at` | Timestamp object | See §3.7 |
@@ -710,10 +709,9 @@ Request:
   "preferences": [
     {
       "key": "remote_work",
-      "label": "Remote work",
+      "guidance": "Prefer fully remote roles over hybrid ones.",
       "weight": 2,
-      "enabled": true,
-      "guidance": "Prefer fully remote roles over hybrid ones."
+      "enabled": true
     }
   ]
 }

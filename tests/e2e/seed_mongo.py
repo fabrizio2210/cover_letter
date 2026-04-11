@@ -45,17 +45,15 @@ identity = {
     'preferences': [
         {
             'key': 'remote',
-            'label': 'Remote',
+            'guidance': 'Remote',
             'weight': 2.0,
             'enabled': True,
-            'guidance': 'Prefer remote-first roles.',
         },
         {
             'key': 'backend',
-            'label': 'Backend',
+            'guidance': 'Backend',
             'weight': 1.0,
             'enabled': True,
-            'guidance': 'Favor backend-heavy engineering work.',
         },
     ],
 }

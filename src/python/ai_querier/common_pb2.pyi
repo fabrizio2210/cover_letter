@@ -460,15 +460,14 @@ global___Identity = Identity
 class IdentityPreference(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     KEY_FIELD_NUMBER: builtins.int
-    LABEL_FIELD_NUMBER: builtins.int
+    GUIDANCE_FIELD_NUMBER: builtins.int
     WEIGHT_FIELD_NUMBER: builtins.int
     ENABLED_FIELD_NUMBER: builtins.int
-    GUIDANCE_FIELD_NUMBER: builtins.int
     key: typing.Text
     """@gotags: bson:"key" """
 
-    label: typing.Text
-    """@gotags: bson:"label,omitempty" """
+    guidance: typing.Text
+    """@gotags: bson:"guidance,omitempty" """
 
     weight: builtins.float
     """@gotags: bson:"weight" """
@@ -476,18 +475,14 @@ class IdentityPreference(google.protobuf.message.Message):
     enabled: builtins.bool
     """@gotags: bson:"enabled" """
 
-    guidance: typing.Text
-    """@gotags: bson:"guidance,omitempty" """
-
     def __init__(self,
         *,
         key: typing.Text = ...,
-        label: typing.Text = ...,
+        guidance: typing.Text = ...,
         weight: builtins.float = ...,
         enabled: builtins.bool = ...,
-        guidance: typing.Text = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["enabled",b"enabled","guidance",b"guidance","key",b"key","label",b"label","weight",b"weight"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["enabled",b"enabled","guidance",b"guidance","key",b"key","weight",b"weight"]) -> None: ...
 global___IdentityPreference = IdentityPreference
 
 class JobPreferenceScore(google.protobuf.message.Message):
@@ -496,7 +491,7 @@ class JobPreferenceScore(google.protobuf.message.Message):
     JOB_ID_FIELD_NUMBER: builtins.int
     IDENTITY_ID_FIELD_NUMBER: builtins.int
     PREFERENCE_KEY_FIELD_NUMBER: builtins.int
-    PREFERENCE_LABEL_FIELD_NUMBER: builtins.int
+    PREFERENCE_GUIDANCE_FIELD_NUMBER: builtins.int
     PREFERENCE_WEIGHT_FIELD_NUMBER: builtins.int
     SCORE_FIELD_NUMBER: builtins.int
     RATIONALE_FIELD_NUMBER: builtins.int
@@ -513,8 +508,8 @@ class JobPreferenceScore(google.protobuf.message.Message):
     preference_key: typing.Text
     """@gotags: bson:"preference_key" """
 
-    preference_label: typing.Text
-    """@gotags: bson:"preference_label,omitempty" """
+    preference_guidance: typing.Text
+    """@gotags: bson:"preference_guidance,omitempty" """
 
     preference_weight: builtins.float
     """@gotags: bson:"preference_weight,omitempty" """
@@ -535,14 +530,14 @@ class JobPreferenceScore(google.protobuf.message.Message):
         job_id: typing.Text = ...,
         identity_id: typing.Text = ...,
         preference_key: typing.Text = ...,
-        preference_label: typing.Text = ...,
+        preference_guidance: typing.Text = ...,
         preference_weight: builtins.float = ...,
         score: builtins.int = ...,
         rationale: typing.Text = ...,
         scored_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["scored_at",b"scored_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["id",b"id","identity_id",b"identity_id","job_id",b"job_id","preference_key",b"preference_key","preference_label",b"preference_label","preference_weight",b"preference_weight","rationale",b"rationale","score",b"score","scored_at",b"scored_at"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["id",b"id","identity_id",b"identity_id","job_id",b"job_id","preference_guidance",b"preference_guidance","preference_key",b"preference_key","preference_weight",b"preference_weight","rationale",b"rationale","score",b"score","scored_at",b"scored_at"]) -> None: ...
 global___JobPreferenceScore = JobPreferenceScore
 
 class Job(google.protobuf.message.Message):

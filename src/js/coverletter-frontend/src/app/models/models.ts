@@ -50,10 +50,9 @@ export interface Timestamp {
 
 export interface IdentityPreference {
   key: string;
-  label?: string;
+  guidance?: string;
   weight: number;
   enabled: boolean;
-  guidance?: string;
 }
 
 export interface JobPreferenceScore {
@@ -61,7 +60,7 @@ export interface JobPreferenceScore {
   job_id: string;
   identity_id: string;
   preference_key: string;
-  preference_label?: string;
+  preference_guidance?: string;
   preference_weight?: number;
   score: number;
   rationale?: string;
