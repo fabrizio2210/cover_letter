@@ -135,6 +135,8 @@ def resolve_scoring_context(job_descriptions_col, companies_col, identities_col,
         return None, "job_not_found"
 
     company_ref = job_doc.get("company")
+    if company_ref is None:
+        company_ref = job_doc.get("company_id")
     company_object_id = parse_object_id(company_ref)
     company_doc = None
     if company_object_id:
@@ -146,13 +148,29 @@ def resolve_scoring_context(job_descriptions_col, companies_col, identities_col,
         return (job_doc, None, None, None), "company_not_found"
 
     field_ref = company_doc.get("field")
+    if field_ref is None:
+        field_ref = company_doc.get("field_id")
     field_object_id = parse_object_id(field_ref)
 
     identity_doc = None
     if field_object_id:
-        identity_doc = identities_col.find_one({"field": field_object_id})
+        identity_doc = identities_col.find_one(
+            {
+                "$or": [
+                    {"field": field_object_id},
+                    {"field_id": field_object_id},
+                ]
+            }
+        )
     if not identity_doc and isinstance(field_ref, str):
-        identity_doc = identities_col.find_one({"field": field_ref})
+        identity_doc = identities_col.find_one(
+            {
+                "$or": [
+                    {"field": field_ref},
+                    {"field_id": field_ref},
+                ]
+            }
+        )
 
     if not identity_doc:
         return (job_doc, company_doc, None, None), "identity_not_found"
@@ -371,7 +389,7 @@ def main():
 
     client = MongoClient(mongo_uri)
     db = client[mongo_db_name]
-    job_descriptions_col = db["job-descriptions"]
+    job_descriptions_col = db["jobs"]
     companies_col = db["companies"]
     identities_col = db["identities"]
     job_preference_scores_col = db["job-preference-scores"]
