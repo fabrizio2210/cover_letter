@@ -92,7 +92,7 @@ The DB contains at least these collections:
 - `companies`
 - `identities`
 - `recipients`
-- `job-descriptions`
+- `jobs`
 - `job-preference-scores`
 - `cover-letters`
 - `crawls`
