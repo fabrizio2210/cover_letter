@@ -99,11 +99,20 @@ services:
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
-      OLLAMA_HOST: 192.168.100.253:11434
+      OLLAMA_HOST: "http://ollama:11434"
       OLLAMA_MODEL: qwen2.5:1.5b
       AI_SCORER_TEST_MODE: 0
     volumes:
       - ../../:/app
+    networks:
+      - backends
+
+  ollama:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=0.0.0.0:11434 ollama serve & sleep 10 && ollama pull qwen2.5:1.5b && wait"]
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
     networks:
       - backends
 
@@ -241,6 +250,7 @@ services:
 volumes:
   static_files:
   mongo_data:
+  ollama_data:
 
 networks:
   backends:

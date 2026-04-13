@@ -11,7 +11,7 @@ It exists to prevent contract drift between the Go API, Redis queue payloads, Mo
 
 ## 1. Purpose and Scope
 
-The `ai_scorer` service consumes job-scoring jobs from Redis, uses a local model served by Ollama, and persists per-preference scores plus deterministic aggregate ranking data into MongoDB.
+The `ai_scorer` service consumes job-scoring jobs from Redis, uses a local model served by an internal Ollama service in the stack network, and persists per-preference scores plus deterministic aggregate ranking data into MongoDB.
 
 This document covers:
 - runtime behavior of the Python scoring worker;
@@ -39,7 +39,7 @@ This document does **not** define:
 | Entry point | `main()` |
 | Queue pattern | Redis `BLPOP` consumer |
 | Database | MongoDB |
-| AI provider | Ollama (local/LAN endpoint) |
+| AI provider | Ollama (internal stack endpoint) |
 
 The worker runs as a long-lived process. It blocks on the scoring queue and processes one message at a time.
 
@@ -63,7 +63,7 @@ High-level flow:
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Scoring queue name |
 | `MONGO_HOST` | `mongodb://localhost:27017/` | Yes | MongoDB connection URI |
 | `DB_NAME` | `cover_letter` | No | MongoDB database name |
-| `OLLAMA_HOST` | `http://localhost:11434` | Yes | Ollama base URL |
+| `OLLAMA_HOST` | none | Yes | Ollama base URL (dev stack uses `http://ollama:11434`) |
 | `OLLAMA_MODEL` | none | Yes | Ollama model name |
 | `AI_SCORER_TEST_MODE` | `0` | No | If `1`, disable real Ollama calls and use deterministic fake responses |
 
@@ -71,6 +71,7 @@ Rules:
 - If `AI_SCORER_TEST_MODE=1`, the worker may run without a reachable Ollama endpoint.
 - If `AI_SCORER_TEST_MODE!=1`, missing `OLLAMA_HOST` or `OLLAMA_MODEL` is a startup error.
 - `DB_NAME` must match the database used by the Go API.
+- In `docker/lib/stack-dev.yml`, `OLLAMA_HOST` is expected to target the internal service DNS name (`http://ollama:11434`).
 
 ---
 
