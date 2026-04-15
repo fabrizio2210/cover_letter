@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Callable, Iterable
 from urllib.parse import urlsplit, urlunsplit
@@ -12,6 +13,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.executor import (
+    ATSWorkerResult,
+    ATSWorkerTask,
+    ThreadSafeSessionPool,
+    _detect_ats_worker,
+)
 from src.python.web_crawler.models import Workflow2Result
 from src.python.web_crawler.sources.ats_detector import ATSRequestFailure, detect_ats_provider
 from src.python.web_crawler.sources.ats_slug_resolver import resolve_direct_slug, resolve_slug_via_search_dorking
@@ -240,16 +247,20 @@ def run_workflow2(
     session.headers.update({"User-Agent": config.user_agent})
 
     try:
+        # ========== PHASE A: Pre-fetch company state and build task list ==========
+        logger.info("workflow2: Phase A - Pre-fetching company state for %d companies", total_companies)
+        
+        tasks_to_process: list[tuple[ATSWorkerTask, common_pb2.Company, dict]] = []
+        
         for company_index, company_proto in enumerate(companies, start=1):
             company_id = company_proto.id
             result.company_ids.append(company_id)
-            company_checks = per_company_budget
 
-            if progress_callback:
+            if progress_callback and company_index % max(1, total_companies // 10) == 0:
                 progress_callback(
                     completed_checks,
                     estimated_checks,
-                    f"Analyzing company {company_index}/{total_companies}: {company_proto.name or company_id}",
+                    f"Pre-processing company {company_index}/{total_companies}: {company_proto.name or company_id}",
                 )
 
             company_object_id = _to_object_id(company_id)
@@ -287,98 +298,215 @@ def run_workflow2(
                 )
                 continue
 
-            try:
-                candidate_urls = _discover_candidate_urls(company_proto, config, session)
-                company_checks = max(company_checks, len(candidate_urls) or 1)
-                remaining_companies = max(total_companies - company_index, 0)
-                estimated_checks = max(
-                    estimated_checks,
-                    completed_checks + company_checks + (remaining_companies * per_company_budget),
-                )
-
-                if not candidate_urls:
-                    result.skipped_count += 1
-                    result.failed_companies.append({"company_id": company_id, "company_name": company_proto.name, "error": "no candidate URLs"})
-                    continue
-
-                detection = detect_ats_provider(candidate_urls, config, session=session)
-                if detection is None:
-                    result.skipped_count += 1
-                    continue
-
-                slug = resolve_direct_slug(detection.provider, config, board_url=detection.board_url, session=session)
-                logger.debug("workflow2 direct slug for company %s (provider=%s board_url=%s): %s", company_id, detection.provider, detection.board_url, slug)
-                if slug is None:
-                    prior = _has_prior_search_attempt(company_state, detection.provider)
-                    should_attempt_serp = (not prior) or config.force_serp_retry_on_prior_attempt
-                    logger.debug(
-                        "workflow2 SERP fallback check for company %s (provider=%s): prior_attempt=%s force_retry=%s should_attempt=%s",
-                        company_id,
-                        detection.provider,
-                        prior,
-                        config.force_serp_retry_on_prior_attempt,
-                        should_attempt_serp,
-                    )
-                    if should_attempt_serp:
-                        if prior and config.force_serp_retry_on_prior_attempt:
-                            logger.debug(
-                                "workflow2 bypassing prior SERP-attempt gate for company %s (provider=%s)",
-                                company_id,
-                                detection.provider,
-                            )
-                        logger.debug("workflow2 calling SERP for company %s (%s) provider=%s", company_id, company_proto.name, detection.provider)
-                        _mark_search_attempt_started(companies_collection, company_object_id, detection.provider)
-                        slug = resolve_slug_via_search_dorking(company_proto.name, detection.provider, config, session=session)
-                        logger.debug("workflow2 SERP result for company %s: slug=%s", company_id, slug)
-                        _mark_search_attempt_outcome(companies_collection, company_object_id, detection.provider, "success" if slug else "no_results")
-
-                if not slug:
-                    result.skipped_count += 1
-                    result.failed_companies.append(
-                        {
-                            "company_id": company_id,
-                            "company_name": company_proto.name,
-                            "error": f"slug unresolved for provider {detection.provider}",
-                        }
-                    )
-                    continue
-
-                companies_collection.update_one(
-                    {"_id": company_object_id},
-                    {"$set": {"ats_provider": detection.provider, "ats_slug": slug}},
-                )
-                result.enriched_count += 1
-                result.ats_providers[detection.provider] = result.ats_providers.get(detection.provider, 0) + 1
-            except ATSRequestFailure as exc:
-                logger.debug("workflow2 terminal failure for company %s at %s: %s", company_id, exc.url, exc)
-                _record_terminal_failure(companies_collection, company_object_id, exc.failure_type, exc.url, str(exc))
+            candidate_urls = _discover_candidate_urls(company_proto, config, session)
+            if not candidate_urls:
                 result.skipped_count += 1
-                result.failed_companies.append(
-                    {
-                        "company_id": company_id,
-                        "company_name": company_proto.name,
-                        "error": f"terminal {exc.failure_type} failure at {exc.url}",
-                    }
-                )
-            except Exception as exc:
-                logger.exception("workflow2 failed for company %s: %s", company_id, exc)
-                result.failed_count += 1
-                result.failed_companies.append(
-                    {
-                        "company_id": company_id,
-                        "company_name": company_proto.name,
-                        "error": str(exc),
-                    }
-                )
-            finally:
-                completed_checks += company_checks
-                if progress_callback:
-                    progress_callback(
-                        completed_checks,
-                        estimated_checks,
-                        f"Workflow2 progress: {company_index}/{total_companies} companies processed",
-                    )
+                result.failed_companies.append({"company_id": company_id, "company_name": company_proto.name, "error": "no candidate URLs"})
+                continue
+
+            task = ATSWorkerTask(
+                company_id=company_id,
+                company_object_id=company_object_id,
+                company_name=company_proto.name,
+                candidate_urls=candidate_urls,
+                company_index=company_index,
+                total_companies=total_companies,
+            )
+            tasks_to_process.append((task, company_proto, company_state))
+
+        ready_for_processing = len(tasks_to_process)
+        logger.info("workflow2: Phase A complete. %d/%d companies ready for processing", ready_for_processing, total_companies)
+
+        if progress_callback:
+            progress_callback(
+                completed_checks,
+                estimated_checks,
+                f"Phase A complete: {ready_for_processing}/{total_companies} companies ready for ATS detection",
+            )
+
+        # ========== PHASE B: Parallel ATS detection using thread pool ==========
+        logger.info("workflow2: Phase B - Starting parallel ATS detection with 10 workers")
+        
+        session_pool = ThreadSafeSessionPool(config.user_agent)
+        
+        try:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_task_info = {
+                    executor.submit(_detect_ats_worker, task, config, session_pool): (task, company_proto, company_state)
+                    for task, company_proto, company_state in tasks_to_process
+                }
+
+                logger.info("workflow2: Submitted %d tasks to executor", len(future_to_task_info))
+
+                completed_count = 0
+                for future in as_completed(future_to_task_info):
+                    task, company_proto, company_state = future_to_task_info[future]
+                    completed_count += 1
+
+                    try:
+                        worker_result: ATSWorkerResult = future.result()
+                        
+                        # ===== PHASE B.1: Process worker result =====
+                        if worker_result.success:
+                            # Successful detection + direct slug resolution
+                            logger.debug(
+                                "workflow2: ATS detection successful for company %s: provider=%s slug=%s",
+                                worker_result.company_id,
+                                worker_result.provider,
+                                worker_result.slug,
+                            )
+                            companies_collection.update_one(
+                                {"_id": worker_result.company_object_id},
+                                {"$set": {"ats_provider": worker_result.provider, "ats_slug": worker_result.slug}},
+                            )
+                            result.enriched_count += 1
+                            result.ats_providers[worker_result.provider] = result.ats_providers.get(worker_result.provider, 0) + 1
+                        
+                        elif worker_result.error_type == "ats_request_failure:dns_resolution" or worker_result.error_type == "ats_request_failure:timeout":
+                            # Terminal failures: record and skip
+                            logger.debug(
+                                "workflow2: Terminal failure for company %s: %s at %s",
+                                worker_result.company_id,
+                                worker_result.error_type,
+                                worker_result.error_url,
+                            )
+                            failure_type = worker_result.error_type.split(":")[-1]
+                            _record_terminal_failure(
+                                companies_collection,
+                                worker_result.company_object_id,
+                                failure_type,
+                                worker_result.error_url or "unknown",
+                                worker_result.error_message,
+                            )
+                            result.skipped_count += 1
+                            result.failed_companies.append(
+                                {
+                                    "company_id": worker_result.company_id,
+                                    "company_name": worker_result.company_name,
+                                    "error": f"terminal {failure_type} failure",
+                                }
+                            )
+                        
+                        elif worker_result.error_type == "slug_not_resolved_direct":
+                            # Direct slug resolution failed; attempt SERP fallback in main thread
+                            logger.debug(
+                                "workflow2: Direct slug resolution failed for company %s (provider=%s). Attempting SERP fallback.",
+                                worker_result.company_id,
+                                worker_result.provider,
+                            )
+                            
+                            prior = _has_prior_search_attempt(company_state, worker_result.provider)
+                            should_attempt_serp = (not prior) or config.force_serp_retry_on_prior_attempt
+                            
+                            if should_attempt_serp:
+                                if prior and config.force_serp_retry_on_prior_attempt:
+                                    logger.debug(
+                                        "workflow2: Bypassing prior SERP-attempt gate for company %s (provider=%s)",
+                                        worker_result.company_id,
+                                        worker_result.provider,
+                                    )
+                                
+                                logger.debug(
+                                    "workflow2: Calling SERP fallback for company %s (provider=%s)",
+                                    worker_result.company_id,
+                                    worker_result.provider,
+                                )
+                                _mark_search_attempt_started(
+                                    companies_collection,
+                                    worker_result.company_object_id,
+                                    worker_result.provider,
+                                )
+                                slug = resolve_slug_via_search_dorking(
+                                    company_proto.name,
+                                    worker_result.provider,
+                                    config,
+                                    session=session,
+                                )
+                                logger.debug(
+                                    "workflow2: SERP fallback result for company %s: slug=%s",
+                                    worker_result.company_id,
+                                    slug or "not found",
+                                )
+                                _mark_search_attempt_outcome(
+                                    companies_collection,
+                                    worker_result.company_object_id,
+                                    worker_result.provider,
+                                    "success" if slug else "no_results",
+                                )
+                                
+                                if slug:
+                                    companies_collection.update_one(
+                                        {"_id": worker_result.company_object_id},
+                                        {"$set": {"ats_provider": worker_result.provider, "ats_slug": slug}},
+                                    )
+                                    result.enriched_count += 1
+                                    result.ats_providers[worker_result.provider] = result.ats_providers.get(worker_result.provider, 0) + 1
+                                    logger.debug(
+                                        "workflow2: SERP fallback successful for company %s: provider=%s slug=%s",
+                                        worker_result.company_id,
+                                        worker_result.provider,
+                                        slug,
+                                    )
+                                else:
+                                    result.skipped_count += 1
+                                    result.failed_companies.append(
+                                        {
+                                            "company_id": worker_result.company_id,
+                                            "company_name": worker_result.company_name,
+                                            "error": f"slug unresolved for provider {worker_result.provider}",
+                                        }
+                                    )
+                            else:
+                                result.skipped_count += 1
+                                result.failed_companies.append(
+                                    {
+                                        "company_id": worker_result.company_id,
+                                        "company_name": worker_result.company_name,
+                                        "error": f"direct slug resolution failed; SERP fallback skipped (already attempted)",
+                                    }
+                                )
+                        
+                        else:
+                            # Other errors: no ATS provider detected, unexpected errors, etc.
+                            result.skipped_count += 1
+                            result.failed_companies.append(
+                                {
+                                    "company_id": worker_result.company_id,
+                                    "company_name": worker_result.company_name,
+                                    "error": worker_result.error_message,
+                                }
+                            )
+                            logger.debug(
+                                "workflow2: ATS detection failed for company %s: %s",
+                                worker_result.company_id,
+                                worker_result.error_message,
+                            )
+                        
+                        # Progress reporting
+                        if progress_callback and completed_count % max(1, ready_for_processing // 10) == 0:
+                            progress_callback(
+                                completed_checks + completed_count,
+                                estimated_checks,
+                                f"ATS detection progress: {completed_count}/{ready_for_processing} companies completed",
+                            )
+
+                    except Exception as exc:
+                        logger.exception("workflow2: Unexpected error processing worker result for company %s", task.company_id)
+                        result.failed_count += 1
+                        result.failed_companies.append(
+                            {
+                                "company_id": task.company_id,
+                                "company_name": task.company_name,
+                                "error": f"Error processing worker result: {str(exc)}",
+                            }
+                        )
+
+            logger.info("workflow2: Phase B complete. Enriched=%d, Skipped=%d, Failed=%d", result.enriched_count, result.skipped_count, result.failed_count)
+        
+        finally:
+            session_pool.close_all()
 
         return result
+    
     finally:
         session.close()
