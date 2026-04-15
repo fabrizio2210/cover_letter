@@ -147,6 +147,35 @@ class AtsDetectorTests(unittest.TestCase):
         self.assertEqual(ctx.exception.failure_type, "timeout")
         self.assertEqual(session.get.call_count, 1)
 
+    def test_fetch_url_raises_host_unavailable_after_repeated_503(self):
+        session = Mock(spec=requests.Session)
+        session.get.return_value = FakeResponse(url="https://acme.test", status_code=503)
+
+        with self.assertRaises(ATSRequestFailure) as ctx:
+            fetch_url(session, "https://acme.test", self.config)
+
+        self.assertEqual(ctx.exception.failure_type, "host_unavailable")
+        self.assertEqual(session.get.call_count, self.config.max_retries)
+
+    def test_detect_ats_provider_skips_remaining_paths_after_root_503(self):
+        with patch(
+            "src.python.web_crawler.sources.ats_detector.fetch_url",
+            side_effect=[
+                ATSRequestFailure("host_unavailable", "https://acme.test", "status 503"),
+            ],
+        ) as fetch_mock:
+            result = detect_ats_provider(
+                [
+                    "https://acme.test",
+                    "https://acme.test/careers",
+                    "https://acme.test/jobs",
+                ],
+                self.config,
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(fetch_mock.call_count, 1)
+
 
 class AtsSlugResolverTests(unittest.TestCase):
     def setUp(self):

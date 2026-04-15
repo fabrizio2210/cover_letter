@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 ATS_PROVIDERS = ("greenhouse", "lever", "ashby")
 _PROVIDER_PRECEDENCE = {"greenhouse": 0, "lever": 1, "ashby": 2}
 _TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+_HOST_UNAVAILABLE_STATUS_CODES = {500, 502, 503, 504}
 
 
 @dataclass(slots=True)
@@ -88,6 +89,24 @@ def _is_dns_resolution_error(exc: BaseException) -> bool:
     return "failed to resolve" in message or "name or service not known" in message
 
 
+def _is_host_unreachable_error(exc: BaseException) -> bool:
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, (requests.ConnectionError, requests.exceptions.SSLError)):
+            return True
+        current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+
+    message = str(exc).casefold()
+    return "tlsv1 alert" in message or "ssl" in message
+
+
+def _is_root_url(url: str) -> bool:
+    path = urlparse(url).path or "/"
+    return path == "/"
+
+
 def extract_ats_signatures_from_html(html: str) -> set[str]:
     lowered = html.casefold()
     providers: set[str] = set()
@@ -108,6 +127,7 @@ def extract_ats_signatures_from_html(html: str) -> set[str]:
 
 def fetch_url(session: requests.Session, url: str, config: CrawlerConfig) -> requests.Response | None:
     last_error: Exception | None = None
+    last_status_code: int | None = None
     for attempt in range(1, max(config.max_retries, 1) + 1):
         try:
             response = session.get(url, timeout=config.http_timeout_seconds, allow_redirects=True)
@@ -126,17 +146,23 @@ def fetch_url(session: requests.Session, url: str, config: CrawlerConfig) -> req
             continue
 
         if response.status_code in _TRANSIENT_STATUS_CODES and attempt < max(config.max_retries, 1):
+            last_status_code = response.status_code
             logger.debug("transient status %d for %s on attempt %d", response.status_code, url, attempt)
             time.sleep(_delay_seconds(config, attempt))
             continue
 
         if response.status_code >= 400:
+            last_status_code = response.status_code
             logger.debug("request returned non-success status %d for %s", response.status_code, url)
+            if response.status_code in _HOST_UNAVAILABLE_STATUS_CODES:
+                raise ATSRequestFailure("host_unavailable", url, f"status {response.status_code}")
             return None
         return response
 
     if last_error:
         logger.debug("request exhausted retries for %s: %s", url, last_error)
+        if _is_host_unreachable_error(last_error):
+            raise ATSRequestFailure("host_unreachable", url, str(last_error)) from last_error
     return None
 
 
@@ -151,14 +177,32 @@ def detect_ats_provider(candidate_urls: list[str], config: CrawlerConfig, sessio
 
     detected_links: list[tuple[str, str]] = []
     detected_signatures: set[str] = set()
+    skipped_hosts: set[str] = set()
 
     try:
         for candidate_url in candidate_urls:
+            host = urlparse(candidate_url).netloc.casefold()
+            if host in skipped_hosts:
+                logger.debug("skipping ATS detection for %s after host-level failure on %s", candidate_url, host)
+                continue
+
             direct_provider = _provider_from_url(candidate_url)
             if direct_provider:
                 return ATSDetectionResult(provider=direct_provider, board_url=candidate_url, checked_url=candidate_url)
 
-            response = fetch_url(session, candidate_url, config)
+            try:
+                response = fetch_url(session, candidate_url, config)
+            except ATSRequestFailure as exc:
+                if exc.failure_type in {"dns_resolution", "timeout", "host_unreachable"}:
+                    skipped_hosts.add(host)
+                    logger.debug("skipping remaining ATS candidates for host %s after %s failure", host, exc.failure_type)
+                    continue
+                if exc.failure_type == "host_unavailable" and _is_root_url(candidate_url):
+                    skipped_hosts.add(host)
+                    logger.debug("skipping remaining ATS candidates for host %s after root returned unavailable status", host)
+                    continue
+                raise
+
             if response is None:
                 continue
 
