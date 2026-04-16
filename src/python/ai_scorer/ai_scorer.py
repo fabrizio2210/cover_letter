@@ -1,5 +1,7 @@
 import json
+import html
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -202,9 +204,73 @@ def extract_ollama_content(response):
     return ""
 
 
+def _collapse_blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def normalize_description_markdown(description: Any) -> str:
+    if description is None:
+        return ""
+
+    text = str(description)
+    if not text:
+        return ""
+
+    try:
+        text = html.unescape(text)
+
+        replacements = [
+            (r"(?is)<\s*br\s*/?\s*>", "\n"),
+            (r"(?is)</\s*p\s*>", "\n\n"),
+            (r"(?is)<\s*p\b[^>]*>", ""),
+            (r"(?is)</\s*div\s*>", "\n"),
+            (r"(?is)<\s*div\b[^>]*>", ""),
+            (r"(?is)</\s*h([1-6])\s*>", "\n\n"),
+            (r"(?is)<\s*h1\b[^>]*>", "# "),
+            (r"(?is)<\s*h2\b[^>]*>", "## "),
+            (r"(?is)<\s*h3\b[^>]*>", "### "),
+            (r"(?is)<\s*h4\b[^>]*>", "#### "),
+            (r"(?is)<\s*h5\b[^>]*>", "##### "),
+            (r"(?is)<\s*h6\b[^>]*>", "###### "),
+            (r"(?is)<\s*li\b[^>]*>", "\n- "),
+            (r"(?is)</\s*li\s*>", ""),
+            (r"(?is)<\s*(ul|ol)\b[^>]*>", "\n"),
+            (r"(?is)</\s*(ul|ol)\s*>", "\n"),
+            (r"(?is)<\s*strong\b[^>]*>", "**"),
+            (r"(?is)</\s*strong\s*>", "**"),
+            (r"(?is)<\s*b\b[^>]*>", "**"),
+            (r"(?is)</\s*b\s*>", "**"),
+            (r"(?is)<\s*em\b[^>]*>", "*"),
+            (r"(?is)</\s*em\s*>", "*"),
+            (r"(?is)<\s*i\b[^>]*>", "*"),
+            (r"(?is)</\s*i\s*>", "*"),
+            (r"(?is)<\s*/?\s*(script|style)\b[^>]*>", ""),
+        ]
+
+        for pattern, replacement in replacements:
+            text = re.sub(pattern, replacement, text)
+
+        text = re.sub(
+            r'(?is)<\s*a\b[^>]*href\s*=\s*(["\'])(.*?)\1[^>]*>(.*?)</\s*a\s*>',
+            r"[\3](\2)",
+            text,
+        )
+
+        # Strip any remaining tags; partial leftovers are acceptable for best-effort conversion.
+        text = re.sub(r"(?is)<[^>]+>", "", text)
+    except Exception:
+        # Degrade gracefully and keep a minimally cleaned payload.
+        text = str(description)
+
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[\t\f\v]+", " ", text)
+    text = _collapse_blank_lines(text)
+    return text.strip()
+
+
 def build_prompt(job, company, identity, preference):
     job_title = get_field(job, "title", "")
-    job_description = get_field(job, "description", "")
+    job_description = normalize_description_markdown(get_field(job, "description", ""))
     job_location = get_field(job, "location", "")
 
     preference_guidance = get_field(preference, "guidance", "")

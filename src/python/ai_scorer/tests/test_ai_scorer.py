@@ -21,7 +21,9 @@ if "ollama" not in sys.modules:
     sys.modules["ollama"] = fake_ollama
 
 from src.python.ai_scorer.ai_scorer import (
+    build_prompt,
     compute_and_persist_aggregate,
+    normalize_description_markdown,
     now_timestamp_dict,
     parse_object_id,
     score_preference,
@@ -76,6 +78,51 @@ class FakeOllamaClient:
 
 
 class AiScorerUnitTests(unittest.TestCase):
+    def test_normalize_description_markdown_converts_common_tags(self):
+        html_description = (
+            "<h2>Role</h2><p>Build <strong>systems</strong> for users.</p>"
+            "<ul><li>Python</li><li>Go</li></ul>"
+            '<p>Apply at <a href="https://example.com/jobs/1">this link</a>.</p>'
+        )
+
+        normalized = normalize_description_markdown(html_description)
+
+        self.assertIn("## Role", normalized)
+        self.assertIn("**systems**", normalized)
+        self.assertIn("- Python", normalized)
+        self.assertIn("- Go", normalized)
+        self.assertIn("[this link](https://example.com/jobs/1)", normalized)
+        self.assertNotIn("<p>", normalized)
+
+    def test_normalize_description_markdown_keeps_partial_content_for_malformed_html(self):
+        malformed = "<div><p><strong>Backend engineer<p>Microservices<br>Remote"
+
+        normalized = normalize_description_markdown(malformed)
+
+        self.assertIn("**Backend engineer", normalized)
+        self.assertIn("Microservices", normalized)
+        self.assertIn("Remote", normalized)
+
+    def test_normalize_description_markdown_passthrough_plain_text(self):
+        plain = "Build reliable APIs and mentor engineers."
+        normalized = normalize_description_markdown(plain)
+        self.assertEqual(normalized, plain)
+
+    def test_build_prompt_uses_normalized_description(self):
+        _, prompt = build_prompt(
+            job={
+                "title": "Engineer",
+                "description": "<p>Hello <strong>world</strong></p><li>Remote</li>",
+                "location": "EU",
+            },
+            company={},
+            identity={},
+            preference={"guidance": "Remote first"},
+        )
+
+        self.assertIn("Job Description: Hello **world**", prompt)
+        self.assertIn("- Remote", prompt)
+
     def test_parse_object_id_handles_valid_and_invalid_values(self):
         oid = ObjectId()
         self.assertEqual(parse_object_id(oid), oid)
