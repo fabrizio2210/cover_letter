@@ -120,6 +120,20 @@ export interface CrawlProgress {
   reason?: string;
 }
 
+export interface ScoringProgress {
+  run_id: string;
+  identity_id: string;
+  status: 'running' | 'completed' | 'failed';
+  message?: string;
+  estimated_total: number;
+  completed: number;
+  percent: number;
+  started_at?: string | Timestamp | null;
+  updated_at?: string | Timestamp;
+  finished_at?: string | Timestamp | null;
+  reason?: string;
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;

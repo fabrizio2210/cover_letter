@@ -39,7 +39,18 @@ class FakeCollection:
 
     @staticmethod
     def _matches(doc, filter_doc):
+        if "$or" in filter_doc:
+            branches = filter_doc.get("$or", [])
+            if not any(FakeCollection._matches(doc, branch) for branch in branches):
+                return False
+
         for key, value in filter_doc.items():
+            if key == "$or":
+                continue
+            if isinstance(value, dict) and "$in" in value:
+                if doc.get(key) not in value["$in"]:
+                    return False
+                continue
             if doc.get(key) != value:
                 return False
         return True
@@ -50,7 +61,7 @@ class FakeCollection:
                 return doc
         return None
 
-    def find(self, filter_doc=None):
+    def find(self, filter_doc=None, projection=None):
         if not filter_doc:
             return list(self.docs)
         return [doc for doc in self.docs if self._matches(doc, filter_doc)]
@@ -65,6 +76,17 @@ class FakeCollection:
 
         for key, value in update_doc.get("$set", {}).items():
             existing[key] = value
+
+    def count_documents(self, filter_doc):
+        return len(self.find(filter_doc))
+
+
+class FakeRedisClient:
+    def __init__(self):
+        self.published_messages = []
+
+    def publish(self, channel, payload):
+        self.published_messages.append((channel, payload))
 
 
 class FakeOllamaClient:
@@ -332,6 +354,9 @@ class AiScorerUnitTests(unittest.TestCase):
             companies_col=companies,
             identities_col=identities,
             job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="scoring_progress_channel",
+            scoring_runs={},
             ollama_client=None,
             model_name="unused",
             test_mode=True,
@@ -366,6 +391,9 @@ class AiScorerUnitTests(unittest.TestCase):
             companies_col=companies,
             identities_col=identities,
             job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="scoring_progress_channel",
+            scoring_runs={},
             ollama_client=None,
             model_name="unused",
             test_mode=True,

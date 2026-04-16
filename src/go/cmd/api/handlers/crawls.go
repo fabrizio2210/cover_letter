@@ -20,9 +20,11 @@ import (
 const (
 	defaultCrawlerTriggerQueue    = "crawler_trigger_queue"
 	defaultCrawlerProgressChannel = "crawler_progress_channel"
+	defaultScoringProgressChannel = "scoring_progress_channel"
 )
 
 type crawlSubscriber chan *models.CrawlProgress
+type scoringSubscriber chan *models.ScoringProgress
 
 type crawlProgressHub struct {
 	mu          sync.RWMutex
@@ -32,9 +34,22 @@ type crawlProgressHub struct {
 	bridgeOnce  sync.Once
 }
 
+type scoringProgressHub struct {
+	mu          sync.RWMutex
+	snapshots   map[string]*models.ScoringProgress
+	subscribers map[int]scoringSubscriber
+	nextID      int
+	bridgeOnce  sync.Once
+}
+
 var crawlHub = &crawlProgressHub{
 	snapshots:   make(map[string]*models.CrawlProgress),
 	subscribers: make(map[int]crawlSubscriber),
+}
+
+var scoringHub = &scoringProgressHub{
+	snapshots:   make(map[string]*models.ScoringProgress),
+	subscribers: make(map[int]scoringSubscriber),
 }
 
 func TriggerCrawl(c *gin.Context) {
@@ -157,6 +172,53 @@ func StreamCrawlProgress(c *gin.Context) {
 	}
 }
 
+func GetActiveScoring(c *gin.Context) {
+	ensureScoringProgressBridge()
+	identityID := c.Query("identity_id")
+	c.JSON(http.StatusOK, scoringHub.listSnapshots(identityID))
+}
+
+func StreamScoringProgress(c *gin.Context) {
+	ensureScoringProgressBridge()
+
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	subscriberID, subscriber := scoringHub.subscribe()
+	defer scoringHub.unsubscribe(subscriberID)
+
+	ctx := c.Request.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case snapshot, ok := <-subscriber:
+			if !ok {
+				return
+			}
+			payload, err := json.Marshal(snapshot)
+			if err != nil {
+				continue
+			}
+			if _, err := c.Writer.Write([]byte("event: scoring-progress\n")); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write([]byte("data: ")); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write(payload); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write([]byte("\n\n")); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		}
+	}
+}
+
 func ensureCrawlProgressBridge() {
 	crawlHub.bridgeOnce.Do(func() {
 		go func() {
@@ -179,6 +241,35 @@ func ensureCrawlProgressBridge() {
 
 				if err := pubsub.Close(); err != nil && err != redis.Nil {
 					log.Printf("failed to close crawl progress subscription: %v", err)
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+		}()
+	})
+}
+
+func ensureScoringProgressBridge() {
+	scoringHub.bridgeOnce.Do(func() {
+		go func() {
+			for {
+				channelName := os.Getenv("SCORING_PROGRESS_CHANNEL_NAME")
+				if channelName == "" {
+					channelName = defaultScoringProgressChannel
+				}
+
+				pubsub := rdb.Subscribe(context.Background(), channelName)
+				channel := pubsub.Channel()
+				for message := range channel {
+					var snapshot models.ScoringProgress
+					if err := json.Unmarshal([]byte(message.Payload), &snapshot); err != nil {
+						log.Printf("failed to decode scoring progress event: %v", err)
+						continue
+					}
+					scoringHub.publish(&snapshot)
+				}
+
+				if err := pubsub.Close(); err != nil && err != redis.Nil {
+					log.Printf("failed to close scoring progress subscription: %v", err)
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -214,6 +305,58 @@ func (h *crawlProgressHub) subscribe() (int, crawlSubscriber) {
 	channel := make(crawlSubscriber, 16)
 	h.subscribers[id] = channel
 	return id, channel
+}
+
+func (h *scoringProgressHub) publish(snapshot *models.ScoringProgress) {
+	normalized := normalizeScoringProgress(cloneScoringProgress(snapshot))
+
+	h.mu.Lock()
+	h.snapshots[normalized.RunId] = normalized
+	subscribers := make([]scoringSubscriber, 0, len(h.subscribers))
+	for _, subscriber := range h.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	h.mu.Unlock()
+
+	for _, subscriber := range subscribers {
+		broadcast := cloneScoringProgress(normalized)
+		select {
+		case subscriber <- broadcast:
+		default:
+		}
+	}
+}
+
+func (h *scoringProgressHub) subscribe() (int, scoringSubscriber) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.nextID++
+	id := h.nextID
+	channel := make(scoringSubscriber, 16)
+	h.subscribers[id] = channel
+	return id, channel
+}
+
+func (h *scoringProgressHub) unsubscribe(id int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if subscriber, ok := h.subscribers[id]; ok {
+		delete(h.subscribers, id)
+		close(subscriber)
+	}
+}
+
+func (h *scoringProgressHub) listSnapshots(identityID string) []*models.ScoringProgress {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	result := make([]*models.ScoringProgress, 0, len(h.snapshots))
+	for _, snapshot := range h.snapshots {
+		if identityID != "" && snapshot.IdentityId != identityID {
+			continue
+		}
+		result = append(result, cloneScoringProgress(snapshot))
+	}
+	return result
 }
 
 func (h *crawlProgressHub) unsubscribe(id int) {
@@ -278,6 +421,36 @@ func cloneCrawlProgress(snapshot *models.CrawlProgress) *models.CrawlProgress {
 	clone, ok := proto.Clone(snapshot).(*models.CrawlProgress)
 	if !ok {
 		return &models.CrawlProgress{}
+	}
+	return clone
+}
+
+func normalizeScoringProgress(snapshot *models.ScoringProgress) *models.ScoringProgress {
+	if snapshot.Percent < 0 {
+		snapshot.Percent = 0
+	}
+	if snapshot.Percent > 100 {
+		snapshot.Percent = 100
+	}
+	if snapshot.UpdatedAt == nil {
+		snapshot.UpdatedAt = timestampPtr(time.Now().UTC())
+	}
+	if snapshot.Status == "running" && snapshot.StartedAt == nil {
+		snapshot.StartedAt = snapshot.UpdatedAt
+	}
+	if (snapshot.Status == "completed" || snapshot.Status == "failed") && snapshot.FinishedAt == nil {
+		snapshot.FinishedAt = snapshot.UpdatedAt
+	}
+	return snapshot
+}
+
+func cloneScoringProgress(snapshot *models.ScoringProgress) *models.ScoringProgress {
+	if snapshot == nil {
+		return nil
+	}
+	clone, ok := proto.Clone(snapshot).(*models.ScoringProgress)
+	if !ok {
+		return &models.ScoringProgress{}
 	}
 	return clone
 }

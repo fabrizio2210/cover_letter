@@ -45,6 +45,8 @@ Each workflow persists intermediate results directly to MongoDB so downstream wo
 
 While a crawl is running, the crawler emits progress updates via Redis. These updates include the crawl run identifier, the identity being processed, the current phase, completed work, estimated total work, and a derived percentage. The backend relays the latest crawl progress to the frontend so it can be shown live on both the Dashboard and Job Discovery views.
 
+The scoring worker also emits independent progress updates through Redis while AI scoring is processing queued jobs. Scoring progress is a separate process lifecycle and starts at `0%` for each scoring run. In shared UI widgets that can show either crawl or scoring progress, crawl progress has precedence whenever both streams are active for the same identity.
+
 If a scraped job references a company not yet present in the database, the system should create the company automatically and link the job description to it. This keeps the discovery pipeline autonomous while preserving the company-centric data model already used by the application.
 
 The crawler may still coexist with manual data entry for companies and recipients, but job-description discovery becomes the primary way to identify application opportunities.
@@ -64,6 +66,8 @@ If a job cannot resolve required scoring prerequisites (for example company-fiel
 Re-crawled jobs are always re-enqueued for scoring when scoring enqueue is enabled.
 
 The scoring flow is handled by a dedicated `ai_scorer` worker service. `ai_scorer` consumes job-scoring queue messages and evaluates job/preference fit using a local model exposed by an internal Ollama service in the Docker network. The `ai_querier` service remains dedicated to cover-letter generation and refinement through Gemini.
+
+When crawl progress or scoring progress reaches a terminal state, the Job Discovery view refreshes the job list automatically so newly discovered jobs and updated scoring fields are visible without a manual page reload.
 
 #### Prepare Cover Letters
 

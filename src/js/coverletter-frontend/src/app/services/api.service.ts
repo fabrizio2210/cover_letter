@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, CoverLetter, CrawlProgress } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, CoverLetter, CrawlProgress, ScoringProgress } from '../models/models';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -127,6 +127,15 @@ export class ApiService {
       .pipe(catchError(() => of([])));
   }
 
+  getActiveScoring(identityId?: string): Observable<ScoringProgress[]> {
+    const url = identityId
+      ? `${this.apiBase}/scoring/active?identity_id=${encodeURIComponent(identityId)}`
+      : `${this.apiBase}/scoring/active`;
+
+    return this.http.get<ScoringProgress[]>(url)
+      .pipe(catchError(() => of([])));
+  }
+
   subscribeToCrawlProgress(): Observable<CrawlProgress> {
     return new Observable<CrawlProgress>((observer) => {
       const token = this.authService.getToken();
@@ -186,6 +195,81 @@ export class ApiService {
               }
 
               observer.next(JSON.parse(payload) as CrawlProgress);
+            }
+          }
+
+          observer.complete();
+        })
+        .catch((error) => {
+          if (abortController.signal.aborted) {
+            return;
+          }
+          observer.error(error);
+        });
+
+      return () => abortController.abort();
+    });
+  }
+
+  subscribeToScoringProgress(): Observable<ScoringProgress> {
+    return new Observable<ScoringProgress>((observer) => {
+      const token = this.authService.getToken();
+      if (!token) {
+        observer.error(new Error('Missing auth token'));
+        return undefined;
+      }
+
+      const abortController = new AbortController();
+
+      void fetch(`${this.apiBase}/scoring/stream`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/event-stream',
+        },
+        signal: abortController.signal,
+      })
+        .then(async (response) => {
+          if (response.status === 401) {
+            this.authService.logout();
+            throw new Error('Unauthorized');
+          }
+
+          if (!response.ok || !response.body) {
+            throw new Error(`Failed to open scoring progress stream (${response.status})`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+
+            for (const eventChunk of events) {
+              const lines = eventChunk
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+              const dataLine = lines.find((line) => line.startsWith('data:'));
+              if (!dataLine) {
+                continue;
+              }
+
+              const payload = dataLine.slice(5).trim();
+              if (!payload) {
+                continue;
+              }
+
+              observer.next(JSON.parse(payload) as ScoringProgress);
             }
           }
 

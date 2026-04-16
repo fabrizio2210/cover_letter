@@ -56,20 +56,20 @@
         <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
       </label>
 
-      <div class="crawl-status-card" *ngIf="selectedIdentityCrawlProgress as crawlProgress">
+      <div class="crawl-status-card" *ngIf="selectedIdentityActiveProgress as activeProgress">
         <div class="crawl-status-header">
-          <strong>{{ getCrawlPhaseLabel(crawlProgress) }}</strong>
-          <span class="crawl-status-badge" [class.crawl-status-terminal]="!selectedIdentityHasActiveCrawl">
-            {{ crawlProgress.status }}
+          <strong>{{ getProgressPhaseLabel(activeProgress) }}</strong>
+          <span class="crawl-status-badge" [class.crawl-status-terminal]="!isActiveProgressStatus(activeProgress.status)">
+            {{ activeProgress.status }}
           </span>
         </div>
-        <p>{{ crawlProgress.message || 'No crawl message available.' }}</p>
+        <p>{{ activeProgress.message || (getProgressSourceLabel(activeProgress) + ' progress update') }}</p>
         <div class="crawl-progress-row">
-          <span>{{ crawlProgress.completed }} / {{ crawlProgress.estimated_total }}</span>
-          <span>{{ crawlProgress.percent }}%</span>
+          <span>{{ getProgressSourceLabel(activeProgress) }} • {{ activeProgress.completed }} / {{ activeProgress.estimated_total }}</span>
+          <span>{{ activeProgress.percent }}%</span>
         </div>
         <div class="crawl-progress-track">
-          <div class="crawl-progress-fill" [style.width.%]="crawlProgress.percent"></div>
+          <div class="crawl-progress-fill" [style.width.%]="activeProgress.percent"></div>
         </div>
       </div>
     </section>

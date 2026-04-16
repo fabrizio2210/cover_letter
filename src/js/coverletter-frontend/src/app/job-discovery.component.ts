@@ -7,9 +7,21 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription } from './models/models';
+import { CrawlProgress, Identity, JobDescription, ScoringProgress } from './models/models';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
+type ProgressSource = 'crawl' | 'scoring';
+
+interface ActiveProgressSnapshot {
+  source: ProgressSource;
+  run_id: string;
+  identity_id: string;
+  status: string;
+  message?: string;
+  estimated_total: number;
+  completed: number;
+  percent: number;
+}
 
 @Component({
   selector: 'app-job-discovery',
@@ -45,7 +57,10 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   remoteOnly = false;
   aiSkillGapAnalysis = false;
   private crawlStreamSubscription?: Subscription;
+  private scoringStreamSubscription?: Subscription;
   private crawlSnapshotsByIdentity = new Map<string, CrawlProgress>();
+  private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
+  private completedProgressEvents = new Set<string>();
 
   @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
@@ -66,10 +81,12 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
     this.loadData();
     this.subscribeToCrawlProgress();
+    this.subscribeToScoringProgress();
   }
 
   ngOnDestroy(): void {
     this.crawlStreamSubscription?.unsubscribe();
+    this.scoringStreamSubscription?.unsubscribe();
   }
 
   loadData(): void {
@@ -79,11 +96,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       jobs: this.api.getJobDescriptions(),
       identities: this.api.getIdentities(),
       activeCrawls: this.api.getActiveCrawls(),
+      activeScoring: this.api.getActiveScoring(),
     }).subscribe({
-      next: ({ jobs, identities, activeCrawls }) => {
+      next: ({ jobs, identities, activeCrawls, activeScoring }) => {
         this.jobs = jobs || [];
         this.identities = identities || [];
         this.setCrawlSnapshots(activeCrawls || []);
+        this.setScoringSnapshots(activeScoring || []);
 
         if (this.jobs.length > 0) {
           if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
@@ -204,9 +223,60 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     };
   }
 
+  get selectedIdentityScoringProgress(): ScoringProgress | null {
+    const progress = this.scoringSnapshotsByIdentity.get(this.selectedIdentityId);
+    if (!progress) {
+      return null;
+    }
+    return {
+      ...progress,
+      completed: progress.completed ?? 0,
+      percent: progress.percent ?? 0,
+      estimated_total: progress.estimated_total ?? 0,
+    };
+  }
+
+  get selectedIdentityActiveProgress(): ActiveProgressSnapshot | null {
+    const crawl = this.selectedIdentityCrawlProgress;
+    const scoring = this.selectedIdentityScoringProgress;
+
+    if (crawl && this.isActiveProgressStatus(crawl.status)) {
+      return this.toActiveProgressSnapshot('crawl', crawl);
+    }
+
+    if (scoring && this.isActiveProgressStatus(scoring.status)) {
+      return this.toActiveProgressSnapshot('scoring', scoring);
+    }
+
+    if (crawl) {
+      return this.toActiveProgressSnapshot('crawl', crawl);
+    }
+
+    if (scoring) {
+      return this.toActiveProgressSnapshot('scoring', scoring);
+    }
+
+    return null;
+  }
+
   get selectedIdentityHasActiveCrawl(): boolean {
     const progress = this.selectedIdentityCrawlProgress;
     return progress?.status === 'queued' || progress?.status === 'running';
+  }
+
+  isActiveProgressStatus(status: string): boolean {
+    return status === 'queued' || status === 'running';
+  }
+
+  getProgressPhaseLabel(progress: ActiveProgressSnapshot): string {
+    if (progress.source === 'crawl') {
+      return this.getCrawlPhaseLabel(this.selectedIdentityCrawlProgress);
+    }
+    return 'AI scoring';
+  }
+
+  getProgressSourceLabel(progress: ActiveProgressSnapshot): string {
+    return progress.source === 'crawl' ? 'Crawl' : 'Scoring';
   }
 
   get crawlActionLabel(): string {
@@ -543,9 +613,33 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         if (progress.status === 'failed' || progress.status === 'rejected') {
           this.feedbackService.showFeedback(progress.message || `Crawl ${progress.status} for ${this.activeIdentityName}.`, true);
         }
+
+        this.refreshJobsOnTerminalProgress('crawl', progress.identity_id, progress.run_id, progress.status);
       },
       error: () => {
         this.feedbackService.showFeedback('Lost crawl progress stream connection.', true);
+      },
+    });
+  }
+
+  private subscribeToScoringProgress(): void {
+    this.scoringStreamSubscription?.unsubscribe();
+    this.scoringStreamSubscription = this.api.subscribeToScoringProgress().subscribe({
+      next: (progress) => {
+        this.scoringSnapshotsByIdentity.set(progress.identity_id, progress);
+
+        if (progress.identity_id === this.selectedIdentityId && progress.status === 'completed') {
+          this.feedbackService.showFeedback(`Scoring completed for ${this.activeIdentityName}.`);
+        }
+
+        if (progress.identity_id === this.selectedIdentityId && progress.status === 'failed') {
+          this.feedbackService.showFeedback(progress.message || `Scoring failed for ${this.activeIdentityName}.`, true);
+        }
+
+        this.refreshJobsOnTerminalProgress('scoring', progress.identity_id, progress.run_id, progress.status);
+      },
+      error: () => {
+        this.feedbackService.showFeedback('Lost scoring progress stream connection.', true);
       },
     });
   }
@@ -558,6 +652,51 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         this.crawlSnapshotsByIdentity.set(snapshot.identity_id, snapshot);
       }
     });
+  }
+
+  private setScoringSnapshots(snapshots: ScoringProgress[]): void {
+    this.scoringSnapshotsByIdentity.clear();
+    snapshots.forEach((snapshot) => {
+      const existing = this.scoringSnapshotsByIdentity.get(snapshot.identity_id);
+      if (!existing || this.getTimestampSeconds(snapshot.updated_at) >= this.getTimestampSeconds(existing.updated_at)) {
+        this.scoringSnapshotsByIdentity.set(snapshot.identity_id, snapshot);
+      }
+    });
+  }
+
+  private toActiveProgressSnapshot(source: ProgressSource, progress: CrawlProgress | ScoringProgress): ActiveProgressSnapshot {
+    return {
+      source,
+      run_id: progress.run_id,
+      identity_id: progress.identity_id,
+      status: progress.status,
+      message: progress.message,
+      estimated_total: progress.estimated_total ?? 0,
+      completed: progress.completed ?? 0,
+      percent: progress.percent ?? 0,
+    };
+  }
+
+  private refreshJobsOnTerminalProgress(source: ProgressSource, identityId: string, runId: string, status: string): void {
+    if (!identityId || !runId) {
+      return;
+    }
+
+    if (identityId !== this.selectedIdentityId) {
+      return;
+    }
+
+    if (status !== 'completed' && status !== 'failed' && status !== 'rejected') {
+      return;
+    }
+
+    const completionKey = `${source}:${identityId}:${runId}:${status}`;
+    if (this.completedProgressEvents.has(completionKey)) {
+      return;
+    }
+
+    this.completedProgressEvents.add(completionKey);
+    this.loadData();
   }
 
   private getTimestampSeconds(value?: string | { seconds: number; nanos: number } | null): number {

@@ -169,3 +169,17 @@ message CrawlProgress {
     google.protobuf.Timestamp finished_at = 11;
     string reason = 12;
 }
+
+message ScoringProgress {
+    string run_id = 1;
+    string identity_id = 2;
+    string status = 3;
+    string message = 4;
+    int32 estimated_total = 5;
+    int32 completed = 6;
+    int32 percent = 7;
+    google.protobuf.Timestamp started_at = 8;
+    google.protobuf.Timestamp updated_at = 9;
+    google.protobuf.Timestamp finished_at = 10;
+    string reason = 11;
+}

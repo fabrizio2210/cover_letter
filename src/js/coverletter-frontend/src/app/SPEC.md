@@ -170,6 +170,20 @@ export interface CrawlProgress {
   reason?: string;
 }
 
+export interface ScoringProgress {
+  run_id: string;
+  identity_id: string;
+  status: 'running' | 'completed' | 'failed';
+  message?: string;
+  estimated_total: number;
+  completed: number;
+  percent: number;
+  started_at?: string | Timestamp | null;
+  updated_at?: string | Timestamp;
+  finished_at?: string | Timestamp | null;
+  reason?: string;
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;
@@ -185,6 +199,8 @@ Critical alignment rules:
 - `scores` on a `JobDescription` is an array of per-preference score objects.
 - `run_id` and `identity_id` on a `CrawlProgress` are required and are stable across stream reconnections for the same active run.
 - `percent` on a `CrawlProgress` is an integer from `0` to `100` and is the primary UI progress-bar input.
+- `run_id` and `identity_id` on a `ScoringProgress` are required and are stable across stream reconnections for the same active run.
+- `percent` on a `ScoringProgress` is an integer from `0` to `100` and each scoring run starts from `0%`.
 - `created_at` and `updated_at` may be returned as protobuf-style timestamp objects: `{ seconds, nanos }`.
 
 ---
@@ -230,16 +246,20 @@ feedback$: Observable<FeedbackMessage>
 
 `DashboardComponent` is the only component that renders toast UI. Child components should emit feedback through the service and not maintain duplicate toast state.
 
-### Crawl progress consumption
+### Crawl and scoring progress consumption
 
-Crawler progress is consumed from the backend, never directly from Redis.
+Crawler and scoring progress are consumed from the backend, never directly from Redis.
 
 Required frontend behavior:
 - Fetch an initial crawl snapshot from `GET /api/crawls/active` when Dashboard or Job Discovery loads.
 - Subscribe to `GET /api/crawls/stream` as a server-sent events stream for live updates.
+- Fetch an initial scoring snapshot from `GET /api/scoring/active` when Job Discovery loads.
+- Subscribe to `GET /api/scoring/stream` as a server-sent events stream for live updates.
 - Filter stream events by the currently selected identity in Job Discovery.
 - Allow Dashboard to show active progress even when the user is not on Job Discovery.
 - Treat `completed`, `failed`, and `rejected` as terminal UI states.
+- For shared progress widgets, crawl progress has precedence when both crawl and scoring are active for the selected identity.
+- On terminal progress state (`completed`, `failed`, or `rejected`), Job Discovery refreshes the jobs list automatically.
 
 ---
 
@@ -351,7 +371,19 @@ Notes:
 - The stream event payload matches `CrawlProgress` exactly.
 - Dashboard and Job Discovery both listen for the same crawl-progress event shape.
 
-### 6.8 Cover Letters
+### 6.8 Scoring Progress
+
+| Method | Path | Request body | Success response |
+|---|---|---|---|
+| GET | `/api/scoring/active` | — | `ScoringProgress[]` |
+| GET | `/api/scoring/stream` | — | `text/event-stream` carrying `scoring-progress` events |
+
+Notes:
+- Job Discovery consumes scoring progress to display AI scoring lifecycle on the shared progress bar.
+- Scoring progress is independent from crawling and starts from `0%` for each scoring run.
+- When crawl and scoring are both active, Job Discovery renders crawl progress on the shared bar until crawl reaches a terminal state.
+
+### 6.9 Cover Letters
 
 | Method | Path | Request body | Success response |
 |---|---|---|---|

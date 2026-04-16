@@ -37,6 +37,7 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `handlers/recipients.go`, `handlers/cover_letters.go` |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | crawl-trigger producer handlers |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | crawler-progress consumer and SSE relay |
+| `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | scoring-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
@@ -217,7 +218,7 @@ They are **not** ISO 8601 strings. The Python `ai_querier` writes them this way;
 
 ## 5. Redis Queue Contracts
 
-The API is a Redis **producer** for list-backed work queues and a Redis **consumer/relay** for crawler progress events. List-backed work dispatch uses `RPUSH`; workers consume with `BLPOP`. Crawler progress is published by the worker and relayed by the API to browser clients through a server-side stream endpoint.
+The API is a Redis **producer** for list-backed work queues and a Redis **consumer/relay** for crawler and scoring progress events. List-backed work dispatch uses `RPUSH`; workers consume with `BLPOP`. Progress snapshots are published by workers and relayed by the API to browser clients through server-side stream endpoints.
 
 ### 5.1 `cover_letter_generation_queue`
 
@@ -364,6 +365,42 @@ Rules:
 - `started_at` is set on the first `running` event.
 - `finished_at` is set only for terminal states: `completed`, `failed`, or `rejected`.
 - `reason` is reserved for terminal diagnostics, for example `already_running` or a short failure code.
+- The API must treat the most recent event per `run_id` as the authoritative live snapshot exposed to clients.
+
+### 5.6 `scoring_progress_channel`
+
+Env var: `SCORING_PROGRESS_CHANNEL_NAME` (default: `scoring_progress_channel`)
+Publisher: Python `ai_scorer` service.
+Consumer: Go API service, which relays updates to authenticated browser clients.
+
+**Payload**:
+
+```json
+{
+  "run_id": "<scoring run id>",
+  "identity_id": "<identity hex object id>",
+  "status": "running",
+  "message": "Scoring in progress",
+  "estimated_total": 24,
+  "completed": 7,
+  "percent": 29,
+  "started_at": { "seconds": 1711234567, "nanos": 0 },
+  "updated_at": { "seconds": 1711234600, "nanos": 0 },
+  "finished_at": null,
+  "reason": ""
+}
+```
+
+Status values:
+- `running`
+- `completed`
+- `failed`
+
+Rules:
+- `percent` must be an integer from `0` to `100`.
+- A new scoring run starts from `0%` and is independent from crawl progress.
+- `started_at` is set on the first `running` event.
+- `finished_at` is set for terminal states: `completed` and `failed`.
 - The API must treat the most recent event per `run_id` as the authoritative live snapshot exposed to clients.
 
 ---
@@ -947,6 +984,52 @@ Rules:
 - The stream is server-to-client only.
 - The API may multiplex updates for multiple identities on one stream; clients are expected to filter by `identity_id`.
 - The Dashboard and Job Discovery views both consume this stream.
+
+---
+
+### 7.8 Scoring Progress
+
+Implementation guardrail for maintainers:
+- Frontend clients do not read Redis directly. The API is responsible for exposing latest scoring snapshots and a live push stream.
+
+#### `GET /api/scoring/active`
+Auth: required.
+Response `200`: array of active or recently terminal scoring snapshots.
+
+```json
+[
+  {
+    "run_id": "<scoring run id>",
+    "identity_id": "<hex>",
+    "status": "running",
+    "message": "Scoring in progress",
+    "estimated_total": 24,
+    "completed": 7,
+    "percent": 29,
+    "started_at": { "seconds": 1711234567, "nanos": 0 },
+    "updated_at": { "seconds": 1711234600, "nanos": 0 },
+    "finished_at": null,
+    "reason": ""
+  }
+]
+```
+
+Rules:
+- This endpoint provides the latest server-side snapshot used to bootstrap UI state after refresh.
+- Filtering by `identity_id` may be supported via query string when only one identity view is needed.
+
+#### `GET /api/scoring/stream`
+Auth: required.
+Response `200`: `text/event-stream`.
+
+Event name: `scoring-progress`
+
+Event data payload matches the §5.6 `scoring_progress_channel` payload.
+
+Rules:
+- The stream is server-to-client only.
+- The API may multiplex updates for multiple identities on one stream; clients are expected to filter by `identity_id`.
+- In shared frontend progress widgets, crawl progress takes precedence over scoring progress when both are active.
 
 ---
 

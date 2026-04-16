@@ -705,3 +705,48 @@ class CrawlProgress(google.protobuf.message.Message):
     def HasField(self, field_name: typing_extensions.Literal["finished_at",b"finished_at","started_at",b"started_at","updated_at",b"updated_at"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["completed",b"completed","estimated_total",b"estimated_total","finished_at",b"finished_at","identity_id",b"identity_id","message",b"message","percent",b"percent","phase",b"phase","reason",b"reason","run_id",b"run_id","started_at",b"started_at","status",b"status","updated_at",b"updated_at"]) -> None: ...
 global___CrawlProgress = CrawlProgress
+
+class ScoringProgress(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    RUN_ID_FIELD_NUMBER: builtins.int
+    IDENTITY_ID_FIELD_NUMBER: builtins.int
+    STATUS_FIELD_NUMBER: builtins.int
+    MESSAGE_FIELD_NUMBER: builtins.int
+    ESTIMATED_TOTAL_FIELD_NUMBER: builtins.int
+    COMPLETED_FIELD_NUMBER: builtins.int
+    PERCENT_FIELD_NUMBER: builtins.int
+    STARTED_AT_FIELD_NUMBER: builtins.int
+    UPDATED_AT_FIELD_NUMBER: builtins.int
+    FINISHED_AT_FIELD_NUMBER: builtins.int
+    REASON_FIELD_NUMBER: builtins.int
+    run_id: typing.Text
+    identity_id: typing.Text
+    status: typing.Text
+    message: typing.Text
+    estimated_total: builtins.int
+    completed: builtins.int
+    percent: builtins.int
+    @property
+    def started_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def updated_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def finished_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    reason: typing.Text
+    def __init__(self,
+        *,
+        run_id: typing.Text = ...,
+        identity_id: typing.Text = ...,
+        status: typing.Text = ...,
+        message: typing.Text = ...,
+        estimated_total: builtins.int = ...,
+        completed: builtins.int = ...,
+        percent: builtins.int = ...,
+        started_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        updated_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        finished_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        reason: typing.Text = ...,
+        ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["finished_at",b"finished_at","started_at",b"started_at","updated_at",b"updated_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["completed",b"completed","estimated_total",b"estimated_total","finished_at",b"finished_at","identity_id",b"identity_id","message",b"message","percent",b"percent","reason",b"reason","run_id",b"run_id","started_at",b"started_at","status",b"status","updated_at",b"updated_at"]) -> None: ...
+global___ScoringProgress = ScoringProgress

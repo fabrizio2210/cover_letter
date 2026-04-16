@@ -61,6 +61,7 @@ High-level flow:
 | `REDIS_HOST` | `localhost` | No | Redis connection |
 | `REDIS_PORT` | `6379` | No | Redis connection |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Scoring queue name |
+| `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | Redis channel used to publish scoring progress snapshots |
 | `MONGO_HOST` | `mongodb://localhost:27017/` | Yes | MongoDB connection URI |
 | `DB_NAME` | `cover_letter` | No | MongoDB database name |
 | `OLLAMA_HOST` | none | Yes | Ollama base URL (dev stack uses `http://ollama:11434`) |
@@ -83,7 +84,8 @@ The worker is responsible for:
 - scoring stored job descriptions against enabled weighted identity preferences;
 - storing per-preference scores in `job-preference-scores`;
 - computing weighted aggregate ranking deterministically;
-- updating `job-descriptions` scoring fields and status lifecycle.
+- updating `job-descriptions` scoring fields and status lifecycle;
+- publishing scoring-progress snapshots to Redis for API relay to frontend clients.
 
 The worker is not responsible for:
 - generating or refining cover letters;
@@ -139,6 +141,38 @@ If this payload changes, the following must be updated together:
 - Go queue producer logic in API handlers;
 - crawler scoring enqueue logic;
 - Python queue consumer logic in `ai_scorer.py`.
+
+### 5.6 Scoring Progress Output Contract
+
+The worker publishes scoring progress snapshots to Redis channel:
+- `scoring_progress_channel`
+
+This channel name may be overridden by `SCORING_PROGRESS_CHANNEL_NAME`.
+
+Payload shape:
+
+```json
+{
+  "run_id": "<scoring run id>",
+  "identity_id": "<identity hex object id>",
+  "status": "running",
+  "message": "Scoring in progress",
+  "estimated_total": 24,
+  "completed": 7,
+  "percent": 29,
+  "started_at": { "seconds": 1711234567, "nanos": 0 },
+  "updated_at": { "seconds": 1711234600, "nanos": 0 },
+  "finished_at": null,
+  "reason": ""
+}
+```
+
+Progress rules:
+- Scoring progress is independent from crawl progress.
+- Each scoring run starts from `0%`.
+- `percent` is an integer in range `0..100`.
+- Terminal statuses are `completed` and `failed`; terminal events include `finished_at`.
+- Publish failures must be logged but must not terminate scoring-job processing.
 
 ---
 
@@ -243,6 +277,7 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 7. Persist one `job-preference-scores` document per preference.
 8. Compute weighted aggregate from stored scores and weights.
 9. Update `job-descriptions` aggregate fields, `scoring_status`, and `updated_at`.
+10. Publish scoring-progress updates for run start, incremental completion, and terminal state.
 
 Scoring lifecycle expectations:
 - Allowed values: `unscored`, `queued`, `scored`, `failed`, `skipped`.

@@ -69,6 +69,8 @@ func main() {
 		auth.POST("/crawls", handlers.TriggerCrawl)
 		auth.GET("/crawls/active", handlers.GetActiveCrawls)
 		auth.GET("/crawls/stream", handlers.StreamCrawlProgress)
+		auth.GET("/scoring/active", handlers.GetActiveScoring)
+		auth.GET("/scoring/stream", handlers.StreamScoringProgress)
 	}
 
 	r.Run(":8080")

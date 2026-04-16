@@ -24,6 +24,9 @@ _SCORING_STATUS_BSON: dict[int, str] = {
 }
 
 
+TERMINAL_PROGRESS_STATUSES = {"completed", "failed"}
+
+
 def scoring_status_to_bson(status: int) -> str:
     return _SCORING_STATUS_BSON.get(status, "unscored")
 
@@ -109,6 +112,139 @@ def identity_proto_from_doc(identity_doc):
 def now_timestamp_dict():
     now = datetime.now(timezone.utc)
     return {"seconds": int(now.timestamp()), "nanos": 0}
+
+
+def estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc):
+    field_ref = identity_doc.get("field")
+    if field_ref is None:
+        field_ref = identity_doc.get("field_id")
+
+    if field_ref is None:
+        return 0
+
+    field_candidates = [field_ref]
+    field_object_id = parse_object_id(field_ref)
+    if field_object_id is not None:
+        field_candidates.append(field_object_id)
+        field_candidates.append(str(field_object_id))
+
+    companies_cursor = companies_col.find(
+        {
+            "$or": [
+                {"field": {"$in": field_candidates}},
+                {"field_id": {"$in": field_candidates}},
+            ]
+        },
+        {"_id": 1},
+    )
+
+    company_candidates = []
+    for company in companies_cursor:
+        company_id = company.get("_id")
+        if company_id is None:
+            continue
+        company_candidates.append(company_id)
+        company_candidates.append(str(company_id))
+
+    if not company_candidates:
+        return 0
+
+    return int(
+        job_descriptions_col.count_documents(
+            {
+                "$or": [
+                    {"company": {"$in": company_candidates}},
+                    {"company_id": {"$in": company_candidates}},
+                ],
+                "scoring_status": {"$in": ["unscored", "queued"]},
+            }
+        )
+    )
+
+
+def progress_percent(completed: int, estimated_total: int, status: str) -> int:
+    if estimated_total <= 0:
+        return 0
+    if status in TERMINAL_PROGRESS_STATUSES:
+        return 100
+    return max(0, min(100, int((completed * 100) / estimated_total)))
+
+
+def publish_scoring_progress(redis_client, channel_name, state, status: str, message: str = "", reason: str = ""):
+    updated_at = now_proto_timestamp()
+    started_at = state.get("started_at")
+
+    progress = common_pb2.ScoringProgress(
+        run_id=str(state.get("run_id", "")),
+        identity_id=str(state.get("identity_id", "")),
+        status=status,
+        message=message,
+        estimated_total=int(state.get("estimated_total", 0)),
+        completed=int(state.get("completed", 0)),
+        percent=progress_percent(int(state.get("completed", 0)), int(state.get("estimated_total", 0)), status),
+        updated_at=updated_at,
+        reason=reason,
+    )
+
+    if started_at:
+        progress.started_at.CopyFrom(started_at)
+    if status in TERMINAL_PROGRESS_STATUSES:
+        progress.finished_at.CopyFrom(updated_at)
+
+    payload = MessageToDict(progress, preserving_proto_field_name=True)
+    if started_at:
+        payload["started_at"] = timestamp_dict_from_proto(started_at)
+    if progress.updated_at:
+        payload["updated_at"] = timestamp_dict_from_proto(progress.updated_at)
+    if status in TERMINAL_PROGRESS_STATUSES and progress.finished_at:
+        payload["finished_at"] = timestamp_dict_from_proto(progress.finished_at)
+
+    redis_client.publish(channel_name, json.dumps(payload, ensure_ascii=False))
+
+
+def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, scoring_runs):
+    identity_id = get_message_id(identity_doc)
+    if not identity_id:
+        return None
+
+    state = scoring_runs.get(identity_id)
+    if state is None:
+        estimated_total = max(1, estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc))
+        state = {
+            "run_id": str(ObjectId()),
+            "identity_id": identity_id,
+            "started_at": now_proto_timestamp(),
+            "estimated_total": estimated_total,
+            "completed": 0,
+        }
+        scoring_runs[identity_id] = state
+        return state
+
+    refreshed_total = state.get("completed", 0) + estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
+    state["estimated_total"] = max(int(state.get("estimated_total", 1)), int(refreshed_total), 1)
+    return state
+
+
+def advance_scoring_run(
+    state,
+    identity_doc,
+    job_descriptions_col,
+    companies_col,
+    scoring_runs,
+):
+    if state is None:
+        return state, False
+
+    state["completed"] = int(state.get("completed", 0)) + 1
+    pending = estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
+    state["estimated_total"] = max(int(state.get("estimated_total", 1)), int(state["completed"] + pending), 1)
+
+    if pending <= 0:
+        state["completed"] = int(state["estimated_total"])
+        scoring_runs.pop(str(state.get("identity_id", "")), None)
+        return state, True
+
+    return state, False
 
 
 def parse_object_id(value):
@@ -525,6 +661,9 @@ def process_scoring_job(
     companies_col,
     identities_col,
     job_preference_scores_col,
+    redis_client,
+    scoring_progress_channel,
+    scoring_runs,
     ollama_client,
     model_name,
     test_mode,
@@ -546,9 +685,42 @@ def process_scoring_job(
     job_doc, company_doc, identity_doc, enabled_preferences = context
     job_object_id = job_doc.get("_id")
 
+    scoring_state = None
+    if identity_doc:
+        scoring_state = start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, scoring_runs)
+        if scoring_state and scoring_state.get("completed", 0) == 0:
+            try:
+                publish_scoring_progress(
+                    redis_client,
+                    scoring_progress_channel,
+                    scoring_state,
+                    "running",
+                    message="Scoring started",
+                )
+            except Exception as exc:
+                print(f"warn: Failed to publish scoring progress start event: {exc}")
+
     if error in {"company_not_found", "identity_not_found", "no_enabled_preferences"}:
         set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
         print(f"warn: Skipping job '{job_id}' due to missing prerequisites ({error}).")
+        if identity_doc and scoring_state:
+            scoring_state, completed_run = advance_scoring_run(
+                scoring_state,
+                identity_doc,
+                job_descriptions_col,
+                companies_col,
+                scoring_runs,
+            )
+            try:
+                publish_scoring_progress(
+                    redis_client,
+                    scoring_progress_channel,
+                    scoring_state,
+                    "completed" if completed_run else "running",
+                    message="Scoring completed" if completed_run else "Scoring in progress",
+                )
+            except Exception as exc:
+                print(f"warn: Failed to publish scoring progress update: {exc}")
         return
 
     job_proto = job_proto_from_doc(job_doc)
@@ -590,10 +762,48 @@ def process_scoring_job(
             identity_proto,
         )
 
+        if scoring_state:
+            scoring_state, completed_run = advance_scoring_run(
+                scoring_state,
+                identity_doc,
+                job_descriptions_col,
+                companies_col,
+                scoring_runs,
+            )
+            try:
+                publish_scoring_progress(
+                    redis_client,
+                    scoring_progress_channel,
+                    scoring_state,
+                    "completed" if completed_run else "running",
+                    message="Scoring completed" if completed_run else "Scoring in progress",
+                )
+            except Exception as exc:
+                print(f"warn: Failed to publish scoring progress update: {exc}")
+
         print(f"info: Successfully scored job '{job_id}'.")
 
     except Exception as exc:
         set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_FAILED)
+        if identity_doc and scoring_state:
+            scoring_state, completed_run = advance_scoring_run(
+                scoring_state,
+                identity_doc,
+                job_descriptions_col,
+                companies_col,
+                scoring_runs,
+            )
+            try:
+                publish_scoring_progress(
+                    redis_client,
+                    scoring_progress_channel,
+                    scoring_state,
+                    "failed" if completed_run else "running",
+                    message="Scoring failed" if completed_run else "Scoring in progress",
+                    reason="job_failed" if completed_run else "",
+                )
+            except Exception as publish_exc:
+                print(f"warn: Failed to publish scoring failure progress event: {publish_exc}")
         print(f"error: Failed to score job '{job_id}': {exc}")
 
 
@@ -601,6 +811,7 @@ def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
     queue_name = os.environ.get("JOB_SCORING_QUEUE_NAME", "job_scoring_queue")
+    scoring_progress_channel = os.environ.get("SCORING_PROGRESS_CHANNEL_NAME", "scoring_progress_channel")
 
     mongo_uri = os.environ.get("MONGO_HOST", "mongodb://localhost:27017/")
     mongo_db_name = os.environ.get("DB_NAME", "cover_letter")
@@ -626,10 +837,12 @@ def main():
     job_preference_scores_col = db["job-preference-scores"]
 
     redis_client = redis.Redis(host=redis_host, port=redis_port)
+    scoring_runs: dict[str, dict[str, Any]] = {}
 
     ollama_client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
 
     print(f"info: Listening for messages on Redis queue '{queue_name}'...")
+    print(f"info: Publishing progress on Redis channel '{scoring_progress_channel}'...")
     print(f"info: Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
     print(f"info: Test mode = {test_mode}")
 
@@ -657,6 +870,9 @@ def main():
                 companies_col,
                 identities_col,
                 job_preference_scores_col,
+                redis_client,
+                scoring_progress_channel,
+                scoring_runs,
                 ollama_client,
                 ollama_model,
                 test_mode,
