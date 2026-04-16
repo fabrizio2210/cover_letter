@@ -232,7 +232,6 @@ def run_workflow3(
             company_name = company.name
             provider = company.ats_provider
             slug = company.ats_slug
-            company_checks = 1
 
             if progress_callback:
                 progress_callback(
@@ -250,9 +249,6 @@ def run_workflow3(
             try:
                 jobs = fetch_jobs(provider, slug, config, session)
                 result.fetched_count += len(jobs)
-                company_checks = max(len(jobs), 1)
-                remaining_companies = max(total_companies - company_index, 0)
-                estimated_checks = max(estimated_checks, completed_checks + company_checks + remaining_companies)
 
                 for job in jobs:
                     try:
@@ -289,7 +285,7 @@ def run_workflow3(
                 logger.exception("workflow3: failed for company %s (%s): %s", company_id, company_name, exc)
                 result.failed_companies.append({"company_id": company_id, "company_name": company_name, "error": str(exc)})
             finally:
-                completed_checks += company_checks
+                completed_checks += 1
                 if progress_callback:
                     progress_callback(
                         completed_checks,

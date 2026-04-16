@@ -7,6 +7,7 @@ from bson import ObjectId
 import requests
 
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.executor import ATSWorkerResult
 from src.python.web_crawler.sources.ats_detector import ATSDetectionResult, ATSRequestFailure, detect_ats_provider, extract_ats_signatures_from_html, fetch_url
 from src.python.web_crawler.sources.ats_slug_resolver import extract_slug_from_url, resolve_slug, resolve_slug_via_search_dorking
 from src.python.web_crawler.workflow2 import _discover_candidate_urls, run_workflow2
@@ -228,6 +229,32 @@ class Workflow2Tests(unittest.TestCase):
     def setUp(self):
         self.config = CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="cover_letter")
 
+    @staticmethod
+    def _worker_result(
+        company_id: ObjectId,
+        company_name: str,
+        company_index: int,
+        *,
+        success: bool,
+        provider: str | None = None,
+        slug: str | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+        error_url: str | None = None,
+    ) -> ATSWorkerResult:
+        return ATSWorkerResult(
+            company_id=str(company_id),
+            company_object_id=company_id,
+            company_name=company_name,
+            company_index=company_index,
+            success=success,
+            provider=provider,
+            slug=slug,
+            error_type=error_type,
+            error_message=error_message,
+            error_url=error_url,
+        )
+
     def test_run_workflow2_enriches_company_document(self):
         company_id = ObjectId()
         companies = FakeCollection(
@@ -242,11 +269,8 @@ class Workflow2Tests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://jobs.lever.co/acme"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value="acme",
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(company_id, "Acme", 1, success=True, provider="lever", slug="acme"),
         ):
             result = run_workflow2(database, self.config, [str(company_id)])
 
@@ -277,11 +301,11 @@ class Workflow2Tests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            side_effect=[RuntimeError("boom"), ATSDetectionResult(provider="greenhouse", board_url="https://boards.greenhouse.io/beta")],
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value="beta",
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            side_effect=[
+                self._worker_result(first_id, "Acme", 1, success=False, error_type="unexpected_error", error_message="boom"),
+                self._worker_result(second_id, "Beta", 2, success=True, provider="greenhouse", slug="beta"),
+            ],
         ):
             result = run_workflow2(database, self.config, [str(first_id), str(second_id)])
 
@@ -307,7 +331,7 @@ class Workflow2Tests(unittest.TestCase):
         )
         database = FakeDatabase({"companies": companies})
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
+        with patch("src.python.web_crawler.workflow2._detect_ats_worker") as detect_mock:
             result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(result.enriched_count, 0)
@@ -328,11 +352,8 @@ class Workflow2Tests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://acme.test/careers"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value=None,
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(company_id, "Acme", 1, success=False, provider="lever", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value=None,
@@ -345,11 +366,8 @@ class Workflow2Tests(unittest.TestCase):
         self.assertEqual(search_mock.call_count, 1)
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://acme.test/careers"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value=None,
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(company_id, "Acme", 1, success=False, provider="lever", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value="should-not-run",
@@ -374,19 +392,73 @@ class Workflow2Tests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            side_effect=ATSRequestFailure("dns_resolution", "https://acme.test/careers", "failed to resolve"),
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(
+                company_id,
+                "Acme",
+                1,
+                success=False,
+                error_type="ats_request_failure:dns_resolution",
+                error_message="failed to resolve",
+                error_url="https://acme.test/careers",
+            ),
         ):
             first_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(first_result.skipped_count, 1)
         self.assertEqual(companies.docs[0]["workflow2_terminal_failure"]["failure_type"], "dns_resolution")
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
+        with patch("src.python.web_crawler.workflow2._detect_ats_worker") as detect_mock:
             second_result = run_workflow2(database, self.config, [str(company_id)])
 
         self.assertEqual(second_result.skipped_count, 1)
         detect_mock.assert_not_called()
+
+    def test_run_workflow2_reports_additive_progress_across_parallel_tasks_and_fallback(self):
+        first_id = ObjectId()
+        second_id = ObjectId()
+        companies = FakeCollection(
+            docs=[
+                {
+                    "_id": first_id,
+                    "name": "Acme",
+                    "discovery_sources": [{"careers_url": "https://acme.test/careers"}],
+                },
+                {
+                    "_id": second_id,
+                    "name": "Beta",
+                    "discovery_sources": [{"careers_url": "https://beta.test/careers"}],
+                },
+            ]
+        )
+        database = FakeDatabase({"companies": companies})
+        progress_events: list[tuple[int, int, str]] = []
+
+        with patch(
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            side_effect=[
+                self._worker_result(first_id, "Acme", 1, success=True, provider="lever", slug="acme"),
+                self._worker_result(second_id, "Beta", 2, success=False, provider="greenhouse", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
+            ],
+        ), patch(
+            "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
+            return_value=None,
+        ):
+            result = run_workflow2(
+                database,
+                self.config,
+                [str(first_id), str(second_id)],
+                progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+            )
+
+        self.assertEqual(result.enriched_count, 1)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertTrue(progress_events)
+        self.assertEqual(progress_events[-1][0], 3)
+        self.assertEqual(progress_events[-1][1], 3)
+        self.assertIn(3, [estimated for _, estimated, _ in progress_events])
+        completed_values = [completed for completed, _, _ in progress_events]
+        self.assertEqual(completed_values, sorted(completed_values))
 
     def test_discover_candidate_urls_returns_careers_and_jobs_paths(self):
         company = self._company_proto(

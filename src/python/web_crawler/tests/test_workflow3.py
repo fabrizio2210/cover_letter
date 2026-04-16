@@ -556,6 +556,35 @@ class Workflow3Tests(unittest.TestCase):
         self.assertEqual(result.skipped_count, 0)
         self.assertEqual(len(db["jobs"].docs), 1)
 
+    def test_run_workflow3_progress_uses_stable_company_based_units(self):
+        other_oid = ObjectId()
+        db = self._make_fake_database(
+            companies=[
+                self._make_company_doc(),
+                {"_id": other_oid, "name": "Beta", "ats_provider": "lever", "ats_slug": "beta"},
+            ]
+        )
+        progress_events: list[tuple[int, int, str]] = []
+
+        with patch(
+            "src.python.web_crawler.workflow3.fetch_jobs",
+            side_effect=[
+                [self._make_job(external_job_id=f"acme-{index}") for index in range(5)],
+                [self._make_job(external_job_id=f"beta-{index}") for index in range(50)],
+            ],
+        ):
+            result = run_workflow3(
+                db,
+                self.config,
+                progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+            )
+
+        self.assertEqual(result.fetched_count, 55)
+        self.assertEqual(progress_events[-1][0], 2)
+        self.assertTrue(all(estimated == 2 for _, estimated, _ in progress_events))
+        completed_values = [completed for completed, _, _ in progress_events]
+        self.assertEqual(completed_values, sorted(completed_values))
+
 
 if __name__ == "__main__":
     unittest.main()

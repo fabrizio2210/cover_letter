@@ -9,11 +9,35 @@ from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.sources.ats_detector import ATSDetectionResult, ATSRequestFailure
+from src.python.web_crawler.executor import ATSWorkerResult
 from src.python.web_crawler.workflow2 import run_workflow2
 
 
 class Workflow2MongoIntegrationTests(unittest.TestCase):
+    @staticmethod
+    def _worker_result(
+        company_id: ObjectId,
+        *,
+        success: bool,
+        provider: str | None = None,
+        slug: str | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+        error_url: str | None = None,
+    ) -> ATSWorkerResult:
+        return ATSWorkerResult(
+            company_id=str(company_id),
+            company_object_id=company_id,
+            company_name="Acme",
+            company_index=1,
+            success=success,
+            provider=provider,
+            slug=slug,
+            error_type=error_type,
+            error_message=error_message,
+            error_url=error_url,
+        )
+
     @classmethod
     def setUpClass(cls):
         mongo_host = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")
@@ -64,14 +88,8 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
 
     def test_run_workflow2_persists_ats_metadata_and_is_idempotent(self):
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://jobs.lever.co/acme"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value="acme",
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(self.company_id, success=True, provider="lever", slug="acme"),
         ):
             first_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
@@ -82,7 +100,7 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
         self.assertEqual(stored["ats_provider"], "lever")
         self.assertEqual(stored["ats_slug"], "acme")
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
+        with patch("src.python.web_crawler.workflow2._detect_ats_worker") as detect_mock:
             second_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
         self.assertEqual(second_result.enriched_count, 0)
@@ -91,17 +109,17 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
 
     def test_run_workflow2_persists_search_attempt_and_avoids_repeat_search(self):
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://acme.test/careers"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value=None,
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(
+                self.company_id,
+                success=False,
+                provider="lever",
+                error_type="slug_not_resolved_direct",
+                error_message="direct slug failed",
+            ),
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value=None,
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
         ) as first_search_mock:
             first_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
@@ -114,17 +132,17 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
         self.assertEqual(stored["ats_slug_search_attempts"]["lever"]["outcome"], "no_results")
 
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            return_value=ATSDetectionResult(provider="lever", board_url="https://acme.test/careers"),
-        ), patch(
-            "src.python.web_crawler.workflow2.resolve_direct_slug",
-            return_value=None,
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(
+                self.company_id,
+                success=False,
+                provider="lever",
+                error_type="slug_not_resolved_direct",
+                error_message="direct slug failed",
+            ),
         ), patch(
             "src.python.web_crawler.workflow2.resolve_slug_via_search_dorking",
             return_value="should-not-run",
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
         ) as second_search_mock:
             second_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
@@ -133,11 +151,14 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
 
     def test_run_workflow2_persists_terminal_failure_and_skips_future_runs(self):
         with patch(
-            "src.python.web_crawler.workflow2.detect_ats_provider",
-            side_effect=ATSRequestFailure("timeout", "https://acme.test/careers", "timed out"),
-        ), patch(
-            "src.python.web_crawler.workflow2._fetch_sitemap_candidate_urls",
-            return_value=[],
+            "src.python.web_crawler.workflow2._detect_ats_worker",
+            return_value=self._worker_result(
+                self.company_id,
+                success=False,
+                error_type="ats_request_failure:timeout",
+                error_message="timed out",
+                error_url="https://acme.test/careers",
+            ),
         ):
             first_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
@@ -147,7 +168,7 @@ class Workflow2MongoIntegrationTests(unittest.TestCase):
             self.fail("expected company document to exist")
         self.assertEqual(stored["workflow2_terminal_failure"]["failure_type"], "timeout")
 
-        with patch("src.python.web_crawler.workflow2.detect_ats_provider") as detect_mock:
+        with patch("src.python.web_crawler.workflow2._detect_ats_worker") as detect_mock:
             second_result = run_workflow2(self.database, self.config, [str(self.company_id)])
 
         self.assertEqual(second_result.skipped_count, 1)
