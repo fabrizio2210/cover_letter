@@ -1,7 +1,9 @@
 import json
 import html
 import os
+import queue
 import re
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -12,7 +14,11 @@ from bson.objectid import ObjectId
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 from pymongo import MongoClient
-import common_pb2
+
+try:
+    from . import common_pb2
+except ImportError:
+    import common_pb2
 
 
 _SCORING_STATUS_BSON: dict[int, str] = {
@@ -172,16 +178,16 @@ def progress_percent(completed: int, estimated_total: int, status: str) -> int:
 
 def publish_scoring_progress(redis_client, channel_name, state, status: str, message: str = "", reason: str = ""):
     updated_at = now_proto_timestamp()
-    started_at = state.get("started_at")
+    started_at = state.started_at if getattr(state, "started_at", None) else None
 
     progress = common_pb2.ScoringProgress(
-        run_id=str(state.get("run_id", "")),
-        identity_id=str(state.get("identity_id", "")),
+        run_id=str(getattr(state, "run_id", "")),
+        identity_id=str(getattr(state, "identity_id", "")),
         status=status,
         message=message,
-        estimated_total=int(state.get("estimated_total", 0)),
-        completed=int(state.get("completed", 0)),
-        percent=progress_percent(int(state.get("completed", 0)), int(state.get("estimated_total", 0)), status),
+        estimated_total=int(getattr(state, "estimated_total", 0)),
+        completed=int(getattr(state, "completed", 0)),
+        percent=progress_percent(int(getattr(state, "completed", 0)), int(getattr(state, "estimated_total", 0)), status),
         updated_at=updated_at,
         reason=reason,
     )
@@ -202,6 +208,74 @@ def publish_scoring_progress(redis_client, channel_name, state, status: str, mes
     redis_client.publish(channel_name, json.dumps(payload, ensure_ascii=False))
 
 
+def snapshot_scoring_state(state):
+    if state is None:
+        return None
+    snapshot = common_pb2.ScoringProgress(
+        run_id=str(getattr(state, "run_id", "")),
+        identity_id=str(getattr(state, "identity_id", "")),
+        estimated_total=int(getattr(state, "estimated_total", 0)),
+        completed=int(getattr(state, "completed", 0)),
+        percent=progress_percent(
+            int(getattr(state, "completed", 0)),
+            int(getattr(state, "estimated_total", 0)),
+            "running",
+        ),
+    )
+    started_at = getattr(state, "started_at", None)
+    if started_at:
+        snapshot.started_at.CopyFrom(started_at)
+    return snapshot
+
+
+class ScoringRunManager:
+    def __init__(self, job_descriptions_col, companies_col):
+        self._job_descriptions_col = job_descriptions_col
+        self._companies_col = companies_col
+        self._scoring_runs: dict[str, common_pb2.ScoringProgress] = {}
+        self._start_event_published: set[str] = set()
+        self._lock = threading.Lock()
+
+    def start_or_reuse(self, identity_doc):
+        with self._lock:
+            state = start_or_reuse_scoring_run(
+                identity_doc,
+                self._job_descriptions_col,
+                self._companies_col,
+                self._scoring_runs,
+            )
+            if state is None:
+                return None, False
+
+            identity_id = str(getattr(state, "identity_id", ""))
+            should_publish_start = identity_id not in self._start_event_published
+            if should_publish_start:
+                self._start_event_published.add(identity_id)
+
+            return snapshot_scoring_state(state), should_publish_start
+
+    def advance(self, identity_doc):
+        identity_id = get_message_id(identity_doc)
+        if not identity_id:
+            return None, False
+
+        with self._lock:
+            state = self._scoring_runs.get(identity_id)
+            if state is None:
+                return None, False
+
+            state, completed_run = advance_scoring_run(
+                state,
+                identity_doc,
+                self._job_descriptions_col,
+                self._companies_col,
+                self._scoring_runs,
+            )
+            if completed_run:
+                self._start_event_published.discard(identity_id)
+            return snapshot_scoring_state(state), completed_run
+
+
 def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, scoring_runs):
     identity_id = get_message_id(identity_doc)
     if not identity_id:
@@ -210,18 +284,19 @@ def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col
     state = scoring_runs.get(identity_id)
     if state is None:
         estimated_total = max(1, estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc))
-        state = {
-            "run_id": str(ObjectId()),
-            "identity_id": identity_id,
-            "started_at": now_proto_timestamp(),
-            "estimated_total": estimated_total,
-            "completed": 0,
-        }
+        state = common_pb2.ScoringProgress(
+            run_id=str(ObjectId()),
+            identity_id=identity_id,
+            estimated_total=estimated_total,
+            completed=0,
+            percent=0,
+        )
+        state.started_at.CopyFrom(now_proto_timestamp())
         scoring_runs[identity_id] = state
         return state
 
-    refreshed_total = state.get("completed", 0) + estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
-    state["estimated_total"] = max(int(state.get("estimated_total", 1)), int(refreshed_total), 1)
+    refreshed_total = state.completed + estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
+    state.estimated_total = max(int(state.estimated_total or 1), int(refreshed_total), 1)
     return state
 
 
@@ -235,13 +310,13 @@ def advance_scoring_run(
     if state is None:
         return state, False
 
-    state["completed"] = int(state.get("completed", 0)) + 1
+    state.completed = int(state.completed) + 1
     pending = estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
-    state["estimated_total"] = max(int(state.get("estimated_total", 1)), int(state["completed"] + pending), 1)
+    state.estimated_total = max(int(state.estimated_total or 1), int(state.completed + pending), 1)
 
     if pending <= 0:
-        state["completed"] = int(state["estimated_total"])
-        scoring_runs.pop(str(state.get("identity_id", "")), None)
+        state.completed = int(state.estimated_total)
+        scoring_runs.pop(str(state.identity_id), None)
         return state, True
 
     return state, False
@@ -663,7 +738,7 @@ def process_scoring_job(
     job_preference_scores_col,
     redis_client,
     scoring_progress_channel,
-    scoring_runs,
+    scoring_run_manager,
     ollama_client,
     model_name,
     test_mode,
@@ -687,8 +762,8 @@ def process_scoring_job(
 
     scoring_state = None
     if identity_doc:
-        scoring_state = start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, scoring_runs)
-        if scoring_state and scoring_state.get("completed", 0) == 0:
+        scoring_state, should_publish_start = scoring_run_manager.start_or_reuse(identity_doc)
+        if scoring_state and should_publish_start:
             try:
                 publish_scoring_progress(
                     redis_client,
@@ -704,13 +779,7 @@ def process_scoring_job(
         set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
         print(f"warn: Skipping job '{job_id}' due to missing prerequisites ({error}).")
         if identity_doc and scoring_state:
-            scoring_state, completed_run = advance_scoring_run(
-                scoring_state,
-                identity_doc,
-                job_descriptions_col,
-                companies_col,
-                scoring_runs,
-            )
+            scoring_state, completed_run = scoring_run_manager.advance(identity_doc)
             try:
                 publish_scoring_progress(
                     redis_client,
@@ -763,13 +832,7 @@ def process_scoring_job(
         )
 
         if scoring_state:
-            scoring_state, completed_run = advance_scoring_run(
-                scoring_state,
-                identity_doc,
-                job_descriptions_col,
-                companies_col,
-                scoring_runs,
-            )
+            scoring_state, completed_run = scoring_run_manager.advance(identity_doc)
             try:
                 publish_scoring_progress(
                     redis_client,
@@ -786,13 +849,7 @@ def process_scoring_job(
     except Exception as exc:
         set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_FAILED)
         if identity_doc and scoring_state:
-            scoring_state, completed_run = advance_scoring_run(
-                scoring_state,
-                identity_doc,
-                job_descriptions_col,
-                companies_col,
-                scoring_runs,
-            )
+            scoring_state, completed_run = scoring_run_manager.advance(identity_doc)
             try:
                 publish_scoring_progress(
                     redis_client,
@@ -807,6 +864,69 @@ def process_scoring_job(
         print(f"error: Failed to score job '{job_id}': {exc}")
 
 
+def parse_worker_pool_size(raw_value):
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        print(f"warn: Invalid AI_SCORER_OLLAMA_PARALLELISM='{raw_value}', falling back to 1")
+        return 1
+
+    if value <= 0:
+        print(f"warn: AI_SCORER_OLLAMA_PARALLELISM must be > 0 (got {value}), falling back to 1")
+        return 1
+
+    return value
+
+
+def build_ollama_client(ollama_host):
+    return ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+
+
+def scoring_worker_loop(
+    worker_id,
+    work_queue,
+    job_descriptions_col,
+    companies_col,
+    identities_col,
+    job_preference_scores_col,
+    redis_client,
+    scoring_progress_channel,
+    scoring_run_manager,
+    ollama_host,
+    model_name,
+    test_mode,
+):
+    ollama_client = build_ollama_client(ollama_host)
+    print(f"info: Worker {worker_id} started")
+
+    while True:
+        job_id = work_queue.get()
+        if job_id is None:
+            work_queue.task_done()
+            print(f"info: Worker {worker_id} stopping")
+            return
+
+        print(f"info: Worker {worker_id} processing job '{job_id}'")
+        try:
+            process_scoring_job(
+                str(job_id),
+                job_descriptions_col,
+                companies_col,
+                identities_col,
+                job_preference_scores_col,
+                redis_client,
+                scoring_progress_channel,
+                scoring_run_manager,
+                ollama_client,
+                model_name,
+                test_mode,
+            )
+        except Exception as exc:
+            print(f"error: Worker {worker_id} failed while processing job '{job_id}': {exc}")
+        finally:
+            work_queue.task_done()
+
+
 def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
@@ -819,6 +939,7 @@ def main():
     test_mode = os.environ.get("AI_SCORER_TEST_MODE", "0") == "1"
     ollama_host = os.environ.get("OLLAMA_HOST")
     ollama_model = os.environ.get("OLLAMA_MODEL")
+    worker_pool_size = parse_worker_pool_size(os.environ.get("AI_SCORER_OLLAMA_PARALLELISM", "1"))
 
     if not test_mode:
         if not ollama_host:
@@ -837,50 +958,67 @@ def main():
     job_preference_scores_col = db["job-preference-scores"]
 
     redis_client = redis.Redis(host=redis_host, port=redis_port)
-    scoring_runs: dict[str, dict[str, Any]] = {}
+    scoring_run_manager = ScoringRunManager(job_descriptions_col, companies_col)
 
-    ollama_client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
-
-    print(f"info: Listening for messages on Redis queue '{queue_name}'...")
-    print(f"info: Publishing progress on Redis channel '{scoring_progress_channel}'...")
-    print(f"info: Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
-    print(f"info: Test mode = {test_mode}")
-
-    while True:
-        try:
-            msg: Any = redis_client.blpop([queue_name], timeout=0)
-            if not msg:
-                continue
-
-            data = msg[1]
-            try:
-                payload = json.loads(data.decode("utf-8"))
-            except Exception as exc:
-                print(f"error: Invalid JSON in queue message: {exc}")
-                continue
-
-            job_id = payload.get("job_id")
-            if not job_id:
-                print("error: Missing required field 'job_id'.")
-                continue
-
-            process_scoring_job(
-                str(job_id),
+    work_queue: queue.Queue[str | None] = queue.Queue(maxsize=max(1, worker_pool_size * 4))
+    worker_threads = []
+    for worker_id in range(worker_pool_size):
+        worker_thread = threading.Thread(
+            target=scoring_worker_loop,
+            args=(
+                worker_id,
+                work_queue,
                 job_descriptions_col,
                 companies_col,
                 identities_col,
                 job_preference_scores_col,
                 redis_client,
                 scoring_progress_channel,
-                scoring_runs,
-                ollama_client,
+                scoring_run_manager,
+                ollama_host,
                 ollama_model,
                 test_mode,
-            )
+            ),
+            daemon=True,
+        )
+        worker_thread.start()
+        worker_threads.append(worker_thread)
 
-        except Exception as exc:
-            print(f"error: Error while processing queue: {exc}")
-            time.sleep(5)
+    print(f"info: Listening for messages on Redis queue '{queue_name}'...")
+    print(f"info: Publishing progress on Redis channel '{scoring_progress_channel}'...")
+    print(f"info: Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
+    print(f"info: Test mode = {test_mode}")
+    print(f"info: AI_SCORER_OLLAMA_PARALLELISM (worker pool size) = {worker_pool_size}")
+
+    try:
+        while True:
+            try:
+                msg: Any = redis_client.blpop([queue_name], timeout=0)
+                if not msg:
+                    continue
+
+                data = msg[1]
+                try:
+                    payload = json.loads(data.decode("utf-8"))
+                except Exception as exc:
+                    print(f"error: Invalid JSON in queue message: {exc}")
+                    continue
+
+                job_id = payload.get("job_id")
+                if not job_id:
+                    print("error: Missing required field 'job_id'.")
+                    continue
+
+                work_queue.put(str(job_id))
+
+            except Exception as exc:
+                print(f"error: Error while consuming queue: {exc}")
+                time.sleep(5)
+    finally:
+        for _ in worker_threads:
+            work_queue.put(None)
+        for worker_thread in worker_threads:
+            worker_thread.join(timeout=5)
 
 
 if __name__ == "__main__":

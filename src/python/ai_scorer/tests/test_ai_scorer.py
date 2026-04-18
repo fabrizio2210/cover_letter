@@ -21,10 +21,12 @@ if "ollama" not in sys.modules:
     sys.modules["ollama"] = fake_ollama
 
 from src.python.ai_scorer.ai_scorer import (
+    ScoringRunManager,
     build_prompt,
     compute_and_persist_aggregate,
     normalize_description_markdown,
     now_timestamp_dict,
+    parse_worker_pool_size,
     parse_object_id,
     score_preference,
     stable_test_score,
@@ -347,6 +349,7 @@ class AiScorerUnitTests(unittest.TestCase):
             ]
         )
         score_docs = FakeCollection()
+        scoring_run_manager = ScoringRunManager(jobs, companies)
 
         process_scoring_job(
             job_id=str(job_id),
@@ -356,7 +359,7 @@ class AiScorerUnitTests(unittest.TestCase):
             job_preference_scores_col=score_docs,
             redis_client=FakeRedisClient(),
             scoring_progress_channel="scoring_progress_channel",
-            scoring_runs={},
+            scoring_run_manager=scoring_run_manager,
             ollama_client=None,
             model_name="unused",
             test_mode=True,
@@ -384,6 +387,7 @@ class AiScorerUnitTests(unittest.TestCase):
         companies = FakeCollection(docs=[{"_id": company_id, "field": field_id}])
         identities = FakeCollection(docs=[{"_id": identity_id, "field": field_id, "preferences": []}])
         score_docs = FakeCollection()
+        scoring_run_manager = ScoringRunManager(jobs, companies)
 
         process_scoring_job(
             job_id=str(job_id),
@@ -393,7 +397,7 @@ class AiScorerUnitTests(unittest.TestCase):
             job_preference_scores_col=score_docs,
             redis_client=FakeRedisClient(),
             scoring_progress_channel="scoring_progress_channel",
-            scoring_runs={},
+            scoring_run_manager=scoring_run_manager,
             ollama_client=None,
             model_name="unused",
             test_mode=True,
@@ -414,6 +418,16 @@ class TimestampTests(unittest.TestCase):
         self.assertIn("nanos", ts)
         self.assertIsInstance(ts["seconds"], int)
         self.assertEqual(ts["nanos"], 0)
+
+
+class WorkerPoolConfigTests(unittest.TestCase):
+    def test_parse_worker_pool_size_valid(self):
+        self.assertEqual(parse_worker_pool_size("2"), 2)
+
+    def test_parse_worker_pool_size_invalid_falls_back_to_one(self):
+        self.assertEqual(parse_worker_pool_size("not-a-number"), 1)
+        self.assertEqual(parse_worker_pool_size("0"), 1)
+        self.assertEqual(parse_worker_pool_size("-4"), 1)
 
 
 if __name__ == "__main__":

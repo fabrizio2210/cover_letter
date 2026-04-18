@@ -65,7 +65,7 @@ If a job cannot resolve required scoring prerequisites (for example company-fiel
 
 Re-crawled jobs are always re-enqueued for scoring when scoring enqueue is enabled.
 
-The scoring flow is handled by a dedicated `ai_scorer` worker service. `ai_scorer` consumes job-scoring queue messages and evaluates job/preference fit using a local model exposed by an internal Ollama service in the Docker network. In the dev stack, Ollama can run with multiple replicas, and `ai_scorer` controls per-job concurrent model requests through `AI_SCORER_OLLAMA_PARALLELISM` (typically aligned with replica count). The `ai_querier` service remains dedicated to cover-letter generation and refinement through Gemini.
+The scoring flow is handled by a dedicated `ai_scorer` worker service. `ai_scorer` consumes job-scoring queue messages and evaluates job/preference fit using a local model exposed by an internal Ollama service in the Docker network. In the dev stack, Ollama can run with multiple replicas, and `ai_scorer` controls the number of parallel job workers through `AI_SCORER_OLLAMA_PARALLELISM` (typically aligned with replica count). Each scorer worker maintains its own Ollama client connection path so traffic is balanced across replicas at the network/TCP layer. The `ai_querier` service remains dedicated to cover-letter generation and refinement through Gemini.
 
 When crawl progress or scoring progress reaches a terminal state, the Job Discovery view refreshes the job list automatically so newly discovered jobs and updated scoring fields are visible without a manual page reload.
 
