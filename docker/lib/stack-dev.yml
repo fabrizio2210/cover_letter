@@ -115,6 +115,7 @@ services:
     deploy:
       replicas: 2
     volumes:
+      # This is just for speed up the dev environment, in prod we don't want to persist the model data on disk.
       - ollama_data:/root/.ollama
     networks:
       - backends
