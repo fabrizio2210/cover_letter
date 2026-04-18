@@ -40,14 +40,20 @@ This document does **not** define:
 | Queue pattern | Redis `BLPOP` consumer |
 | Database | MongoDB |
 | AI provider | Ollama (internal stack endpoint) |
+| Per-job scoring execution | One dequeued message at a time; one worker is assigned per job payload (not per single preference) |
 
 The worker runs as a long-lived process. It blocks on the scoring queue and processes one message at a time.
+
+Concurrency model:
+- queue-level assignment is per job (`job_id`) payload;
+- a worker is assigned to a dequeued job, not to individual preferences;
+- any preference-level parallel requests are internal to that single job execution and are bounded by `AI_SCORER_OLLAMA_PARALLELISM`.
 
 High-level flow:
 1. Read one JSON payload from Redis.
 2. Validate the payload shape.
 3. Resolve required MongoDB context for scoring.
-4. Score each enabled identity preference using Ollama.
+4. Score each enabled identity preference using Ollama (concurrently, bounded by configured parallelism).
 5. Persist per-preference scores.
 6. Compute deterministic aggregate ranking from stored scores and weights.
 7. Update job scoring fields and lifecycle status.
@@ -67,10 +73,13 @@ High-level flow:
 | `OLLAMA_HOST` | none | Yes | Ollama base URL (dev stack uses `http://ollama:11434`) |
 | `OLLAMA_MODEL` | none | Yes | Ollama model name |
 | `AI_SCORER_TEST_MODE` | `0` | No | If `1`, disable real Ollama calls and use deterministic fake responses |
+| `AI_SCORER_OLLAMA_PARALLELISM` | `1` | No | Maximum concurrent Ollama requests within a single dequeued job execution (not queue-level worker assignment) |
 
 Rules:
 - If `AI_SCORER_TEST_MODE=1`, the worker may run without a reachable Ollama endpoint.
 - If `AI_SCORER_TEST_MODE!=1`, missing `OLLAMA_HOST` or `OLLAMA_MODEL` is a startup error.
+- `AI_SCORER_OLLAMA_PARALLELISM` must be an integer greater than zero; invalid values fall back to `1`.
+- Queue-level worker assignment remains per job payload even when `AI_SCORER_OLLAMA_PARALLELISM > 1`.
 - `DB_NAME` must match the database used by the Go API.
 - In `docker/lib/stack-dev.yml`, `OLLAMA_HOST` is expected to target the internal service DNS name (`http://ollama:11434`).
 
@@ -273,7 +282,7 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 3. Resolve company via `job-descriptions.company`.
 4. Resolve identity via the company field.
 5. Keep only enabled preferences from `identities.preferences`.
-6. For each enabled preference, request a score from Ollama.
+6. For each enabled preference, request a score from Ollama; requests may run concurrently up to `AI_SCORER_OLLAMA_PARALLELISM` within the currently assigned job worker.
 7. Persist one `job-preference-scores` document per preference.
 8. Compute weighted aggregate from stored scores and weights.
 9. Update `job-descriptions` aggregate fields, `scoring_status`, and `updated_at`.
