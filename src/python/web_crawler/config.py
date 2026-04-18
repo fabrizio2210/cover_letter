@@ -46,6 +46,7 @@ class CrawlerConfig:
     hn_comments_hits_per_page: int = 500
     hn_max_comments_per_thread: int = 1000
     hn_max_companies_per_role: int = 50
+    levelsfyi_max_companies_per_role: int = 50
     serper_api_key: str | None = None
     serper_search_url: str = "https://google.serper.dev/search"
     force_serp_retry_on_prior_attempt: bool = False
@@ -76,6 +77,7 @@ class CrawlerConfig:
             hn_comments_hits_per_page=max(1, min(int(os.getenv("CRAWLER_HN_COMMENTS_HITS_PER_PAGE", "500")), 1000)),
             hn_max_comments_per_thread=max(1, int(os.getenv("CRAWLER_HN_MAX_COMMENTS_PER_THREAD", "1000"))),
             hn_max_companies_per_role=max(1, int(os.getenv("CRAWLER_HN_MAX_COMPANIES_PER_ROLE", "50"))),
+            levelsfyi_max_companies_per_role=max(1, int(os.getenv("CRAWLER_LEVELSFYI_MAX_COMPANIES_PER_ROLE", "50"))),
             serper_api_key=os.getenv("SERPER_API_KEY") or None,
             serper_search_url=os.getenv("SERPER_SEARCH_URL", "https://google.serper.dev/search"),
             force_serp_retry_on_prior_attempt=_parse_bool(os.getenv("CRAWLER_FORCE_SERP_RETRY_ON_PRIOR_ATTEMPT"), default=False),

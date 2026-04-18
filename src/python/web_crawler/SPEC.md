@@ -77,6 +77,7 @@ High-level orchestration:
 | `CRAWLER_MAX_DELAY_MS` | `15000` | No | Max backoff delay |
 | `CRAWLER_USER_AGENT` | browser-like UA string | No | Request header to reduce bot blocking |
 | `CRAWLER_REFERER` | `https://4dayweek.io/jobs` | No | Referer for 4dayweek requests |
+| `CRAWLER_LEVELSFYI_MAX_COMPANIES_PER_ROLE` | `50` | No | Cap on company discoveries retained per identity role from Levels.fyi |
 
 Platform-specific configuration may include source names, ATS slugs, and source URLs (via config file or environment).
 
@@ -157,6 +158,7 @@ Preferred sources:
 | Indeed | `indeed.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
 | SimplyHired | `simplyhired.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
 | Built In | `builtin.com` | city or hub company pages such as `/sf`, `/nyc`, and related company listings | Company-first discovery within tech hubs, with role filters applied when available |
+| Levels.fyi | `levels.fyi` | `/jobs?searchText={role query}`, `/t/{role-slug}`, role markdown routes such as `/t/{role-slug}.md` | Role-seeded company discovery with Levels company URLs and optional job/company attribution when public routes expose it |
 | Otta | `otta.com` | `/companies` | Curated tech-company discovery with job and company metadata when publicly available |
 
 Objective:
@@ -168,10 +170,40 @@ Discovery logic:
 3. Preserve role association and source attribution metadata so repeated discoveries can be traced to the originating board or search result.
 4. Normalize and deduplicate companies before ATS checks (for example, one company listed across many postings is kept once).
 
+Levels.fyi public-route strategy:
+- Preferred routes are the search page `/jobs?searchText={role query}` and the role taxonomy page `/t/{role-slug}`.
+- When structured markdown is available, `/t/{role-slug}.md` is preferred as a stable fallback for company extraction.
+- Extraction targets are company names and Levels company URLs such as `/companies/{company-slug}/salaries`; direct careers URLs may be absent and are not required for persistence.
+- If public role pages expose only company-level links and no job-detail or ATS links, persist the deduplicable company discovery anyway so Workflow 2 can attempt later enrichment.
+
 Compliance and safety:
 - Access patterns must respect legal and operational constraints of each source.
 - Use bounded concurrency and anti-bot controls defined in section 11.
+- For Levels.fyi, respect `robots.txt` and `llms.txt`, prefer documented sitemap/markdown-friendly routes when available, and preserve attribution if data from those routes is surfaced downstream.
 - Sources in this group are preferred inputs, but some may be skipped for a run if public accessibility, response format, or compliance posture makes extraction impractical.
+
+### 5.2.1 Levels.fyi Public Discovery Contract
+
+Levels.fyi is integrated as a Workflow 1 company-discovery source using public routes only.
+
+Supported discovery inputs:
+- Role slug derived from `identity.roles` using lowercase hyphenated normalization.
+
+Preferred retrieval order:
+1. Fetch `/jobs?searchText={role query}` and extract company links when available.
+2. Fetch `/t/{role-slug}` and extract company links such as `/companies/{company-slug}/salaries`.
+3. Fallback to `/t/{role-slug}.md` and parse markdown links to company salary pages when HTML extraction yields insufficient results.
+
+Output contract:
+- Persist `source = "levelsfyi"` in source attribution metadata.
+- Persist the matched identity role string in `discovery_sources.role`.
+- Persist the discovered Levels company URL in `discovery_sources.source_url`.
+- Do not require `careers_url` or company website domain at discovery time.
+
+Non-goals for this integration:
+- No dependency on the official paid Levels API.
+- No direct Workflow 3 job ingestion from Levels job pages in this phase.
+- No schema or queue contract changes.
 
 ### 5.3 Curated Startup and Job Communities
 
@@ -313,13 +345,14 @@ Input:
 - `identities.roles`
 
 Sources:
-- Role-query job boards and search sources: LinkedIn, Indeed, SimplyHired, Built In, Otta
+- Role-query job boards and search sources: LinkedIn, Indeed, SimplyHired, Built In, Levels.fyi, Otta
 - Curated startup and job communities: Y Combinator, Wellfound, Work at a Startup
 - Portfolio and investor directories: Crunchbase, Techstars, 500 Global, a16z, Sequoia
 - Community hiring threads: Hacker News `Who is Hiring`
 
 Source-specific output expectations:
 - Job-board and search sources should provide role-filtered hiring signals plus company names and source attribution.
+- Some role-query sources such as Levels.fyi may expose company-first public links without direct careers URLs; those discoveries remain valid Workflow 1 output and may still be skipped later by Workflow 2 if ATS-validation prerequisites cannot be resolved.
 - Curated startup and job communities may provide company-first discovery, job-first discovery, or both.
 - Portfolio directories may only provide company metadata and public links sufficient for company creation and later ATS validation.
 - Community-thread sources may require extracting company identity from unstructured post text and should be treated as lower-structure inputs.

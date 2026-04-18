@@ -102,6 +102,11 @@ class Workflow1Tests(unittest.TestCase):
         self.assertEqual(len(adapters), 1)
         self.assertEqual(adapters[0].source_name, "hackernews")
 
+    def test_get_enabled_adapters_includes_levelsfyi(self):
+        adapters = get_enabled_adapters(["levelsfyi"])
+        self.assertEqual(len(adapters), 1)
+        self.assertEqual(adapters[0].source_name, "levelsfyi")
+
     def test_upsert_companies_persists_ats_metadata_from_urls(self):
         companies = FakeCollection()
         discovered = [
