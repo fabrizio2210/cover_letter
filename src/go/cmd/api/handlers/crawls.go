@@ -83,7 +83,7 @@ func TriggerCrawl(c *gin.Context) {
 		RunId:          runID,
 		IdentityId:     identityID,
 		Status:         "queued",
-		Phase:          "queued",
+		Workflow:       "queued",
 		Message:        "Waiting for worker pickup",
 		EstimatedTotal: 4,
 		Completed:      0,

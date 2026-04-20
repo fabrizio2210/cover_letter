@@ -155,6 +155,40 @@ message CrawlTriggerQueuePayload {
     google.protobuf.Timestamp requested_at = 3;
 }
 
+message WorkflowDispatchMessage {
+    string run_id = 1;
+    string workflow_run_id = 2;
+    string workflow_id = 3;
+    string identity_id = 4;
+    string company_id = 5;
+    string ats_provider = 6;
+    string ats_slug = 7;
+    string trigger_kind = 8;
+    int32 attempt = 9;
+    google.protobuf.Timestamp dispatched_at = 10;
+}
+
+message CompanyDiscoveryEvent {
+    string run_id = 1;
+    string workflow_run_id = 2;
+    string workflow_id = 3;
+    string identity_id = 4;
+    string company_id = 5;
+    string reason = 6;
+    google.protobuf.Timestamp emitted_at = 7;
+}
+
+message AtsJobTriggerEvent {
+    string run_id = 1;
+    string workflow_run_id = 2;
+    string workflow_id = 3;
+    string identity_id = 4;
+    string company_id = 5;
+    string ats_provider = 6;
+    string ats_slug = 7;
+    google.protobuf.Timestamp emitted_at = 8;
+}
+
 message CrawlProgress {
     string run_id = 1;
     string identity_id = 2;

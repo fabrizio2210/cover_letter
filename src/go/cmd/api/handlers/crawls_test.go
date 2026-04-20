@@ -85,7 +85,7 @@ func TestTriggerCrawl_RejectsDuplicateIdentity(t *testing.T) {
 		RunId:          "run-1",
 		IdentityId:     identityID,
 		Status:         "running",
-		Phase:          "workflow1_company_discovery",
+		Workflow:       "crawler_company_discovery",
 		EstimatedTotal: 100,
 		Completed:      10,
 		Percent:        10,
@@ -107,8 +107,8 @@ func TestTriggerCrawl_RejectsDuplicateIdentity(t *testing.T) {
 
 func TestGetActiveCrawls_FiltersByIdentity(t *testing.T) {
 	resetCrawlStateForTests()
-	crawlHub.publish(&models.CrawlProgress{RunId: "run-1", IdentityId: "identity-a", Status: "queued", Phase: "queued", EstimatedTotal: 100, UpdatedAt: timestampPtr(time.Now().UTC())})
-	crawlHub.publish(&models.CrawlProgress{RunId: "run-2", IdentityId: "identity-b", Status: "completed", Phase: "finalizing", EstimatedTotal: 100, Percent: 100, UpdatedAt: timestampPtr(time.Now().UTC())})
+	crawlHub.publish(&models.CrawlProgress{RunId: "run-1", IdentityId: "identity-a", Status: "queued", Workflow: "queued", EstimatedTotal: 100, UpdatedAt: timestampPtr(time.Now().UTC())})
+	crawlHub.publish(&models.CrawlProgress{RunId: "run-2", IdentityId: "identity-b", Status: "completed", Workflow: "finalizing", EstimatedTotal: 100, Percent: 100, UpdatedAt: timestampPtr(time.Now().UTC())})
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/active?identity_id=identity-b", nil)
 	w := httptest.NewRecorder()
@@ -138,7 +138,7 @@ func TestStreamCrawlProgress_StreamsSSEEvent(t *testing.T) {
 		RunId:          "run-1",
 		IdentityId:     "69a41885879f30791d7dfa77",
 		Status:         "running",
-		Phase:          "workflow1_company_discovery",
+		Workflow:       "crawler_company_discovery",
 		Message:        "Collecting company candidates",
 		EstimatedTotal: 100,
 		Completed:      15,

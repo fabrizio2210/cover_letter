@@ -7,6 +7,7 @@ from dataclasses import dataclass
 JOB_SCORING_QUEUE = "job_scoring_queue"
 CRAWLER_TRIGGER_QUEUE = "crawler_trigger_queue"
 CRAWLER_PROGRESS_CHANNEL = "crawler_progress_channel"
+CRAWLER_WORKFLOW_DISPATCH_QUEUE = "crawler_workflow_dispatch_queue"
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -54,8 +55,10 @@ class CrawlerConfig:
     redis_port: int = 6379
     enable_scoring_enqueue: bool = False
     crawler_trigger_queue_name: str = CRAWLER_TRIGGER_QUEUE
+    crawler_workflow_dispatch_queue_name: str = CRAWLER_WORKFLOW_DISPATCH_QUEUE
     crawler_progress_channel_name: str = CRAWLER_PROGRESS_CHANNEL
     job_scoring_queue_name: str = JOB_SCORING_QUEUE
+    enable_workflow_dispatch_mode: bool = False
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -85,6 +88,8 @@ class CrawlerConfig:
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
             enable_scoring_enqueue=_parse_bool(os.getenv("CRAWLER_ENABLE_SCORING_ENQUEUE"), default=False),
             crawler_trigger_queue_name=os.getenv("CRAWLER_TRIGGER_QUEUE_NAME", CRAWLER_TRIGGER_QUEUE),
+            crawler_workflow_dispatch_queue_name=os.getenv("CRAWLER_WORKFLOW_DISPATCH_QUEUE_NAME", CRAWLER_WORKFLOW_DISPATCH_QUEUE),
             crawler_progress_channel_name=os.getenv("CRAWLER_PROGRESS_CHANNEL_NAME", CRAWLER_PROGRESS_CHANNEL),
             job_scoring_queue_name=os.getenv("JOB_SCORING_QUEUE_NAME", JOB_SCORING_QUEUE),
+            enable_workflow_dispatch_mode=_parse_bool(os.getenv("CRAWLER_ENABLE_WORKFLOW_DISPATCH_MODE"), default=False),
         )

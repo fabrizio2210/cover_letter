@@ -82,6 +82,7 @@ High-level orchestration:
 | `REDIS_PORT` | `6379` | No | Redis port for scoring queue output |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Redis queue name for crawl requests consumed by the worker |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Redis channel used to publish crawl progress snapshots |
+| `CRAWLER_WORKFLOW_DISPATCH_QUEUE_NAME` | `crawler_workflow_dispatch_queue` | No | Redis queue used by orchestrator to dispatch workflow messages |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Redis queue name for scoring payloads |
 | `CRAWLER_ENABLE_SCORING_ENQUEUE` | `0` | No | If `1`, enqueue job ids after successful persistence |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | No | HTTP timeout per request |
@@ -744,6 +745,10 @@ Rules:
 - The public crawl request does not need to name a specific workflow. Workflow fan-out happens inside the crawler orchestration layer.
 
 Internal workflow-trigger messages are crawler-owned contracts and are not part of the public API payload.
+
+Implementation note:
+- Internal workflow messages should use `common.proto` generated types for exchange (`WorkflowDispatchMessage`, `CompanyDiscoveryEvent`, `AtsJobTriggerEvent`) instead of ad-hoc dictionary payloads.
+- Redis payload transport may serialize those proto messages as JSON at rest, but producer/consumer code must construct and parse generated protobuf classes at boundaries.
 
 Required internal routing fields:
 - `workflow_id` — stable module key, one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`
