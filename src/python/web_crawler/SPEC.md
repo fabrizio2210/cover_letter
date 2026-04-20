@@ -39,23 +39,36 @@ This document does **not** define:
 | Service folder | `src/python/web_crawler` |
 | Execution style | On-demand run, Redis-driven worker mode, or scheduled batch run |
 | Data store | MongoDB |
-| Queue integration | Redis consumer for crawl requests, Redis publisher for crawl progress, optional Redis producer for job scoring |
+| Queue integration | Redis consumer for parent crawl requests, Redis publisher for crawl progress, internal workflow trigger messages, optional Redis producer for job scoring |
 | Source types | ATS APIs (Greenhouse, Lever, Ashby), role-query job boards and search sources (LinkedIn, Indeed, SimplyHired, Built In, Otta), curated startup and job communities (Y Combinator, Wellfound, Work at a Startup), portfolio and investor directories (Crunchbase, Techstars, 500 Global, a16z, Sequoia), community hiring threads (Hacker News Who Is Hiring), and aggregator HTML pages (4dayweek.io) |
 
 The crawler supports two runtime modes:
 1. bounded execution for one explicit `identity_id`;
 2. long-lived worker mode that listens on Redis for crawl requests and runs the same identity-scoped execution flow on demand.
 
-Each accepted crawl request generates a `run_id`. The crawler executes four workflows in parallel with DB-backed handoffs between them.
+Each accepted crawl request generates a parent `run_id`. The crawler fans out modular workflow executions under that parent run. Each workflow execution attempt also gets its own `workflow_run_id`, allowing retries and singular workflow triggers to remain unambiguous while still belonging to the same parent run.
+
+The crawler uses two workflow kinds:
+1. crawler workflows, which discover jobs, companies, or both;
+2. enrichment workflows, which consume newly actionable company discoveries and emit ATS-ready follow-up triggers.
+
+Stable workflow identifiers:
+- `crawler_company_discovery`
+- `enrichment_ats_enrichment`
+- `crawler_ats_job_extraction`
+- `crawler_4dayweek`
 
 High-level orchestration:
 1. Load crawler configuration, enabled sources, explicit `identity_id`, and the selected identity's `roles` list.
-2. Start workflow 1 (company discovery from identity roles), workflow 2 (ATS enrichment of companies), and workflow 4 (independent 4dayweek scraper) in parallel.
-3. Continuously run workflow 3 (ATS job extraction) against companies already enriched with `ats_provider` and `ats_slug`.
-4. Persist each workflow output immediately to MongoDB so downstream workflows can consume partial progress without waiting for run completion.
-5. Publish progress snapshots to Redis for the active `run_id` during queue, start, workflow, and terminal transitions.
-6. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
-7. Emit crawl summary logs and counters, including per-workflow success/failure counts.
+2. Accept one public crawl request keyed by parent `run_id` and `identity_id`.
+3. Fan out all UI-triggered crawler workflows in parallel under the same parent `run_id`, each with its own `workflow_run_id`.
+4. Persist workflow outputs immediately to MongoDB so downstream workflows can consume partial progress without waiting for parent-run completion.
+5. Emit company-discovery events only when a company is newly inserted or when an existing company becomes newly actionable for ATS enrichment.
+6. Consume those company-discovery events in `enrichment_ats_enrichment` and emit ATS-job-trigger events when `ats_provider` plus `ats_slug` become available.
+7. Execute ATS-backed crawler workflows, such as `crawler_ats_job_extraction`, from those follow-up triggers, either as part of the same parent run or as singular workflow message executions.
+8. Publish workflow-level progress snapshots to Redis, each carrying parent `run_id` plus `workflow_run_id` and `workflow_id`.
+9. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
+10. Emit crawl summary logs and counters, including per-workflow success/failure counts and parent-run completion state.
 
 ---
 
@@ -92,12 +105,16 @@ Rules:
 ## 4. Responsibilities
 
 The crawler is responsible for:
-- consuming crawl requests from Redis and starting identity-scoped runs;
+- consuming parent crawl requests from Redis and starting identity-scoped runs;
 - rejecting duplicate active crawl requests for the same identity;
-- publishing progress snapshots for active runs so the API can relay them to clients;
+- fanning out workflow executions under one parent `run_id`;
+- assigning `workflow_run_id` values for workflow attempts and retries;
+- publishing workflow-level progress snapshots for active runs so the API can relay them to clients;
 - taking an explicit `identity_id` plus role-focused discovery input and using it to discover actively hiring companies;
-- discovering company slugs for ATS-hosted boards when not preconfigured;
+- emitting company-discovery events only when a company is newly inserted or becomes newly actionable for ATS enrichment;
+- consuming company-discovery events to discover company slugs for ATS-hosted boards when not preconfigured;
 - validating ATS compatibility from company careers pages before slug resolution;
+- emitting ATS-job-trigger events after successful ATS enrichment;
 - extracting jobs from Greenhouse, Lever, Ashby, and 4dayweek.io;
 - mapping heterogeneous payloads into one normalized job schema;
 - resolving or creating companies before persisting jobs, using canonicalized company names for matching;
@@ -148,7 +165,7 @@ Query construction rules:
 
 ### 5.2 Role-Query Job Boards and Search Sources
 
-Use role-query job boards and search-oriented discovery sources as the primary Workflow 1 input for currently hiring companies.
+Use role-query job boards and search-oriented discovery sources as the primary `crawler_company_discovery` input for currently hiring companies.
 
 Preferred sources:
 
@@ -174,7 +191,7 @@ Levels.fyi public-route strategy:
 - Preferred routes are the search page `/jobs?searchText={role query}` and the role taxonomy page `/t/{role-slug}`.
 - When structured markdown is available, `/t/{role-slug}.md` is preferred as a stable fallback for company extraction.
 - Extraction targets are company names and Levels company URLs such as `/companies/{company-slug}/salaries`; direct careers URLs may be absent and are not required for persistence.
-- If public role pages expose only company-level links and no job-detail or ATS links, persist the deduplicable company discovery anyway so Workflow 2 can attempt later enrichment.
+- If public role pages expose only company-level links and no job-detail or ATS links, persist the deduplicable company discovery anyway so `enrichment_ats_enrichment` can attempt later enrichment.
 
 Compliance and safety:
 - Access patterns must respect legal and operational constraints of each source.
@@ -184,7 +201,7 @@ Compliance and safety:
 
 ### 5.2.1 Levels.fyi Public Discovery Contract
 
-Levels.fyi is integrated as a Workflow 1 company-discovery source using public routes only.
+Levels.fyi is integrated as a `crawler_company_discovery` source using public routes only.
 
 Supported discovery inputs:
 - Role slug derived from `identity.roles` using lowercase hyphenated normalization.
@@ -202,7 +219,7 @@ Output contract:
 
 Non-goals for this integration:
 - No dependency on the official paid Levels API.
-- No direct Workflow 3 job ingestion from Levels job pages in this phase.
+- No direct `crawler_ats_job_extraction` ingestion from Levels job pages in this phase.
 - No schema or queue contract changes.
 
 ### 5.3 Curated Startup and Job Communities
@@ -224,7 +241,7 @@ Expected behavior:
 
 Notes:
 - Sources in this group may expose either company-first discovery, job-first discovery, or both.
-- Workflow 1 should tolerate missing role filters on some community directories by treating them as supporting sources rather than the only source of truth for role relevance.
+- `crawler_company_discovery` should tolerate missing role filters on some community directories by treating them as supporting sources rather than the only source of truth for role relevance.
 
 ### 5.4 Portfolio and Investor Directories
 
@@ -246,7 +263,7 @@ Expected behavior:
 - Use identity roles to prioritize or filter follow-up ATS validation and downstream extraction, but do not require every portfolio source to natively support role search.
 
 Notes:
-- Portfolio directories are preferred Workflow 1 inputs when they expose enough public metadata to produce deduplicable company records.
+- Portfolio directories are preferred `crawler_company_discovery` inputs when they expose enough public metadata to produce deduplicable company records.
 - If a portfolio source yields only firmographic metadata without usable company links, the crawler may record telemetry and skip the company for ATS validation in that run.
 
 ### 5.5 Community Hiring Threads
@@ -329,18 +346,40 @@ Fallback strategy: list-page crawl.
 
 Engineer-oriented sequence:
 1. Load `identity_id` and `identity.roles`.
-2. In parallel, discover companies and hiring signals from role-query boards, curated communities, portfolio directories, and community hiring threads, while also running independent 4dayweek discovery.
-3. In parallel, enrich discovered companies with ATS provider and ATS slug.
-4. Continuously extract jobs from ATS APIs for companies that already have ATS metadata.
-5. Normalize, upsert, and optionally enqueue scoring payloads.
+2. Create one parent `run_id` for the accepted crawl request.
+3. Fan out all UI-triggered crawler workflows in parallel, each with a distinct `workflow_run_id` and stable `workflow_id`.
+4. Persist workflow outputs immediately to MongoDB.
+5. Emit company-discovery events only for newly inserted companies or for existing companies whose updated metadata becomes newly actionable for ATS enrichment.
+6. Run enrichment workflows from those discovery events.
+7. Emit ATS-job-trigger events when ATS enrichment resolves both `ats_provider` and `ats_slug`.
+8. Run ATS-backed crawler workflows from those triggers.
+9. Normalize, upsert, publish workflow progress, and optionally enqueue scoring payloads.
 
-### 5.10 Parallel Workflow Contracts
+### 5.10 Modular Workflow Contracts
 
-The crawler is organized as four workflows that may run concurrently in one run.
+The crawler is organized as independently triggerable workflows that can participate in one parent run or execute singularly by message.
 
-#### Workflow 1: Company Discovery from Identity Roles
+#### Workflow Kind A: Crawler Workflows
+
+Crawler workflows discover jobs, companies, or both. They may be UI-triggered, event-triggered, or both.
+
+Stable crawler workflow identifiers:
+- `crawler_company_discovery`
+- `crawler_ats_job_extraction`
+- `crawler_4dayweek`
+
+Common output rules for crawler workflows:
+- Job outputs are normalized and upserted into `jobs`.
+- Successful job insert/update may enqueue `{ "job_id": "..." }` for scoring.
+- Company outputs are resolved and upserted into `companies`.
+- Company-discovery events are emitted only when a company is newly inserted or when an existing company is updated such that its metadata becomes newly actionable for ATS enrichment.
+- A company is newly actionable for ATS enrichment when persisted metadata becomes sufficient for the enrichment workflow to attempt ATS validation or slug resolution, for example a first usable domain, careers URL, or hosted ATS URL.
+
+##### `crawler_company_discovery`
 
 Input:
+- parent `run_id`
+- `workflow_run_id`
 - `identity_id`
 - `identities.roles`
 
@@ -352,27 +391,67 @@ Sources:
 
 Source-specific output expectations:
 - Job-board and search sources should provide role-filtered hiring signals plus company names and source attribution.
-- Some role-query sources such as Levels.fyi may expose company-first public links without direct careers URLs; those discoveries remain valid Workflow 1 output and may still be skipped later by Workflow 2 if ATS-validation prerequisites cannot be resolved.
+- Some role-query sources such as Levels.fyi may expose company-first public links without direct careers URLs; those discoveries remain valid output and may still be skipped later by enrichment if ATS prerequisites cannot be resolved.
 - Curated startup and job communities may provide company-first discovery, job-first discovery, or both.
 - Portfolio directories may only provide company metadata and public links sufficient for company creation and later ATS validation.
 - Community-thread sources may require extracting company identity from unstructured post text and should be treated as lower-structure inputs.
 
-Workflow 1 source policy:
-- These sources are preferred Workflow 1 inputs, not a guarantee that identical adapters or extraction quality exist for every source.
-- A source may be enabled, skipped, or partially processed in a run depending on public accessibility, compliance posture, and whether it exposes enough company metadata for deduplication and downstream ATS enrichment.
+Source policy:
+- These sources are preferred inputs, not a guarantee that identical adapters or extraction quality exist for every source.
+- A source may be enabled, skipped, or partially processed in a run depending on public accessibility, compliance posture, and whether it exposes enough company metadata for downstream enrichment.
 
 DB writes:
 - Upsert into `companies` using canonicalized company name.
 - Preserve source attribution metadata when available.
 
-Output contract:
-- Companies with sufficiently resolved names and public links become eligible input for workflow 2.
-- Companies discovered with incomplete metadata may still be persisted for telemetry or future enrichment, but Workflow 2 may skip them until ATS-validation prerequisites are available.
-
-#### Workflow 2: ATS Provider Detection and Slug Resolution
+##### `crawler_ats_job_extraction`
 
 Input:
-- Companies from `companies` collection (including newly discovered records).
+- parent `run_id` when part of a larger crawl, or no parent `run_id` for singular message execution
+- `workflow_run_id`
+- `identity_id` for role filtering
+- ATS-job-trigger event or direct singular workflow trigger containing enough company identity plus ATS metadata to execute extraction
+
+Processing:
+- Load identity and extract `roles` list from identity document.
+- Call provider-specific ATS endpoints.
+- Normalize postings into the shared job schema.
+- **Validate each extracted job against identity roles before insertion** (see section 8.2 for role filtering rules).
+- Skip jobs that do not match any identity role.
+
+DB writes:
+- Upsert into `job-descriptions` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
+- Update mutable fields and `updated_at` on recrawl.
+- Optionally enqueue scoring payload after successful write.
+
+##### `crawler_4dayweek`
+
+Input:
+- parent `run_id`
+- `workflow_run_id`
+- identity-scoped public crawl request fan-out
+
+Processing:
+- Discover job URLs from 4dayweek sitemap or list pages.
+- Extract job and company details from JSON-LD or DOM fallback.
+
+DB writes:
+- Resolve/create company in `companies`.
+- Upsert job into `job-descriptions` with `platform=4dayweek`.
+
+#### Workflow Kind B: Enrichment Workflows
+
+Enrichment workflows consume company-discovery events, add ATS metadata, and emit follow-up job extraction triggers.
+
+Stable enrichment workflow identifier:
+- `enrichment_ats_enrichment`
+
+##### `enrichment_ats_enrichment`
+
+Input:
+- parent `run_id` when part of a larger crawl, or no parent `run_id` for singular message execution
+- `workflow_run_id`
+- company-discovery event emitted by a crawler workflow
 
 Processing:
 - Detect ATS compatibility from careers links/pages.
@@ -385,59 +464,34 @@ DB writes:
   - `ats_slug` (provider-specific slug)
 
 Output contract:
-- Companies with both `ats_provider` and `ats_slug` become eligible input for workflow 3.
+- When both `ats_provider` and `ats_slug` become available, emit an ATS-job-trigger event for `crawler_ats_job_extraction`.
 
-#### Workflow 3: Job Discovery from ATS Slugs
+### 5.11 Workflow Triggering, Dependency, and Persistence Policy
 
-Input:
-- Companies with `ats_provider` and `ats_slug`.
-- `identity_id` (to load and apply `identity.roles` filtering).
-
-Processing:
-- Load identity and extract `roles` list from identity document.
-- Call provider-specific ATS endpoints.
-- Normalize postings into shared job schema.
-- **Validate each extracted job against identity roles before insertion** (see section 8.2 for role filtering rules).
-- Skip jobs that do not match any identity role.
-
-DB writes:
-- Upsert into `job-descriptions` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
-- Update mutable fields and `updated_at` on recrawl.
-- Optionally enqueue scoring payload after successful write.
-
-#### Workflow 4: Independent 4dayweek Scraper
-
-Input:
-- 4dayweek sitemap/list-page discovery only (independent from workflows 1-3).
-
-Processing:
-- Discover job URLs.
-- Extract job and company details from JSON-LD or DOM fallback.
-
-DB writes:
-- Resolve/create company in `companies`.
-- Upsert job into `job-descriptions` with `platform=4dayweek`.
-
-Output contract:
-- Workflow 4 is independent and does not require ATS company metadata.
-
-### 5.11 Workflow Dependency and Persistence Policy
+Triggering rules:
+- A public crawl request remains identity-scoped and starts the default UI-triggered workflow set under one parent `run_id`.
+- Singular workflow execution is supported by internal messages addressed to one `workflow_id`.
+- Every workflow execution attempt must have a unique `workflow_run_id`.
+- A retry of the same workflow under the same parent `run_id` must get a new `workflow_run_id` while retaining the same `workflow_id`.
 
 Dependency rules:
-- Workflows 1, 2, and 4 can start in parallel.
-- Workflow 3 depends on workflow 2 output (`ats_provider` + `ats_slug`) but can begin as soon as any eligible company exists.
+- `crawler_company_discovery` and `crawler_4dayweek` are UI-triggered crawler workflows and can start in parallel.
+- `enrichment_ats_enrichment` depends on company-discovery events emitted by crawler workflows.
+- `crawler_ats_job_extraction` depends on ATS-job-trigger events emitted by `enrichment_ats_enrichment`, but it can be triggered by UI as well.
+- Parent-run completion is derived when all required UI-triggered workflows and all spawned child workflows for that parent `run_id` reach terminal states.
+
+Internal event rules:
+- Company-discovery events are emitted only when a company is newly inserted or becomes newly actionable for ATS enrichment.
+- A metadata update that does not change ATS-enrichment eligibility must not emit a new company-discovery event.
+- ATS-job-trigger events are emitted only when ATS enrichment resolves a valid provider plus slug pair.
+- Internal event replay must be safe under idempotent company/job upserts.
 
 Persistence policy:
 - Every workflow writes results immediately to MongoDB.
 - Partial successes are persisted.
 - Per-company or per-source failures are logged and do not trigger global rollback.
-- The run continues unless run-level abort conditions from section 12 occur.
-
-Workflow 1 persistence notes:
-- Discoveries from role-query boards, communities, portfolio directories, and community threads all feed the same company deduplication path.
-- Source attribution should preserve enough detail to distinguish whether a company was discovered from a structured job board, a curated directory, or an unstructured hiring thread.
-- If discovery URLs already expose an unambiguous hosted ATS slug (for example `boards.greenhouse.io/{slug}`, `jobs.lever.co/{slug}`, or `jobs.ashbyhq.com/{slug}`), workflow 1 may persist `ats_provider` and `ats_slug` directly on the company document during upsert.
-- Expanding Workflow 1 inputs must not change Workflow 2 ATS enrichment rules, Workflow 3 ATS extraction rules, or Workflow 4 independence.
+- The parent run continues unless run-level abort conditions from section 12 occur.
+- Expanding crawler workflows must not change the scoring queue payload contract or MongoDB field names.
 
 ---
 
@@ -538,7 +592,7 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 Before inserting extracted jobs into the database, each job must be validated against the identity's roles to ensure relevance.
 
 **Filtering scope**:
-- Applied in Workflow 3 (ATS job extraction).
+- Applied in `crawler_ats_job_extraction`.
 - Workflows 1, 2, and 4 are not affected by role filtering.
 
 **Filtering mechanism**:
@@ -617,7 +671,7 @@ The crawler must tolerate mixed reference storage (`ObjectId` and string) in rel
 
 ### 9.4 Company ATS Enrichment Fields
 
-Workflow 2 writes ATS metadata directly on company documents.
+`enrichment_ats_enrichment` writes ATS metadata directly on company documents.
 
 | BSON key | Type | Notes |
 |---|---|---|
@@ -684,22 +738,75 @@ Expected payload:
 
 Rules:
 - Missing `run_id` or `identity_id` is a malformed request and must be rejected.
-- The worker must emit an initial `queued` or immediate `running` progress snapshot for accepted work.
+- The worker must emit an initial parent-run `queued` snapshot or immediate workflow `running` snapshots for accepted work.
 - Only one active crawl may exist for a given `identity_id`.
 - If another crawl is already active for the same `identity_id`, the worker must not start a second run. It must instead publish a terminal progress snapshot with `status = "rejected"` and `reason = "already_running"`.
+- The public crawl request does not need to name a specific workflow. Workflow fan-out happens inside the crawler orchestration layer.
+
+Internal workflow-trigger messages are crawler-owned contracts and are not part of the public API payload.
+
+Required internal routing fields:
+- `workflow_id` — stable module key, one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`
+- `workflow_run_id` — unique execution-attempt id for that workflow message
+- `run_id` — parent crawl run when the workflow was spawned from a public crawl request; omitted or left empty for singular workflow execution when no parent run exists
+
+#### 11.1.1 Company-Discovery Event Contract
+
+Producer:
+- crawler workflows that discover or materially enrich company records
+
+Event emission rule:
+- Emit only when a company is newly inserted or when an update makes the company newly actionable for ATS enrichment.
+
+Payload shape:
+
+```json
+{
+  "run_id": "<parent crawl run id>",
+  "workflow_run_id": "<producer workflow attempt id>",
+  "workflow_id": "crawler_company_discovery",
+  "identity_id": "<identity hex object id>",
+  "company_id": "<company hex object id>",
+  "reason": "new_company_or_newly_actionable"
+}
+```
+
+#### 11.1.2 ATS-Job-Trigger Event Contract
+
+Producer:
+- `enrichment_ats_enrichment`
+
+Event emission rule:
+- Emit only when ATS enrichment resolves both `ats_provider` and `ats_slug`.
+
+Payload shape:
+
+```json
+{
+  "run_id": "<parent crawl run id>",
+  "workflow_run_id": "<enrichment workflow attempt id>",
+  "workflow_id": "enrichment_ats_enrichment",
+  "identity_id": "<identity hex object id>",
+  "company_id": "<company hex object id>",
+  "ats_provider": "greenhouse",
+  "ats_slug": "example-company"
+}
+```
 
 ### 11.2 Progress Publication
 
-The crawler publishes progress snapshots on `CRAWLER_PROGRESS_CHANNEL_NAME` for every accepted run.
+The crawler publishes progress snapshots on `CRAWLER_PROGRESS_CHANNEL_NAME` for every accepted run and workflow execution.
 
 Payload:
 
 ```json
 {
   "run_id": "<crawl run id>",
+  "workflow_run_id": "<workflow execution attempt id>",
+  "workflow_id": "crawler_company_discovery",
   "identity_id": "<identity hex object id>",
   "status": "running",
-  "phase": "workflow1_company_discovery",
+  "workflow": "crawler_company_discovery",
   "message": "Collecting company candidates",
   "estimated_total": 120,
   "completed": 36,
@@ -712,16 +819,21 @@ Payload:
 ```
 
 Publication lifecycle:
-1. `queued` when the request has been accepted but execution has not started yet.
-2. `running` when the crawler begins work for the `run_id`.
+1. `queued` when the parent request has been accepted but workflow execution has not started yet.
+2. `running` when the crawler begins work for a specific `workflow_run_id`.
 3. incremental `running` updates during each workflow using best-effort `estimated_total` and `completed` counters.
-4. terminal event with `status = "completed"`, `"failed"`, or `"rejected"`.
+4. terminal workflow event with `status = "completed"`, `"failed"`, or `"rejected"`.
+5. optional parent-run finalization event may omit `workflow_id` and `workflow_run_id` while still carrying the parent `run_id`.
 
 Rules:
 - `percent` must be derived from the best available estimate and must stay in the inclusive range `0..100`.
-- `phase` must reflect the active workflow or terminal finalization state.
+- `workflow_id` must be one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek` when the event represents a workflow contribution.
+- `workflow_run_id` must uniquely identify one workflow execution attempt.
+- `workflow` should equal `workflow_id` for workflow-level events and may be `queued` or `finalizing` for parent-run lifecycle events.
 - `finished_at` is populated only for terminal events.
 - Terminal `failed` events should include a short machine-readable `reason` and a human-readable `message`.
+- Clients must treat the most recent event per `workflow_run_id` as the authoritative live snapshot for that workflow contribution.
+- Multiple active workflow snapshots may coexist under one parent `run_id` and one `identity_id`.
 
 ### 11.3 Failure Tolerance
 
@@ -784,6 +896,7 @@ Each run should emit summary counters:
 - jobs skipped;
 - progress events published or failed;
 - enqueue success/fail counts;
+- workflow attempts started/retried/completed;
 - run duration.
 
 ---
@@ -798,11 +911,17 @@ Before changing crawler code in this folder:
 5. Update this spec and related service specs together when shared contracts change.
 
 **Role-based filtering guardrails**:
-- Role filtering (section 8.2) is a validation gate in Workflow 3 only; do not add filtering to Workflows 1, 2, or 4.
+- Role filtering (section 8.2) is a validation gate in `crawler_ats_job_extraction` only; do not add filtering to `crawler_company_discovery`, `enrichment_ats_enrichment`, or `crawler_4dayweek`.
 - Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
 - Role filtering happens per-crawl, per-identity execution; filtering state is not persisted downstream.
-- Modify role filtering logic ONLY in Workflow 3 job extraction (before `upsert_job()` calls).
+- Modify role filtering logic ONLY in `crawler_ats_job_extraction` before job upsert calls.
 - If filtering rules must change (for example substring vs. word-boundary matching), update this spec section 8.2 first, then update code and tests together.
+
+**Workflow guardrails**:
+- Preserve `run_id` as the parent public crawl identifier.
+- Use `workflow_run_id` for per-workflow retries and singular executions.
+- Use `workflow_id` exactly as documented in section 2 and section 11.
+- Emit company-discovery events only for newly inserted or newly actionable companies; do not emit them for non-actionable metadata churn.
 
 Do not change these names without coordinated cross-service updates:
 - `run_id`

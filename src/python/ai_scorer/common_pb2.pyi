@@ -663,7 +663,7 @@ class CrawlProgress(google.protobuf.message.Message):
     RUN_ID_FIELD_NUMBER: builtins.int
     IDENTITY_ID_FIELD_NUMBER: builtins.int
     STATUS_FIELD_NUMBER: builtins.int
-    PHASE_FIELD_NUMBER: builtins.int
+    WORKFLOW_FIELD_NUMBER: builtins.int
     MESSAGE_FIELD_NUMBER: builtins.int
     ESTIMATED_TOTAL_FIELD_NUMBER: builtins.int
     COMPLETED_FIELD_NUMBER: builtins.int
@@ -672,10 +672,12 @@ class CrawlProgress(google.protobuf.message.Message):
     UPDATED_AT_FIELD_NUMBER: builtins.int
     FINISHED_AT_FIELD_NUMBER: builtins.int
     REASON_FIELD_NUMBER: builtins.int
+    WORKFLOW_RUN_ID_FIELD_NUMBER: builtins.int
+    WORKFLOW_ID_FIELD_NUMBER: builtins.int
     run_id: typing.Text
     identity_id: typing.Text
     status: typing.Text
-    phase: typing.Text
+    workflow: typing.Text
     message: typing.Text
     estimated_total: builtins.int
     completed: builtins.int
@@ -687,12 +689,14 @@ class CrawlProgress(google.protobuf.message.Message):
     @property
     def finished_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     reason: typing.Text
+    workflow_run_id: typing.Text
+    workflow_id: typing.Text
     def __init__(self,
         *,
         run_id: typing.Text = ...,
         identity_id: typing.Text = ...,
         status: typing.Text = ...,
-        phase: typing.Text = ...,
+        workflow: typing.Text = ...,
         message: typing.Text = ...,
         estimated_total: builtins.int = ...,
         completed: builtins.int = ...,
@@ -701,9 +705,11 @@ class CrawlProgress(google.protobuf.message.Message):
         updated_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         finished_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         reason: typing.Text = ...,
+        workflow_run_id: typing.Text = ...,
+        workflow_id: typing.Text = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["finished_at",b"finished_at","started_at",b"started_at","updated_at",b"updated_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["completed",b"completed","estimated_total",b"estimated_total","finished_at",b"finished_at","identity_id",b"identity_id","message",b"message","percent",b"percent","phase",b"phase","reason",b"reason","run_id",b"run_id","started_at",b"started_at","status",b"status","updated_at",b"updated_at"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["completed",b"completed","estimated_total",b"estimated_total","finished_at",b"finished_at","identity_id",b"identity_id","message",b"message","percent",b"percent","reason",b"reason","run_id",b"run_id","started_at",b"started_at","status",b"status","updated_at",b"updated_at","workflow",b"workflow","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
 global___CrawlProgress = CrawlProgress
 
 class ScoringProgress(google.protobuf.message.Message):

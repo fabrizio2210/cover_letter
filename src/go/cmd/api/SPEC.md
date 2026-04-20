@@ -330,9 +330,11 @@ Consumer: Go API service, which relays updates to authenticated browser clients.
 ```json
 {
   "run_id": "<crawl run id>",
+  "workflow_run_id": "<workflow execution attempt id>",
+  "workflow_id": "crawler_company_discovery",
   "identity_id": "<identity hex object id>",
   "status": "queued",
-  "phase": "queued",
+  "workflow": "queued",
   "message": "Waiting for worker pickup",
   "estimated_total": 100,
   "completed": 0,
@@ -351,21 +353,25 @@ Status values:
 - `failed`
 - `rejected`
 
-Phase values:
+Workflow values:
 - `queued`
-- `workflow1_company_discovery`
-- `workflow2_ats_enrichment`
-- `workflow3_ats_job_extraction`
-- `workflow4_4dayweek`
+- `crawler_company_discovery`
+- `enrichment_ats_enrichment`
+- `crawler_ats_job_extraction`
+- `crawler_4dayweek`
 - `finalizing`
 
 Rules:
 - `percent` must be an integer from `0` to `100`.
-- `estimated_total` and `completed` represent best-effort work units, such as pages, companies, or jobs depending on the active phase; both must be present even when estimated totals are approximate.
+- `estimated_total` and `completed` represent best-effort work units, such as pages, companies, or jobs depending on the active workflow; both must be present even when estimated totals are approximate.
+- `workflow_id` is the stable workflow key for workflow-level events.
+- `workflow_run_id` identifies one workflow execution attempt and changes on retry.
+- `workflow` is the active workflow label for crawl progress and may be `queued` or `finalizing` for parent-run lifecycle events.
 - `started_at` is set on the first `running` event.
 - `finished_at` is set only for terminal states: `completed`, `failed`, or `rejected`.
 - `reason` is reserved for terminal diagnostics, for example `already_running` or a short failure code.
-- The API must treat the most recent event per `run_id` as the authoritative live snapshot exposed to clients.
+- The API must treat the most recent event per `workflow_run_id` as the authoritative live snapshot for that workflow contribution.
+- The API may expose multiple active workflow contributions for one `run_id` and one `identity_id`.
 
 ### 5.6 `scoring_progress_channel`
 
@@ -953,9 +959,11 @@ Response `200`: array of active or recently terminal crawl snapshots.
 [
   {
     "run_id": "<crawl run id>",
+    "workflow_run_id": "<workflow attempt id>",
+    "workflow_id": "crawler_company_discovery",
     "identity_id": "<hex>",
     "status": "running",
-    "phase": "workflow1_company_discovery",
+    "workflow": "crawler_company_discovery",
     "message": "Collecting company candidates",
     "estimated_total": 120,
     "completed": 36,
@@ -970,6 +978,8 @@ Response `200`: array of active or recently terminal crawl snapshots.
 
 Rules:
 - This endpoint provides the latest server-side snapshot used to bootstrap UI state after refresh.
+- Multiple entries may exist for the same `run_id` and `identity_id` when multiple workflows are active.
+- The API should preserve distinct workflow contributions by `workflow_run_id`.
 - Filtering by `identity_id` may be supported via query string when only one identity view is needed.
 
 #### `GET /api/crawls/stream`
@@ -983,6 +993,7 @@ Event data payload matches the §5.5 `crawler_progress_channel` payload.
 Rules:
 - The stream is server-to-client only.
 - The API may multiplex updates for multiple identities on one stream; clients are expected to filter by `identity_id`.
+- Clients must also distinguish workflow contributions by `workflow_run_id` and `workflow_id`.
 - The Dashboard and Job Discovery views both consume this stream.
 
 ---
