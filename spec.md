@@ -9,6 +9,7 @@ Implementation contracts are defined in:
 - [Frontend Specification](src/js/coverletter-frontend/src/app/SPEC.md)
 - [AI Querier Specification](src/python/ai_querier/SPEC.md)
 - [AI Scorer Specification](src/python/ai_scorer/SPEC.md)
+- [Web Crawler Specification](src/python/web_crawler/SPEC.md)
 
 ## Structure of the application
 
@@ -25,7 +26,7 @@ The stack consists of:
 
 #### Scraping job descriptions and company info
 
-The primary acquisition flow is now job discovery rather than recipient-email discovery. An async crawler will query common hiring platforms such as Ashby, Greenhouse, Lever, and 4dayweek.io, which typically expose structured job APIs. The crawler normalizes jobs into a shared internal shape and persists all discovered job descriptions first, together with source metadata and company linkage.
+The primary acquisition flow is now job discovery rather than recipient-email discovery. An async crawler collects openings from supported discovery sources, normalizes jobs into a shared internal shape, and persists discovered job descriptions first, together with source metadata and company linkage.
 
 The Job Discovery tab can trigger a crawl for an arbitrary selected identity. The frontend sends the trigger to the Go API, the API enqueues a crawl request on Redis, and the `web_crawler` worker consumes that request asynchronously.
 
@@ -33,17 +34,11 @@ Each crawl execution is scoped by an explicit `identity_id`. Runs without `ident
 
 Only one active crawl per identity is allowed at a time. A second trigger for the same identity is rejected until the active crawl reaches a terminal state.
 
-Identity profiles include a manually curated `roles` list (for example, `software engineer`, `platform engineer`). The crawler uses this list as the primary input for role-first company discovery.
+Crawler internals, including discovery inputs, source adapters, and workflow design, are intentionally specified only in [Web Crawler Specification](src/python/web_crawler/SPEC.md).
 
-Crawler architecture is organized as four workflows running in parallel with DB-backed handoffs:
-1. find new companies from identity roles;
-2. detect ATS provider and resolve ATS slug on discovered companies;
-3. discover jobs from ATS-enriched companies;
-4. run an independent 4dayweek scraper that discovers companies and job descriptions.
+At this product level, the crawler behavior is defined as an asynchronous, identity-scoped process that persists partial and final results to MongoDB during execution.
 
-Each workflow persists intermediate results directly to MongoDB so downstream workflows can consume partial progress during the same run.
-
-While a crawl is running, the crawler emits progress updates via Redis. These updates include the crawl run identifier, the identity being processed, the current phase, completed work, estimated total work, and a derived percentage. The backend relays the latest crawl progress to the frontend so it can be shown live on both the Dashboard and Job Discovery views.
+While a crawl is running, the crawler emits progress updates via Redis. The backend relays the latest crawl progress to the frontend so it can be shown live on both the Dashboard and Job Discovery views.
 
 The scoring worker also emits independent progress updates through Redis while AI scoring is processing queued jobs. Scoring progress is a separate process lifecycle and starts at `0%` for each scoring run. In shared UI widgets that can show either crawl or scoring progress, crawl progress has precedence whenever both streams are active for the same identity.
 
