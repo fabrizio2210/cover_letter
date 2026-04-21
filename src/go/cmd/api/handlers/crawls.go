@@ -12,6 +12,7 @@ import (
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -62,9 +63,28 @@ func TriggerCrawl(c *gin.Context) {
 	}
 
 	identityID := req.IdentityId
-	if _, err := primitive.ObjectIDFromHex(identityID); err != nil {
+	identityOID, err := primitive.ObjectIDFromHex(identityID)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identity_id"})
 		return
+	}
+
+	{
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "cover_letter"
+		}
+		collection := GetMongoClient().Database(dbName).Collection("identities")
+		var identity bson.M
+		if err := collection.FindOne(context.Background(), bson.M{"_id": identityOID}).Decode(&identity); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Identity not found"})
+			return
+		}
+		roles, _ := identity["roles"].(bson.A)
+		if len(roles) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Identity has no roles configured; crawl refused"})
+			return
+		}
 	}
 
 	if active, ok := crawlHub.findActiveByIdentity(identityID); ok {

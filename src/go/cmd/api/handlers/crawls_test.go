@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestTriggerCrawl_InvalidIdentityID(t *testing.T) {
@@ -40,6 +41,14 @@ func TestTriggerCrawl_QueuesPayload(t *testing.T) {
 	t.Setenv("CRAWLER_TRIGGER_QUEUE_NAME", "test_crawler_queue")
 
 	identityID := "69a41885879f30791d7dfa77"
+
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"identities": {findOneDoc: bson.M{"roles": bson.A{"software engineer"}}},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
 	body := bytes.NewBufferString(`{"identity_id":"` + identityID + `"}`)
 	req, _ := http.NewRequest(http.MethodPost, "/api/crawls", body)
 	req.Header.Set("Content-Type", "application/json")
@@ -80,6 +89,13 @@ func TestTriggerCrawl_RejectsDuplicateIdentity(t *testing.T) {
 	rclient := redis.NewClient(&redis.Options{Addr: m.Addr()})
 	SetRedisClientForTests(rclient)
 
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"identities": {findOneDoc: bson.M{"roles": bson.A{"software engineer"}}},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
 	identityID := "69a41885879f30791d7dfa77"
 	crawlHub.publish(&models.CrawlProgress{
 		RunId:          "run-1",
@@ -103,6 +119,52 @@ func TestTriggerCrawl_RejectsDuplicateIdentity(t *testing.T) {
 	require.Equal(t, http.StatusConflict, w.Code)
 	require.Contains(t, w.Body.String(), "already running")
 	require.Contains(t, w.Body.String(), "run-1")
+}
+
+func TestTriggerCrawl_RejectsIdentityNotFound(t *testing.T) {
+	resetCrawlStateForTests()
+
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"identities": {findOneDoc: nil},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
+	identityID := "69a41885879f30791d7dfa77"
+	body := bytes.NewBufferString(`{"identity_id":"` + identityID + `"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/api/crawls", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	TriggerCrawl(c)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "Identity not found")
+}
+
+func TestTriggerCrawl_RejectsIdentityWithNoRoles(t *testing.T) {
+	resetCrawlStateForTests()
+
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"identities": {findOneDoc: bson.M{"roles": bson.A{}}},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
+	identityID := "69a41885879f30791d7dfa77"
+	body := bytes.NewBufferString(`{"identity_id":"` + identityID + `"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/api/crawls", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	TriggerCrawl(c)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "no roles")
 }
 
 func TestGetActiveCrawls_FiltersByIdentity(t *testing.T) {

@@ -123,10 +123,10 @@ def _job_matches_roles(job: common_pb2.Job, roles: list[str]) -> bool:
     Check if job title or description matches any role keyword.
     
     Matching is case-insensitive substring search.
-    Empty roles list accepts all jobs (pass-through).
+    Empty roles list rejects all jobs.
     """
     if not roles:
-        return True
+        return False
     
     title_lower = job.title.lower()
     description_lower = job.description.lower()
