@@ -606,11 +606,12 @@ Before inserting extracted jobs into the database, each job must be validated ag
 - For each extracted job, check if the job's `title` or `description` contains any role keyword from `identity.roles`.
 - Matching is case-insensitive substring matching.
 - Job is accepted if ANY role keyword appears in title or description (OR logic).
-- Empty `roles` list accepts all jobs (treat as "discover broadly").
+- Empty `roles` list accepts no jobs.
 
 **Filtering behavior**:
 - Jobs matching at least one role: proceed to deduplication and insertion.
 - Jobs not matching any role: skip insertion, log skipped reason, increment skip counter.
+- Empty `roles` list: emit zero ATS jobs for that execution (no inserts, no updates, no scoring enqueues).
 - No tombstone or skip marker is created for non-matching jobs.
 
 **Example**:

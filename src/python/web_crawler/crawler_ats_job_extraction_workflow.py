@@ -92,22 +92,22 @@ def _connect_redis(config: CrawlerConfig):
 def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
     """
     Load identity document and extract roles list.
-    
-    Returns list of role keywords. Empty list if identity not found or has no roles.
+
+    Returns list of role keywords. Empty list means ATS extraction emits no jobs.
     """
     if not identity_id:
-        logger.warning("crawler_ats_job_extraction: identity_id is empty; role filtering disabled")
+        logger.warning("crawler_ats_job_extraction: identity_id is empty; ATS extraction will emit no jobs")
         return []
     
     try:
         identity_oid = _to_object_id(identity_id)
         if identity_oid is None:
-            logger.warning("crawler_ats_job_extraction: invalid identity_id %r; role filtering disabled", identity_id)
+            logger.warning("crawler_ats_job_extraction: invalid identity_id %r; ATS extraction will emit no jobs", identity_id)
             return []
         
         identity = identities_collection.find_one({"_id": identity_oid})
         if identity is None:
-            logger.warning("crawler_ats_job_extraction: identity %s not found; role filtering disabled", identity_id)
+            logger.warning("crawler_ats_job_extraction: identity %s not found; ATS extraction will emit no jobs", identity_id)
             return []
         
         roles = [role.strip() for role in identity.get("roles", []) if isinstance(role, str) and role.strip()]
@@ -121,12 +121,12 @@ def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
 def _job_matches_roles(job: common_pb2.Job, roles: list[str]) -> bool:
     """
     Check if job title or description matches any role keyword.
-    
+
     Matching is case-insensitive substring search.
-    Empty roles list means role filtering is disabled.
+    Empty roles list means no job is eligible.
     """
     if not roles:
-        return True
+        return False
     
     title_lower = job.title.lower()
     description_lower = job.description.lower()
@@ -204,7 +204,16 @@ def run_crawler_ats_job_extraction(
 
     # Load identity roles for filtering
     identity_roles = _load_identity_roles(identities_collection, identity_id) if identity_id else []
-    logger.debug("crawler_ats_job_extraction: role filtering enabled with %d roles", len(identity_roles))
+    logger.debug("crawler_ats_job_extraction: role filtering loaded %d roles", len(identity_roles))
+
+    if not identity_roles:
+        logger.info(
+            "crawler_ats_job_extraction: identity %s has no roles; skipping ATS extraction and emitting no jobs",
+            identity_id,
+        )
+        if progress_callback:
+            progress_callback(0, 1, "Skipping ATS extraction: identity has no configured roles")
+        return result
 
     companies = _load_ats_companies(companies_collection, company_ids)
     logger.debug("crawler_ats_job_extraction: loaded %d ATS-enriched companies", len(companies))

@@ -54,6 +54,9 @@ Separation of concerns:
 - `roles` define discovery scope for crawler queries.
 - `preferences` define scoring criteria and weights.
 
+ATS extraction guardrail:
+- if an identity has an empty `roles` list, `crawler_ats_job_extraction` emits no jobs for that execution.
+
 The preferred architecture is to store all job descriptions first and score them afterward. This separates scraping from AI latency, preserves raw data for later re-scoring, and allows the user to change preferences without having to crawl the sources again.
 
 If a job cannot resolve required scoring prerequisites (for example company-field-identity linkage), scoring is skipped for that job rather than failing the full crawl.
