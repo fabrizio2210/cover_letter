@@ -58,6 +58,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Parse `WorkflowDispatchMessage` from the input queue; drop malformed messages.
 - Load identity roles from `database["identities"]`; skip extraction if no roles are present.
 - Call `LevelsFyiAdapter.discover_jobs(roles, config)` to fetch job cards.
+- Levels.fyi job extraction supports layered parsing: structured JSON in inline scripts first, then company-grouped `/jobs` HTML (company heading + job links), then legacy card markup fallbacks.
 - Batch-upsert all discovered companies via `upsert_companies`; build a canonical-name → `ObjectId` lookup.
 - For each job card: resolve the company `ObjectId`; upsert the job via `_upsert_job` with `platform = "levelsfyi"` and dedup key `(platform, external_job_id)`.
 - Determine newly discovered companies missing `ats_slug` and emit `CompanyDiscoveryEvent(reason="new_company_or_newly_actionable")` per company to the enrichment queue.
@@ -76,7 +77,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ## 6. Company Upsert Semantics
 
-- Companies are discovered inline from job-card `company_name` fields.
+- Companies are discovered inline from job-card `company_name` fields recovered by the Levels.fyi adapter fallback chain.
 - `canonicalize_company_name` is used as the dedup key for the lookup map.
 - If a job card's company cannot be resolved after batch upsert, a single-item `upsert_companies` call is made inline; if still unresolvable the job is skipped (`skipped_count += 1`).
 
@@ -147,6 +148,7 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 | Missing `identity_id` | Drop, log WARNING |
 | Identity has no roles | Return empty result, log INFO |
 | `discover_jobs` returns empty | Return early, report no-jobs progress |
+| Parser cannot recover company from any fallback | Job may still be discovered, but unresolved company leads to skip path |
 | Company resolution fails after inline upsert | `skipped_count += 1`, log DEBUG |
 | Job upsert exception | Append to `failed_urls`, log WARNING, continue |
 | Enrichment event push failure | Log WARNING per company, continue |
@@ -158,6 +160,7 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 ## 12. Editing Guardrails
 
 - The `LevelsFyiAdapter` lives in `../sources/levelsfyi.py`; changes to its `LevelsFyiJobCard` shape must be reflected here.
+- Parser updates for Levels.fyi selectors or script payload keys MUST be accompanied by unit tests under `src/python/web_crawler/tests`.
 - Do **not** add ATS probing logic to this package; newly discovered companies are forwarded to `enrichment_ats_enrichment` via events.
 - The `platform` value stored in MongoDB must remain `"levelsfyi"` to match `external_job_id` dedup semantics.
 - Job field name is `"company"` (not `"company_id"`) for levelsfyi jobs; do not change it without updating downstream scoring and API queries.

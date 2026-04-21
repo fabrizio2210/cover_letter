@@ -291,8 +291,9 @@ def run_crawler_levelsfyi(
 
         if company_oid is None:
             logger.debug(
-                "crawler_levelsfyi: skipping job %s — could not resolve company for %r",
+                "crawler_levelsfyi: skipping job %s (%s) — could not resolve company for %r",
                 card.external_job_id,
+                card.source_url,
                 card.company_name,
             )
             result.skipped_count += 1

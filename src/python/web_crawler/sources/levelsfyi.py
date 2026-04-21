@@ -4,11 +4,11 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
@@ -25,6 +25,7 @@ _COMPANY_SALARIES_PATH_RE = re.compile(
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _CURRENCY_SUFFIX_RE = re.compile(r"\s+[£$€]\s?\d[\d.,KkMm]*.*$")
 _JOB_DETAIL_PATH_RE = re.compile(r"^/jobs\?(?:.*&)?jobId=\d+(?:[&#].*)?$", re.IGNORECASE)
+_RAW_JOB_ID_RE = re.compile(r"^\d{6,}$")
 _NOISE_LABELS = {
     "see all companies",
     "see our leaderboard",
@@ -157,6 +158,273 @@ class LevelsFyiAdapter(SourceAdapter):
             return ""
         return domain
 
+    @staticmethod
+    def _clean_job_title(label: str) -> str:
+        cleaned = re.sub(r"\s+", " ", (label or "")).strip(" -:\n\t")
+        cleaned = _CURRENCY_SUFFIX_RE.sub("", cleaned)
+        if not cleaned or len(cleaned) > 180:
+            return ""
+        return cleaned
+
+    @staticmethod
+    def _try_parse_json_blob(raw: str) -> dict | list | None:
+        text = (raw or "").strip()
+        if not text:
+            return None
+
+        # First try parsing as-is.
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except Exception:
+            pass
+
+        # Some pages inline JSON in JS assignments. Best-effort slice to first object/array blob.
+        open_index = min(
+            [idx for idx in (text.find("{"), text.find("[")) if idx >= 0],
+            default=-1,
+        )
+        close_index = max(text.rfind("}"), text.rfind("]"))
+        if open_index < 0 or close_index <= open_index:
+            return None
+
+        try:
+            parsed = json.loads(text[open_index : close_index + 1])
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except Exception:
+            return None
+
+        return None
+
+    def _extract_company_name_from_value(self, value: object) -> str:
+        if isinstance(value, str):
+            return self._clean_company_label(value, "")
+        if isinstance(value, dict):
+            for key in ("name", "companyName", "displayName", "label"):
+                candidate = value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    return self._clean_company_label(candidate, "")
+        return ""
+
+    def _build_job_card_from_json_dict(
+        self,
+        payload: dict,
+        role: str,
+        seen_job_ids: set[str],
+    ) -> LevelsFyiJobCard | None:
+        href = ""
+        for key in ("url", "href", "path", "jobUrl", "job_url"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                href = value.strip()
+                break
+
+        job_id = self._extract_job_id_from_href(href)
+        if not job_id:
+            for key in ("jobId", "job_id", "jobID"):
+                value = payload.get(key)
+                if isinstance(value, (str, int)):
+                    job_id = str(value).strip()
+                    if job_id:
+                        break
+
+        job_obj = payload.get("job") if isinstance(payload.get("job"), dict) else None
+        if not job_id and job_obj:
+            value = job_obj.get("jobId") or job_obj.get("job_id") or job_obj.get("id")
+            if isinstance(value, (str, int)):
+                job_id = str(value).strip()
+
+        if not job_id or not _RAW_JOB_ID_RE.match(job_id) or job_id in seen_job_ids:
+            return None
+
+        title = ""
+        for key in ("jobTitle", "title", "positionTitle", "roleTitle"):
+            value = payload.get(key)
+            if isinstance(value, str):
+                title = self._clean_job_title(value)
+                if title:
+                    break
+
+        if not title and job_obj:
+            nested = job_obj.get("title") or job_obj.get("jobTitle")
+            if isinstance(nested, str):
+                title = self._clean_job_title(nested)
+
+        if not title:
+            return None
+
+        company_name = ""
+        for key in ("companyName", "employerName", "company", "organization", "employer"):
+            if key in payload:
+                company_name = self._extract_company_name_from_value(payload.get(key))
+                if company_name:
+                    break
+
+        if not company_name and job_obj:
+            for key in ("companyName", "company", "employer"):
+                if key in job_obj:
+                    company_name = self._extract_company_name_from_value(job_obj.get(key))
+                    if company_name:
+                        break
+
+        if company_name.casefold() in _NOISE_LABELS:
+            company_name = ""
+
+        logo_url = ""
+        for key in ("logoUrl", "logo", "companyLogo", "company_logo"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                logo_url = value.strip()
+                break
+
+        if not logo_url and isinstance(payload.get("company"), dict):
+            company_logo = payload["company"].get("logo") or payload["company"].get("logoUrl")
+            if isinstance(company_logo, str):
+                logo_url = company_logo
+
+        source_url = urljoin(self.base_url, href) if href else f"{self.base_url}/jobs?jobId={job_id}"
+        return LevelsFyiJobCard(
+            job_title=title,
+            company_name=company_name,
+            source_url=source_url,
+            external_job_id=job_id,
+            domain=self._extract_domain_from_logo_url(logo_url),
+            role=role,
+        )
+
+    def _extract_job_cards_from_json_scripts(
+        self,
+        soup: BeautifulSoup,
+        role: str,
+        seen_job_ids: set[str],
+    ) -> list[LevelsFyiJobCard]:
+        cards: list[LevelsFyiJobCard] = []
+
+        def visit(node: object) -> None:
+            if isinstance(node, dict):
+                card = self._build_job_card_from_json_dict(node, role, seen_job_ids)
+                if card is not None:
+                    seen_job_ids.add(card.external_job_id)
+                    cards.append(card)
+                for value in node.values():
+                    visit(value)
+                return
+            if isinstance(node, list):
+                for value in node:
+                    visit(value)
+
+        for script in soup.find_all("script"):
+            raw = script.string or script.get_text("", strip=False)
+            parsed = self._try_parse_json_blob(raw)
+            if parsed is None:
+                continue
+            visit(parsed)
+
+        return cards
+
+    def _extract_company_from_logo_alt(self, node: Tag) -> str:
+        for scope in (node, node.find_parent(["div", "section", "article", "li"])):
+            if scope is None:
+                continue
+            logo = scope.find("img", alt=True)
+            if logo is None:
+                continue
+            alt_text = str(logo.get("alt") or "").strip()
+            if not alt_text:
+                continue
+            cleaned = re.sub(r"\b(?:icon|logo)\b", "", alt_text, flags=re.IGNORECASE).strip(" -:\n\t")
+            candidate = self._clean_company_label(cleaned, "")
+            if candidate and candidate.casefold() not in _NOISE_LABELS:
+                return candidate
+        return ""
+
+    def _resolve_company_name_for_job_link(self, anchor: Tag) -> str:
+        # First try explicit company links in nearby containers.
+        for scope in (
+            anchor,
+            anchor.find_parent(attrs={"role": "button"}),
+            anchor.find_parent(["article", "section", "li", "div"]),
+        ):
+            if scope is None:
+                continue
+            for company_anchor in scope.find_all("a", href=True):
+                href = str(company_anchor.get("href") or "").strip()
+                slug = self._extract_company_slug(href)
+                if not slug:
+                    continue
+                label = company_anchor.get_text(" ", strip=True)
+                candidate = self._clean_company_label(label, slug)
+                if candidate and candidate.casefold() not in _NOISE_LABELS:
+                    return candidate
+
+        # On current /jobs pages companies are grouped by headings before role links.
+        section = anchor.find_parent(["section", "article", "li"]) or anchor.find_parent("div")
+        if section is not None:
+            heading = section.find(["h2", "h3"])
+            if heading is not None:
+                candidate = self._clean_company_label(heading.get_text(" ", strip=True), "")
+                if candidate and candidate.casefold() not in _NOISE_LABELS:
+                    return candidate
+
+        previous_heading = anchor.find_previous(["h2", "h3"])
+        if previous_heading is not None:
+            candidate = self._clean_company_label(previous_heading.get_text(" ", strip=True), "")
+            if candidate and candidate.casefold() not in _NOISE_LABELS:
+                return candidate
+
+        return self._extract_company_from_logo_alt(anchor)
+
+    def _extract_job_cards_from_grouped_html(
+        self,
+        soup: BeautifulSoup,
+        role: str,
+        seen_job_ids: set[str],
+    ) -> list[LevelsFyiJobCard]:
+        cards: list[LevelsFyiJobCard] = []
+
+        for anchor in soup.find_all("a", href=True):
+            href = str(anchor.get("href") or "").strip()
+            if not self._is_job_detail_href(href):
+                continue
+
+            job_id = self._extract_job_id_from_href(href)
+            if not job_id or job_id in seen_job_ids:
+                continue
+
+            title = self._clean_job_title(anchor.get_text(" ", strip=True))
+            if not title:
+                card_scope = anchor.find_parent(attrs={"role": "button"}) or anchor.find_parent(["article", "section", "div"])
+                if card_scope is not None:
+                    heading = card_scope.find(["h3", "h4", "h2"])
+                    if heading is not None:
+                        title = self._clean_job_title(heading.get_text(" ", strip=True))
+
+            if not title:
+                continue
+
+            company_name = self._resolve_company_name_for_job_link(anchor)
+            logo = anchor.find("img")
+            if logo is None:
+                scope = anchor.find_parent(["article", "section", "li", "div"])
+                logo = scope.find("img") if scope is not None else None
+            logo_url = str(logo.get("src") or "").strip() if logo else ""
+
+            seen_job_ids.add(job_id)
+            cards.append(
+                LevelsFyiJobCard(
+                    job_title=title,
+                    company_name=company_name,
+                    source_url=urljoin(self.base_url, href),
+                    external_job_id=job_id,
+                    domain=self._extract_domain_from_logo_url(logo_url),
+                    role=role,
+                )
+            )
+
+        return cards
+
     def _extract_companies_from_job_cards(self, soup: BeautifulSoup, page_url: str, role: str) -> list[DiscoveredCompany]:
         if "/jobs" not in urlparse(page_url).path:
             return []
@@ -216,9 +484,10 @@ class LevelsFyiAdapter(SourceAdapter):
     def _extract_job_cards_from_html(self, html: str, page_url: str, role: str) -> list[LevelsFyiJobCard]:
         """Parse job cards from a Levels.fyi search or taxonomy page.
 
-        Each card must have at least one job-detail link (``/jobs?jobId=...``).
-        The job title is taken from the h2/h3 heading.
-        The company name is taken from the ``/companies/{slug}/salaries`` anchor inside the card.
+        Extraction precedence:
+        1. Structured JSON blobs from inline script tags when available.
+        2. Grouped HTML listings (`/jobs` pages with company headings + job links).
+        3. Legacy company-link parsing from older card markup.
         """
         if "/jobs" not in urlparse(page_url).path:
             return []
@@ -227,9 +496,16 @@ class LevelsFyiAdapter(SourceAdapter):
         cards: list[LevelsFyiJobCard] = []
         seen_job_ids: set[str] = set()
 
+        cards.extend(self._extract_job_cards_from_json_scripts(soup, role, seen_job_ids))
+        cards.extend(self._extract_job_cards_from_grouped_html(soup, role, seen_job_ids))
+
+        if cards:
+            return cards
+
         for card in soup.find_all(attrs={"role": "button"}):
             job_href = ""
             job_id = ""
+            job_anchor: Tag | None = None
             for anchor in card.find_all("a", href=True):
                 href = str(anchor.get("href") or "").strip()
                 if self._is_job_detail_href(href):
@@ -237,27 +513,23 @@ class LevelsFyiAdapter(SourceAdapter):
                     if jid and jid not in seen_job_ids:
                         job_href = href
                         job_id = jid
+                        job_anchor = anchor
                         break
 
             if not job_id:
                 continue
 
-            # Job title: prefer h2/h3 heading text
-            heading = card.find(["h2", "h3"])
-            job_title = heading.get_text(" ", strip=True) if heading else ""
+            # Job title: prefer explicit job-link text, then fallback to h2/h3 heading.
+            job_title = self._clean_job_title(job_anchor.get_text(" ", strip=True)) if job_anchor else ""
+            if not job_title:
+                heading = card.find(["h2", "h3"])
+                job_title = self._clean_job_title(heading.get_text(" ", strip=True)) if heading else ""
             if not job_title:
                 continue
 
-            # Company name: from /companies/{slug}/salaries anchor
-            company_name = ""
+            # Company name: from legacy company link, then grouped heading/logo fallbacks.
+            company_name = self._resolve_company_name_for_job_link(job_anchor or card)
             domain = ""
-            for anchor in card.find_all("a", href=True):
-                href_c = str(anchor.get("href") or "").strip()
-                slug = self._extract_company_slug(href_c)
-                if slug:
-                    label = anchor.get_text(" ", strip=True)
-                    company_name = self._clean_company_label(label, slug)
-                    break
 
             # Logo domain as fallback company domain
             logo = card.find("img")
