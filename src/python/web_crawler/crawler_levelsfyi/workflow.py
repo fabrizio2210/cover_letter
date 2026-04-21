@@ -128,8 +128,7 @@ def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str) -> bool:
 
 def _connect_redis(config: CrawlerConfig):
     try:
-        import redis as redis_lib
-        client = redis_lib.Redis(
+        client = redis.Redis(
             host=config.redis_host,
             port=config.redis_port,
             socket_connect_timeout=5,

@@ -8,6 +8,7 @@ import uuid
 from typing import cast
 
 import redis
+from bson import ObjectId
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
@@ -113,7 +114,6 @@ def _run_enrichment_for_event(
     if result.enriched_count > 0:
         companies_collection = database["companies"]
         try:
-            from bson import ObjectId
             doc = companies_collection.find_one(
                 {"_id": ObjectId(company_id)},
                 {"ats_provider": 1, "ats_slug": 1},

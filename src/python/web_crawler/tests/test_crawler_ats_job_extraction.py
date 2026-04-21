@@ -9,6 +9,7 @@ from bson import ObjectId
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
 from src.python.web_crawler.crawler_ats_job_extraction.workflow import run_crawler_ats_job_extraction, upsert_job
+from src.python.web_crawler.sources.ats_job_fetcher import _fetch_ashby_jobs, _fetch_greenhouse_jobs, _fetch_lever_jobs
 
 
 class FakeResponse:
@@ -123,8 +124,6 @@ class AtsFetcherGreenhouseTests(unittest.TestCase):
         session = Mock()
         session.request.return_value = FakeResponse(payload)
 
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_greenhouse_jobs
-
         jobs = _fetch_greenhouse_jobs("acme", self.config, session)
 
         self.assertEqual(len(jobs), 1)
@@ -140,8 +139,6 @@ class AtsFetcherGreenhouseTests(unittest.TestCase):
         session = Mock()
         session.request.return_value = FakeResponse({}, status_code=404)
 
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_greenhouse_jobs
-
         jobs = _fetch_greenhouse_jobs("missing", self.config, session)
         self.assertEqual(jobs, [])
 
@@ -149,8 +146,6 @@ class AtsFetcherGreenhouseTests(unittest.TestCase):
         payload = {"jobs": [{"title": "No ID"}, {"id": 456, "title": ""}, {"id": 789, "title": "Valid"}]}
         session = Mock()
         session.request.return_value = FakeResponse(payload)
-
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_greenhouse_jobs
 
         jobs = _fetch_greenhouse_jobs("acme", self.config, session)
         self.assertEqual(len(jobs), 1)
@@ -176,8 +171,6 @@ class AtsFetcherLeverTests(unittest.TestCase):
         session = Mock()
         session.request.return_value = FakeResponse(payload)
 
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_lever_jobs
-
         jobs = _fetch_lever_jobs("acme", self.config, session)
 
         self.assertEqual(len(jobs), 1)
@@ -192,8 +185,6 @@ class AtsFetcherLeverTests(unittest.TestCase):
     def test_fetch_lever_jobs_returns_empty_on_non_list_response(self):
         session = Mock()
         session.request.return_value = FakeResponse({"error": "not found"}, status_code=200)
-
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_lever_jobs
 
         jobs = _fetch_lever_jobs("acme", self.config, session)
         self.assertEqual(jobs, [])
@@ -218,8 +209,6 @@ class AtsFetcherAshbyTests(unittest.TestCase):
         session = Mock()
         session.request.return_value = FakeResponse(payload)
 
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_ashby_jobs
-
         jobs = _fetch_ashby_jobs("acme", self.config, session)
 
         self.assertEqual(len(jobs), 1)
@@ -234,8 +223,6 @@ class AtsFetcherAshbyTests(unittest.TestCase):
     def test_fetch_ashby_jobs_returns_empty_on_request_failure(self):
         session = Mock()
         session.request.return_value = FakeResponse({}, status_code=500)
-
-        from src.python.web_crawler.sources.ats_job_fetcher import _fetch_ashby_jobs
 
         jobs = _fetch_ashby_jobs("acme", self.config, session)
         self.assertEqual(jobs, [])

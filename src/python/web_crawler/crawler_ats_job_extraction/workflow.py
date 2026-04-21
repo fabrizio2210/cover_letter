@@ -5,6 +5,8 @@ import logging
 import time
 from typing import Callable, Iterable
 
+import redis as redis_lib
+
 import requests
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -80,7 +82,6 @@ def _try_enqueue(redis_client, job_id: str) -> bool:
 
 def _connect_redis(config: CrawlerConfig):
     try:
-        import redis as redis_lib
         client = redis_lib.Redis(host=config.redis_host, port=config.redis_port, socket_connect_timeout=5)
         client.ping()
         return client

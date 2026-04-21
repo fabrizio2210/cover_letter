@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 from bson import ObjectId
 import requests
 
+from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.executor import ATSWorkerResult
 from src.python.web_crawler.sources.ats_detector import ATSDetectionResult, ATSRequestFailure, detect_ats_provider, extract_ats_signatures_from_html, fetch_url
@@ -477,8 +478,6 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
 
     @staticmethod
     def _company_proto(company_id: str, name: str, discovery_sources: list[dict]):
-        from src.python.ai_querier import common_pb2
-
         company = common_pb2.Company(id=company_id, name=name)
         for source_data in discovery_sources:
             source = company.discovery_sources.add()

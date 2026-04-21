@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -296,10 +297,9 @@ class LevelsFyiAdapter(SourceAdapter):
         soup = BeautifulSoup(response.text, "html.parser")
 
         # Try JSON-LD first (JobPosting schema)
-        import json as _json
         for script in soup.find_all("script", type="application/ld+json"):
             try:
-                data = _json.loads(script.string or "")
+                data = json.loads(script.string or "")
                 if isinstance(data, dict) and data.get("@type") == "JobPosting":
                     result["description"] = data.get("description", "")
                     job_loc = data.get("jobLocation", {})
