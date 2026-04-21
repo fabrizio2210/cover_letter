@@ -9,7 +9,7 @@ DiscoveredCompany = common_pb2.DiscoveredCompany
 
 
 @dataclass(slots=True)
-class Workflow1Result:
+class CompanyDiscoveryResult:
     discovered_count: int = 0
     inserted_count: int = 0
     updated_count: int = 0

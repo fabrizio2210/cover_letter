@@ -7,7 +7,7 @@ from bson import ObjectId
 from src.python.web_crawler.company_resolver import build_company_document, canonicalize_company_name, upsert_companies
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
-from src.python.web_crawler.workflow1 import get_enabled_adapters, load_identity_seed, run_workflow1
+from src.python.web_crawler.crawler_company_discovery import get_enabled_adapters, load_identity_seed, run_crawler_company_discovery
 
 
 class FakeInsertResult:
@@ -60,7 +60,7 @@ class StubAdapter:
         return list(self.companies)
 
 
-class Workflow1Tests(unittest.TestCase):
+class CrawlerCompanyDiscoveryTests(unittest.TestCase):
     def test_canonicalize_company_name_strips_suffixes(self):
         self.assertEqual(canonicalize_company_name("ACME, Inc."), "acme")
         self.assertEqual(canonicalize_company_name("Example GmbH"), "example")
@@ -158,7 +158,7 @@ class Workflow1Tests(unittest.TestCase):
         self.assertEqual(companies.docs[0].get("ats_provider"), "greenhouse")
         self.assertEqual(companies.docs[0].get("ats_slug"), "acme-gh")
 
-    def test_run_workflow1_collects_partial_failures(self):
+    def test_run_crawler_company_discovery_collects_partial_failures(self):
         identity_id = "507f1f77bcf86cd799439011"
         identities = FakeCollection(
             docs=[
@@ -173,10 +173,10 @@ class Workflow1Tests(unittest.TestCase):
         database = FakeDatabase({"identities": identities, "companies": companies})
         config = CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="cover_letter", enabled_sources=[])
 
-        from src.python.web_crawler import workflow1 as workflow1_module
+        from src.python.web_crawler import crawler_company_discovery as ccd_module
 
-        original_get_enabled_adapters = workflow1_module.get_enabled_adapters
-        workflow1_module.get_enabled_adapters = lambda enabled_sources: [
+        original_get_enabled_adapters = ccd_module.get_enabled_adapters
+        ccd_module.get_enabled_adapters = lambda enabled_sources: [
             StubAdapter(
                 companies=[
                     DiscoveredCompany(name="Acme", source="stub", role="software engineer"),
@@ -185,9 +185,9 @@ class Workflow1Tests(unittest.TestCase):
             StubAdapter(exc=RuntimeError("source failed")),
         ]
         try:
-            result = run_workflow1(database, config, identity_id)
+            result = run_crawler_company_discovery(database, config, identity_id)
         finally:
-            workflow1_module.get_enabled_adapters = original_get_enabled_adapters
+            ccd_module.get_enabled_adapters = original_get_enabled_adapters
 
         self.assertEqual(result.discovered_count, 1)
         self.assertEqual(result.inserted_count, 1)
