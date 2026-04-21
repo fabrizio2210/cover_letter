@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
-from src.python.web_crawler.workflow3 import run_workflow3, upsert_job
+from src.python.web_crawler.crawler_ats_job_extraction import run_crawler_ats_job_extraction, upsert_job
 
 
 class FakeResponse:
@@ -309,7 +309,7 @@ class UpsertJobTests(unittest.TestCase):
         self.assertEqual(doc["created_at"]["seconds"], 1000)
 
 
-class Workflow3Tests(unittest.TestCase):
+class CrawlerAtsJobExtractionTests(unittest.TestCase):
     def setUp(self):
         self.config = _make_config()
         self.company_oid = ObjectId()
@@ -358,18 +358,18 @@ class Workflow3Tests(unittest.TestCase):
             source_url=f"https://example.com/{external_job_id}",
         )
 
-    def test_run_workflow3_returns_inserted_count(self):
+    def test_run_crawler_ats_job_extraction_returns_inserted_count(self):
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs):
-            result = run_workflow3(db, self.config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs):
+            result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(len(result.job_ids), 1)
 
-    def test_run_workflow3_updates_on_recrawl(self):
+    def test_run_crawler_ats_job_extraction_updates_on_recrawl(self):
         existing_id = ObjectId()
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
@@ -391,13 +391,13 @@ class Workflow3Tests(unittest.TestCase):
             ],
         )
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs):
-            result = run_workflow3(db, self.config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs):
+            result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(result.inserted_count, 0)
         self.assertEqual(result.updated_count, 1)
 
-    def test_run_workflow3_skips_companies_without_ats_slug(self):
+    def test_run_crawler_ats_job_extraction_skips_companies_without_ats_slug(self):
         db = self._make_fake_database(
             companies=[
                 {"_id": self.company_oid, "name": "No ATS", "ats_provider": "greenhouse"},
@@ -405,13 +405,13 @@ class Workflow3Tests(unittest.TestCase):
             ]
         )
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
-            result = run_workflow3(db, self.config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
+            result = run_crawler_ats_job_extraction(db, self.config)
 
         mock_fetch.assert_not_called()
         self.assertEqual(result.inserted_count, 0)
 
-    def test_run_workflow3_filters_by_company_ids(self):
+    def test_run_crawler_ats_job_extraction_filters_by_company_ids(self):
         other_oid = ObjectId()
         db = self._make_fake_database(
             companies=[
@@ -420,32 +420,32 @@ class Workflow3Tests(unittest.TestCase):
             ]
         )
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
-            result = run_workflow3(db, self.config, company_ids=[str(self.company_oid)])
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
+            result = run_crawler_ats_job_extraction(db, self.config, company_ids=[str(self.company_oid)])
 
         self.assertEqual(mock_fetch.call_count, 1)
         self.assertEqual(result.inserted_count, 1)
 
-    def test_run_workflow3_collects_failed_companies(self):
+    def test_run_crawler_ats_job_extraction_collects_failed_companies(self):
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=RuntimeError("boom")):
-            result = run_workflow3(db, self.config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=RuntimeError("boom")):
+            result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(len(result.failed_companies), 1)
         self.assertEqual(result.failed_companies[0]["company_name"], "Acme")
         self.assertIn("boom", result.failed_companies[0]["error"])
 
-    def test_run_workflow3_enqueues_on_insert_when_enabled(self):
+    def test_run_crawler_ats_job_extraction_enqueues_on_insert_when_enabled(self):
         config = _make_config(enable_scoring_enqueue=True)
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
         fake_redis = Mock()
         fake_redis.rpush = Mock()
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.workflow3._connect_redis", return_value=fake_redis):
-            result = run_workflow3(db, config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis", return_value=fake_redis):
+            result = run_crawler_ats_job_extraction(db, config)
 
         fake_redis.rpush.assert_called_once()
         call_args = fake_redis.rpush.call_args
@@ -458,46 +458,46 @@ class Workflow3Tests(unittest.TestCase):
         doc = db["jobs"].docs[0]
         self.assertEqual(doc["scoring_status"], "queued")
 
-    def test_run_workflow3_sets_scoring_status_failed_on_enqueue_failure(self):
+    def test_run_crawler_ats_job_extraction_sets_scoring_status_failed_on_enqueue_failure(self):
         config = _make_config(enable_scoring_enqueue=True)
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
         fake_redis = Mock()
         fake_redis.rpush = Mock(side_effect=Exception("redis down"))
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.workflow3._connect_redis", return_value=fake_redis):
-            result = run_workflow3(db, config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis", return_value=fake_redis):
+            result = run_crawler_ats_job_extraction(db, config)
 
         self.assertEqual(result.enqueue_failed_count, 1)
         self.assertEqual(result.enqueued_count, 0)
         doc = db["jobs"].docs[0]
         self.assertEqual(doc["scoring_status"], "failed")
 
-    def test_run_workflow3_no_enqueue_when_disabled(self):
+    def test_run_crawler_ats_job_extraction_no_enqueue_when_disabled(self):
         config = _make_config(enable_scoring_enqueue=False)
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.workflow3._connect_redis") as mock_connect:
-            result = run_workflow3(db, config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis") as mock_connect:
+            result = run_crawler_ats_job_extraction(db, config)
 
         mock_connect.assert_not_called()
         self.assertEqual(result.enqueued_count, 0)
         doc = db["jobs"].docs[0]
         self.assertEqual(doc["scoring_status"], "unscored")
 
-    def test_run_workflow3_skips_jobs_that_do_not_match_identity_roles(self):
+    def test_run_crawler_ats_job_extraction_skips_jobs_that_do_not_match_identity_roles(self):
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
             identities=[self._make_identity_doc(["software engineer"])],
         )
 
         with patch(
-            "src.python.web_crawler.workflow3.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
             return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-miss")],
         ):
-            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+            result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 0)
@@ -505,58 +505,58 @@ class Workflow3Tests(unittest.TestCase):
         self.assertEqual(result.skipped_count, 1)
         self.assertEqual(len(db["jobs"].docs), 0)
 
-    def test_run_workflow3_inserts_job_when_title_matches_identity_role(self):
+    def test_run_crawler_ats_job_extraction_inserts_job_when_title_matches_identity_role(self):
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
             identities=[self._make_identity_doc(["software engineer"])],
         )
 
         with patch(
-            "src.python.web_crawler.workflow3.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
             return_value=[self._make_job(title="Senior Software Engineer", description="Build systems", external_job_id="role-title")],
         ):
-            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+            result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
         self.assertEqual(len(db["jobs"].docs), 1)
 
-    def test_run_workflow3_inserts_job_when_description_matches_identity_role(self):
+    def test_run_crawler_ats_job_extraction_inserts_job_when_description_matches_identity_role(self):
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
             identities=[self._make_identity_doc(["platform engineer"])],
         )
 
         with patch(
-            "src.python.web_crawler.workflow3.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
             return_value=[self._make_job(title="Infrastructure Specialist", description="You will work as a platform engineer across our stack", external_job_id="role-description")],
         ):
-            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+            result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
         self.assertEqual(db["jobs"].docs[0]["external_job_id"], "role-description")
 
-    def test_run_workflow3_accepts_all_jobs_when_identity_roles_are_empty(self):
+    def test_run_crawler_ats_job_extraction_accepts_all_jobs_when_identity_roles_are_empty(self):
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
             identities=[self._make_identity_doc([])],
         )
 
         with patch(
-            "src.python.web_crawler.workflow3.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
             return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-empty")],
         ):
-            result = run_workflow3(db, self.config, identity_id=str(self.identity_oid))
+            result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
         self.assertEqual(len(db["jobs"].docs), 1)
 
-    def test_run_workflow3_progress_uses_stable_company_based_units(self):
+    def test_run_crawler_ats_job_extraction_progress_uses_stable_company_based_units(self):
         other_oid = ObjectId()
         db = self._make_fake_database(
             companies=[
@@ -567,13 +567,13 @@ class Workflow3Tests(unittest.TestCase):
         progress_events: list[tuple[int, int, str]] = []
 
         with patch(
-            "src.python.web_crawler.workflow3.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
             side_effect=[
                 [self._make_job(external_job_id=f"acme-{index}") for index in range(5)],
                 [self._make_job(external_job_id=f"beta-{index}") for index in range(50)],
             ],
         ):
-            result = run_workflow3(
+            result = run_crawler_ats_job_extraction(
                 db,
                 self.config,
                 progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),

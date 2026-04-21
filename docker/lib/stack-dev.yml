@@ -133,7 +133,8 @@ services:
       REDIS_PORT: 6379
       CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-      CRAWLER_WORKFLOW_DISPATCH_QUEUE_NAME: "crawler_workflow_dispatch_queue"
+      CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME: "crawler_company_discovery_queue"
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
       SERPER_API_KEY: ${SERPER_API_KEY}
@@ -154,7 +155,28 @@ services:
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-      CRAWLER_WORKFLOW_DISPATCH_QUEUE_NAME: "crawler_workflow_dispatch_queue"
+      CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME: "crawler_company_discovery_queue"
+      SERPER_API_KEY: ${SERPER_API_KEY}
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
+  crawler-ats-job-extraction:
+    image: fabrizio2210/coverletter-crawler-ats-job-extraction-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-crawler-ats-job-extraction-dev
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
       SERPER_API_KEY: ${SERPER_API_KEY}
     volumes:
       - ../../:/app

@@ -12,7 +12,7 @@ from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
-from src.python.web_crawler.models import Workflow3Result
+from src.python.web_crawler.models import CrawlerAtsJobExtractionResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
 from src.python.web_crawler.workflow2 import _company_from_document
 
@@ -27,9 +27,9 @@ _SCORING_STATUS_BSON: dict[int, str] = {
 }
 
 
-def estimate_workflow3_job_checks(company_count: int) -> int:
+def estimate_ats_job_extraction_checks(company_count: int) -> int:
     """
-    Best-effort estimate for workflow3 extraction work.
+    Best-effort estimate for ATS job extraction work.
 
     We budget at least one extraction unit per ATS-enriched company.
     """
@@ -74,7 +74,7 @@ def _try_enqueue(redis_client, job_id: str) -> bool:
         redis_client.rpush(JOB_SCORING_QUEUE, payload)
         return True
     except Exception as exc:
-        logger.warning("workflow3: failed to enqueue job_id=%s: %s", job_id, exc)
+        logger.warning("crawler_ats_job_extraction: failed to enqueue job_id=%s: %s", job_id, exc)
         return False
 
 
@@ -85,7 +85,7 @@ def _connect_redis(config: CrawlerConfig):
         client.ping()
         return client
     except Exception as exc:
-        logger.warning("workflow3: Redis unavailable (%s); scoring enqueue disabled for this run", exc)
+        logger.warning("crawler_ats_job_extraction: Redis unavailable (%s); scoring enqueue disabled for this run", exc)
         return None
 
 
@@ -96,25 +96,25 @@ def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
     Returns list of role keywords. Empty list if identity not found or has no roles.
     """
     if not identity_id:
-        logger.warning("workflow3: identity_id is empty; role filtering disabled")
+        logger.warning("crawler_ats_job_extraction: identity_id is empty; role filtering disabled")
         return []
     
     try:
         identity_oid = _to_object_id(identity_id)
         if identity_oid is None:
-            logger.warning("workflow3: invalid identity_id %r; role filtering disabled", identity_id)
+            logger.warning("crawler_ats_job_extraction: invalid identity_id %r; role filtering disabled", identity_id)
             return []
         
         identity = identities_collection.find_one({"_id": identity_oid})
         if identity is None:
-            logger.warning("workflow3: identity %s not found; role filtering disabled", identity_id)
+            logger.warning("crawler_ats_job_extraction: identity %s not found; role filtering disabled", identity_id)
             return []
         
         roles = [role.strip() for role in identity.get("roles", []) if isinstance(role, str) and role.strip()]
-        logger.debug("workflow3: loaded %d roles from identity %s: %s", len(roles), identity_id, roles)
+        logger.debug("crawler_ats_job_extraction: loaded %d roles from identity %s: %s", len(roles), identity_id, roles)
         return roles
     except Exception as exc:
-        logger.exception("workflow3: failed to load identity %s: %s", identity_id, exc)
+        logger.exception("crawler_ats_job_extraction: failed to load identity %s: %s", identity_id, exc)
         return []
 
 
@@ -190,27 +190,27 @@ def _load_ats_companies(companies_collection, company_ids: Iterable[str] | None)
     return [_company_from_document(doc) for doc in docs]
 
 
-def run_workflow3(
+def run_crawler_ats_job_extraction(
     database,
     config: CrawlerConfig,
     company_ids: list[str] | None = None,
     identity_id: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-) -> Workflow3Result:
+) -> CrawlerAtsJobExtractionResult:
     companies_collection = database["companies"]
     identities_collection = database["identities"]
     jobs_collection = database["jobs"]
-    result = Workflow3Result()
+    result = CrawlerAtsJobExtractionResult()
 
     # Load identity roles for filtering
     identity_roles = _load_identity_roles(identities_collection, identity_id) if identity_id else []
-    logger.debug("workflow3: role filtering enabled with %d roles", len(identity_roles))
+    logger.debug("crawler_ats_job_extraction: role filtering enabled with %d roles", len(identity_roles))
 
     companies = _load_ats_companies(companies_collection, company_ids)
-    logger.debug("workflow3: loaded %d ATS-enriched companies", len(companies))
+    logger.debug("crawler_ats_job_extraction: loaded %d ATS-enriched companies", len(companies))
     total_companies = len(companies)
     completed_checks = 0
-    estimated_checks = estimate_workflow3_job_checks(total_companies)
+    estimated_checks = estimate_ats_job_extraction_checks(total_companies)
 
     if progress_callback:
         progress_callback(
@@ -242,7 +242,7 @@ def run_workflow3(
 
             company_oid = _to_object_id(company_id)
             if company_oid is None:
-                logger.warning("workflow3: invalid company _id %r, skipping", company_id)
+                logger.warning("crawler_ats_job_extraction: invalid company _id %r, skipping", company_id)
                 result.skipped_count += 1
                 continue
 
@@ -254,7 +254,7 @@ def run_workflow3(
                     try:
                         # Filter job by identity roles before insertion
                         if not _job_matches_roles(job, identity_roles):
-                            logger.debug("workflow3: job %s (external_id=%s) does not match identity roles; skipping", job.title, job.external_job_id)
+                            logger.debug("crawler_ats_job_extraction: job %s (external_id=%s) does not match identity roles; skipping", job.title, job.external_job_id)
                             result.skipped_count += 1
                             continue
 
@@ -278,11 +278,11 @@ def run_workflow3(
                                     jobs_collection.update_one({"_id": job_oid}, {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_FAILED)}})
 
                     except Exception as exc:
-                        logger.exception("workflow3: failed to upsert job external_id=%s company=%s: %s", job.external_job_id, company_id, exc)
+                        logger.exception("crawler_ats_job_extraction: failed to upsert job external_id=%s company=%s: %s", job.external_job_id, company_id, exc)
                         result.skipped_count += 1
 
             except Exception as exc:
-                logger.exception("workflow3: failed for company %s (%s): %s", company_id, company_name, exc)
+                logger.exception("crawler_ats_job_extraction: failed for company %s (%s): %s", company_id, company_name, exc)
                 result.failed_companies.append({"company_id": company_id, "company_name": company_name, "error": str(exc)})
             finally:
                 completed_checks += 1
@@ -297,7 +297,7 @@ def run_workflow3(
         session.close()
 
     logger.debug(
-        "workflow3 summary: fetched=%d inserted=%d updated=%d skipped=%d enqueued=%d enqueue_failed=%d failed_companies=%d",
+        "crawler_ats_job_extraction summary: fetched=%d inserted=%d updated=%d skipped=%d enqueued=%d enqueue_failed=%d failed_companies=%d",
         result.fetched_count,
         result.inserted_count,
         result.updated_count,

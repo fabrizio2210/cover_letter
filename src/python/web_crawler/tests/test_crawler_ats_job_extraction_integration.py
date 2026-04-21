@@ -10,10 +10,10 @@ from pymongo.errors import OperationFailure
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.workflow3 import run_workflow3
+from src.python.web_crawler.crawler_ats_job_extraction import run_crawler_ats_job_extraction
 
 
-class Workflow3MongoIntegrationTests(unittest.TestCase):
+class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         mongo_host = os.getenv("MONGO_HOST", "mongodb://localhost:27017/")
@@ -74,9 +74,9 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
             )
         ]
 
-    def test_run_workflow3_inserts_job_into_jobs_collection(self):
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
-            result = run_workflow3(self.database, self.config)
+    def test_run_crawler_ats_job_extraction_inserts_job_into_jobs_collection(self):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            result = run_crawler_ats_job_extraction(self.database, self.config)
 
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.updated_count, 0)
@@ -93,19 +93,19 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
         self.assertIn("seconds", doc["created_at"])
         self.assertIn("seconds", doc["updated_at"])
 
-    def test_run_workflow3_is_idempotent_on_recrawl(self):
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
-            first = run_workflow3(self.database, self.config)
+    def test_run_crawler_ats_job_extraction_is_idempotent_on_recrawl(self):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            first = run_crawler_ats_job_extraction(self.database, self.config)
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs):
-            second = run_workflow3(self.database, self.config)
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+            second = run_crawler_ats_job_extraction(self.database, self.config)
 
         self.assertEqual(first.inserted_count, 1)
         self.assertEqual(second.inserted_count, 0)
         self.assertEqual(second.updated_count, 1)
         self.assertEqual(self.database["jobs"].count_documents({}), 1)
 
-    def test_run_workflow3_filters_by_company_ids(self):
+    def test_run_crawler_ats_job_extraction_filters_by_company_ids(self):
         other_id = ObjectId()
         self.database["companies"].insert_one(
             {
@@ -118,13 +118,13 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
             }
         )
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=self._fake_fetch_jobs) as mock_fetch:
-            result = run_workflow3(self.database, self.config, company_ids=[str(self.company_id)])
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs) as mock_fetch:
+            result = run_crawler_ats_job_extraction(self.database, self.config, company_ids=[str(self.company_id)])
 
         self.assertEqual(mock_fetch.call_count, 1)
         self.assertEqual(result.inserted_count, 1)
 
-    def test_run_workflow3_skips_non_matching_jobs_for_identity_roles(self):
+    def test_run_crawler_ats_job_extraction_skips_non_matching_jobs_for_identity_roles(self):
         def fake_fetch_jobs(provider, slug, config, session):
             return [
                 common_pb2.Job(
@@ -137,8 +137,8 @@ class Workflow3MongoIntegrationTests(unittest.TestCase):
                 )
             ]
 
-        with patch("src.python.web_crawler.workflow3.fetch_jobs", side_effect=fake_fetch_jobs):
-            result = run_workflow3(self.database, self.config, identity_id=str(self.identity_id))
+        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=fake_fetch_jobs):
+            result = run_crawler_ats_job_extraction(self.database, self.config, identity_id=str(self.identity_id))
 
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 0)

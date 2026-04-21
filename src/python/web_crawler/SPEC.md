@@ -82,7 +82,8 @@ High-level orchestration:
 | `REDIS_PORT` | `6379` | No | Redis port for scoring queue output |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Redis queue name for crawl requests consumed by the worker |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Redis channel used to publish crawl progress snapshots |
-| `CRAWLER_WORKFLOW_DISPATCH_QUEUE_NAME` | `crawler_workflow_dispatch_queue` | No | Redis queue used by orchestrator to dispatch workflow messages |
+| `CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME` | `crawler_company_discovery_queue` | No | Redis queue consumed by the `crawler_company_discovery` worker |
+| `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME` | `crawler_ats_job_extraction_queue` | No | Redis queue consumed by the `crawler_ats_job_extraction` worker |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Redis queue name for scoring payloads |
 | `CRAWLER_ENABLE_SCORING_ENQUEUE` | `0` | No | If `1`, enqueue job ids after successful persistence |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | No | HTTP timeout per request |

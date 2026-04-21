@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import time
 from typing import cast
@@ -35,6 +34,7 @@ def _dispatch_workflow(
     run_id: str,
     identity_id: str,
     workflow_id: str,
+    queue_name: str,
 ) -> str:
     workflow_run_id = _new_workflow_run_id()
     dispatch = common_pb2.WorkflowDispatchMessage(
@@ -46,7 +46,7 @@ def _dispatch_workflow(
         attempt=1,
     )
     dispatch.dispatched_at.CopyFrom(utc_timestamp())
-    redis_client.rpush(config.crawler_workflow_dispatch_queue_name, workflow_dispatch_to_json(dispatch))
+    redis_client.rpush(queue_name, workflow_dispatch_to_json(dispatch))
     return workflow_run_id
 
 
@@ -101,11 +101,27 @@ def worker_main(config: CrawlerConfig) -> None:
                 run_id=run_id,
                 identity_id=identity_id,
                 workflow_id="crawler_company_discovery",
+                queue_name=config.crawler_company_discovery_queue_name,
             )
             logger.info(
                 "dispatched crawler_company_discovery run_id=%s workflow_run_id=%s identity_id=%s",
                 run_id,
                 workflow_run_id,
+                identity_id,
+            )
+
+            ats_workflow_run_id = _dispatch_workflow(
+                redis_client,
+                config,
+                run_id=run_id,
+                identity_id=identity_id,
+                workflow_id="crawler_ats_job_extraction",
+                queue_name=config.crawler_ats_job_extraction_queue_name,
+            )
+            logger.info(
+                "dispatched crawler_ats_job_extraction run_id=%s workflow_run_id=%s identity_id=%s",
+                run_id,
+                ats_workflow_run_id,
                 identity_id,
             )
 
@@ -117,34 +133,14 @@ def worker_main(config: CrawlerConfig) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the web crawler orchestrator")
-    mode_group = parser.add_mutually_exclusive_group(required=True)
-    mode_group.add_argument("--identity-id", help="MongoDB ObjectId of the identity to crawl for")
-    mode_group.add_argument("--worker", action="store_true", help="Run as a long-lived Redis queue worker")
+    parser.add_argument("--worker", action="store_true", required=True, help="Run as a long-lived Redis queue worker")
     return parser
 
 
 def main() -> None:
-    args = build_parser().parse_args()
+    build_parser().parse_args()
     config = CrawlerConfig.from_env()
-    if args.worker:
-        worker_main(config)
-        return
-
-    redis_client = _connect_redis(config)
-    run_id = uuid.uuid4().hex
-    workflow_run_id = _dispatch_workflow(
-        redis_client,
-        config,
-        run_id=run_id,
-        identity_id=args.identity_id,
-        workflow_id="crawler_company_discovery",
-    )
-    print(json.dumps({
-        "run_id": run_id,
-        "workflow_run_id": workflow_run_id,
-        "workflow_id": "crawler_company_discovery",
-        "dispatch_queue": config.crawler_workflow_dispatch_queue_name,
-    }))
+    worker_main(config)
 
 
 if __name__ == "__main__":

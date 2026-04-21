@@ -127,7 +127,7 @@ def consumer_main(config: CrawlerConfig) -> None:
 
             queue_item = cast(
                 tuple[str, str] | None,
-                redis_client.blpop([config.crawler_workflow_dispatch_queue_name], timeout=0),
+                redis_client.blpop([config.crawler_company_discovery_queue_name], timeout=0),
             )
             if not queue_item:
                 continue
@@ -137,10 +137,6 @@ def consumer_main(config: CrawlerConfig) -> None:
                 message = parse_workflow_dispatch(raw_payload)
             except Exception as exc:
                 logger.warning("invalid workflow dispatch payload: %s", exc)
-                continue
-
-            if message.workflow_id != _WORKFLOW_ID:
-                logger.debug("skipping workflow_id=%s (not %s)", message.workflow_id, _WORKFLOW_ID)
                 continue
 
             run_id = message.run_id.strip()

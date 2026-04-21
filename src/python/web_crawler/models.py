@@ -29,7 +29,7 @@ class Workflow2Result:
 
 
 @dataclass(slots=True)
-class Workflow3Result:
+class CrawlerAtsJobExtractionResult:
     fetched_count: int = 0
     inserted_count: int = 0
     updated_count: int = 0

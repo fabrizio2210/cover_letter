@@ -5,6 +5,7 @@ docker build -t fabrizio2210/coverletter-ai-querier-dev -f docker/x86_64/Dockerf
 docker build -t fabrizio2210/coverletter-ai-scorer-dev -f docker/x86_64/Dockerfile-ai-scorer-dev .
 docker build -t fabrizio2210/coverletter-web-crawler-dev -f docker/x86_64/Dockerfile-web-crawler-dev .
 docker build -t fabrizio2210/coverletter-crawler-company-discovery-dev -f docker/x86_64/Dockerfile-crawler-company-discovery-dev .
+docker build -t fabrizio2210/coverletter-crawler-ats-job-extraction-dev -f docker/x86_64/Dockerfile-crawler-ats-job-extraction-dev .
 docker build -t fabrizio2210/coverletter-api-dev -f docker/x86_64/Dockerfile-api-dev .
 docker build -t fabrizio2210/coverletter-frontend-dev -f docker/x86_64/Dockerfile-frontend-dev .
 
