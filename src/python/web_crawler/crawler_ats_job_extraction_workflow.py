@@ -14,7 +14,7 @@ from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
 from src.python.web_crawler.models import CrawlerAtsJobExtractionResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
-from src.python.web_crawler.enrichment_ats_enrichment_runner import _company_from_document
+from src.python.web_crawler.enrichment_ats_enrichment_workflow import _company_from_document
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +123,10 @@ def _job_matches_roles(job: common_pb2.Job, roles: list[str]) -> bool:
     Check if job title or description matches any role keyword.
     
     Matching is case-insensitive substring search.
-    Empty roles list rejects all jobs.
+    Empty roles list means role filtering is disabled.
     """
     if not roles:
-        return False
+        return True
     
     title_lower = job.title.lower()
     description_lower = job.description.lower()

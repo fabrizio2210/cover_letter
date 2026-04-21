@@ -8,15 +8,17 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_ats_job_extraction import run_crawler_ats_job_extraction
+from src.python.web_crawler.crawler_company_discovery_workflow import (
+    _WORKFLOW_ID,
+    _emit_enrichment_events,
+    run_crawler_company_discovery,
+)
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
-
-_WORKFLOW_ID = "crawler_ats_job_extraction"
 
 
 def _connect_redis(config: CrawlerConfig) -> redis.Redis:
@@ -25,7 +27,7 @@ def _connect_redis(config: CrawlerConfig) -> redis.Redis:
     return client
 
 
-def consumer_main(config: CrawlerConfig) -> None:
+def worker_main(config: CrawlerConfig) -> None:
     redis_client: redis.Redis | None = None
 
     while True:
@@ -36,7 +38,7 @@ def consumer_main(config: CrawlerConfig) -> None:
 
             queue_item = cast(
                 tuple[str, str] | None,
-                redis_client.blpop([config.crawler_ats_job_extraction_queue_name], timeout=0),
+                redis_client.blpop([config.crawler_company_discovery_queue_name], timeout=0),
             )
             if not queue_item:
                 continue
@@ -73,7 +75,15 @@ def consumer_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                run_crawler_ats_job_extraction(database, config, identity_id=identity_id)
+                result = run_crawler_company_discovery(database, config, identity_id)
+                _emit_enrichment_events(
+                    redis_client,
+                    config,
+                    run_id=run_id,
+                    workflow_run_id=workflow_run_id,
+                    identity_id=identity_id,
+                    company_ids=result.enrichment_pending_company_ids,
+                )
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -86,12 +96,12 @@ def consumer_main(config: CrawlerConfig) -> None:
                     completed=1,
                     started_at=started_at,
                     finished_at=finished_at,
-                    message="ATS job extraction completed",
+                    message="Company discovery completed",
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
             except Exception as exc:
-                logger.exception("crawler_ats_job_extraction failed for identity %s: %s", identity_id, exc)
+                logger.exception("crawler_company_discovery failed for identity %s: %s", identity_id, exc)
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -104,27 +114,27 @@ def consumer_main(config: CrawlerConfig) -> None:
                     completed=0,
                     started_at=started_at,
                     finished_at=finished_at,
-                    message="ATS job extraction failed",
+                    message="Company discovery failed",
                     reason="run_failed",
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
         except Exception as exc:
-            logger.warning("consumer loop error: %s", exc)
+            logger.warning("worker loop error: %s", exc)
             redis_client = None
             time.sleep(2)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the crawler_ats_job_extraction workflow consumer")
-    parser.add_argument("--worker", action="store_true", required=True, help="Run as a long-lived Redis dispatch queue consumer")
+    parser = argparse.ArgumentParser(description="Run the crawler_company_discovery workflow worker")
+    parser.add_argument("--worker", action="store_true", required=True, help="Run as a long-lived Redis dispatch queue worker")
     return parser
 
 
 def main() -> None:
     build_parser().parse_args()
     config = CrawlerConfig.from_env()
-    consumer_main(config)
+    worker_main(config)
 
 
 if __name__ == "__main__":

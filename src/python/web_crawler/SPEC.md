@@ -52,6 +52,10 @@ The crawler uses two workflow kinds:
 1. crawler workflows, which discover jobs, companies, or both;
 2. enrichment workflows, which consume newly actionable company discoveries and emit ATS-ready follow-up triggers.
 
+Module naming conventions:
+- `*_worker.py`: long-lived Redis queue workers and CLI entrypoints.
+- `*_workflow.py`: pure workflow/business-logic orchestration modules.
+
 Stable workflow identifiers:
 - `crawler_company_discovery`
 - `enrichment_ats_enrichment`

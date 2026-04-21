@@ -14,7 +14,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
-from src.python.web_crawler.enrichment_ats_enrichment_runner import run_enrichment_ats_enrichment
+from src.python.web_crawler.enrichment_ats_enrichment_workflow import run_enrichment_ats_enrichment
 from src.python.web_crawler.workflow_messages import (
     ats_job_trigger_event_to_json,
     parse_company_discovery_event,
@@ -139,7 +139,7 @@ def _run_enrichment_for_event(
     return result
 
 
-def consumer_main(config: CrawlerConfig) -> None:
+def worker_main(config: CrawlerConfig) -> None:
     redis_client: redis.Redis | None = None
 
     while True:
@@ -247,20 +247,20 @@ def consumer_main(config: CrawlerConfig) -> None:
                     workflow_run_id=enrichment_workflow_run_id,
                 )
         except Exception as exc:
-            logger.warning("enrichment consumer loop error: %s", exc)
+            logger.warning("enrichment worker loop error: %s", exc)
             redis_client = None
             time.sleep(2)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the enrichment_ats_enrichment workflow consumer"
+        description="Run the enrichment_ats_enrichment workflow worker"
     )
     parser.add_argument(
         "--worker",
         action="store_true",
         required=True,
-        help="Run as a long-lived Redis dispatch queue consumer",
+        help="Run as a long-lived Redis dispatch queue worker",
     )
     return parser
 
@@ -268,7 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     build_parser().parse_args()
     config = CrawlerConfig.from_env()
-    consumer_main(config)
+    worker_main(config)
 
 
 if __name__ == "__main__":

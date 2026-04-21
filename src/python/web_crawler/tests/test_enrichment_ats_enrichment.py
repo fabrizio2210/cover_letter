@@ -10,7 +10,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.executor import ATSWorkerResult
 from src.python.web_crawler.sources.ats_detector import ATSDetectionResult, ATSRequestFailure, detect_ats_provider, extract_ats_signatures_from_html, fetch_url
 from src.python.web_crawler.sources.ats_slug_resolver import extract_slug_from_url, resolve_slug, resolve_slug_via_search_dorking
-from src.python.web_crawler.enrichment_ats_enrichment_runner import _discover_candidate_urls, run_enrichment_ats_enrichment
+from src.python.web_crawler.enrichment_ats_enrichment_workflow import _discover_candidate_urls, run_enrichment_ats_enrichment
 
 
 class FakeResponse:
@@ -269,7 +269,7 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             return_value=self._worker_result(company_id, "Acme", 1, success=True, provider="lever", slug="acme"),
         ):
             result = run_enrichment_ats_enrichment(database, self.config, [str(company_id)])
@@ -301,7 +301,7 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             side_effect=[
                 self._worker_result(first_id, "Acme", 1, success=False, error_type="unexpected_error", error_message="boom"),
                 self._worker_result(second_id, "Beta", 2, success=True, provider="greenhouse", slug="beta"),
@@ -331,7 +331,7 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         )
         database = FakeDatabase({"companies": companies})
 
-        with patch("src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker") as detect_mock:
+        with patch("src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker") as detect_mock:
             result = run_enrichment_ats_enrichment(database, self.config, [str(company_id)])
 
         self.assertEqual(result.enriched_count, 0)
@@ -352,10 +352,10 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             return_value=self._worker_result(company_id, "Acme", 1, success=False, provider="lever", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
         ), patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner.resolve_slug_via_search_dorking",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow.resolve_slug_via_search_dorking",
             return_value=None,
         ) as search_mock:
             first_result = run_enrichment_ats_enrichment(database, self.config, [str(company_id)])
@@ -366,10 +366,10 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         self.assertEqual(search_mock.call_count, 1)
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             return_value=self._worker_result(company_id, "Acme", 1, success=False, provider="lever", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
         ), patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner.resolve_slug_via_search_dorking",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow.resolve_slug_via_search_dorking",
             return_value="should-not-run",
         ) as repeated_search_mock:
             second_result = run_enrichment_ats_enrichment(database, self.config, [str(company_id)])
@@ -392,7 +392,7 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         database = FakeDatabase({"companies": companies})
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             return_value=self._worker_result(
                 company_id,
                 "Acme",
@@ -408,7 +408,7 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         self.assertEqual(first_result.skipped_count, 1)
         self.assertEqual(companies.docs[0]["enrichment_ats_enrichment_terminal_failure"]["failure_type"], "dns_resolution")
 
-        with patch("src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker") as detect_mock:
+        with patch("src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker") as detect_mock:
             second_result = run_enrichment_ats_enrichment(database, self.config, [str(company_id)])
 
         self.assertEqual(second_result.skipped_count, 1)
@@ -435,13 +435,13 @@ class EnrichmentAtsEnrichmentTests(unittest.TestCase):
         progress_events: list[tuple[int, int, str]] = []
 
         with patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner._detect_ats_worker",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow._detect_ats_worker",
             side_effect=[
                 self._worker_result(first_id, "Acme", 1, success=True, provider="lever", slug="acme"),
                 self._worker_result(second_id, "Beta", 2, success=False, provider="greenhouse", error_type="slug_not_resolved_direct", error_message="direct slug failed"),
             ],
         ), patch(
-            "src.python.web_crawler.enrichment_ats_enrichment_runner.resolve_slug_via_search_dorking",
+            "src.python.web_crawler.enrichment_ats_enrichment_workflow.resolve_slug_via_search_dorking",
             return_value=None,
         ):
             result = run_enrichment_ats_enrichment(

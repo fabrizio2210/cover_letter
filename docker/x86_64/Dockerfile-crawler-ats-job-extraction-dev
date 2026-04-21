@@ -31,5 +31,5 @@ RUN pip install watchdog
 # Set the working directory
 WORKDIR /app
 
-# Command to run the crawler_ats_job_extraction workflow consumer with auto-reloading
-CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.crawler_ats_job_extraction_consumer", "--worker"]
+# Command to run the crawler_ats_job_extraction workflow worker with auto-reloading
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.crawler_ats_job_extraction_worker", "--worker"]

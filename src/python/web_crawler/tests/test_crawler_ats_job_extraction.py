@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
-from src.python.web_crawler.crawler_ats_job_extraction import run_crawler_ats_job_extraction, upsert_job
+from src.python.web_crawler.crawler_ats_job_extraction_workflow import run_crawler_ats_job_extraction, upsert_job
 
 
 class FakeResponse:
@@ -361,7 +361,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
     def test_run_crawler_ats_job_extraction_returns_inserted_count(self):
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs):
             result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(result.fetched_count, 1)
@@ -391,7 +391,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
             ],
         )
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs):
             result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(result.inserted_count, 0)
@@ -405,7 +405,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
             ]
         )
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
             result = run_crawler_ats_job_extraction(db, self.config)
 
         mock_fetch.assert_not_called()
@@ -420,7 +420,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
             ]
         )
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs) as mock_fetch:
             result = run_crawler_ats_job_extraction(db, self.config, company_ids=[str(self.company_oid)])
 
         self.assertEqual(mock_fetch.call_count, 1)
@@ -429,7 +429,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
     def test_run_crawler_ats_job_extraction_collects_failed_companies(self):
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=RuntimeError("boom")):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=RuntimeError("boom")):
             result = run_crawler_ats_job_extraction(db, self.config)
 
         self.assertEqual(len(result.failed_companies), 1)
@@ -443,8 +443,8 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         fake_redis = Mock()
         fake_redis.rpush = Mock()
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis", return_value=fake_redis):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction_workflow._connect_redis", return_value=fake_redis):
             result = run_crawler_ats_job_extraction(db, config)
 
         fake_redis.rpush.assert_called_once()
@@ -465,8 +465,8 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         fake_redis = Mock()
         fake_redis.rpush = Mock(side_effect=Exception("redis down"))
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis", return_value=fake_redis):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction_workflow._connect_redis", return_value=fake_redis):
             result = run_crawler_ats_job_extraction(db, config)
 
         self.assertEqual(result.enqueue_failed_count, 1)
@@ -478,8 +478,8 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         config = _make_config(enable_scoring_enqueue=False)
         db = self._make_fake_database(companies=[self._make_company_doc()])
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._stub_fetch_jobs), \
-             patch("src.python.web_crawler.crawler_ats_job_extraction._connect_redis") as mock_connect:
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._stub_fetch_jobs), \
+             patch("src.python.web_crawler.crawler_ats_job_extraction_workflow._connect_redis") as mock_connect:
             result = run_crawler_ats_job_extraction(db, config)
 
         mock_connect.assert_not_called()
@@ -494,7 +494,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         )
 
         with patch(
-            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs",
             return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-miss")],
         ):
             result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
@@ -512,7 +512,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         )
 
         with patch(
-            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs",
             return_value=[self._make_job(title="Senior Software Engineer", description="Build systems", external_job_id="role-title")],
         ):
             result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
@@ -529,7 +529,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         )
 
         with patch(
-            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs",
             return_value=[self._make_job(title="Infrastructure Specialist", description="You will work as a platform engineer across our stack", external_job_id="role-description")],
         ):
             result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
@@ -546,7 +546,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         )
 
         with patch(
-            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs",
             return_value=[self._make_job(title="Data Scientist", description="Analyze metrics", external_job_id="role-empty")],
         ):
             result = run_crawler_ats_job_extraction(db, self.config, identity_id=str(self.identity_oid))
@@ -567,7 +567,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         progress_events: list[tuple[int, int, str]] = []
 
         with patch(
-            "src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs",
+            "src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs",
             side_effect=[
                 [self._make_job(external_job_id=f"acme-{index}") for index in range(5)],
                 [self._make_job(external_job_id=f"beta-{index}") for index in range(50)],

@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_ats_job_extraction import run_crawler_ats_job_extraction
+from src.python.web_crawler.crawler_ats_job_extraction_workflow import run_crawler_ats_job_extraction
 
 
 class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
@@ -75,7 +75,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         ]
 
     def test_run_crawler_ats_job_extraction_inserts_job_into_jobs_collection(self):
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._fake_fetch_jobs):
             result = run_crawler_ats_job_extraction(self.database, self.config)
 
         self.assertEqual(result.inserted_count, 1)
@@ -94,10 +94,10 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         self.assertIn("seconds", doc["updated_at"])
 
     def test_run_crawler_ats_job_extraction_is_idempotent_on_recrawl(self):
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._fake_fetch_jobs):
             first = run_crawler_ats_job_extraction(self.database, self.config)
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._fake_fetch_jobs):
             second = run_crawler_ats_job_extraction(self.database, self.config)
 
         self.assertEqual(first.inserted_count, 1)
@@ -118,7 +118,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
             }
         )
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=self._fake_fetch_jobs) as mock_fetch:
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=self._fake_fetch_jobs) as mock_fetch:
             result = run_crawler_ats_job_extraction(self.database, self.config, company_ids=[str(self.company_id)])
 
         self.assertEqual(mock_fetch.call_count, 1)
@@ -137,7 +137,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
                 )
             ]
 
-        with patch("src.python.web_crawler.crawler_ats_job_extraction.fetch_jobs", side_effect=fake_fetch_jobs):
+        with patch("src.python.web_crawler.crawler_ats_job_extraction_workflow.fetch_jobs", side_effect=fake_fetch_jobs):
             result = run_crawler_ats_job_extraction(self.database, self.config, identity_id=str(self.identity_id))
 
         self.assertEqual(result.fetched_count, 1)
