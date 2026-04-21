@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 from bson import ObjectId
 
 from src.python.ai_querier import common_pb2
-from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
+from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.crawler_ats_job_extraction.workflow import run_crawler_ats_job_extraction, upsert_job
 from src.python.web_crawler.sources.ats_job_fetcher import _fetch_ashby_jobs, _fetch_greenhouse_jobs, _fetch_lever_jobs
 
@@ -438,7 +438,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertIn("boom", result.failed_companies[0]["error"])
 
     def test_run_crawler_ats_job_extraction_enqueues_on_insert_when_enabled(self):
-        config = _make_config(enable_scoring_enqueue=True)
+        config = _make_config(enable_scoring_enqueue=True, job_scoring_queue_name="custom_job_scoring_queue")
         db = self._make_fake_database(
             companies=[self._make_company_doc()],
             identities=[self._make_identity_doc()],
@@ -453,7 +453,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
 
         fake_redis.rpush.assert_called_once()
         call_args = fake_redis.rpush.call_args
-        self.assertEqual(call_args[0][0], JOB_SCORING_QUEUE)
+        self.assertEqual(call_args[0][0], "custom_job_scoring_queue")
         payload = json.loads(call_args[0][1])
         self.assertIn("job_id", payload)
         self.assertEqual(result.enqueued_count, 1)

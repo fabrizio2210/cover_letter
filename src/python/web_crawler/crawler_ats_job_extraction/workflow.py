@@ -13,7 +13,7 @@ from bson.errors import InvalidId
 from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
-from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
+from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
 from src.python.web_crawler.enrichment_ats_enrichment.workflow import _company_from_document
@@ -70,10 +70,10 @@ def _build_job_document(job: common_pb2.Job, company_oid: ObjectId, scoring_stat
     return doc
 
 
-def _try_enqueue(redis_client, job_id: str) -> bool:
+def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str) -> bool:
     try:
         payload = json.dumps({"job_id": job_id})
-        redis_client.rpush(JOB_SCORING_QUEUE, payload)
+        redis_client.rpush(config.job_scoring_queue_name, payload)
         return True
     except Exception as exc:
         logger.warning("crawler_ats_job_extraction: failed to enqueue job_id=%s: %s", job_id, exc)
@@ -204,7 +204,11 @@ def run_crawler_ats_job_extraction(
     result = WorkflowResult()
 
     # Load identity roles for filtering
-    identity_roles = _load_identity_roles(identities_collection, identity_id) if identity_id else []
+    if identity_id:
+        identity_roles = _load_identity_roles(identities_collection, identity_id)
+    else:
+        logger.info("crawler_ats_job_extraction: identity_id missing; skipping ATS extraction and emitting no jobs")
+        identity_roles = []
     logger.debug("crawler_ats_job_extraction: role filtering loaded %d roles", len(identity_roles))
 
     if not identity_roles:
@@ -278,7 +282,7 @@ def run_crawler_ats_job_extraction(
 
                         if config.enable_scoring_enqueue and redis_client is not None:
                             job_oid = _to_object_id(job_id)
-                            if _try_enqueue(redis_client, job_id):
+                            if _try_enqueue(redis_client, config, job_id):
                                 result.enqueued_count += 1
                                 if job_oid is not None:
                                     jobs_collection.update_one({"_id": job_oid}, {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_QUEUED)}})

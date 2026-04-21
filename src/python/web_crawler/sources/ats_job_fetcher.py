@@ -58,7 +58,7 @@ def _fetch_greenhouse_jobs(slug: str, config: CrawlerConfig, session: requests.S
 
 
 def _fetch_lever_jobs(slug: str, config: CrawlerConfig, session: requests.Session) -> list[common_pb2.Job]:
-    url = f"https://api.lever.co/v0/postings/{slug}?mode=json"
+    url = f"https://api.lever.co/v0/postings/{slug}"
     response = _request_with_retries(session, "GET", url, config)
     if response is None or response.status_code >= 400:
         logger.warning("lever: failed to fetch jobs for slug=%s status=%s", slug, response.status_code if response else "no response")
