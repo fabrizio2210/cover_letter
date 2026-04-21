@@ -39,3 +39,16 @@ class CrawlerAtsJobExtractionResult:
     enqueue_failed_count: int = 0
     failed_companies: list[dict[str, str]] = field(default_factory=list)
     job_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class CrawlerLevelsFyiResult:
+    discovered_count: int = 0
+    inserted_count: int = 0
+    updated_count: int = 0
+    skipped_count: int = 0
+    enqueued_count: int = 0
+    enqueue_failed_count: int = 0
+    job_ids: list[str] = field(default_factory=list)
+    new_company_ids: list[str] = field(default_factory=list)
+    failed_urls: list[dict[str, str]] = field(default_factory=list)

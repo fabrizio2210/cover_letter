@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 import re
 import time
-from urllib.parse import quote_plus
-from urllib.parse import urljoin
-from urllib.parse import urlparse
+from dataclasses import dataclass, field
+from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,6 +38,21 @@ _NOISE_LABELS = {
     "job board",
     "compensation",
 }
+
+
+@dataclass(slots=True)
+class LevelsFyiJobCard:
+    """A single discovered job from the Levels.fyi search or taxonomy pages."""
+
+    job_title: str
+    company_name: str
+    source_url: str
+    external_job_id: str
+    domain: str = ""
+    description: str = ""
+    location: str = ""
+    compensation: str = ""
+    role: str = ""
 
 
 class LevelsFyiAdapter(SourceAdapter):
@@ -116,6 +130,19 @@ class LevelsFyiAdapter(SourceAdapter):
         return bool(_JOB_DETAIL_PATH_RE.match(parsed.path + (f"?{parsed.query}" if parsed.query else "")))
 
     @staticmethod
+    def _extract_job_id_from_href(href: str) -> str:
+        """Parse the ``jobId`` query parameter from a Levels.fyi job-detail URL."""
+        if not href:
+            return ""
+        try:
+            parsed = urlparse(href)
+            params = parse_qs(parsed.query)
+            job_id_values = params.get("jobId") or params.get("jobid") or []
+            return job_id_values[0].strip() if job_id_values else ""
+        except Exception:
+            return ""
+
+    @staticmethod
     def _extract_domain_from_logo_url(logo_url: str) -> str:
         if not logo_url:
             return ""
@@ -146,14 +173,26 @@ class LevelsFyiAdapter(SourceAdapter):
             if not job_links:
                 continue
 
-            heading = card.find(["h2", "h3"])
-            if heading is None:
-                continue
+            # Derive company name from the /companies/{slug}/salaries anchor inside the card,
+            # falling back to the h2/h3 heading (which may be the job title on search pages).
+            company_name = ""
+            for anchor in card.find_all("a", href=True):
+                href = str(anchor.get("href") or "").strip()
+                slug = self._extract_company_slug(href)
+                if slug:
+                    label = anchor.get_text(" ", strip=True)
+                    company_name = self._clean_company_label(label, slug)
+                    break
 
-            label = heading.get_text(" ", strip=True)
-            name = self._clean_company_label(label, "")
-            lowered = name.casefold()
-            if not name or lowered in _NOISE_LABELS or lowered in seen_names:
+            if not company_name:
+                heading = card.find(["h2", "h3"])
+                if heading is None:
+                    continue
+                label = heading.get_text(" ", strip=True)
+                company_name = self._clean_company_label(label, "")
+
+            lowered = company_name.casefold()
+            if not company_name or lowered in _NOISE_LABELS or lowered in seen_names:
                 continue
 
             logo = card.find("img")
@@ -163,7 +202,7 @@ class LevelsFyiAdapter(SourceAdapter):
             seen_names.add(lowered)
             discovered.append(
                 DiscoveredCompany(
-                    name=name,
+                    name=company_name,
                     source=self.source_name,
                     role=role,
                     source_url=job_links[0],
@@ -172,6 +211,141 @@ class LevelsFyiAdapter(SourceAdapter):
             )
 
         return discovered
+
+    def _extract_job_cards_from_html(self, html: str, page_url: str, role: str) -> list[LevelsFyiJobCard]:
+        """Parse job cards from a Levels.fyi search or taxonomy page.
+
+        Each card must have at least one job-detail link (``/jobs?jobId=...``).
+        The job title is taken from the h2/h3 heading.
+        The company name is taken from the ``/companies/{slug}/salaries`` anchor inside the card.
+        """
+        if "/jobs" not in urlparse(page_url).path:
+            return []
+
+        soup = BeautifulSoup(html, "html.parser")
+        cards: list[LevelsFyiJobCard] = []
+        seen_job_ids: set[str] = set()
+
+        for card in soup.find_all(attrs={"role": "button"}):
+            job_href = ""
+            job_id = ""
+            for anchor in card.find_all("a", href=True):
+                href = str(anchor.get("href") or "").strip()
+                if self._is_job_detail_href(href):
+                    jid = self._extract_job_id_from_href(href)
+                    if jid and jid not in seen_job_ids:
+                        job_href = href
+                        job_id = jid
+                        break
+
+            if not job_id:
+                continue
+
+            # Job title: prefer h2/h3 heading text
+            heading = card.find(["h2", "h3"])
+            job_title = heading.get_text(" ", strip=True) if heading else ""
+            if not job_title:
+                continue
+
+            # Company name: from /companies/{slug}/salaries anchor
+            company_name = ""
+            domain = ""
+            for anchor in card.find_all("a", href=True):
+                href_c = str(anchor.get("href") or "").strip()
+                slug = self._extract_company_slug(href_c)
+                if slug:
+                    label = anchor.get_text(" ", strip=True)
+                    company_name = self._clean_company_label(label, slug)
+                    break
+
+            # Logo domain as fallback company domain
+            logo = card.find("img")
+            logo_url = str(logo.get("src") or "").strip() if logo else ""
+            domain = self._extract_domain_from_logo_url(logo_url)
+
+            source_url = urljoin(self.base_url, job_href)
+            seen_job_ids.add(job_id)
+            cards.append(
+                LevelsFyiJobCard(
+                    job_title=job_title,
+                    company_name=company_name,
+                    source_url=source_url,
+                    external_job_id=job_id,
+                    domain=domain,
+                    role=role,
+                )
+            )
+
+        return cards
+
+    def _fetch_job_detail(self, session: requests.Session, url: str, config: CrawlerConfig) -> dict:
+        """Fetch a Levels.fyi job detail page and extract description, location, and compensation.
+
+        Returns a dict with keys ``description``, ``location``, ``compensation``.
+        All values default to empty strings on failure or CSR-only content.
+        """
+        result = {"description": "", "location": "", "compensation": ""}
+        response = self._request_with_retries(session, url, config)
+        if response is None:
+            return result
+        try:
+            response.raise_for_status()
+        except requests.HTTPError:
+            return result
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Try JSON-LD first (JobPosting schema)
+        import json as _json
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = _json.loads(script.string or "")
+                if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                    result["description"] = data.get("description", "")
+                    job_loc = data.get("jobLocation", {})
+                    if isinstance(job_loc, dict):
+                        addr = job_loc.get("address", {})
+                        if isinstance(addr, dict):
+                            parts = [
+                                addr.get("addressLocality", ""),
+                                addr.get("addressRegion", ""),
+                                addr.get("addressCountry", ""),
+                            ]
+                            result["location"] = ", ".join(p for p in parts if p)
+                    salary = data.get("baseSalary", {})
+                    if isinstance(salary, dict):
+                        val = salary.get("value", {})
+                        if isinstance(val, dict):
+                            min_val = val.get("minValue", "")
+                            max_val = val.get("maxValue", "")
+                            currency = salary.get("currency", "")
+                            if min_val or max_val:
+                                result["compensation"] = f"{currency} {min_val}–{max_val}".strip()
+                    if result["description"]:
+                        return result
+            except Exception:
+                continue
+
+        # Fallback: heuristic DOM scraping
+        # Description: look for common content containers
+        for selector in ["[data-testid='job-description']", "article", "main"]:
+            el = soup.select_one(selector)
+            if el:
+                text = el.get_text(" ", strip=True)
+                if len(text) > 100:
+                    result["description"] = text[:8000]
+                    break
+
+        # Location: look for location hints
+        for el in soup.find_all(string=re.compile(r"(?:remote|hybrid|on.?site|\b[A-Z][a-z]+,\s*[A-Z]{2}\b)", re.IGNORECASE)):
+            parent = el.parent
+            if parent:
+                loc_text = parent.get_text(" ", strip=True)
+                if loc_text and len(loc_text) < 80:
+                    result["location"] = loc_text
+                    break
+
+        return result
 
     def _request_with_retries(self, session: requests.Session, url: str, config: CrawlerConfig) -> requests.Response | None:
         last_error: Exception | None = None
@@ -309,3 +483,61 @@ class LevelsFyiAdapter(SourceAdapter):
 
         logger.debug("Levels.fyi total companies found: %d", len(discovered))
         return discovered
+
+    def discover_jobs(self, roles: list[str], config: CrawlerConfig) -> list[LevelsFyiJobCard]:
+        """Discover job listings from Levels.fyi search pages and fetch their detail pages.
+
+        Fetches description, location, and compensation from each job's detail page.
+        Deduplicates by ``external_job_id`` (the ``jobId`` query parameter).
+        """
+        session = requests.Session()
+        session.headers.update({"User-Agent": config.user_agent})
+
+        all_cards: list[LevelsFyiJobCard] = []
+        seen_job_ids: set[str] = set()
+        max_per_role = max(1, config.levelsfyi_max_companies_per_role)
+
+        for role in roles:
+            role_slug = self._role_slug(role)
+            if not role.strip() or not role_slug:
+                continue
+
+            role_cards: list[LevelsFyiJobCard] = []
+            page_urls = [
+                self._search_url(role),
+                self._title_jobs_url(role_slug),
+            ]
+
+            for page_url in page_urls:
+                response = self._request_with_retries(session, page_url, config)
+                if response is None:
+                    continue
+                try:
+                    response.raise_for_status()
+                except requests.HTTPError:
+                    logger.debug("levelsfyi page returned %d for %s", response.status_code, page_url)
+                    continue
+
+                cards = self._extract_job_cards_from_html(response.text, page_url, role)
+                for card in cards:
+                    if card.external_job_id not in seen_job_ids and len(role_cards) < max_per_role:
+                        role_cards.append(card)
+                        seen_job_ids.add(card.external_job_id)
+
+                if len(role_cards) >= max_per_role:
+                    break
+
+            # Fetch detail pages for this role's cards
+            for card in role_cards:
+                try:
+                    details = self._fetch_job_detail(session, card.source_url, config)
+                    card.description = details["description"]
+                    card.location = details["location"]
+                    card.compensation = details["compensation"]
+                except Exception as exc:
+                    logger.debug("levelsfyi detail fetch failed for %s: %s", card.source_url, exc)
+
+            all_cards.extend(role_cards)
+
+        logger.debug("Levels.fyi total jobs discovered: %d", len(all_cards))
+        return all_cards

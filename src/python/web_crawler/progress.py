@@ -19,6 +19,7 @@ _WORKFLOW_MESSAGES = {
     "enrichment_ats_enrichment": "Resolving ATS providers and slugs",
     "crawler_ats_job_extraction": "Fetching ATS job postings",
     "crawler_4dayweek": "Collecting 4dayweek jobs",
+    "crawler_levelsfyi": "Collecting Levels.fyi jobs",
     "finalizing": "Finalizing crawl run",
 }
 

@@ -61,6 +61,7 @@ Stable workflow identifiers:
 - `enrichment_ats_enrichment`
 - `crawler_ats_job_extraction`
 - `crawler_4dayweek`
+- `crawler_levelsfyi`
 
 High-level orchestration:
 1. Load crawler configuration, enabled sources, explicit `identity_id`, and the selected identity's `roles` list.
@@ -88,6 +89,7 @@ High-level orchestration:
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Redis channel used to publish crawl progress snapshots |
 | `CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME` | `crawler_company_discovery_queue` | No | Redis queue consumed by the `crawler_company_discovery` worker |
 | `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME` | `crawler_ats_job_extraction_queue` | No | Redis queue consumed by the `crawler_ats_job_extraction` worker |
+| `CRAWLER_LEVELSFYI_QUEUE_NAME` | `crawler_levelsfyi_queue` | No | Redis queue consumed by the `crawler_levelsfyi` worker |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Redis queue name for scoring payloads |
 | `CRAWLER_ENABLE_SCORING_ENQUEUE` | `0` | No | If `1`, enqueue job ids after successful persistence |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | No | HTTP timeout per request |
@@ -225,7 +227,7 @@ Output contract:
 
 Non-goals for this integration:
 - No dependency on the official paid Levels API.
-- No direct `crawler_ats_job_extraction` ingestion from Levels job pages in this phase.
+- No direct `crawler_ats_job_extraction` ingestion from Levels job pages in this phase; `crawler_levelsfyi` handles Levels.fyi job extraction as an independent workflow.
 - No schema or queue contract changes.
 
 ### 5.3 Curated Startup and Job Communities
@@ -373,6 +375,7 @@ Stable crawler workflow identifiers:
 - `crawler_company_discovery`
 - `crawler_ats_job_extraction`
 - `crawler_4dayweek`
+- `crawler_levelsfyi`
 
 Common output rules for crawler workflows:
 - Job outputs are normalized and upserted into `jobs`.
@@ -444,7 +447,32 @@ Processing:
 DB writes:
 - Resolve/create company in `companies`.
 - Upsert job into `jobs` with `platform=4dayweek`.
+##### `crawler_levelsfyi`
 
+Input:
+- parent `run_id`
+- `workflow_run_id`
+- `identity_id`
+- `identities.roles` (loaded from identity document)
+
+Processing:
+- Discover job cards from Levels.fyi search pages (`/jobs?searchText=...`) and taxonomy pages (`/jobs/title/{role-slug}`) using identity roles as query seeds.
+- Deduplicate cards by `external_job_id` (the `jobId` query parameter from job-detail URLs).
+- Fetch each job detail page (`/jobs?jobId=xxx`) for description, location, and compensation. Falls back to empty strings when the page is CSR-only.
+- Derive company name from `/companies/{slug}/salaries` anchor links in each card; use logo URL domain as fallback company domain hint.
+- Resolve or create company in `companies` using `upsert_companies` (same contract as other crawler workflows).
+- **Role filtering is NOT applied** in this workflow — it operates as a full-discovery crawler analogous to `crawler_4dayweek`.
+- Emit `CompanyDiscoveryEvent` for each newly inserted company or existing company that becomes newly actionable for ATS enrichment (no `ats_slug` after upsert).
+- Optionally enqueue scoring payload after successful job insert or update.
+
+DB writes:
+- Upsert into `companies` using canonicalized company name.
+- Upsert into `jobs` (same collection used by `crawler_ats_job_extraction`) with `platform=levelsfyi`.
+- Stable dedup key: (`platform`, `external_job_id`).
+
+`external_job_id` strategy for levelsfyi:
+- Parse the `jobId` query parameter from the job-detail URL (`/jobs?jobId=xxx`).
+- This key must remain stable across recrawls for dedup.
 #### Workflow Kind B: Enrichment Workflows
 
 Enrichment workflows consume company-discovery events, add ATS metadata, and emit follow-up job extraction triggers.
@@ -482,6 +510,7 @@ Triggering rules:
 
 Dependency rules:
 - `crawler_company_discovery` and `crawler_4dayweek` are UI-triggered crawler workflows and can start in parallel.
+- `crawler_levelsfyi` is a UI-triggered crawler workflow and starts in parallel with `crawler_company_discovery` and `crawler_4dayweek`.
 - `enrichment_ats_enrichment` depends on company-discovery events emitted by crawler workflows.
 - `crawler_ats_job_extraction` depends on ATS-job-trigger events emitted by `enrichment_ats_enrichment`, but it can be triggered by UI as well.
 - Parent-run completion is derived when all required UI-triggered workflows and all spawned child workflows for that parent `run_id` reach terminal states.
@@ -565,7 +594,7 @@ Required normalized fields:
 - `company` (reference to `companies`)
 
 Normalization rules:
-- `platform` must be one of: `greenhouse`, `lever`, `ashby`, `4dayweek`.
+- `platform` must be one of: `greenhouse`, `lever`, `ashby`, `4dayweek`, `levelsfyi`.
 - `external_job_id` must be stable across recrawls for same source job.
 - `source_url` should be the canonical job page URL.
 - `description` may be converted from HTML to text, but content loss should be minimized.
@@ -757,7 +786,7 @@ Implementation note:
 - Redis payload transport may serialize those proto messages as JSON at rest, but producer/consumer code must construct and parse generated protobuf classes at boundaries.
 
 Required internal routing fields:
-- `workflow_id` — stable module key, one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`
+- `workflow_id` — stable module key, one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi`
 - `workflow_run_id` — unique execution-attempt id for that workflow message
 - `run_id` — parent crawl run when the workflow was spawned from a public crawl request; omitted or left empty for singular workflow execution when no parent run exists
 
@@ -838,7 +867,7 @@ Publication lifecycle:
 
 Rules:
 - `percent` must be derived from the best available estimate and must stay in the inclusive range `0..100`.
-- `workflow_id` must be one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek` when the event represents a workflow contribution.
+- `workflow_id` must be one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi` when the event represents a workflow contribution.
 - `workflow_run_id` must uniquely identify one workflow execution attempt.
 - `workflow` should equal `workflow_id` for workflow-level events and may be `queued` or `finalizing` for parent-run lifecycle events.
 - `finished_at` is populated only for terminal events.
@@ -922,7 +951,7 @@ Before changing crawler code in this folder:
 5. Update this spec and related service specs together when shared contracts change.
 
 **Role-based filtering guardrails**:
-- Role filtering (section 8.2) is a validation gate in `crawler_ats_job_extraction` only; do not add filtering to `crawler_company_discovery`, `enrichment_ats_enrichment`, or `crawler_4dayweek`.
+- Role filtering (section 8.2) is a validation gate in `crawler_ats_job_extraction` only; do not add filtering to `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_4dayweek`, or `crawler_levelsfyi`.
 - Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
 - Role filtering happens per-crawl, per-identity execution; filtering state is not persisted downstream.
 - Modify role filtering logic ONLY in `crawler_ats_job_extraction` before job upsert calls.

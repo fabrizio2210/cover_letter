@@ -12,7 +12,6 @@ from src.python.web_crawler.models import CompanyDiscoveryResult
 from src.python.web_crawler.progress import utc_timestamp
 from src.python.web_crawler.sources.base import SourceAdapter
 from src.python.web_crawler.sources.hackernews import HackerNewsAdapter
-from src.python.web_crawler.sources.levelsfyi import LevelsFyiAdapter
 from src.python.web_crawler.sources.ycombinator import YCombinatorAdapter
 from src.python.web_crawler.workflow_messages import company_discovery_event_to_json
 
@@ -25,7 +24,6 @@ _WORKFLOW_ID = "crawler_company_discovery"
 def get_enabled_adapters(enabled_sources: list[str] | None) -> list[SourceAdapter]:
     source_map: dict[str, SourceAdapter] = {
         "hackernews": HackerNewsAdapter(),
-        "levelsfyi": LevelsFyiAdapter(),
         "ycombinator": YCombinatorAdapter(),
     }
 

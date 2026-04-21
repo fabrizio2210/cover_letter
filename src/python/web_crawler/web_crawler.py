@@ -125,6 +125,21 @@ def worker_main(config: CrawlerConfig) -> None:
                 identity_id,
             )
 
+            levelsfyi_workflow_run_id = _dispatch_workflow(
+                redis_client,
+                config,
+                run_id=run_id,
+                identity_id=identity_id,
+                workflow_id="crawler_levelsfyi",
+                queue_name=config.crawler_levelsfyi_queue_name,
+            )
+            logger.info(
+                "dispatched crawler_levelsfyi run_id=%s workflow_run_id=%s identity_id=%s",
+                run_id,
+                levelsfyi_workflow_run_id,
+                identity_id,
+            )
+
         except Exception as exc:
             logger.warning("worker loop error: %s", exc)
             redis_client = None
