@@ -17,6 +17,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
 from src.python.web_crawler.enrichment_ats_enrichment.workflow import _company_from_document
+from src.python.web_crawler.role_filtering import load_identity_roles, text_matches_roles
 
 logger = logging.getLogger(__name__)
 
@@ -90,56 +91,6 @@ def _connect_redis(config: CrawlerConfig):
         return None
 
 
-def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
-    """
-    Load identity document and extract roles list.
-
-    Returns list of role keywords. Empty list means ATS extraction emits no jobs.
-    """
-    if not identity_id:
-        logger.warning("crawler_ats_job_extraction: identity_id is empty; ATS extraction will emit no jobs")
-        return []
-    
-    try:
-        identity_oid = _to_object_id(identity_id)
-        if identity_oid is None:
-            logger.warning("crawler_ats_job_extraction: invalid identity_id %r; ATS extraction will emit no jobs", identity_id)
-            return []
-        
-        identity = identities_collection.find_one({"_id": identity_oid})
-        if identity is None:
-            logger.warning("crawler_ats_job_extraction: identity %s not found; ATS extraction will emit no jobs", identity_id)
-            return []
-        
-        roles = [role.strip() for role in identity.get("roles", []) if isinstance(role, str) and role.strip()]
-        logger.debug("crawler_ats_job_extraction: loaded %d roles from identity %s: %s", len(roles), identity_id, roles)
-        return roles
-    except Exception as exc:
-        logger.exception("crawler_ats_job_extraction: failed to load identity %s: %s", identity_id, exc)
-        return []
-
-
-def _job_matches_roles(job: common_pb2.Job, roles: list[str]) -> bool:
-    """
-    Check if job title or description matches any role keyword.
-
-    Matching is case-insensitive substring search.
-    Empty roles list means no job is eligible.
-    """
-    if not roles:
-        return False
-    
-    title_lower = job.title.lower()
-    description_lower = job.description.lower()
-    
-    for role in roles:
-        role_lower = role.lower()
-        if role_lower in title_lower or role_lower in description_lower:
-            return True
-    
-    return False
-
-
 def upsert_job(
     jobs_collection,
     job: common_pb2.Job,
@@ -205,7 +156,12 @@ def run_crawler_ats_job_extraction(
 
     # Load identity roles for filtering
     if identity_id:
-        identity_roles = _load_identity_roles(identities_collection, identity_id)
+        identity_roles = load_identity_roles(
+            identities_collection,
+            identity_id,
+            logger=logger,
+            workflow_name="crawler_ats_job_extraction",
+        )
     else:
         logger.info("crawler_ats_job_extraction: identity_id missing; skipping ATS extraction and emitting no jobs")
         identity_roles = []
@@ -267,7 +223,7 @@ def run_crawler_ats_job_extraction(
                 for job in jobs:
                     try:
                         # Filter job by identity roles before insertion
-                        if not _job_matches_roles(job, identity_roles):
+                        if not text_matches_roles(job.title, job.description, identity_roles):
                             logger.debug("crawler_ats_job_extraction: job %s (external_id=%s) does not match identity roles; skipping", job.title, job.external_job_id)
                             result.skipped_count += 1
                             continue

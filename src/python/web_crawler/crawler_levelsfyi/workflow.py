@@ -17,6 +17,7 @@ from src.python.web_crawler.company_resolver import (
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany, WorkflowResult
 from src.python.web_crawler.progress import utc_timestamp
+from src.python.web_crawler.role_filtering import load_identity_roles, text_matches_roles
 from src.python.web_crawler.sources.levelsfyi import LevelsFyiAdapter, LevelsFyiJobCard
 from src.python.web_crawler.workflow_messages import company_discovery_event_to_json
 
@@ -48,23 +49,6 @@ def _to_object_id(value: str) -> ObjectId | None:
         return ObjectId(value)
     except (InvalidId, TypeError):
         return None
-
-
-def _load_identity_roles(identities_collection, identity_id: str) -> list[str]:
-    if not identity_id:
-        logger.warning("crawler_levelsfyi: identity_id is empty; no jobs will be extracted")
-        return []
-    oid = _to_object_id(identity_id)
-    if oid is None:
-        logger.warning("crawler_levelsfyi: invalid identity_id %r", identity_id)
-        return []
-    identity = identities_collection.find_one({"_id": oid})
-    if identity is None:
-        logger.warning("crawler_levelsfyi: identity %s not found", identity_id)
-        return []
-    roles = [r.strip() for r in identity.get("roles", []) if isinstance(r, str) and r.strip()]
-    logger.debug("crawler_levelsfyi: loaded %d roles for identity %s: %s", len(roles), identity_id, roles)
-    return roles
 
 
 def _upsert_job(
@@ -204,7 +188,12 @@ def run_crawler_levelsfyi(
 
     result = WorkflowResult()
 
-    roles = _load_identity_roles(identities_collection, identity_id)
+    roles = load_identity_roles(
+        identities_collection,
+        identity_id,
+        logger=logger,
+        workflow_name="crawler_levelsfyi",
+    )
     if not roles:
         logger.info("crawler_levelsfyi: identity %s has no roles; emitting no jobs", identity_id)
         if progress_callback:
@@ -266,6 +255,15 @@ def run_crawler_levelsfyi(
     for idx, card in enumerate(job_cards, start=1):
         if progress_callback:
             progress_callback(idx, estimated, f"Upserting job {idx}/{estimated}: {card.job_title}")
+
+        if not text_matches_roles(card.job_title, card.description, roles):
+            logger.debug(
+                "crawler_levelsfyi: job %s (external_id=%s) does not match identity roles; skipping",
+                card.job_title,
+                card.external_job_id,
+            )
+            result.skipped_count += 1
+            continue
 
         canonical = canonicalize_company_name(card.company_name) if card.company_name else ""
         company_oid = canonical_to_oid.get(canonical) if canonical else None

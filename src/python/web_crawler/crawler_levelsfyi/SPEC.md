@@ -60,7 +60,8 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Call `LevelsFyiAdapter.discover_jobs(roles, config)` to fetch job cards.
 - Levels.fyi job extraction supports layered parsing: structured JSON in inline scripts first, then company-grouped `/jobs` HTML (company heading + job links), then legacy card markup fallbacks.
 - Batch-upsert all discovered companies via `upsert_companies`; build a canonical-name → `ObjectId` lookup.
-- For each job card: resolve the company `ObjectId`; upsert the job via `_upsert_job` with `platform = "levelsfyi"` and dedup key `(platform, external_job_id)`.
+- For each job card: validate `job_title` or `description` against `identity.roles` using case-insensitive substring matching; skip non-matching cards.
+- For each matching job card: resolve the company `ObjectId`; upsert the job via `_upsert_job` with `platform = "levelsfyi"` and dedup key `(platform, external_job_id)`.
 - Determine newly discovered companies missing `ats_slug` and emit `CompanyDiscoveryEvent(reason="new_company_or_newly_actionable")` per company to the enrichment queue.
 - If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME` and update `scoring_status` to `"queued"` (or `"failed"` on enqueue error).
 - Publish `running` → `completed` / `failed` progress snapshots.
@@ -72,6 +73,8 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 - Roles loaded from `database["identities"]` by `ObjectId(identity_id)`.
 - No roles → skip all extraction; log INFO; return empty `WorkflowResult`.
+- A job card is accepted only if any role keyword appears in `job_title` or `description` (case-insensitive substring match).
+- Non-matching job cards are skipped before job upsert.
 
 ---
 

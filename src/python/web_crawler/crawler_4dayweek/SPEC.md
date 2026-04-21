@@ -12,7 +12,9 @@ Agents editing files in this folder MUST consult this file before making changes
 
 The `crawler_4dayweek` package discovers and extracts job listings from [4dayweek.io](https://4dayweek.io), a curated job board for remote and 4-day workweek positions. It resolves or creates companies, upserts normalized job records into MongoDB, and optionally enqueues accepted jobs for AI scoring.
 
-This package does **not** apply identity role filtering — it operates as a full-discovery crawler analogous to `crawler_levelsfyi`.
+This package must apply identity role filtering before job persistence, using the same matching rule as `crawler_ats_job_extraction` and `crawler_levelsfyi`.
+
+Repository note: only this package spec is present in the current workspace snapshot. Workflow and worker implementation files referenced below are not present here, so code-level changes are blocked until those files are available.
 
 ---
 
@@ -58,10 +60,11 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Deduplicate discovered URLs before extraction.
 - For each job URL: extract job and company details using JSON-LD then DOM fallback (see section 6).
 - Resolve or create company in `companies` using canonicalized company name.
-- Upsert job into `jobs` with `platform = "4dayweek"` and dedup key `(platform, external_job_id)`.
+- Validate extracted jobs against `identity.roles` before persistence; skip non-matching jobs.
+- Upsert matching jobs into `jobs` with `platform = "4dayweek"` and dedup key `(platform, external_job_id)`.
 - If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME` and update `scoring_status` to `"queued"` (or `"failed"` on enqueue error).
 - Publish `running` → `completed` / `failed` progress snapshots.
-- **Role filtering is NOT applied** in this workflow.
+- Role filtering is required before any job upsert.
 
 ---
 
@@ -155,6 +158,6 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 
 - Extraction logic lives in `../sources/`; add new parsing helpers there.
 - The `platform` value stored in MongoDB must remain `"4dayweek"` to match `external_job_id` dedup semantics.
-- Do **not** add role filtering to this workflow.
+- Add role filtering to this workflow implementation once `workflow.py` and `worker.py` are available in the workspace.
 - `CRAWLER_REFERER` must be included in HTTP request headers for 4dayweek requests to reduce bot blocking.
 - `external_job_id` derivation (section 6.3) must remain stable; do not change the primary parsing strategy without migrating existing records.

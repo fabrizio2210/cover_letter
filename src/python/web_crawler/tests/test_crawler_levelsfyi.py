@@ -11,6 +11,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.crawler_levelsfyi import worker as worker_module
 from src.python.web_crawler.crawler_levelsfyi import workflow as workflow_module
 from src.python.web_crawler.models import WorkflowResult
+from src.python.web_crawler import role_filtering
 from src.python.web_crawler.sources.levelsfyi import LevelsFyiJobCard
 
 
@@ -153,8 +154,24 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
 
     def test_load_identity_roles_handles_missing_and_invalid_identity(self):
         identities = FakeCollection(docs=[])
-        self.assertEqual(workflow_module._load_identity_roles(identities, ""), [])
-        self.assertEqual(workflow_module._load_identity_roles(identities, "not-an-id"), [])
+        self.assertEqual(
+            role_filtering.load_identity_roles(
+                identities,
+                "",
+                logger=workflow_module.logger,
+                workflow_name="crawler_levelsfyi",
+            ),
+            [],
+        )
+        self.assertEqual(
+            role_filtering.load_identity_roles(
+                identities,
+                "not-an-id",
+                logger=workflow_module.logger,
+                workflow_name="crawler_levelsfyi",
+            ),
+            [],
+        )
 
     def test_load_identity_roles_returns_trimmed_roles(self):
         identity_id = str(ObjectId())
@@ -162,7 +179,12 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
             docs=[{"_id": ObjectId(identity_id), "roles": ["  software engineer  ", "", "platform engineer", 42]}]
         )
 
-        roles = workflow_module._load_identity_roles(identities, identity_id)
+        roles = role_filtering.load_identity_roles(
+            identities,
+            identity_id,
+            logger=workflow_module.logger,
+            workflow_name="crawler_levelsfyi",
+        )
         self.assertEqual(roles, ["software engineer", "platform engineer"])
 
     def test_find_companies_missing_slug_filters_correctly(self):
@@ -295,8 +317,8 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         )
         config = _make_config(enable_scoring_enqueue=False)
         cards = [
-            _make_card(external_id="job-1", title="Engineer I"),
-            _make_card(external_id="job-1", title="Engineer II"),
+            _make_card(external_id="job-1", title="Software Engineer I"),
+            _make_card(external_id="job-1", title="Software Engineer II"),
         ]
         progress_events = []
 
@@ -392,6 +414,66 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(len(result.failed_urls), 1)
         self.assertEqual(result.failed_urls[0]["url"], "https://www.levels.fyi/jobs?jobId=1")
+
+    def test_run_crawler_levelsfyi_skips_jobs_that_do_not_match_identity_roles(self):
+        identity_id = str(ObjectId())
+        company_oid = ObjectId()
+        db = FakeDatabase(
+            {
+                "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
+                "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
+                "jobs": FakeCollection(),
+            }
+        )
+        config = _make_config()
+        cards = [_make_card(title="Data Scientist", external_id="job-role-miss")]
+
+        fake_adapter = Mock()
+        fake_adapter.discover_jobs.return_value = cards
+
+        with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
+            patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
+            patch("src.python.web_crawler.crawler_levelsfyi.workflow._upsert_job") as mock_upsert:
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+
+        mock_upsert.assert_not_called()
+        self.assertEqual(result.discovered_count, 1)
+        self.assertEqual(result.inserted_count, 0)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 1)
+
+    def test_run_crawler_levelsfyi_accepts_job_when_description_matches_identity_role(self):
+        identity_id = str(ObjectId())
+        company_oid = ObjectId()
+        db = FakeDatabase(
+            {
+                "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["platform engineer"]}]),
+                "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
+                "jobs": FakeCollection(),
+            }
+        )
+        config = _make_config(enable_scoring_enqueue=False)
+        cards = [
+            _make_card(
+                title="Infrastructure Specialist",
+                external_id="job-role-description",
+                role="platform engineer",
+            )
+        ]
+        cards[0].description = "You will work as a platform engineer across our stack."
+
+        fake_adapter = Mock()
+        fake_adapter.discover_jobs.return_value = cards
+
+        with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
+            patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])):
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+
+        self.assertEqual(result.discovered_count, 1)
+        self.assertEqual(result.inserted_count, 1)
+        self.assertEqual(result.updated_count, 0)
+        self.assertEqual(result.skipped_count, 0)
+        self.assertEqual(len(db["jobs"].docs), 1)
 
     def test_run_crawler_levelsfyi_enqueue_success_sets_queued_status(self):
         identity_id = str(ObjectId())

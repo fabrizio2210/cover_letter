@@ -240,6 +240,8 @@ Input: parent `run_id`, `workflow_run_id`, identity-scoped public crawl request 
 
 DB writes: resolve/create company in `companies`; upsert job into `jobs` with `platform=4dayweek`.
 
+Role filtering: each extracted job must be validated against `identity.roles` before insertion.
+
 See [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) for URL discovery strategy and extraction contract.
 
 ##### `crawler_levelsfyi`
@@ -248,7 +250,7 @@ Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles` (lo
 
 DB writes: upsert into `companies`; upsert into `jobs` with `platform=levelsfyi`; stable dedup key: (`platform`, `external_job_id`).
 
-Role filtering is NOT applied in this workflow. See [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) for discovery strategy and job document details.
+Role filtering: each extracted job is validated against `identity.roles` before insertion. See [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) for discovery strategy and filtering rules.
 
 #### Workflow Kind B: Enrichment Workflows
 
@@ -351,14 +353,17 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 
 ### 8.2 Role-Based Filtering Before Insertion
 
-Role filtering is a validation gate applied in `crawler_ats_job_extraction` only, before any `upsert_job` call. It is not applied in `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_4dayweek`, or `crawler_levelsfyi`.
+Role filtering is a validation gate applied before any job insert/update in job-producing crawler workflows. It is not applied in `crawler_company_discovery` or `enrichment_ats_enrichment` because those workflows do not persist jobs.
 
-Full filtering mechanism, matching rules, and examples live in [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) section 6.
+Filtering mechanism and matching rules:
+- `crawler_ats_job_extraction`: see [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) section 6.
+- `crawler_levelsfyi`: see [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) section 5.
+- `crawler_4dayweek`: see [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md).
 
 Rules that apply everywhere:
 - Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
 - Role filtering state is not persisted downstream; it is a per-execution validation gate only.
-- Empty `roles` list on the identity: emit zero ATS jobs for that run (no inserts, no updates, no scoring enqueues).
+- Empty `roles` list on the identity: emit zero jobs for that run in role-filtered job workflows (no inserts, no updates, no scoring enqueues).
 
 ---
 
