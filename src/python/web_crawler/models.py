@@ -16,10 +16,11 @@ class CompanyDiscoveryResult:
     skipped_count: int = 0
     failed_sources: list[dict[str, str]] = field(default_factory=list)
     company_ids: list[str] = field(default_factory=list)
+    enrichment_pending_company_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
-class Workflow2Result:
+class EnrichmentAtsEnrichmentResult:
     enriched_count: int = 0
     skipped_count: int = 0
     failed_count: int = 0

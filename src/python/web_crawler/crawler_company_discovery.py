@@ -18,7 +18,10 @@ from src.python.web_crawler.sources.base import SourceAdapter
 from src.python.web_crawler.sources.hackernews import HackerNewsAdapter
 from src.python.web_crawler.sources.levelsfyi import LevelsFyiAdapter
 from src.python.web_crawler.sources.ycombinator import YCombinatorAdapter
-from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
+from src.python.web_crawler.workflow_messages import (
+    company_discovery_event_to_json,
+    parse_workflow_dispatch,
+)
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -107,7 +110,69 @@ def run_crawler_company_discovery(database, config: CrawlerConfig, identity_id: 
     result.updated_count = updated_count
     result.company_ids = company_ids
     logger.debug("upsert done — inserted: %d, updated: %d", inserted_count, updated_count)
+
+    # Determine which upserted companies are missing ats_slug — these need enrichment.
+    result.enrichment_pending_company_ids = _find_companies_missing_slug(companies_collection, company_ids)
+    logger.debug(
+        "companies pending enrichment (no ats_slug): %d",
+        len(result.enrichment_pending_company_ids),
+    )
     return result
+
+
+def _find_companies_missing_slug(collection, company_ids: list[str]) -> list[str]:
+    """Return a subset of company_ids whose documents have no ats_slug set."""
+    if not company_ids:
+        return []
+    object_ids = []
+    for cid in company_ids:
+        try:
+            object_ids.append(ObjectId(cid))
+        except Exception:
+            continue
+    if not object_ids:
+        return []
+    docs = list(
+        collection.find(
+            {"_id": {"$in": object_ids}, "$or": [{"ats_slug": {"$exists": False}}, {"ats_slug": ""}]},
+            {"_id": 1},
+        )
+    )
+    return [str(doc["_id"]) for doc in docs]
+
+
+def _emit_enrichment_events(
+    redis_client: redis.Redis,
+    config: CrawlerConfig,
+    *,
+    run_id: str,
+    workflow_run_id: str,
+    identity_id: str,
+    company_ids: list[str],
+) -> None:
+    """Push one CompanyDiscoveryEvent per company into the enrichment queue."""
+    for company_id in company_ids:
+        try:
+            event = common_pb2.CompanyDiscoveryEvent(
+                run_id=run_id,
+                workflow_run_id=workflow_run_id,
+                workflow_id=_WORKFLOW_ID,
+                identity_id=identity_id,
+                company_id=company_id,
+                reason="no_ats_slug",
+            )
+            event.emitted_at.CopyFrom(utc_timestamp())
+            redis_client.rpush(
+                config.crawler_enrichment_ats_enrichment_queue_name,
+                company_discovery_event_to_json(event),
+            )
+            logger.debug("emitted CompanyDiscoveryEvent for company %s", company_id)
+        except Exception as exc:
+            logger.warning(
+                "failed to emit CompanyDiscoveryEvent for company %s: %s",
+                company_id,
+                exc,
+            )
 
 
 def _connect_redis(config: CrawlerConfig) -> redis.Redis:
@@ -164,7 +229,15 @@ def consumer_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                run_crawler_company_discovery(database, config, identity_id)
+                result = run_crawler_company_discovery(database, config, identity_id)
+                _emit_enrichment_events(
+                    redis_client,
+                    config,
+                    run_id=run_id,
+                    workflow_run_id=workflow_run_id,
+                    identity_id=identity_id,
+                    company_ids=result.enrichment_pending_company_ids,
+                )
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,

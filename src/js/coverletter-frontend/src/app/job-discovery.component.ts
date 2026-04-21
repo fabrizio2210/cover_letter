@@ -335,7 +335,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     switch (progress?.phase) {
       case 'workflow1_company_discovery':
         return 'Company discovery';
-      case 'workflow2_ats_enrichment':
+      case 'enrichment_ats_enrichment':
         return 'ATS enrichment';
       case 'workflow3_ats_job_extraction':
         return 'Job extraction';

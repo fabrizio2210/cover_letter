@@ -135,7 +135,7 @@ def fetch_url(session: requests.Session, url: str, config: CrawlerConfig) -> req
             last_error = exc
             logger.debug("request attempt %d failed for %s: %s", attempt, url, exc)
 
-            # DNS and timeout failures are terminal for workflow2; do not retry.
+            # DNS and timeout failures are terminal for enrichment_ats_enrichment; do not retry.
             if _is_dns_resolution_error(exc):
                 raise ATSRequestFailure("dns_resolution", url, str(exc)) from exc
             if _is_timeout_error(exc):

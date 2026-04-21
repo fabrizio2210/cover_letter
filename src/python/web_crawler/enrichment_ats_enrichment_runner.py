@@ -19,13 +19,13 @@ from src.python.web_crawler.executor import (
     ThreadSafeSessionPool,
     _detect_ats_worker,
 )
-from src.python.web_crawler.models import Workflow2Result
+from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
 from src.python.web_crawler.sources.ats_detector import ATSRequestFailure, detect_ats_provider
 from src.python.web_crawler.sources.ats_slug_resolver import resolve_direct_slug, resolve_slug_via_search_dorking
 
 logger = logging.getLogger(__name__)
 
-_TERMINAL_FAILURE_FIELD = "workflow2_terminal_failure"
+_TERMINAL_FAILURE_FIELD = "enrichment_ats_enrichment_terminal_failure"
 _SEARCH_ATTEMPTS_FIELD = "ats_slug_search_attempts"
 _CAREER_PATHS = (
     "/careers",
@@ -37,9 +37,9 @@ _CAREER_PATHS = (
 )
 
 
-def estimate_workflow2_url_checks(company_count: int) -> int:
+def estimate_enrichment_ats_enrichment_url_checks(company_count: int) -> int:
     """
-    Best-effort estimate for URL checks in workflow2.
+    Best-effort estimate for URL checks in enrichment_ats_enrichment.
 
     For each company we budget one probe per known career path.
     """
@@ -173,11 +173,11 @@ def _company_from_document(company_doc: dict) -> common_pb2.Company:
 
     terminal_failure_doc = company_doc.get(_TERMINAL_FAILURE_FIELD)
     if isinstance(terminal_failure_doc, dict):
-        company.workflow2_terminal_failure.failure_type = str(terminal_failure_doc.get("failure_type") or "").strip()
-        company.workflow2_terminal_failure.last_url = str(terminal_failure_doc.get("last_url") or "").strip()
-        company.workflow2_terminal_failure.message = str(terminal_failure_doc.get("message") or "").strip()
+        company.enrichment_ats_enrichment_terminal_failure.failure_type = str(terminal_failure_doc.get("failure_type") or "").strip()
+        company.enrichment_ats_enrichment_terminal_failure.last_url = str(terminal_failure_doc.get("last_url") or "").strip()
+        company.enrichment_ats_enrichment_terminal_failure.message = str(terminal_failure_doc.get("message") or "").strip()
         if failed_at := _to_proto_timestamp(terminal_failure_doc.get("failed_at")):
-            company.workflow2_terminal_failure.failed_at.CopyFrom(failed_at)
+            company.enrichment_ats_enrichment_terminal_failure.failed_at.CopyFrom(failed_at)
 
     return company
 
@@ -225,19 +225,19 @@ def _load_companies(collection, company_ids: Iterable[str] | None) -> list[commo
     return [_company_from_document(document) for document in documents]
 
 
-def run_workflow2(
+def run_enrichment_ats_enrichment(
     database,
     config: CrawlerConfig,
     company_ids: list[str] | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-) -> Workflow2Result:
+) -> EnrichmentAtsEnrichmentResult:
     companies_collection = database["companies"]
     companies = _load_companies(companies_collection, company_ids)
-    result = Workflow2Result()
+    result = EnrichmentAtsEnrichmentResult()
 
     total_companies = len(companies)
     completed_checks = 0
-    estimated_checks = estimate_workflow2_url_checks(total_companies)
+    estimated_checks = estimate_enrichment_ats_enrichment_url_checks(total_companies)
 
     if progress_callback:
         progress_callback(
@@ -251,7 +251,7 @@ def run_workflow2(
 
     try:
         # ========== PHASE A: Pre-fetch company state and build task list ==========
-        logger.info("workflow2: Phase A - Pre-fetching company state for %d companies", total_companies)
+        logger.info("enrichment_ats_enrichment: Phase A - Pre-fetching company state for %d companies", total_companies)
         
         tasks_to_process: list[tuple[ATSWorkerTask, common_pb2.Company, dict]] = []
         
@@ -319,7 +319,7 @@ def run_workflow2(
 
         ready_for_processing = len(tasks_to_process)
         estimated_checks = max(sum(_task_progress_units(task) for task, _, _ in tasks_to_process), 1)
-        logger.info("workflow2: Phase A complete. %d/%d companies ready for processing", ready_for_processing, total_companies)
+        logger.info("enrichment_ats_enrichment: Phase A complete. %d/%d companies ready for processing", ready_for_processing, total_companies)
 
         if progress_callback:
             progress_callback(
@@ -329,7 +329,7 @@ def run_workflow2(
             )
 
         # ========== PHASE B: Parallel ATS detection using thread pool ==========
-        logger.info("workflow2: Phase B - Starting parallel ATS detection with 10 workers")
+        logger.info("enrichment_ats_enrichment: Phase B - Starting parallel ATS detection with 10 workers")
         
         session_pool = ThreadSafeSessionPool(config.user_agent)
         
@@ -340,7 +340,7 @@ def run_workflow2(
                     for task, company_proto, company_state in tasks_to_process
                 }
 
-                logger.info("workflow2: Submitted %d tasks to executor", len(future_to_task_info))
+                logger.info("enrichment_ats_enrichment: Submitted %d tasks to executor", len(future_to_task_info))
 
                 completed_count = 0
                 for future in as_completed(future_to_task_info):
@@ -360,7 +360,7 @@ def run_workflow2(
 
                             # Successful detection + direct slug resolution
                             logger.debug(
-                                "workflow2: ATS detection successful for company %s: provider=%s slug=%s",
+                                "enrichment_ats_enrichment: ATS detection successful for company %s: provider=%s slug=%s",
                                 worker_result.company_id,
                                 provider,
                                 slug,
@@ -375,7 +375,7 @@ def run_workflow2(
                         elif worker_result.error_type == "ats_request_failure:dns_resolution" or worker_result.error_type == "ats_request_failure:timeout":
                             # Terminal failures: record and skip
                             logger.debug(
-                                "workflow2: Terminal failure for company %s: %s at %s",
+                                "enrichment_ats_enrichment: Terminal failure for company %s: %s at %s",
                                 worker_result.company_id,
                                 worker_result.error_type,
                                 worker_result.error_url,
@@ -404,7 +404,7 @@ def run_workflow2(
 
                             # Direct slug resolution failed; attempt SERP fallback in main thread
                             logger.debug(
-                                "workflow2: Direct slug resolution failed for company %s (provider=%s). Attempting SERP fallback.",
+                                "enrichment_ats_enrichment: Direct slug resolution failed for company %s (provider=%s). Attempting SERP fallback.",
                                 worker_result.company_id,
                                 provider,
                             )
@@ -416,13 +416,13 @@ def run_workflow2(
                                 estimated_checks += 1
                                 if prior and config.force_serp_retry_on_prior_attempt:
                                     logger.debug(
-                                        "workflow2: Bypassing prior SERP-attempt gate for company %s (provider=%s)",
+                                        "enrichment_ats_enrichment: Bypassing prior SERP-attempt gate for company %s (provider=%s)",
                                         worker_result.company_id,
                                         provider,
                                     )
 
                                 logger.debug(
-                                    "workflow2: Calling SERP fallback for company %s (provider=%s)",
+                                    "enrichment_ats_enrichment: Calling SERP fallback for company %s (provider=%s)",
                                     worker_result.company_id,
                                     provider,
                                 )
@@ -439,7 +439,7 @@ def run_workflow2(
                                         session=session,
                                     )
                                     logger.debug(
-                                        "workflow2: SERP fallback result for company %s: slug=%s",
+                                        "enrichment_ats_enrichment: SERP fallback result for company %s: slug=%s",
                                         worker_result.company_id,
                                         slug or "not found",
                                     )
@@ -458,7 +458,7 @@ def run_workflow2(
                                         result.enriched_count += 1
                                         result.ats_providers[provider] = result.ats_providers.get(provider, 0) + 1
                                         logger.debug(
-                                            "workflow2: SERP fallback successful for company %s: provider=%s slug=%s",
+                                            "enrichment_ats_enrichment: SERP fallback successful for company %s: provider=%s slug=%s",
                                             worker_result.company_id,
                                             provider,
                                             slug,
@@ -498,7 +498,7 @@ def run_workflow2(
                                 }
                             )
                             logger.debug(
-                                "workflow2: ATS detection failed for company %s: %s",
+                                "enrichment_ats_enrichment: ATS detection failed for company %s: %s",
                                 worker_result.company_id,
                                 worker_result.error_message,
                             )
@@ -512,7 +512,7 @@ def run_workflow2(
                             )
 
                     except Exception as exc:
-                        logger.exception("workflow2: Unexpected error processing worker result for company %s", task.company_id)
+                        logger.exception("enrichment_ats_enrichment: Unexpected error processing worker result for company %s", task.company_id)
                         result.failed_count += 1
                         result.failed_companies.append(
                             {
@@ -529,7 +529,7 @@ def run_workflow2(
                         f"Phase B complete: {completed_count}/{ready_for_processing} companies processed",
                     )
 
-            logger.info("workflow2: Phase B complete. Enriched=%d, Skipped=%d, Failed=%d", result.enriched_count, result.skipped_count, result.failed_count)
+            logger.info("enrichment_ats_enrichment: Phase B complete. Enriched=%d, Skipped=%d, Failed=%d", result.enriched_count, result.skipped_count, result.failed_count)
         
         finally:
             session_pool.close_all()

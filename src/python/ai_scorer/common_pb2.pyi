@@ -247,7 +247,7 @@ class CompanySlugSearchAttempt(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["attempted_at",b"attempted_at","attempts",b"attempts","outcome",b"outcome"]) -> None: ...
 global___CompanySlugSearchAttempt = CompanySlugSearchAttempt
 
-class Workflow2TerminalFailure(google.protobuf.message.Message):
+class EnrichmentAtsEnrichmentTerminalFailure(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     FAILURE_TYPE_FIELD_NUMBER: builtins.int
     FAILED_AT_FIELD_NUMBER: builtins.int
@@ -275,7 +275,7 @@ class Workflow2TerminalFailure(google.protobuf.message.Message):
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["failed_at",b"failed_at"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["failed_at",b"failed_at","failure_type",b"failure_type","last_url",b"last_url","message",b"message"]) -> None: ...
-global___Workflow2TerminalFailure = Workflow2TerminalFailure
+global___EnrichmentAtsEnrichmentTerminalFailure = EnrichmentAtsEnrichmentTerminalFailure
 
 class Company(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -304,7 +304,7 @@ class Company(google.protobuf.message.Message):
     ATS_PROVIDER_FIELD_NUMBER: builtins.int
     ATS_SLUG_FIELD_NUMBER: builtins.int
     ATS_SLUG_SEARCH_ATTEMPTS_FIELD_NUMBER: builtins.int
-    WORKFLOW2_TERMINAL_FAILURE_FIELD_NUMBER: builtins.int
+    ENRICHMENT_ATS_ENRICHMENT_TERMINAL_FAILURE_FIELD_NUMBER: builtins.int
     id: typing.Text
     """@gotags: bson:"_id,omitempty" """
 
@@ -339,8 +339,8 @@ class Company(google.protobuf.message.Message):
         """@gotags: bson:"ats_slug_search_attempts,omitempty" """
         pass
     @property
-    def workflow2_terminal_failure(self) -> global___Workflow2TerminalFailure:
-        """@gotags: bson:"workflow2_terminal_failure,omitempty" """
+    def enrichment_ats_enrichment_terminal_failure(self) -> global___EnrichmentAtsEnrichmentTerminalFailure:
+        """@gotags: bson:"enrichment_ats_enrichment_terminal_failure,omitempty" """
         pass
     def __init__(self,
         *,
@@ -354,10 +354,10 @@ class Company(google.protobuf.message.Message):
         ats_provider: typing.Text = ...,
         ats_slug: typing.Text = ...,
         ats_slug_search_attempts: typing.Optional[typing.Mapping[typing.Text, global___CompanySlugSearchAttempt]] = ...,
-        workflow2_terminal_failure: typing.Optional[global___Workflow2TerminalFailure] = ...,
+        enrichment_ats_enrichment_terminal_failure: typing.Optional[global___EnrichmentAtsEnrichmentTerminalFailure] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["field_info",b"field_info","workflow2_terminal_failure",b"workflow2_terminal_failure"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["ats_provider",b"ats_provider","ats_slug",b"ats_slug","ats_slug_search_attempts",b"ats_slug_search_attempts","canonical_name",b"canonical_name","description",b"description","discovery_sources",b"discovery_sources","field_id",b"field_id","field_info",b"field_info","id",b"id","name",b"name","workflow2_terminal_failure",b"workflow2_terminal_failure"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["enrichment_ats_enrichment_terminal_failure",b"enrichment_ats_enrichment_terminal_failure","field_info",b"field_info"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["ats_provider",b"ats_provider","ats_slug",b"ats_slug","ats_slug_search_attempts",b"ats_slug_search_attempts","canonical_name",b"canonical_name","description",b"description","discovery_sources",b"discovery_sources","enrichment_ats_enrichment_terminal_failure",b"enrichment_ats_enrichment_terminal_failure","field_id",b"field_id","field_info",b"field_info","id",b"id","name",b"name"]) -> None: ...
 global___Company = Company
 
 class Recipient(google.protobuf.message.Message):

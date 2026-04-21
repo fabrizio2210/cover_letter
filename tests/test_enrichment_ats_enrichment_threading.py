@@ -1,5 +1,5 @@
 """
-Tests for workflow2 parallel ATS detection with thread pool.
+Tests for enrichment_ats_enrichment parallel ATS detection with thread pool.
 
 Tests cover:
 - Thread-local session isolation
@@ -228,18 +228,18 @@ class TestDetectATSWorker(unittest.TestCase):
             self.assertEqual(result.error_type, "unexpected_error")
 
 
-class TestWorkflow2Integration(unittest.TestCase):
-    """Integration tests for workflow2 with parallel execution.
+class TestEnrichmentAtsEnrichmentIntegration(unittest.TestCase):
+    """Integration tests for enrichment_ats_enrichment with parallel execution.
     
     Note: These are minimal integration tests. For full integration testing,
-    use tests/e2e/test_workflow2_integration.sh with real MongoDB and network.
+    use tests/e2e/test_enrichment_ats_enrichment_integration.sh with real MongoDB and network.
     """
 
-    def test_workflow2_result_structure(self):
-        """Test that workflow2 returns correct result structure."""
-        from src.python.web_crawler.models import Workflow2Result
+    def test_enrichment_ats_enrichment_result_structure(self):
+        """Test that enrichment_ats_enrichment returns correct result structure."""
+        from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
         
-        result = Workflow2Result()
+        result = EnrichmentAtsEnrichmentResult()
         result.company_ids.append("test-id-1")
         result.company_ids.append("test-id-2")
         result.enriched_count = 1

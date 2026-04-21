@@ -88,3 +88,22 @@ def parse_workflow_dispatch(raw_payload: str) -> common_pb2.WorkflowDispatchMess
     message = common_pb2.WorkflowDispatchMessage()
     ParseDict(parsed, message)
     return message
+
+
+def company_discovery_event_to_json(payload: common_pb2.CompanyDiscoveryEvent) -> str:
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)
+
+
+def parse_company_discovery_event(raw_payload: str) -> common_pb2.CompanyDiscoveryEvent:
+    parsed = json.loads(raw_payload)
+    if not isinstance(parsed, dict):
+        raise ValueError("company discovery event payload must be a JSON object")
+    message = common_pb2.CompanyDiscoveryEvent()
+    ParseDict(parsed, message)
+    return message
+
+
+def ats_job_trigger_event_to_json(payload: common_pb2.AtsJobTriggerEvent) -> str:
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)

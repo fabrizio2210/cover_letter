@@ -57,7 +57,7 @@ message CompanySlugSearchAttempt {
     string outcome = 3; // @gotags: bson:"outcome,omitempty"
 }
 
-message Workflow2TerminalFailure {
+message EnrichmentAtsEnrichmentTerminalFailure {
     string failure_type = 1; // @gotags: bson:"failure_type,omitempty"
     google.protobuf.Timestamp failed_at = 2; // @gotags: bson:"failed_at,omitempty"
     string last_url = 3; // @gotags: bson:"last_url,omitempty"
@@ -84,7 +84,7 @@ message Company {
     string ats_provider = 8; // @gotags: bson:"ats_provider,omitempty"
     string ats_slug = 9; // @gotags: bson:"ats_slug,omitempty"
     map<string, CompanySlugSearchAttempt> ats_slug_search_attempts = 10; // @gotags: bson:"ats_slug_search_attempts,omitempty"
-    Workflow2TerminalFailure workflow2_terminal_failure = 11; // @gotags: bson:"workflow2_terminal_failure,omitempty"
+    EnrichmentAtsEnrichmentTerminalFailure enrichment_ats_enrichment_terminal_failure = 11; // @gotags: bson:"enrichment_ats_enrichment_terminal_failure,omitempty"
 }
 
 message Recipient {

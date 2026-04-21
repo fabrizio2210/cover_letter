@@ -168,7 +168,7 @@ def _detect_ats_worker(
         )
 
         # If direct resolution failed, try search/dorking (without company name in this context)
-        # Note: In the actual workflow2, SERP fallback uses company_name and checks prior attempts.
+        # Note: In the actual enrichment_ats_enrichment, SERP fallback uses company_name and checks prior attempts.
         # For now, we only do direct slug resolution in the worker. SERP fallback logic stays in main thread.
         if slug is None:
             logger.debug(

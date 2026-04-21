@@ -14,7 +14,7 @@ from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
 from src.python.web_crawler.models import CrawlerAtsJobExtractionResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
-from src.python.web_crawler.workflow2 import _company_from_document
+from src.python.web_crawler.enrichment_ats_enrichment_runner import _company_from_document
 
 logger = logging.getLogger(__name__)
 

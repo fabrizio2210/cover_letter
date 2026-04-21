@@ -106,7 +106,7 @@ export interface CrawlProgress {
   phase:
     | 'queued'
     | 'workflow1_company_discovery'
-    | 'workflow2_ats_enrichment'
+    | 'enrichment_ats_enrichment'
     | 'workflow3_ats_job_extraction'
     | 'workflow4_4dayweek'
     | 'finalizing';
