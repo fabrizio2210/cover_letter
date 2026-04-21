@@ -426,7 +426,7 @@ Processing:
 - Skip jobs that do not match any identity role.
 
 DB writes:
-- Upsert into `job-descriptions` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
+- Upsert into `jobs` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
 - Update mutable fields and `updated_at` on recrawl.
 - Optionally enqueue scoring payload after successful write.
 
@@ -443,7 +443,7 @@ Processing:
 
 DB writes:
 - Resolve/create company in `companies`.
-- Upsert job into `job-descriptions` with `platform=4dayweek`.
+- Upsert job into `jobs` with `platform=4dayweek`.
 
 #### Workflow Kind B: Enrichment Workflows
 
@@ -633,7 +633,7 @@ Before inserting extracted jobs into the database, each job must be validated ag
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `job-descriptions` | read/insert/update | Store normalized job records |
+| `jobs` | read/insert/update | Store normalized job records |
 | `companies` | read/insert/update | Resolve, create, and ATS-enrich company documents |
 | `crawls` | optional insert/update | Store crawl run summaries/telemetry if implemented |
 
