@@ -32,4 +32,4 @@ RUN pip install watchdog
 WORKDIR /app
 
 # Command to run the enrichment_ats_enrichment workflow worker with auto-reloading
-CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.enrichment_ats_enrichment_worker", "--worker"]
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.enrichment_ats_enrichment.worker", "--worker"]

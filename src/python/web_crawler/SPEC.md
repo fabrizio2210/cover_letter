@@ -171,186 +171,20 @@ Query construction rules:
 - Keep query terms broad enough for discovery, then narrow results with ATS validation and dedup.
 - Do not mutate scoring contracts, queue payloads, or persistence keys when applying role filters.
 
-### 5.2 Role-Query Job Boards and Search Sources
+### 5.2 Source Families
 
-Use role-query job boards and search-oriented discovery sources as the primary `crawler_company_discovery` input for currently hiring companies.
+The `crawler_company_discovery` workflow draws from four classes of discovery sources. Full source tables, per-source behavior, Levels.fyi public-route strategy, extraction expectations, and compliance notes live in [`crawler_company_discovery/SPEC.md`](crawler_company_discovery/SPEC.md) sections 7–8.
 
-Preferred sources:
+- **Role-query job boards and search sources**: LinkedIn, Indeed, SimplyHired, Built In, Levels.fyi, Otta — primary role-filtered hiring signals.
+- **Curated startup and job communities**: Y Combinator, Wellfound, Work at a Startup — supplementary high-signal company discovery.
+- **Portfolio and investor directories**: Crunchbase, Techstars, 500 Global, a16z, Sequoia — company-first enrichment candidates.
+- **Community hiring threads**: Hacker News "Who Is Hiring" — opportunistic lower-structure discovery.
 
-| Website | Root URL | Path / Pattern to Lookup | Discovery output |
-|---|---|---|---|
-| LinkedIn | `linkedin.com` | role/job search result pages | Role-filtered hiring signals, company names, and job-source attribution |
-| Indeed | `indeed.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
-| SimplyHired | `simplyhired.com` | role/job search result pages | Role-filtered hiring signals, company names, and company/job URLs when present |
-| Built In | `builtin.com` | city or hub company pages such as `/sf`, `/nyc`, and related company listings | Company-first discovery within tech hubs, with role filters applied when available |
-| Levels.fyi | `levels.fyi` | `/jobs?searchText={role query}`, `/t/{role-slug}`, role markdown routes such as `/t/{role-slug}.md` | Role-seeded company discovery with Levels company URLs and optional job/company attribution when public routes expose it |
-| Otta | `otta.com` | `/companies` | Curated tech-company discovery with job and company metadata when publicly available |
+ATS compatibility detection signatures, slug resolution strategy, and search-dork query patterns belong to `enrichment_ats_enrichment`. See [`enrichment_ats_enrichment/SPEC.md`](enrichment_ats_enrichment/SPEC.md) sections 5 and 8.
 
-Objective:
-- Treat role-query sources as high-signal evidence that companies are actively hiring for one or more requested identity roles.
+4dayweek.io URL discovery strategy, extraction order, and `external_job_id` derivation belong to `crawler_4dayweek`. See [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) sections 5–6.
 
-Discovery logic:
-1. Execute one or more role queries derived from `identity.roles` on each enabled role-query source.
-2. Extract at minimum: company name, source URL, and company website domain or careers URL when present.
-3. Preserve role association and source attribution metadata so repeated discoveries can be traced to the originating board or search result.
-4. Normalize and deduplicate companies before ATS checks (for example, one company listed across many postings is kept once).
-
-Levels.fyi public-route strategy:
-- Preferred routes are the search page `/jobs?searchText={role query}` and the role taxonomy page `/t/{role-slug}`.
-- When structured markdown is available, `/t/{role-slug}.md` is preferred as a stable fallback for company extraction.
-- Extraction targets are company names and Levels company URLs such as `/companies/{company-slug}/salaries`; direct careers URLs may be absent and are not required for persistence.
-- If public role pages expose only company-level links and no job-detail or ATS links, persist the deduplicable company discovery anyway so `enrichment_ats_enrichment` can attempt later enrichment.
-
-Compliance and safety:
-- Access patterns must respect legal and operational constraints of each source.
-- Use bounded concurrency and anti-bot controls defined in section 11.
-- For Levels.fyi, respect `robots.txt` and `llms.txt`, prefer documented sitemap/markdown-friendly routes when available, and preserve attribution if data from those routes is surfaced downstream.
-- Sources in this group are preferred inputs, but some may be skipped for a run if public accessibility, response format, or compliance posture makes extraction impractical.
-
-### 5.2.1 Levels.fyi Public Discovery Contract
-
-Levels.fyi is integrated as a `crawler_company_discovery` source using public routes only.
-
-Supported discovery inputs:
-- Role slug derived from `identity.roles` using lowercase hyphenated normalization.
-
-Preferred retrieval order:
-1. Fetch `/jobs?searchText={role query}` and extract company links when available.
-2. Fetch `/t/{role-slug}` and extract company links such as `/companies/{company-slug}/salaries`.
-3. Fallback to `/t/{role-slug}.md` and parse markdown links to company salary pages when HTML extraction yields insufficient results.
-
-Output contract:
-- Persist `source = "levelsfyi"` in source attribution metadata.
-- Persist the matched identity role string in `discovery_sources.role`.
-- Persist the discovered Levels company URL in `discovery_sources.source_url`.
-- Do not require `careers_url` or company website domain at discovery time.
-
-Non-goals for this integration:
-- No dependency on the official paid Levels API.
-- No direct `crawler_ats_job_extraction` ingestion from Levels job pages in this phase; `crawler_levelsfyi` handles Levels.fyi job extraction as an independent workflow.
-- No schema or queue contract changes.
-
-### 5.3 Curated Startup and Job Communities
-
-Use curated startup and job communities as complementary high-signal sources for ATS-backed companies and startup-focused hiring activity.
-
-Preferred sources:
-
-| Website | Root URL | Path / Pattern to Lookup | Discovery output |
-|---|---|---|---|
-| Y Combinator | `ycombinator.com` | `/companies` | Company directory plus discoverable jobs/careers links when exposed |
-| Wellfound | `wellfound.com` | `/jobs` or `/company/:slug` | Startup job-board results plus company pages with links, hiring signals, and metadata when available |
-| Work at a Startup | `workatastartup.com` | `/companies` | YC-aligned company and hiring discovery with direct startup job signals |
-
-Expected behavior:
-- Extract company names and any discoverable domain, job-board, or careers links.
-- Capture redirects, company slugs, and metadata that may reveal ATS provider hints.
-- Merge and deduplicate against role-query-source discoveries before ATS validation.
-
-Notes:
-- Sources in this group may expose either company-first discovery, job-first discovery, or both.
-- `crawler_company_discovery` should tolerate missing role filters on some community directories by treating them as supporting sources rather than the only source of truth for role relevance.
-
-### 5.4 Portfolio and Investor Directories
-
-Use public portfolio and investor directories as company-first discovery inputs for startup ecosystems where ATS-backed hiring is common, even when direct job signals are weaker than dedicated job boards.
-
-Preferred sources:
-
-| Website | Root URL | Path / Pattern to Lookup | Data type |
-|---|---|---|---|
-| Crunchbase | `crunchbase.com` | `/organization/:permalink` | Firmographics |
-| Techstars | `techstars.com` | `/portfolio` | Portfolio list |
-| 500 Global | `500.co` | `/startups/` | Portfolio list |
-| a16z | `a16z.com` | `/investment-list/` | Portfolio list |
-| Sequoia | `sequoiacap.com` | `/our-companies/` | Portfolio list |
-
-Expected behavior:
-- Extract at minimum the company name and any public website, domain, careers link, or company permalink that can support later ATS validation.
-- Treat these sources as company-first enrichment sources rather than direct proof of a matching open role.
-- Use identity roles to prioritize or filter follow-up ATS validation and downstream extraction, but do not require every portfolio source to natively support role search.
-
-Notes:
-- Portfolio directories are preferred `crawler_company_discovery` inputs when they expose enough public metadata to produce deduplicable company records.
-- If a portfolio source yields only firmographic metadata without usable company links, the crawler may record telemetry and skip the company for ATS validation in that run.
-
-### 5.5 Community Hiring Threads
-
-Use community hiring threads as opportunistic discovery sources for companies that may not be surfaced reliably by structured boards.
-
-Preferred sources:
-
-| Website | Root URL | Path / Pattern to Lookup | Note |
-|---|---|---|---|
-| Hacker News | `hn.algolia.com` | `/?query=Who%27s%20hiring&sort=byDate` | Search monthly `Who is Hiring` threads and extract company/hiring signals from thread content |
-
-Expected behavior:
-- Discover the current and recent `Who is Hiring` threads, then extract company names, careers URLs, domains, and role relevance from structured or semi-structured postings when feasible.
-- Treat thread-derived discoveries as lower-structure signals that must still pass normalization, deduplication, and ATS validation before downstream extraction.
-
-Notes:
-- Community-thread extraction is preferred but optional because post formatting and attribution quality may vary across runs.
-- When company identity cannot be resolved confidently from thread content, the crawler should preserve telemetry and skip ATS follow-up for that item.
-
-### 5.6 ATS Compatibility Validation
-
-Before slug dorking, validate whether a company appears compatible with Greenhouse, Lever, or Ashby.
-
-Validation target:
-- Company careers page (for example `/careers`, `/jobs`, or equivalent path from discovered links).
-
-Signature indicators to detect:
-
-| ATS | Indicators in careers HTML or links |
-|---|---|
-| Greenhouse | `grnh.io`, `boards.greenhouse.io` |
-| Lever | `jobs.lever.co`, `.lever-job` markers |
-| Ashby | `window.ashby` hints, `ashbyhq.com` links |
-
-Rules:
-- If ATS signatures are absent, keep company in discovery telemetry, log the reason, and skip extraction for that company in that run.
-- If multiple ATS hints appear, prioritize the strongest hosted-board signal and log ambiguity.
-- If careers content is client-rendered, optional headless rendering may be used under section 11 controls.
-
-### 5.7 ATS Slug Discovery
-
-To call ATS public APIs, the crawler needs the provider-specific company slug.
-
-Primary discovery method (search dorking):
-- Greenhouse query pattern: `site:boards.greenhouse.io "<Company Name>"`
-- Lever query pattern: `site:jobs.lever.co "<Company Name>"`
-- Ashby query pattern: `site:jobs.ashbyhq.com "<Company Name>"`
-
-Expected extraction:
-- Parse result URLs.
-- Extract the first path segment after host as slug.
-- Validate slug by requesting the provider API endpoint.
-
-Secondary method (direct hosted-board extraction):
-- If ATS compatibility validation already exposed a hosted-board URL, derive slug directly from that URL.
-- Validate slug by requesting the provider API endpoint.
-
-If slug cannot be resolved:
-- Log unresolved source with reason.
-- Skip source for this run.
-
-### 5.8 4dayweek Job URL Discovery
-
-Preferred strategy: sitemap traversal.
-
-Discovery steps:
-1. Fetch `https://4dayweek.io/sitemap.xml`.
-2. Resolve nested sitemaps if present.
-3. Extract URLs matching job pattern:
-   - `https://4dayweek.io/remote-job/{job-title-slug}-{id}`
-4. Deduplicate URLs before extraction.
-
-Fallback strategy: list-page crawl.
-- Start from `https://4dayweek.io/jobs`.
-- Use headless browser only if required by client-side pagination/infinite scroll.
-- Capture job detail URLs from loaded content or intercepted XHR payloads.
-
-### 5.9 End-to-End Discovery Workflow
+### 5.3 End-to-End Discovery Workflow
 
 Engineer-oriented sequence:
 1. Load `identity_id` and `identity.roles`.
@@ -363,9 +197,9 @@ Engineer-oriented sequence:
 8. Run ATS-backed crawler workflows from those triggers.
 9. Normalize, upsert, publish workflow progress, and optionally enqueue scoring payloads.
 
-### 5.10 Modular Workflow Contracts
+### 5.4 Modular Workflow Contracts
 
-The crawler is organized as independently triggerable workflows that can participate in one parent run or execute singularly by message.
+The crawler is organized as independently triggerable workflows that can participate in one parent run or execute singularly by message. Implementation details, processing logic, extraction strategies, and per-source behavior live in the owning workflow's submodule spec.
 
 #### Workflow Kind A: Crawler Workflows
 
@@ -386,93 +220,36 @@ Common output rules for crawler workflows:
 
 ##### `crawler_company_discovery`
 
-Input:
-- parent `run_id`
-- `workflow_run_id`
-- `identity_id`
-- `identities.roles`
+Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles`.
 
-Sources:
-- Role-query job boards and search sources: LinkedIn, Indeed, SimplyHired, Built In, Levels.fyi, Otta
-- Curated startup and job communities: Y Combinator, Wellfound, Work at a Startup
-- Portfolio and investor directories: Crunchbase, Techstars, 500 Global, a16z, Sequoia
-- Community hiring threads: Hacker News `Who is Hiring`
+DB writes: upsert into `companies` using canonicalized company name; preserve source attribution metadata.
 
-Source-specific output expectations:
-- Job-board and search sources should provide role-filtered hiring signals plus company names and source attribution.
-- Some role-query sources such as Levels.fyi may expose company-first public links without direct careers URLs; those discoveries remain valid output and may still be skipped later by enrichment if ATS prerequisites cannot be resolved.
-- Curated startup and job communities may provide company-first discovery, job-first discovery, or both.
-- Portfolio directories may only provide company metadata and public links sufficient for company creation and later ATS validation.
-- Community-thread sources may require extracting company identity from unstructured post text and should be treated as lower-structure inputs.
-
-Source policy:
-- These sources are preferred inputs, not a guarantee that identical adapters or extraction quality exist for every source.
-- A source may be enabled, skipped, or partially processed in a run depending on public accessibility, compliance posture, and whether it exposes enough company metadata for downstream enrichment.
-
-DB writes:
-- Upsert into `companies` using canonicalized company name.
-- Preserve source attribution metadata when available.
+See [`crawler_company_discovery/SPEC.md`](crawler_company_discovery/SPEC.md) for source families, adapter contract, company upsert semantics, and enrichment event output.
 
 ##### `crawler_ats_job_extraction`
 
-Input:
-- parent `run_id` when part of a larger crawl, or no parent `run_id` for singular message execution
-- `workflow_run_id`
-- `identity_id` for role filtering
-- ATS-job-trigger event or direct singular workflow trigger containing enough company identity plus ATS metadata to execute extraction
+Input: parent `run_id` (optional for singular execution), `workflow_run_id`, `identity_id`, ATS-job-trigger event or singular workflow trigger.
 
-Processing:
-- Load identity and extract `roles` list from identity document.
-- Call provider-specific ATS endpoints.
-- Normalize postings into the shared job schema.
-- **Validate each extracted job against identity roles before insertion** (see section 8.2 for role filtering rules).
-- Skip jobs that do not match any identity role.
+DB writes: upsert into `jobs` using (`platform`, `external_job_id`) only for jobs that pass role filtering; optionally enqueue scoring payload.
 
-DB writes:
-- Upsert into `jobs` using (`platform`, `external_job_id`) only for jobs that pass role filtering.
-- Update mutable fields and `updated_at` on recrawl.
-- Optionally enqueue scoring payload after successful write.
+Role filtering: each extracted job is validated against `identity.roles` before insertion. See [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) sections 5–6 for ATS provider endpoints and filtering rules.
 
 ##### `crawler_4dayweek`
 
-Input:
-- parent `run_id`
-- `workflow_run_id`
-- identity-scoped public crawl request fan-out
+Input: parent `run_id`, `workflow_run_id`, identity-scoped public crawl request fan-out.
 
-Processing:
-- Discover job URLs from 4dayweek sitemap or list pages.
-- Extract job and company details from JSON-LD or DOM fallback.
+DB writes: resolve/create company in `companies`; upsert job into `jobs` with `platform=4dayweek`.
 
-DB writes:
-- Resolve/create company in `companies`.
-- Upsert job into `jobs` with `platform=4dayweek`.
+See [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) for URL discovery strategy and extraction contract.
+
 ##### `crawler_levelsfyi`
 
-Input:
-- parent `run_id`
-- `workflow_run_id`
-- `identity_id`
-- `identities.roles` (loaded from identity document)
+Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles` (loaded from identity document).
 
-Processing:
-- Discover job cards from Levels.fyi search pages (`/jobs?searchText=...`) and taxonomy pages (`/jobs/title/{role-slug}`) using identity roles as query seeds.
-- Deduplicate cards by `external_job_id` (the `jobId` query parameter from job-detail URLs).
-- Fetch each job detail page (`/jobs?jobId=xxx`) for description, location, and compensation. Falls back to empty strings when the page is CSR-only.
-- Derive company name from `/companies/{slug}/salaries` anchor links in each card; use logo URL domain as fallback company domain hint.
-- Resolve or create company in `companies` using `upsert_companies` (same contract as other crawler workflows).
-- **Role filtering is NOT applied** in this workflow — it operates as a full-discovery crawler analogous to `crawler_4dayweek`.
-- Emit `CompanyDiscoveryEvent` for each newly inserted company or existing company that becomes newly actionable for ATS enrichment (no `ats_slug` after upsert).
-- Optionally enqueue scoring payload after successful job insert or update.
+DB writes: upsert into `companies`; upsert into `jobs` with `platform=levelsfyi`; stable dedup key: (`platform`, `external_job_id`).
 
-DB writes:
-- Upsert into `companies` using canonicalized company name.
-- Upsert into `jobs` (same collection used by `crawler_ats_job_extraction`) with `platform=levelsfyi`.
-- Stable dedup key: (`platform`, `external_job_id`).
+Role filtering is NOT applied in this workflow. See [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) for discovery strategy and job document details.
 
-`external_job_id` strategy for levelsfyi:
-- Parse the `jobId` query parameter from the job-detail URL (`/jobs?jobId=xxx`).
-- This key must remain stable across recrawls for dedup.
 #### Workflow Kind B: Enrichment Workflows
 
 Enrichment workflows consume company-discovery events, add ATS metadata, and emit follow-up job extraction triggers.
@@ -482,25 +259,15 @@ Stable enrichment workflow identifier:
 
 ##### `enrichment_ats_enrichment`
 
-Input:
-- parent `run_id` when part of a larger crawl, or no parent `run_id` for singular message execution
-- `workflow_run_id`
-- company-discovery event emitted by a crawler workflow
+Input: parent `run_id` (optional), `workflow_run_id`, company-discovery event.
 
-Processing:
-- Detect ATS compatibility from careers links/pages.
-- Resolve slug from hosted-board URLs or search dorking.
-- Validate provider/slug via provider API endpoint.
+DB writes: update company document with `ats_provider` and `ats_slug`.
 
-DB writes:
-- Update company document with:
-  - `ats_provider` (`greenhouse`, `lever`, `ashby`)
-  - `ats_slug` (provider-specific slug)
+Output: when both `ats_provider` and `ats_slug` become available, emit an ATS-job-trigger event for `crawler_ats_job_extraction`.
 
-Output contract:
-- When both `ats_provider` and `ats_slug` become available, emit an ATS-job-trigger event for `crawler_ats_job_extraction`.
+See [`enrichment_ats_enrichment/SPEC.md`](enrichment_ats_enrichment/SPEC.md) for ATS detection signatures, slug resolution sequence, and terminal failure recording.
 
-### 5.11 Workflow Triggering, Dependency, and Persistence Policy
+### 5.5 Workflow Triggering, Dependency, and Persistence Policy
 
 Triggering rules:
 - A public crawl request remains identity-scoped and starts the default UI-triggered workflow set under one parent `run_id`.
@@ -532,51 +299,11 @@ Persistence policy:
 
 ## 6. Extraction Contracts by Platform
 
-### 6.1 Greenhouse
+Platform-specific extraction logic (ATS provider endpoints, parsing strategies, `external_job_id` derivation) lives in the owning workflow's submodule spec:
 
-Endpoint:
-- `https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true`
-
-Requirements:
-- `content=true` is mandatory to retrieve full role content.
-- Extract at least title, location, content/body, external id, and canonical URL.
-
-### 6.2 Lever
-
-Endpoint:
-- `https://api.lever.co/v0/postings/{slug}`
-
-Requirements:
-- Parse modular sections (requirements, responsibilities, and related structures).
-- Preserve meaningful formatting in `description` while normalizing to one text field.
-
-### 6.3 Ashby
-
-Endpoint:
-- `https://api.ashbyhq.com/posting-api/job-board/{slug}`
-
-Requirements:
-- Extract title, location, description/body, compensation fields when present, apply/source URL, and stable job id.
-- Preserve structured optional fields as non-contractual metadata if stored.
-
-### 6.4 4dayweek.io
-
-Extraction order:
-1. Prefer JSON-LD in `<script type="application/ld+json">` with `JobPosting` schema.
-2. Fallback to DOM parsing when JSON-LD is absent/incomplete.
-
-Minimum extraction targets:
-- Title
-- Company name
-- Description/body
-- Location/remote signal
-- Salary or compensation when present
-- Canonical job URL
-
-`external_job_id` strategy for 4dayweek:
-- Primary: parse the terminal numeric id from job URL pattern `...-{id}`.
-- Fallback: if numeric id cannot be parsed, use a stable hash of the canonical `source_url` path.
-- This key must remain stable across recrawls for dedup.
+- Greenhouse, Lever, Ashby: [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) section 5
+- 4dayweek.io: [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) section 6
+- Levels.fyi: [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) sections 4–6
 
 ---
 
@@ -624,35 +351,14 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 
 ### 8.2 Role-Based Filtering Before Insertion
 
-Before inserting extracted jobs into the database, each job must be validated against the identity's roles to ensure relevance.
+Role filtering is a validation gate applied in `crawler_ats_job_extraction` only, before any `upsert_job` call. It is not applied in `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_4dayweek`, or `crawler_levelsfyi`.
 
-**Filtering scope**:
-- Applied in `crawler_ats_job_extraction`.
-- Workflows 1, 2, and 4 are not affected by role filtering.
+Full filtering mechanism, matching rules, and examples live in [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) section 6.
 
-**Filtering mechanism**:
-- Load the identity document using `identity_id` and extract the `roles` array (for example `["software engineer", "platform engineer"]`).
-- For each extracted job, check if the job's `title` or `description` contains any role keyword from `identity.roles`.
-- Matching is case-insensitive substring matching.
-- Job is accepted if ANY role keyword appears in title or description (OR logic).
-- Empty `roles` list accepts no jobs.
-
-**Filtering behavior**:
-- Jobs matching at least one role: proceed to deduplication and insertion.
-- Jobs not matching any role: skip insertion, log skipped reason, increment skip counter.
-- Empty `roles` list: emit zero ATS jobs for that execution (no inserts, no updates, no scoring enqueues).
-- No tombstone or skip marker is created for non-matching jobs.
-
-**Example**:
-- Identity roles: `["software engineer", "platform engineer"]`
-- Job 1 title: "Senior Software Engineer" → matches "software engineer" → accepted
-- Job 2 title: "Data Scientist" → does not match any role → skipped
-- Job 3 description: "...responsible for platform engineering tasks..." → matches "platform engineer" → accepted
-
-**Role matching rules**:
-- Matching is case-insensitive ("Software Engineer", "software engineer", "SOFTWARE ENGINEER" all match).
-- Substring matching is used ("engineer" as a role matches "engineering role" in description).
-- Both `title` and `description` fields are checked independently; job is accepted if either field contains any role keyword.
+Rules that apply everywhere:
+- Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
+- Role filtering state is not persisted downstream; it is a per-execution validation gate only.
+- Empty `roles` list on the identity: emit zero ATS jobs for that run (no inserts, no updates, no scoring enqueues).
 
 ---
 

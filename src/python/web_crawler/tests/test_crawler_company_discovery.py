@@ -7,7 +7,7 @@ from bson import ObjectId
 from src.python.web_crawler.company_resolver import build_company_document, canonicalize_company_name, upsert_companies
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
-from src.python.web_crawler.crawler_company_discovery_workflow import get_enabled_adapters, load_identity_seed, run_crawler_company_discovery
+from src.python.web_crawler.crawler_company_discovery.workflow import get_enabled_adapters, load_identity_seed, run_crawler_company_discovery
 
 
 class FakeInsertResult:
@@ -202,7 +202,7 @@ class CrawlerCompanyDiscoveryTests(unittest.TestCase):
         database = FakeDatabase({"identities": identities, "companies": companies})
         config = CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="cover_letter", enabled_sources=[])
 
-        from src.python.web_crawler import crawler_company_discovery_workflow as ccd_module
+        from src.python.web_crawler.crawler_company_discovery import workflow as ccd_module
 
         original_get_enabled_adapters = ccd_module.get_enabled_adapters
         ccd_module.get_enabled_adapters = lambda enabled_sources: [
@@ -240,7 +240,7 @@ class CrawlerCompanyDiscoveryTests(unittest.TestCase):
         database = FakeDatabase({"identities": identities, "companies": companies})
         config = CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="cover_letter", enabled_sources=[])
 
-        from src.python.web_crawler import crawler_company_discovery_workflow as ccd_module
+        from src.python.web_crawler.crawler_company_discovery import workflow as ccd_module
 
         original_adapters = ccd_module.get_enabled_adapters
         ccd_module.get_enabled_adapters = lambda enabled_sources: [
@@ -288,7 +288,7 @@ class CrawlerCompanyDiscoveryTests(unittest.TestCase):
         database = FakeDatabase({"identities": identities, "companies": companies})
         config = CrawlerConfig(mongo_host="mongodb://localhost:27017/", db_name="cover_letter", enabled_sources=[])
 
-        from src.python.web_crawler import crawler_company_discovery_workflow as ccd_module
+        from src.python.web_crawler.crawler_company_discovery import workflow as ccd_module
 
         original_adapters = ccd_module.get_enabled_adapters
         ccd_module.get_enabled_adapters = lambda enabled_sources: [
@@ -344,7 +344,7 @@ class FakeCompanyCollectionWithFilter(FakeCollection):
 
 class FindCompaniesMissingSlugTests(unittest.TestCase):
     def test_returns_ids_for_companies_without_slug(self):
-        from src.python.web_crawler.crawler_company_discovery_workflow import _find_companies_missing_slug
+        from src.python.web_crawler.crawler_company_discovery.workflow import _find_companies_missing_slug
 
         oid1 = ObjectId()
         oid2 = ObjectId()
@@ -359,14 +359,14 @@ class FindCompaniesMissingSlugTests(unittest.TestCase):
         self.assertNotIn(str(oid2), result)
 
     def test_returns_empty_for_empty_input(self):
-        from src.python.web_crawler.crawler_company_discovery_workflow import _find_companies_missing_slug
+        from src.python.web_crawler.crawler_company_discovery.workflow import _find_companies_missing_slug
 
         collection = FakeCompanyCollectionWithFilter()
         result = _find_companies_missing_slug(collection, [])
         self.assertEqual(result, [])
 
     def test_skips_invalid_object_ids(self):
-        from src.python.web_crawler.crawler_company_discovery_workflow import _find_companies_missing_slug
+        from src.python.web_crawler.crawler_company_discovery.workflow import _find_companies_missing_slug
 
         collection = FakeCompanyCollectionWithFilter()
         result = _find_companies_missing_slug(collection, ["not-an-id"])

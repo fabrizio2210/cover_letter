@@ -8,7 +8,7 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_company_discovery_workflow import (
+from src.python.web_crawler.crawler_company_discovery.workflow import (
     _WORKFLOW_ID,
     _emit_enrichment_events,
     run_crawler_company_discovery,

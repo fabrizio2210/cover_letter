@@ -14,7 +14,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
-from src.python.web_crawler.enrichment_ats_enrichment_workflow import run_enrichment_ats_enrichment
+from src.python.web_crawler.enrichment_ats_enrichment.workflow import run_enrichment_ats_enrichment
 from src.python.web_crawler.workflow_messages import (
     ats_job_trigger_event_to_json,
     parse_company_discovery_event,

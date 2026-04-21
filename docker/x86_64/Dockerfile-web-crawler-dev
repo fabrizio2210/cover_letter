@@ -32,4 +32,4 @@ RUN pip install watchdog
 WORKDIR /app
 
 # Command to run the web crawler worker with auto-reloading
-CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.web_crawler", "--worker"]
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.web_crawler.dispatcher.main", "--worker"]

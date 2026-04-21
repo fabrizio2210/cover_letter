@@ -9,7 +9,7 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_levelsfyi_workflow import (
+from src.python.web_crawler.crawler_levelsfyi.workflow import (
     _WORKFLOW_ID,
     _emit_enrichment_events,
     run_crawler_levelsfyi,

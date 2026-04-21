@@ -8,7 +8,7 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_ats_job_extraction_workflow import run_crawler_ats_job_extraction
+from src.python.web_crawler.crawler_ats_job_extraction.workflow import run_crawler_ats_job_extraction
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch

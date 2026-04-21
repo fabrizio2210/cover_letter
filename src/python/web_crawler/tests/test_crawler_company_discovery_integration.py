@@ -12,7 +12,7 @@ from pymongo.errors import OperationFailure
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
-from src.python.web_crawler.crawler_company_discovery_workflow import run_crawler_company_discovery
+from src.python.web_crawler.crawler_company_discovery.workflow import run_crawler_company_discovery
 
 
 class StubAdapter:
@@ -96,7 +96,7 @@ class CrawlerCompanyDiscoveryMongoIntegrationTests(unittest.TestCase):
         ]
 
         with patch(
-            "src.python.web_crawler.crawler_company_discovery_workflow.get_enabled_adapters",
+            "src.python.web_crawler.crawler_company_discovery.workflow.get_enabled_adapters",
             return_value=[StubAdapter(companies=first_run_companies)],
         ):
             result = run_crawler_company_discovery(self.database, self.config, str(self.identity_id))
@@ -133,7 +133,7 @@ class CrawlerCompanyDiscoveryMongoIntegrationTests(unittest.TestCase):
         ]
 
         with patch(
-            "src.python.web_crawler.crawler_company_discovery_workflow.get_enabled_adapters",
+            "src.python.web_crawler.crawler_company_discovery.workflow.get_enabled_adapters",
             return_value=[StubAdapter(companies=second_run_companies)],
         ):
             second_result = run_crawler_company_discovery(self.database, self.config, str(self.identity_id))
