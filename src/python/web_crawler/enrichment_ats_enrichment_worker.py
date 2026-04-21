@@ -12,7 +12,7 @@ import redis
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
-from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
+from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.enrichment_ats_enrichment_workflow import run_enrichment_ats_enrichment
 from src.python.web_crawler.workflow_messages import (
@@ -104,7 +104,7 @@ def _run_enrichment_for_event(
     workflow_run_id: str,
     identity_id: str,
     company_id: str,
-) -> EnrichmentAtsEnrichmentResult:
+) -> WorkflowResult:
     """Run ATS enrichment for a single company and dispatch extraction on success."""
     database = get_database(config)
     result = run_enrichment_ats_enrichment(database, config, company_ids=[company_id])

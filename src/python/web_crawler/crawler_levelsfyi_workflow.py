@@ -15,7 +15,7 @@ from src.python.web_crawler.company_resolver import (
     upsert_companies,
 )
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.models import CrawlerLevelsFyiResult, DiscoveredCompany
+from src.python.web_crawler.models import DiscoveredCompany, WorkflowResult
 from src.python.web_crawler.progress import utc_timestamp
 from src.python.web_crawler.sources.levelsfyi import LevelsFyiAdapter, LevelsFyiJobCard
 from src.python.web_crawler.workflow_messages import company_discovery_event_to_json
@@ -197,13 +197,13 @@ def run_crawler_levelsfyi(
     config: CrawlerConfig,
     identity_id: str,
     progress_callback: Callable[[int, int, str], None] | None = None,
-) -> CrawlerLevelsFyiResult:
+) -> WorkflowResult:
     """Run the crawler_levelsfyi workflow: discover jobs from Levels.fyi and upsert them."""
     identities_collection = database["identities"]
     companies_collection = database["companies"]
     jobs_collection = database["jobs"]
 
-    result = CrawlerLevelsFyiResult()
+    result = WorkflowResult()
 
     roles = _load_identity_roles(identities_collection, identity_id)
     if not roles:

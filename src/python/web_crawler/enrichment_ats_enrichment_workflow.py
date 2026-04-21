@@ -19,7 +19,7 @@ from src.python.web_crawler.executor import (
     ThreadSafeSessionPool,
     _detect_ats_worker,
 )
-from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
+from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.sources.ats_detector import ATSRequestFailure, detect_ats_provider
 from src.python.web_crawler.sources.ats_slug_resolver import resolve_direct_slug, resolve_slug_via_search_dorking
 
@@ -230,10 +230,10 @@ def run_enrichment_ats_enrichment(
     config: CrawlerConfig,
     company_ids: list[str] | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-) -> EnrichmentAtsEnrichmentResult:
+) -> WorkflowResult:
     companies_collection = database["companies"]
     companies = _load_companies(companies_collection, company_ids)
-    result = EnrichmentAtsEnrichmentResult()
+    result = WorkflowResult()
 
     total_companies = len(companies)
     completed_checks = 0

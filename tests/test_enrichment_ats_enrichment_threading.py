@@ -237,9 +237,9 @@ class TestEnrichmentAtsEnrichmentIntegration(unittest.TestCase):
 
     def test_enrichment_ats_enrichment_result_structure(self):
         """Test that enrichment_ats_enrichment returns correct result structure."""
-        from src.python.web_crawler.models import EnrichmentAtsEnrichmentResult
+        from src.python.web_crawler.models import WorkflowResult
         
-        result = EnrichmentAtsEnrichmentResult()
+        result = WorkflowResult()
         result.company_ids.append("test-id-1")
         result.company_ids.append("test-id-2")
         result.enriched_count = 1

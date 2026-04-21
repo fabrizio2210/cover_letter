@@ -8,7 +8,7 @@ import redis
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.company_resolver import deduplicate_companies, upsert_companies
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.models import CompanyDiscoveryResult
+from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.progress import utc_timestamp
 from src.python.web_crawler.sources.base import SourceAdapter
 from src.python.web_crawler.sources.hackernews import HackerNewsAdapter
@@ -64,7 +64,7 @@ def load_identity_seed(identities_collection, identity_id: str) -> common_pb2.Id
     return seed
 
 
-def run_crawler_company_discovery(database, config: CrawlerConfig, identity_id: str) -> CompanyDiscoveryResult:
+def run_crawler_company_discovery(database, config: CrawlerConfig, identity_id: str) -> WorkflowResult:
     identities_collection = database["identities"]
     companies_collection = database["companies"]
     seed = load_identity_seed(identities_collection, identity_id)
@@ -73,7 +73,7 @@ def run_crawler_company_discovery(database, config: CrawlerConfig, identity_id: 
     adapters = get_enabled_adapters(config.enabled_sources)
     logger.debug("enabled adapters: %s", [a.source_name for a in adapters])
 
-    result = CompanyDiscoveryResult()
+    result = WorkflowResult()
     discovered_companies = []
 
     for adapter in adapters:

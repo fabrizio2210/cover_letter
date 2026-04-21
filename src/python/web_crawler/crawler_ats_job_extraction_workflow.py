@@ -12,7 +12,7 @@ from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig, JOB_SCORING_QUEUE
-from src.python.web_crawler.models import CrawlerAtsJobExtractionResult
+from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
 from src.python.web_crawler.enrichment_ats_enrichment_workflow import _company_from_document
 
@@ -196,11 +196,11 @@ def run_crawler_ats_job_extraction(
     company_ids: list[str] | None = None,
     identity_id: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-) -> CrawlerAtsJobExtractionResult:
+) -> WorkflowResult:
     companies_collection = database["companies"]
     identities_collection = database["identities"]
     jobs_collection = database["jobs"]
-    result = CrawlerAtsJobExtractionResult()
+    result = WorkflowResult()
 
     # Load identity roles for filtering
     identity_roles = _load_identity_roles(identities_collection, identity_id) if identity_id else []

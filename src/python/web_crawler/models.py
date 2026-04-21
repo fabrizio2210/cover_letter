@@ -9,46 +9,21 @@ DiscoveredCompany = common_pb2.DiscoveredCompany
 
 
 @dataclass(slots=True)
-class CompanyDiscoveryResult:
+class WorkflowResult:
     discovered_count: int = 0
+    fetched_count: int = 0
+    enriched_count: int = 0
     inserted_count: int = 0
     updated_count: int = 0
-    skipped_count: int = 0
-    failed_sources: list[dict[str, str]] = field(default_factory=list)
-    company_ids: list[str] = field(default_factory=list)
-    enrichment_pending_company_ids: list[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class EnrichmentAtsEnrichmentResult:
-    enriched_count: int = 0
     skipped_count: int = 0
     failed_count: int = 0
+    enqueued_count: int = 0
+    enqueue_failed_count: int = 0
     ats_providers: dict[str, int] = field(default_factory=dict)
+    failed_sources: list[dict[str, str]] = field(default_factory=list)
     failed_companies: list[dict[str, str]] = field(default_factory=list)
+    failed_urls: list[dict[str, str]] = field(default_factory=list)
     company_ids: list[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class CrawlerAtsJobExtractionResult:
-    fetched_count: int = 0
-    inserted_count: int = 0
-    updated_count: int = 0
-    skipped_count: int = 0
-    enqueued_count: int = 0
-    enqueue_failed_count: int = 0
-    failed_companies: list[dict[str, str]] = field(default_factory=list)
-    job_ids: list[str] = field(default_factory=list)
-
-
-@dataclass(slots=True)
-class CrawlerLevelsFyiResult:
-    discovered_count: int = 0
-    inserted_count: int = 0
-    updated_count: int = 0
-    skipped_count: int = 0
-    enqueued_count: int = 0
-    enqueue_failed_count: int = 0
+    enrichment_pending_company_ids: list[str] = field(default_factory=list)
     job_ids: list[str] = field(default_factory=list)
     new_company_ids: list[str] = field(default_factory=list)
-    failed_urls: list[dict[str, str]] = field(default_factory=list)
