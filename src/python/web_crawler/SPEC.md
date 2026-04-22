@@ -217,6 +217,19 @@ Common output rules for crawler workflows:
 - Company outputs are resolved and upserted into `companies`.
 - Company-discovery events are emitted only when a company is newly inserted or when an existing company is updated such that its metadata becomes newly actionable for ATS enrichment.
 - A company is newly actionable for ATS enrichment when persisted metadata becomes sufficient for the enrichment workflow to attempt ATS validation or slug resolution, for example a first usable domain, careers URL, or hosted ATS URL.
+- Each crawler workflow must expose terminal workflow counters for dashboard visibility of the last completed parent run: `discovered_jobs` and `discovered_companies`.
+- `discovered_jobs` and `discovered_companies` are persisted-result counters only (`inserted + updated`) and must not include raw pre-filter candidates.
+- Workflow visibility counters must be non-negative integers.
+
+Workflow visibility counter mapping:
+- `crawler_company_discovery`: `discovered_companies` may be positive; `discovered_jobs` must be `0`.
+- `crawler_ats_job_extraction`: `discovered_jobs` may be positive; `discovered_companies` must be `0`.
+- `crawler_4dayweek`: both `discovered_jobs` and `discovered_companies` may be positive.
+- `crawler_levelsfyi`: both `discovered_jobs` and `discovered_companies` may be positive.
+
+Dashboard scope rule:
+- Dashboard workflow-visibility stats include only `crawler_` workflows from the latest completed parent run.
+- `enrichment_` workflows still publish normal progress and internal events but are excluded from this dashboard stat aggregation.
 
 ##### `crawler_company_discovery`
 
@@ -575,6 +588,7 @@ Rules:
 - Terminal `failed` events should include a short machine-readable `reason` and a human-readable `message`.
 - Clients must treat the most recent event per `workflow_run_id` as the authoritative live snapshot for that workflow contribution.
 - Multiple active workflow snapshots may coexist under one parent `run_id` and one `identity_id`.
+- Dashboard last-run workflow statistics are not inferred from `estimated_total` or `completed`; they are derived from terminal workflow counters defined in section 5.4 and exposed by the API contract.
 
 ### 11.3 Failure Tolerance
 

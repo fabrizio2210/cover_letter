@@ -159,7 +159,8 @@ export interface CrawlProgress {
     | 'crawler_company_discovery'
     | 'enrichment_ats_enrichment'
     | 'crawler_ats_job_extraction'
-    | 'crawler_4dayweek';
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
   identity_id: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
   workflow:
@@ -168,6 +169,7 @@ export interface CrawlProgress {
     | 'enrichment_ats_enrichment'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
+    | 'crawler_levelsfyi'
     | 'finalizing';
   message?: string;
   estimated_total: number;
@@ -191,6 +193,22 @@ export interface ScoringProgress {
   updated_at?: string | Timestamp;
   finished_at?: string | Timestamp | null;
   reason?: string;
+}
+
+export interface LastRunWorkflowStatsItem {
+  workflow_id:
+    | 'crawler_company_discovery'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
+  discovered_jobs: number;
+  discovered_companies: number;
+}
+
+export interface LastRunWorkflowStatsResponse {
+  run_id: string;
+  completed_at?: string | Timestamp | null;
+  workflows: LastRunWorkflowStatsItem[];
 }
 
 export interface FeedbackMessage {
@@ -266,10 +284,15 @@ Crawler and scoring progress are consumed from the backend, never directly from 
 Required frontend behavior:
 - Fetch an initial crawl snapshot from `GET /api/crawls/active` when Dashboard or Job Discovery loads.
 - Subscribe to `GET /api/crawls/stream` as a server-sent events stream for live updates.
+- Fetch latest completed crawler workflow visibility stats from `GET /api/crawls/last-run/workflow-stats` when Dashboard loads.
 - Fetch an initial scoring snapshot from `GET /api/scoring/active` when Job Discovery loads.
 - Subscribe to `GET /api/scoring/stream` as a server-sent events stream for live updates.
 - Filter stream events by the currently selected identity in Job Discovery.
 - Allow Dashboard to show active progress even when the user is not on Job Discovery.
+- Render Dashboard workflow visibility stats as identity-agnostic values from the latest completed run globally, independent of selected identity in Job Discovery.
+- Include only `crawler_` workflow rows/cards in the Dashboard visibility widget and exclude `enrichment_` workflows.
+- Display `discovered_jobs` and `discovered_companies` exactly as returned by the API, where values are persisted-result counters (`inserted + updated`).
+- Render an empty state for the Dashboard visibility widget when `run_id` is empty and `workflows` is an empty array.
 - Treat `completed`, `failed`, and `rejected` as terminal UI states.
 - Preserve distinct crawl workflow contributions by `workflow_run_id` rather than collapsing everything into one snapshot per identity.
 - Support multiple active crawl workflow items for one `identity_id` under the same parent `run_id`.
@@ -380,6 +403,7 @@ Notes:
 | POST | `/api/crawls` | `{ "identity_id": "<hex>" }` | `{ "message": "Crawl queued successfully", "run_id": "string", "identity_id": "string", "status": "queued" }` |
 | GET | `/api/crawls/active` | — | `CrawlProgress[]` |
 | GET | `/api/crawls/stream` | — | `text/event-stream` carrying `crawl-progress` events |
+| GET | `/api/crawls/last-run/workflow-stats` | — | `LastRunWorkflowStatsResponse` |
 
 Notes:
 - Job Discovery is the primary screen that starts crawls.
@@ -387,6 +411,7 @@ Notes:
 - The backend rejects a new crawl for an identity that already has an active run with HTTP `409`.
 - The stream event payload matches `CrawlProgress` exactly.
 - Dashboard and Job Discovery both listen for the same crawl-progress event shape.
+- Dashboard workflow visibility stats are loaded from the dedicated `GET /api/crawls/last-run/workflow-stats` endpoint and are intentionally separate from active progress stream payloads.
 
 ### 6.8 Scoring Progress
 

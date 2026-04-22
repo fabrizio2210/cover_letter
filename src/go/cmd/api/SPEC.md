@@ -366,6 +366,7 @@ Workflow values:
 - `enrichment_ats_enrichment`
 - `crawler_ats_job_extraction`
 - `crawler_4dayweek`
+- `crawler_levelsfyi`
 - `finalizing`
 
 Rules:
@@ -379,6 +380,7 @@ Rules:
 - `reason` is reserved for terminal diagnostics, for example `already_running` or a short failure code.
 - The API must treat the most recent event per `workflow_run_id` as the authoritative live snapshot for that workflow contribution.
 - The API may expose multiple active workflow contributions for one `run_id` and one `identity_id`.
+- Dashboard workflow visibility stats for the latest completed run are served by a dedicated endpoint in section 7.7 and are not inferred from `estimated_total`/`completed` progress units.
 
 ### 5.6 `scoring_progress_channel`
 
@@ -995,6 +997,56 @@ Rules:
 - Multiple entries may exist for the same `run_id` and `identity_id` when multiple workflows are active.
 - The API should preserve distinct workflow contributions by `workflow_run_id`.
 - Filtering by `identity_id` may be supported via query string when only one identity view is needed.
+
+#### `GET /api/crawls/last-run/workflow-stats`
+Auth: required.
+Response `200`: latest completed parent crawl run workflow stats for dashboard visibility.
+
+```json
+{
+  "run_id": "<latest completed parent crawl run id>",
+  "completed_at": { "seconds": 1711234600, "nanos": 0 },
+  "workflows": [
+    {
+      "workflow_id": "crawler_company_discovery",
+      "discovered_jobs": 0,
+      "discovered_companies": 42
+    },
+    {
+      "workflow_id": "crawler_levelsfyi",
+      "discovered_jobs": 18,
+      "discovered_companies": 18
+    },
+    {
+      "workflow_id": "crawler_4dayweek",
+      "discovered_jobs": 6,
+      "discovered_companies": 6
+    },
+    {
+      "workflow_id": "crawler_ats_job_extraction",
+      "discovered_jobs": 27,
+      "discovered_companies": 0
+    }
+  ]
+}
+```
+
+Response `200` when no completed run exists yet:
+
+```json
+{
+  "run_id": "",
+  "completed_at": null,
+  "workflows": []
+}
+```
+
+Rules:
+- This endpoint is identity-agnostic and does not accept identity filters.
+- `run_id` refers to the latest completed parent crawl run globally across identities.
+- Only workflows with ids prefixed by `crawler_` are returned; `enrichment_` workflows are excluded.
+- `discovered_jobs` and `discovered_companies` are persisted-result counters (`inserted + updated`) and are non-negative integers.
+- Workflows should be returned in stable display order: `crawler_company_discovery`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
 
 #### `GET /api/crawls/stream`
 Auth: required.

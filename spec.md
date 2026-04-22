@@ -161,9 +161,18 @@ Default redirect: `/dashboard` renders the overview directly (no longer redirect
 - Job Discovery page: ranked feed, filter chips, Re-Rank trigger, identity selector, manual crawl trigger, crawler-status widget with progress bar and live phase updates, per-identity discovery settings panel; company details and open positions are shown when a job is selected;
 - Identity preference editing: weight bars per preference, "Add Preference" action, Global Curator Preferences section (writing tone, discovery interval, AI creativity);
 - Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
-- Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), scrollable Top Scored Opportunities feed, and live crawler progress for the currently active identity run;
+- Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), scrollable Top Scored Opportunities feed, live crawler progress for the currently active identity run, and a last-completed-run workflow stats widget that shows discovered jobs and discovered companies for each `crawler_` workflow;
 - Recipients page refinements (sorting/filtering and lifecycle actions);
 - Settings page hosting Fields management.
+
+Dashboard workflow-visibility rules:
+- The workflow stats widget always targets the latest completed parent crawl run globally, independent of identity.
+- Only `crawler_` workflows are included in this widget; `enrichment_` workflows are excluded.
+- For each included workflow, the dashboard shows:
+	- `discovered_jobs`
+	- `discovered_companies`
+- `discovered_*` values represent persisted results only (`inserted + updated`), not raw pre-filter discovery candidates.
+- If no completed crawl run exists yet, the widget shows an empty state.
 
 ### Future features (no mock-up yet)
 - OTP-based login flow;
