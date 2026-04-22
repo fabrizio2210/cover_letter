@@ -7,7 +7,7 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, ScoringProgress } from './models/models';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, ScoringProgress } from './models/models';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
 type ProgressSource = 'crawl' | 'scoring';
@@ -37,7 +37,9 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
-  jobs: JobDescription[] = [];
+  rawJobs: JobDescription[] = [];
+  jobScores: JobPreferenceScore[] = [];
+  jobs: ScoredJobDescription[] = [];
   identities: Identity[] = [];
   hiddenJobIds = new Set<string>();
   selectedJobId = '';
@@ -94,23 +96,17 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
     forkJoin({
       jobs: this.api.getJobDescriptions(),
+      scores: this.api.getJobPreferenceScores(),
       identities: this.api.getIdentities(),
       activeCrawls: this.api.getActiveCrawls(),
       activeScoring: this.api.getActiveScoring(),
     }).subscribe({
-      next: ({ jobs, identities, activeCrawls, activeScoring }) => {
-        this.jobs = jobs || [];
+      next: ({ jobs, scores, identities, activeCrawls, activeScoring }) => {
+        this.rawJobs = jobs || [];
+        this.jobScores = scores || [];
         this.identities = identities || [];
         this.setCrawlSnapshots(activeCrawls || []);
         this.setScoringSnapshots(activeScoring || []);
-
-        if (this.jobs.length > 0) {
-          if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
-            this.selectedJobId = this.jobs[0].id;
-          }
-        } else {
-          this.selectedJobId = '';
-        }
 
         const availableIdentityIds = this.identities.map((identity) => identity.id).filter(Boolean);
         const resolvedIdentityId = this.identityContext.ensureValidIdentityId(availableIdentityIds, this.selectedIdentityId);
@@ -118,6 +114,8 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         if (this.routeIdentityId !== resolvedIdentityId) {
           this.updateIdentityQueryParam(resolvedIdentityId);
         }
+
+        this.applyScoresToJobs();
 
         this.loading = false;
       },
@@ -128,7 +126,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     });
   }
 
-  get filteredJobs(): JobDescription[] {
+  get filteredJobs(): ScoredJobDescription[] {
     return this.jobs
       .filter((job) => !this.hiddenJobIds.has(job.id))
       .filter((job) => this.matchesIdentity(job))
@@ -136,7 +134,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       .filter((job) => this.passesScoreFilter(job))
       .filter((job) => this.matchesSearch(job))
       .filter((job) => !this.remoteOnly || this.isRemote(job.location))
-      .sort((a, b) => (b.weighted_score || 0) - (a.weighted_score || 0));
+      .sort((a, b) => this.getScoreValue(b) - this.getScoreValue(a));
   }
 
   get activeCompanyLabel(): string {
@@ -163,7 +161,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return this.jobs.filter((job) => this.matchesIdentity(job)).length;
   }
 
-  get selectedJob(): JobDescription | null {
+  get selectedJob(): ScoredJobDescription | null {
     if (!this.selectedJobId) {
       return this.filteredJobs[0] || null;
     }
@@ -377,21 +375,21 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     });
   }
 
-  rerankSingleJob(job: JobDescription): void {
+  rerankSingleJob(job: ScoredJobDescription): void {
     this.api.scoreJobDescription(job.id).subscribe({
       next: () => this.feedbackService.showFeedback(`Scoring queued for ${job.title}.`),
       error: () => this.feedbackService.showFeedback(`Failed to queue scoring for ${job.title}.`, true)
     });
   }
 
-  prepareCoverLetter(job: JobDescription): void {
+  prepareCoverLetter(job: ScoredJobDescription): void {
     this.router.navigate(['/dashboard/cover-letters'], {
       queryParams: { jobId: job.id }
     });
     this.feedbackService.showFeedback(`Opened cover letters for ${job.title}.`);
   }
 
-  markAsNotInterested(job: JobDescription): void {
+  markAsNotInterested(job: ScoredJobDescription): void {
     this.hiddenJobIds.add(job.id);
 
     if (this.selectedJobId === job.id) {
@@ -402,17 +400,19 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.feedbackService.showFeedback(`Hidden ${job.title} from this view.`);
   }
 
-  selectJob(job: JobDescription): void {
+  selectJob(job: ScoredJobDescription): void {
     this.selectedJobId = job.id;
     this.focusSelectedOpportunity();
   }
 
-  isSelectedJob(job: JobDescription): boolean {
+  isSelectedJob(job: ScoredJobDescription): boolean {
     return this.selectedJob?.id === job.id;
   }
 
-  getFirstRationale(job: JobDescription): string {
-    const rationale = job.scores?.find((score) => score.rationale)?.rationale;
+  getFirstRationale(job: ScoredJobDescription): string {
+    const rationale = job.score?.preference_scores
+      .find((preferenceScore) => preferenceScore.rationale)
+      ?.rationale;
     return rationale || 'No rationale available yet. Trigger reranking to enrich this job.';
   }
 
@@ -463,10 +463,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.selectedIdentityId = normalizedIdentityId;
     this.identityContext.setSelectedIdentityId(normalizedIdentityId);
     this.updateIdentityQueryParam(normalizedIdentityId);
+    this.applyScoresToJobs();
   }
 
-  private passesScoreFilter(job: JobDescription): boolean {
-    const score = Number(job.weighted_score ?? 0);
+  private passesScoreFilter(job: ScoredJobDescription): boolean {
+    const score = this.getScoreValue(job);
     const threshold = this.scoreThreshold;
 
     switch (this.scoreFilterMode) {
@@ -479,7 +480,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     }
   }
 
-  private matchesCompany(job: JobDescription): boolean {
+  private matchesCompany(job: ScoredJobDescription): boolean {
     if (!this.selectedCompanyId) {
       return true;
     }
@@ -487,12 +488,12 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return this.getJobCompanyId(job) === this.selectedCompanyId;
   }
 
-  private matchesIdentity(job: JobDescription): boolean {
+  private matchesIdentity(job: ScoredJobDescription): boolean {
     if (!this.selectedIdentityId) {
       return true;
     }
 
-    if ((job.scores || []).some((score) => score.identity_id === this.selectedIdentityId)) {
+    if (job.score?.identity_id === this.selectedIdentityId) {
       return true;
     }
 
@@ -511,7 +512,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return companyFieldId === identityFieldId;
   }
 
-  private matchesSearch(job: JobDescription): boolean {
+  private matchesSearch(job: ScoredJobDescription): boolean {
     if (!this.searchQuery.trim()) {
       return true;
     }
@@ -571,8 +572,46 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     });
   }
 
-  private getJobCompanyId(job: JobDescription): string {
+  private getJobCompanyId(job: ScoredJobDescription): string {
     return job.company_info?.id || job.company_id || '';
+  }
+
+  private getScoreValue(job: ScoredJobDescription): number {
+    return Number(job.score?.weighted_score ?? 0);
+  }
+
+  private getPreferredScoreForJob(jobId: string): JobPreferenceScore | null {
+    const scores = this.jobScores.filter((score) => score.job_id === jobId);
+    if (scores.length === 0) {
+      return null;
+    }
+
+    if (this.selectedIdentityId) {
+      return scores.find((score) => score.identity_id === this.selectedIdentityId) || null;
+    }
+
+    return scores.reduce<JobPreferenceScore | null>((best, current) => {
+      if (!best) {
+        return current;
+      }
+      return (current.weighted_score || 0) > (best.weighted_score || 0) ? current : best;
+    }, null);
+  }
+
+  private applyScoresToJobs(): void {
+    this.jobs = this.rawJobs.map((job) => ({
+      ...job,
+      score: this.getPreferredScoreForJob(job.id),
+    }));
+
+    if (this.jobs.length > 0) {
+      if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
+        this.selectedJobId = this.jobs[0].id;
+      }
+      return;
+    }
+
+    this.selectedJobId = '';
   }
 
   private finishRerank(completed: number, failed: number): void {

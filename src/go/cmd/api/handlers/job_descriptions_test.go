@@ -14,35 +14,23 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func TestGetJobDescriptions_NormalizesIDsAndScores(t *testing.T) {
+func TestGetJobDescriptions_NormalizesIDsWithoutScores(t *testing.T) {
 	jobID := primitive.NewObjectID()
 	companyID := primitive.NewObjectID()
-	scoreID := primitive.NewObjectID()
-	identityID := primitive.NewObjectID()
 
 	jobsCollection := &fakeCollection{docs: []bson.M{{
-		"_id":            jobID,
-		"company_id":     companyID,
-		"title":          "Platform Engineer",
-		"weighted_score": 4.5,
+		"_id":        jobID,
+		"company_id": companyID,
+		"title":      "Platform Engineer",
 		"companyInfo": bson.M{
 			"_id":   companyID,
 			"name":  "Acme",
 			"field": "engineering",
 		},
 	}}}
-	scoresCollection := &fakeCollection{docs: []bson.M{{
-		"_id":                 scoreID,
-		"job_id":              jobID,
-		"identity_id":         identityID,
-		"preference_key":      "remote_work",
-		"preference_guidance": "Remote work",
-		"score":               5,
-	}}}
 
 	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{
-		"job-descriptions":      jobsCollection,
-		"job-preference-scores": scoresCollection,
+		"job-descriptions": jobsCollection,
 	}}
 	fakeClient := &fakeClient{db: fakeDB}
 
@@ -63,14 +51,53 @@ func TestGetJobDescriptions_NormalizesIDsAndScores(t *testing.T) {
 	companyInfo, ok := resp[0]["company_info"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, companyID.Hex(), companyInfo["id"])
+	_, hasScores := resp[0]["scores"]
+	require.False(t, hasScores)
+}
 
-	scores, ok := resp[0]["scores"].([]interface{})
-	require.True(t, ok)
-	require.Len(t, scores, 1)
-	score, ok := scores[0].(map[string]interface{})
-	require.True(t, ok)
-	require.Equal(t, scoreID.Hex(), score["id"])
-	require.Equal(t, identityID.Hex(), score["identity_id"])
+func TestGetJobPreferenceScores_NormalizesIDs(t *testing.T) {
+	jobID := primitive.NewObjectID()
+	scoreID := primitive.NewObjectID()
+	identityID := primitive.NewObjectID()
+
+	scoresCollection := &fakeCollection{docs: []bson.M{{
+		"_id":            scoreID,
+		"job_id":         jobID.Hex(),
+		"identity_id":    identityID.Hex(),
+		"scoring_status": "scored",
+		"weighted_score": 4.5,
+		"max_score":      10,
+		"preference_scores": bson.A{
+			bson.M{
+				"preference_key":      "remote_work",
+				"preference_guidance": "Remote work",
+				"score":               5,
+			},
+		},
+	}}}
+
+	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{
+		"job-preference-scores": scoresCollection,
+	}}
+	fakeClient := &fakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/job-preference-scores?job_id="+jobID.Hex()+"&identity_id="+identityID.Hex(), nil)
+	ctx, w := thelpers.CreateGinTestContext(http.MethodGet, "/api/job-preference-scores", req)
+
+	GetJobPreferenceScores(ctx)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var resp []map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp, 1)
+	require.Equal(t, scoreID.Hex(), resp[0]["id"])
+	require.Equal(t, jobID.Hex(), resp[0]["job_id"])
+	require.Equal(t, identityID.Hex(), resp[0]["identity_id"])
+	require.Equal(t, "scored", resp[0]["scoring_status"])
 }
 
 func TestGetJobDescription_NotFound(t *testing.T) {
@@ -97,16 +124,14 @@ func TestGetJobDescriptions_FallsBackToLegacyJobsCollection(t *testing.T) {
 
 	jobDescriptionsCollection := &fakeCollection{docs: []bson.M{}}
 	legacyJobsCollection := &fakeCollection{docs: []bson.M{{
-		"_id":            jobID,
-		"company_id":     companyID,
-		"title":          "Legacy Job",
-		"weighted_score": 0.0,
+		"_id":        jobID,
+		"company_id": companyID,
+		"title":      "Legacy Job",
 	}}}
 
 	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{
-		"job-descriptions":      jobDescriptionsCollection,
-		"jobs":                  legacyJobsCollection,
-		"job-preference-scores": &fakeCollection{docs: []bson.M{}},
+		"job-descriptions": jobDescriptionsCollection,
+		"jobs":             legacyJobsCollection,
 	}}
 	fakeClient := &fakeClient{db: fakeDB}
 

@@ -114,7 +114,7 @@ Identities also store weighted job preferences. These preferences are used by th
 Collections are linked through document IDs:
 - recipients link to companies;
 - job descriptions link to companies;
-- job-preference scores link to job descriptions and identities;
+- job-preference scores link to job descriptions and identities, with one `job-preference-scores` document per `(job_id, identity_id)` and embedded per-preference results;
 - cover letters link to recipients;
 - companies and identities link to fields.
 

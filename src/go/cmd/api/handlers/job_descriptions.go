@@ -77,36 +77,30 @@ func normalizeScoreDoc(score bson.M) {
 	if identityID, ok := normalizeObjectIDValue(score["identity_id"]); ok {
 		score["identity_id"] = identityID
 	}
-}
 
-func getJobScoresByID(client MongoClientIface, dbName string, jobID primitive.ObjectID) []bson.M {
-	scoreCollection := client.Database(dbName).Collection("job-preference-scores")
-	pipeline := bson.A{
-		bson.M{"$match": bson.M{"$or": bson.A{
-			bson.M{"job_id": jobID},
-			bson.M{"job_id": jobID.Hex()},
-		}}},
+	var rawPreferenceScores []interface{}
+	switch v := score["preference_scores"].(type) {
+	case bson.A:
+		rawPreferenceScores = v
+	case []interface{}:
+		rawPreferenceScores = v
+	default:
+		return
 	}
 
-	cursor, err := scoreCollection.Aggregate(context.Background(), pipeline)
-	if err != nil {
-		return []bson.M{}
-	}
-	defer cursor.Close(context.Background())
-
-	scores := []bson.M{}
-	for cursor.Next(context.Background()) {
-		var score bson.M
-		if err := cursor.Decode(&score); err != nil {
+	preferenceScores := make([]bson.M, 0, len(rawPreferenceScores))
+	for _, raw := range rawPreferenceScores {
+		pref, ok := raw.(bson.M)
+		if !ok {
 			continue
 		}
-		normalizeScoreDoc(score)
-		scores = append(scores, score)
+		preferenceScores = append(preferenceScores, pref)
 	}
-	return scores
+
+	score["preference_scores"] = preferenceScores
 }
 
-func normalizeJobDoc(doc bson.M, client MongoClientIface, dbName string) bson.M {
+func normalizeJobDoc(doc bson.M) bson.M {
 	if id, ok := normalizeObjectIDValue(doc["_id"]); ok {
 		doc["id"] = id
 		delete(doc, "_id")
@@ -121,17 +115,76 @@ func normalizeJobDoc(doc bson.M, client MongoClientIface, dbName string) bson.M 
 		delete(doc, "companyInfo")
 	}
 
-	if idStr, ok := doc["id"].(string); ok {
-		if jobObjID, err := primitive.ObjectIDFromHex(idStr); err == nil {
-			doc["scores"] = getJobScoresByID(client, dbName, jobObjID)
-		}
-	}
-
-	if _, hasScores := doc["scores"]; !hasScores {
-		doc["scores"] = []bson.M{}
-	}
-
 	return doc
+}
+
+func jobPreferenceScoresCollection() (MongoCollectionIface, string) {
+	client := GetMongoClient()
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+	return client.Database(dbName).Collection("job-preference-scores"), dbName
+}
+
+func loadNormalizedScoreDocs(scoreCollection MongoCollectionIface, match bson.M) ([]bson.M, error) {
+	pipeline := bson.A{}
+	if len(match) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": match})
+	}
+
+	cursor, err := scoreCollection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	scores := []bson.M{}
+	for cursor.Next(context.Background()) {
+		var score bson.M
+		if err := cursor.Decode(&score); err != nil {
+			return nil, err
+		}
+		normalizeScoreDoc(score)
+		scores = append(scores, score)
+	}
+
+	if scores == nil {
+		scores = []bson.M{}
+	}
+
+	return scores, nil
+}
+
+// GetJobPreferenceScores fetches score documents, optionally filtered by job_id and identity_id.
+func GetJobPreferenceScores(c *gin.Context) {
+	jobID := strings.TrimSpace(c.Query("job_id"))
+	identityID := strings.TrimSpace(c.Query("identity_id"))
+
+	match := bson.M{}
+	if jobID != "" {
+		if _, err := primitive.ObjectIDFromHex(jobID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid job_id"})
+			return
+		}
+		match["job_id"] = jobID
+	}
+	if identityID != "" {
+		if _, err := primitive.ObjectIDFromHex(identityID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identity_id"})
+			return
+		}
+		match["identity_id"] = identityID
+	}
+
+	scoreCollection, _ := jobPreferenceScoresCollection()
+	scores, err := loadNormalizedScoreDocs(scoreCollection, match)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job preference scores"})
+		return
+	}
+
+	c.JSON(http.StatusOK, scores)
 }
 
 func collectionHasDocuments(collection MongoCollectionIface) bool {
@@ -163,9 +216,9 @@ func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string
 	return jobDescriptions, client, dbName
 }
 
-// GetJobDescriptions fetches all job descriptions and enriches them with company info and scores.
+// GetJobDescriptions fetches all job descriptions and enriches them with company info.
 func GetJobDescriptions(c *gin.Context) {
-	collection, client, dbName := jobDescriptionsCollection()
+	collection, _, _ := jobDescriptionsCollection()
 
 	pipeline := bson.A{
 		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company_id", "foreignField": "_id", "as": "companyInfo"}},
@@ -186,7 +239,7 @@ func GetJobDescriptions(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode job descriptions"})
 			return
 		}
-		jobs = append(jobs, normalizeJobDoc(doc, client, dbName))
+		jobs = append(jobs, normalizeJobDoc(doc))
 	}
 
 	if jobs == nil {
@@ -205,7 +258,7 @@ func GetJobDescription(c *gin.Context) {
 		return
 	}
 
-	collection, client, dbName := jobDescriptionsCollection()
+	collection, _, _ := jobDescriptionsCollection()
 	pipeline := bson.A{
 		bson.M{"$match": bson.M{"_id": objID}},
 		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company_id", "foreignField": "_id", "as": "companyInfo"}},
@@ -230,7 +283,7 @@ func GetJobDescription(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, normalizeJobDoc(doc, client, dbName))
+	c.JSON(http.StatusOK, normalizeJobDoc(doc))
 }
 
 type createJobRequest struct {
@@ -309,8 +362,6 @@ func CreateJobDescription(c *gin.Context) {
 		"source_url":      req.SourceURL,
 		"created_at":      now,
 		"updated_at":      now,
-		"scoring_status":  "unscored",
-		"weighted_score":  0.0,
 	}
 	if companyObjID != nil {
 		insertDoc["company_id"] = *companyObjID
@@ -351,7 +402,7 @@ func CreateJobDescription(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, normalizeJobDoc(doc, client, dbName))
+	c.JSON(http.StatusCreated, normalizeJobDoc(doc))
 }
 
 type updateJobRequest struct {
@@ -466,12 +517,6 @@ func ScoreJobDescription(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue scoring"})
 		return
 	}
-
-	_, _ = collection.UpdateOne(
-		context.Background(),
-		bson.M{"_id": objID},
-		bson.M{"$set": bson.M{"scoring_status": "queued", "updated_at": nowTimestampObject()}},
-	)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Scoring queued successfully"})
 }

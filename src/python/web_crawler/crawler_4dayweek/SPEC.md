@@ -62,7 +62,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Resolve or create company in `companies` using canonicalized company name.
 - Validate extracted jobs against `identity.roles` before persistence; skip non-matching jobs.
 - Upsert matching jobs into `jobs` with `platform = "4dayweek"` and dedup key `(platform, external_job_id)`.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME` and update `scoring_status` to `"queued"` (or `"failed"` on enqueue error).
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 - Publish `running` → `completed` / `failed` progress snapshots.
 - Role filtering is required before any job upsert.
 

@@ -88,8 +88,6 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
             self.fail("expected job document to be inserted")
         self.assertEqual(doc["title"], "Integration Test Role")
         self.assertEqual(doc["company_id"], self.company_id)
-        self.assertEqual(doc["scoring_status"], "unscored")
-        self.assertEqual(doc["weighted_score"], 0)
         self.assertIn("seconds", doc["created_at"])
         self.assertIn("seconds", doc["updated_at"])
 

@@ -101,8 +101,6 @@ job_description = {
     'description': 'Build backend services and distributed systems for remote teams.',
     'location': 'Remote',
     'platform': 'lever',
-    'scoring_status': 'unscored',
-    'weighted_score': 0.0,
     'created_at': {'seconds': 1704067200, 'nanos': 0},
     'updated_at': {'seconds': 1704067200, 'nanos': 0},
 }

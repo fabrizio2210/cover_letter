@@ -55,8 +55,8 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - For each company call `fetch_jobs(provider, slug, config, session)` from `sources/ats_job_fetcher.py`.
 - Filter each returned job with `_job_matches_roles(job, identity_roles)` — case-insensitive substring match against `title` and `description`; skip non-matching jobs.
 - Upsert matching jobs into `database["jobs"]` via `upsert_job`; deduplication key is `(platform, external_job_id)`.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1` and Redis is available: push `{"job_id": "<hex>"}` to the scoring queue and update `scoring_status` to `"queued"`; on enqueue failure set `scoring_status` to `"failed"`.
-- New jobs are inserted with `scoring_status = "unscored"` and `weighted_score = 0`.
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1` and Redis is available: push `{"job_id": "<hex>"}` to the scoring queue.
+- New jobs are inserted without score-bearing fields; identity-scoped score lifecycle belongs to `job-preference-scores`.
 - Report progress via `progress_callback` when supplied.
 - Publish `running` → `completed` / `failed` progress snapshots per dispatch message.
 
@@ -126,8 +126,6 @@ Jobs are stored in the `jobs` collection:
   company_id:      ObjectId,
   created_at:      { seconds, nanos },
   updated_at:      { seconds, nanos },
-  scoring_status:  "unscored" | "queued" | "scored" | "failed" | "skipped",
-  weighted_score:  0,
 }
 ```
 
@@ -139,8 +137,7 @@ Upsert on `{platform, external_job_id}`: inserts on first sight, updates `title`
 
 Enabled via `config.enable_scoring_enqueue`. When active:
 1. After a successful job upsert, push `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
-2. On success: update `scoring_status = "queued"`.
-3. On Redis push failure: update `scoring_status = "failed"`, log WARNING, continue.
+2. On Redis push failure: log WARNING and continue.
 
 ---
 

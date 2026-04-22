@@ -270,40 +270,40 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertNotIn("Preference Key:", prompt_text)
         self.assertNotIn("Preference Weight:", prompt_text)
 
-    def test_compute_and_persist_aggregate_updates_job_document(self):
+    def test_compute_and_persist_aggregate_updates_score_document(self):
         job_id = ObjectId()
         identity_id = ObjectId()
 
-        jobs = FakeCollection(docs=[{"_id": job_id, "scoring_status": "queued"}])
         scores = FakeCollection(
             docs=[
                 {
                     "job_id": str(job_id),
                     "identity_id": str(identity_id),
-                    "preference_key": "remote",
-                    "preference_weight": 2.0,
-                    "score": 5,
-                },
-                {
-                    "job_id": str(job_id),
-                    "identity_id": str(identity_id),
-                    "preference_key": "coding",
-                    "preference_weight": 1.0,
-                    "score": 3,
+                    "preference_scores": [
+                        {
+                            "preference_key": "remote",
+                            "preference_weight": 2.0,
+                            "score": 5,
+                        },
+                        {
+                            "preference_key": "coding",
+                            "preference_weight": 1.0,
+                            "score": 3,
+                        },
+                    ],
                 },
             ]
         )
 
-        compute_and_persist_aggregate(jobs, scores, {"_id": job_id}, {"_id": identity_id})
+        compute_and_persist_aggregate(scores, {"_id": job_id}, {"_id": identity_id})
 
-        updated = jobs.find_one({"_id": job_id})
+        updated = scores.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
         self.assertIsNotNone(updated)
         if updated is None:
-            self.fail("Expected updated job document")
+            self.fail("Expected updated score document")
         self.assertEqual(updated.get("scoring_status"), "scored")
         self.assertAlmostEqual(updated.get("weighted_score"), (5 * (2 / 10)) + (3 * (1 / 10)))
         self.assertEqual(updated.get("max_score"), 10)
-        self.assertIsInstance(updated.get("updated_at"), dict)
 
     def test_process_scoring_job_success_path(self):
         field_id = ObjectId()
@@ -320,7 +320,6 @@ class AiScorerUnitTests(unittest.TestCase):
                     "description": "distributed systems",
                     "location": "Remote",
                     "platform": "lever",
-                    "scoring_status": "unscored",
                 }
             ]
         )
@@ -349,7 +348,7 @@ class AiScorerUnitTests(unittest.TestCase):
             ]
         )
         score_docs = FakeCollection()
-        scoring_run_manager = ScoringRunManager(jobs, companies)
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
 
         process_scoring_job(
             job_id=str(job_id),
@@ -365,17 +364,97 @@ class AiScorerUnitTests(unittest.TestCase):
             test_mode=True,
         )
 
-        job = jobs.find_one({"_id": job_id})
-        self.assertIsNotNone(job)
-        if job is None:
-            self.fail("Expected scored job document")
-        self.assertEqual(job.get("scoring_status"), "scored")
-        self.assertEqual(job.get("max_score"), 10)
-
-        stored_scores = score_docs.find({"job_id": str(job_id), "identity_id": str(identity_id)})
-        self.assertEqual(len(stored_scores), 2)
-        for score in stored_scores:
+        stored_score = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored_score)
+        if stored_score is None:
+            self.fail("Expected identity score document")
+        self.assertEqual(stored_score.get("scoring_status"), "scored")
+        self.assertEqual(stored_score.get("max_score"), 10)
+        preference_scores = stored_score.get("preference_scores")
+        self.assertIsInstance(preference_scores, list)
+        if not isinstance(preference_scores, list):
+            self.fail("Expected preference_scores list")
+        self.assertEqual(len(preference_scores), 2)
+        for score in preference_scores:
             self.assertIn("scored_at", score)
+
+    def test_process_scoring_job_rescore_updates_single_doc(self):
+        field_id = ObjectId()
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[
+                {
+                    "_id": job_id,
+                    "company": company_id,
+                    "title": "Platform Engineer",
+                    "description": "distributed systems",
+                    "location": "Remote",
+                    "platform": "lever",
+                }
+            ]
+        )
+        companies = FakeCollection(
+            docs=[
+                {
+                    "_id": company_id,
+                    "field": field_id,
+                    "name": "Acme",
+                    "description": "Infrastructure company",
+                }
+            ]
+        )
+        identities = FakeCollection(
+            docs=[
+                {
+                    "_id": identity_id,
+                    "field": field_id,
+                    "name": "Fab",
+                    "description": "Platform profile",
+                    "preferences": [
+                        {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                        {"key": "backend", "guidance": "Backend", "weight": 1, "enabled": True},
+                    ],
+                }
+            ]
+        )
+        score_docs = FakeCollection()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+        redis_client = FakeRedisClient()
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=redis_client,
+            scoring_progress_channel="scoring_progress_channel",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=None,
+            model_name="unused",
+            test_mode=True,
+        )
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=redis_client,
+            scoring_progress_channel="scoring_progress_channel",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=None,
+            model_name="unused",
+            test_mode=True,
+        )
+
+        docs = score_docs.find({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertEqual(len(docs), 1)
+        preference_scores = docs[0].get("preference_scores", [])
+        self.assertEqual(len(preference_scores), 2)
 
     def test_process_scoring_job_sets_skipped_when_no_preferences(self):
         field_id = ObjectId()
@@ -383,11 +462,11 @@ class AiScorerUnitTests(unittest.TestCase):
         job_id = ObjectId()
         identity_id = ObjectId()
 
-        jobs = FakeCollection(docs=[{"_id": job_id, "company": company_id, "scoring_status": "unscored"}])
+        jobs = FakeCollection(docs=[{"_id": job_id, "company": company_id}])
         companies = FakeCollection(docs=[{"_id": company_id, "field": field_id}])
         identities = FakeCollection(docs=[{"_id": identity_id, "field": field_id, "preferences": []}])
         score_docs = FakeCollection()
-        scoring_run_manager = ScoringRunManager(jobs, companies)
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
 
         process_scoring_job(
             job_id=str(job_id),
@@ -403,12 +482,12 @@ class AiScorerUnitTests(unittest.TestCase):
             test_mode=True,
         )
 
-        job = jobs.find_one({"_id": job_id})
-        self.assertIsNotNone(job)
-        if job is None:
-            self.fail("Expected skipped job document")
-        self.assertEqual(job.get("scoring_status"), "skipped")
-        self.assertEqual(score_docs.docs, [])
+        stored_score = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored_score)
+        if stored_score is None:
+            self.fail("Expected skipped score document")
+        self.assertEqual(stored_score.get("scoring_status"), "skipped")
+        self.assertEqual(stored_score.get("preference_scores"), [])
 
 
 class TimestampTests(unittest.TestCase):

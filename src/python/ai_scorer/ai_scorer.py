@@ -13,7 +13,7 @@ import redis
 from bson.objectid import ObjectId
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
-from pymongo import MongoClient
+from pymongo import ASCENDING, MongoClient
 
 try:
     from . import common_pb2
@@ -75,8 +75,6 @@ def job_proto_from_doc(job_doc):
         description=str(job_doc.get("description", "")),
         location=str(job_doc.get("location", "")),
         platform=str(job_doc.get("platform", "")),
-        weighted_score=float(job_doc.get("weighted_score", 0) or 0),
-        max_score=int(job_doc.get("max_score", 0) or 0),
     )
     return job_proto
 
@@ -120,10 +118,14 @@ def now_timestamp_dict():
     return {"seconds": int(now.timestamp()), "nanos": 0}
 
 
-def estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc):
+def estimate_identity_scoring_backlog(job_descriptions_col, companies_col, job_preference_scores_col, identity_doc):
     field_ref = identity_doc.get("field")
     if field_ref is None:
         field_ref = identity_doc.get("field_id")
+
+    identity_id = get_message_id(identity_doc)
+    if not identity_id:
+        return 0
 
     if field_ref is None:
         return 0
@@ -155,17 +157,31 @@ def estimate_identity_scoring_backlog(job_descriptions_col, companies_col, ident
     if not company_candidates:
         return 0
 
-    return int(
-        job_descriptions_col.count_documents(
-            {
-                "$or": [
-                    {"company": {"$in": company_candidates}},
-                    {"company_id": {"$in": company_candidates}},
-                ],
-                "scoring_status": {"$in": ["unscored", "queued"]},
-            }
-        )
+    pending = 0
+    jobs_cursor = job_descriptions_col.find(
+        {
+            "$or": [
+                {"company": {"$in": company_candidates}},
+                {"company_id": {"$in": company_candidates}},
+            ]
+        },
+        {"_id": 1},
     )
+
+    for job_doc in jobs_cursor:
+        job_id = to_string_id(job_doc.get("_id"))
+        if not job_id:
+            continue
+        score_doc = job_preference_scores_col.find_one({"job_id": job_id, "identity_id": identity_id})
+        if not score_doc:
+            pending += 1
+            continue
+
+        status = str(score_doc.get("scoring_status", "") or "")
+        if status in {"", "unscored", "queued"}:
+            pending += 1
+
+    return pending
 
 
 def progress_percent(completed: int, estimated_total: int, status: str) -> int:
@@ -229,9 +245,10 @@ def snapshot_scoring_state(state):
 
 
 class ScoringRunManager:
-    def __init__(self, job_descriptions_col, companies_col):
+    def __init__(self, job_descriptions_col, companies_col, job_preference_scores_col):
         self._job_descriptions_col = job_descriptions_col
         self._companies_col = companies_col
+        self._job_preference_scores_col = job_preference_scores_col
         self._scoring_runs: dict[str, common_pb2.ScoringProgress] = {}
         self._start_event_published: set[str] = set()
         self._lock = threading.Lock()
@@ -242,6 +259,7 @@ class ScoringRunManager:
                 identity_doc,
                 self._job_descriptions_col,
                 self._companies_col,
+                self._job_preference_scores_col,
                 self._scoring_runs,
             )
             if state is None:
@@ -269,6 +287,7 @@ class ScoringRunManager:
                 identity_doc,
                 self._job_descriptions_col,
                 self._companies_col,
+                self._job_preference_scores_col,
                 self._scoring_runs,
             )
             if completed_run:
@@ -276,14 +295,22 @@ class ScoringRunManager:
             return snapshot_scoring_state(state), completed_run
 
 
-def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, scoring_runs):
+def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col, job_preference_scores_col, scoring_runs):
     identity_id = get_message_id(identity_doc)
     if not identity_id:
         return None
 
     state = scoring_runs.get(identity_id)
     if state is None:
-        estimated_total = max(1, estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc))
+        estimated_total = max(
+            1,
+            estimate_identity_scoring_backlog(
+                job_descriptions_col,
+                companies_col,
+                job_preference_scores_col,
+                identity_doc,
+            ),
+        )
         state = common_pb2.ScoringProgress(
             run_id=str(ObjectId()),
             identity_id=identity_id,
@@ -295,7 +322,12 @@ def start_or_reuse_scoring_run(identity_doc, job_descriptions_col, companies_col
         scoring_runs[identity_id] = state
         return state
 
-    refreshed_total = state.completed + estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
+    refreshed_total = state.completed + estimate_identity_scoring_backlog(
+        job_descriptions_col,
+        companies_col,
+        job_preference_scores_col,
+        identity_doc,
+    )
     state.estimated_total = max(int(state.estimated_total or 1), int(refreshed_total), 1)
     return state
 
@@ -305,13 +337,19 @@ def advance_scoring_run(
     identity_doc,
     job_descriptions_col,
     companies_col,
+    job_preference_scores_col,
     scoring_runs,
 ):
     if state is None:
         return state, False
 
     state.completed = int(state.completed) + 1
-    pending = estimate_identity_scoring_backlog(job_descriptions_col, companies_col, identity_doc)
+    pending = estimate_identity_scoring_backlog(
+        job_descriptions_col,
+        companies_col,
+        job_preference_scores_col,
+        identity_doc,
+    )
     state.estimated_total = max(int(state.estimated_total or 1), int(state.completed + pending), 1)
 
     if pending <= 0:
@@ -504,14 +542,51 @@ def build_prompt(job, company, identity, preference):
     return system_instruction, user_prompt
 
 
-def set_job_status(job_descriptions_col, job_object_id, status, extra_fields=None):
-    payload = {
-        "scoring_status": scoring_status_to_bson(status),
-        "updated_at": timestamp_dict_from_proto(now_proto_timestamp()),
-    }
-    if extra_fields:
-        payload.update(extra_fields)
-    job_descriptions_col.update_one({"_id": job_object_id}, {"$set": payload})
+def upsert_identity_score_doc(
+    job_preference_scores_col,
+    job_id_str,
+    identity_id_str,
+    *,
+    status,
+    preference_scores=None,
+    weighted_score=0.0,
+    max_score=0,
+):
+    score_proto = common_pb2.JobPreferenceScore(
+        job_id=job_id_str,
+        identity_id=identity_id_str,
+        scoring_status=status,
+        weighted_score=float(weighted_score),
+        max_score=int(max_score),
+    )
+
+    for pref_score in preference_scores or []:
+        score_proto.preference_scores.append(
+            common_pb2.PreferenceScore(
+                preference_key=str(pref_score.get("preference_key", "")),
+                preference_guidance=str(pref_score.get("preference_guidance", "")),
+                preference_weight=float(pref_score.get("preference_weight", 0) or 0),
+                score=int(pref_score.get("score", 0) or 0),
+            )
+        )
+
+    score_doc = MessageToDict(score_proto, preserving_proto_field_name=True)
+    score_doc.pop("id", None)
+    score_doc["job_id"] = job_id_str
+    score_doc["identity_id"] = identity_id_str
+    score_doc["scoring_status"] = scoring_status_to_bson(status)
+    score_doc["weighted_score"] = float(weighted_score)
+    score_doc["preference_scores"] = preference_scores or []
+    if max_score > 0:
+        score_doc["max_score"] = int(max_score)
+    else:
+        score_doc.pop("max_score", None)
+
+    job_preference_scores_col.update_one(
+        {"job_id": job_id_str, "identity_id": identity_id_str},
+        {"$set": score_doc},
+        upsert=True,
+    )
 
 
 def resolve_scoring_context(job_descriptions_col, companies_col, identities_col, job_id):
@@ -660,15 +735,11 @@ def score_preference(
     return score
 
 
-def persist_preference_score(job_preference_scores_col, job_doc, identity_doc, preference, score):
-    job_id_str = get_message_id(job_doc)
-    identity_id_str = get_message_id(identity_doc)
+def build_preference_score_doc(preference, score):
     preference_key = get_field(preference, "key", "")
-
     scored_at = now_proto_timestamp()
-    score_proto = common_pb2.JobPreferenceScore(
-        job_id=job_id_str,
-        identity_id=identity_id_str,
+
+    preference_score = common_pb2.PreferenceScore(
         preference_key=preference_key,
         preference_guidance=str(get_field(preference, "guidance", "") or get_field(preference, "label", "")),
         preference_weight=float(get_field(preference, "weight", 0) or 0),
@@ -676,41 +747,45 @@ def persist_preference_score(job_preference_scores_col, job_doc, identity_doc, p
         scored_at=scored_at,
     )
 
-    score_doc = MessageToDict(score_proto, preserving_proto_field_name=True)
-    score_doc.pop("id", None)
+    score_doc = MessageToDict(preference_score, preserving_proto_field_name=True)
     score_doc["scored_at"] = timestamp_dict_from_proto(scored_at)
+    return score_doc
 
-    job_preference_scores_col.update_one(
-        {
-            "job_id": job_id_str,
-            "identity_id": identity_id_str,
-            "preference_key": preference_key,
-        },
-        {"$set": score_doc},
-        upsert=True,
+
+def persist_identity_scores(job_preference_scores_col, job_doc, identity_doc, preference_scores):
+    job_id_str = get_message_id(job_doc)
+    identity_id_str = get_message_id(identity_doc)
+    upsert_identity_score_doc(
+        job_preference_scores_col,
+        job_id_str,
+        identity_id_str,
+        status=common_pb2.SCORING_STATUS_QUEUED,
+        preference_scores=preference_scores,
     )
 
 
-def compute_and_persist_aggregate(job_descriptions_col, job_preference_scores_col, job_doc, identity_doc):
+def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_doc):
     job_id_str = get_message_id(job_doc)
     identity_id_str = get_message_id(identity_doc)
 
-    score_docs = list(
-        job_preference_scores_col.find(
-            {
-                "job_id": job_id_str,
-                "identity_id": identity_id_str,
-            }
-        )
+    score_doc = job_preference_scores_col.find_one(
+        {
+            "job_id": job_id_str,
+            "identity_id": identity_id_str,
+        }
     )
 
-    if not score_docs:
+    if not score_doc:
+        raise ValueError("No identity score document found to aggregate")
+
+    preference_scores = score_doc.get("preference_scores", [])
+    if not isinstance(preference_scores, list) or not preference_scores:
         raise ValueError("No preference scores found to aggregate")
 
     weighted_sum = 0.0
-    max_score = len(score_docs) * 5
+    max_score = len(preference_scores) * 5
 
-    for doc in score_docs:
+    for doc in preference_scores:
         score = int(doc.get("score", 0))
         weight = float(doc.get("preference_weight", 0))
         weighted_sum += score * (weight / max_score)
@@ -719,14 +794,14 @@ def compute_and_persist_aggregate(job_descriptions_col, job_preference_scores_co
     if max_score > 0:
         weighted_score = weighted_sum
 
-    set_job_status(
-        job_descriptions_col,
-        parse_object_id(job_id_str),
-        common_pb2.SCORING_STATUS_SCORED,
-        extra_fields={
-            "weighted_score": weighted_score,
-            "max_score": max_score,
-        },
+    upsert_identity_score_doc(
+        job_preference_scores_col,
+        job_id_str,
+        identity_id_str,
+        status=common_pb2.SCORING_STATUS_SCORED,
+        preference_scores=preference_scores,
+        weighted_score=weighted_score,
+        max_score=max_score,
     )
 
 
@@ -758,8 +833,6 @@ def process_scoring_job(
         return
 
     job_doc, company_doc, identity_doc, enabled_preferences = context
-    job_object_id = job_doc.get("_id")
-
     scoring_state = None
     if identity_doc:
         scoring_state, should_publish_start = scoring_run_manager.start_or_reuse(identity_doc)
@@ -776,7 +849,14 @@ def process_scoring_job(
                 print(f"warn: Failed to publish scoring progress start event: {exc}")
 
     if error in {"company_not_found", "identity_not_found", "no_enabled_preferences"}:
-        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
+        if identity_doc:
+            upsert_identity_score_doc(
+                job_preference_scores_col,
+                get_message_id(job_doc),
+                get_message_id(identity_doc),
+                status=common_pb2.SCORING_STATUS_SKIPPED,
+                preference_scores=[],
+            )
         print(f"warn: Skipping job '{job_id}' due to missing prerequisites ({error}).")
         if identity_doc and scoring_state:
             scoring_state, completed_run = scoring_run_manager.advance(identity_doc)
@@ -798,34 +878,49 @@ def process_scoring_job(
     enabled_preferences_proto = [pref for pref in identity_proto.preferences if pref.enabled]
 
     if not enabled_preferences_proto:
-        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_SKIPPED)
+        upsert_identity_score_doc(
+            job_preference_scores_col,
+            get_message_id(job_proto),
+            get_message_id(identity_proto),
+            status=common_pb2.SCORING_STATUS_SKIPPED,
+            preference_scores=[],
+        )
         print(f"warn: Skipping job '{job_id}' due to missing preferences list.")
         return
 
-    set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_QUEUED)
+    upsert_identity_score_doc(
+        job_preference_scores_col,
+        get_message_id(job_proto),
+        get_message_id(identity_proto),
+        status=common_pb2.SCORING_STATUS_QUEUED,
+        preference_scores=[],
+    )
 
     try:
+        preference_scores = []
+        job_id_str = get_message_id(job_proto)
         for preference in enabled_preferences_proto:
             score = score_preference(
                 ollama_client,
                 model_name,
                 test_mode,
-                str(job_object_id),
+                job_id_str,
                 preference,
                 job_proto,
                 company_proto,
                 identity_proto,
             )
-            persist_preference_score(
-                job_preference_scores_col,
-                job_proto,
-                identity_proto,
-                preference,
-                score,
-            )
+
+            preference_scores.append(build_preference_score_doc(preference, score))
+
+        persist_identity_scores(
+            job_preference_scores_col,
+            job_proto,
+            identity_proto,
+            preference_scores,
+        )
 
         compute_and_persist_aggregate(
-            job_descriptions_col,
             job_preference_scores_col,
             job_proto,
             identity_proto,
@@ -847,7 +942,13 @@ def process_scoring_job(
         print(f"info: Successfully scored job '{job_id}'.")
 
     except Exception as exc:
-        set_job_status(job_descriptions_col, job_object_id, common_pb2.SCORING_STATUS_FAILED)
+        upsert_identity_score_doc(
+            job_preference_scores_col,
+            get_message_id(job_proto),
+            get_message_id(identity_proto),
+            status=common_pb2.SCORING_STATUS_FAILED,
+            preference_scores=[],
+        )
         if identity_doc and scoring_state:
             scoring_state, completed_run = scoring_run_manager.advance(identity_doc)
             try:
@@ -880,6 +981,15 @@ def parse_worker_pool_size(raw_value):
 
 def build_ollama_client(ollama_host):
     return ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+
+
+def ensure_score_collection_indexes(job_preference_scores_col):
+    # Enforce single score document per (job_id, identity_id).
+    job_preference_scores_col.create_index(
+        [("job_id", ASCENDING), ("identity_id", ASCENDING)],
+        unique=True,
+        name="uq_job_identity_score",
+    )
 
 
 def scoring_worker_loop(
@@ -956,9 +1066,10 @@ def main():
     companies_col = db["companies"]
     identities_col = db["identities"]
     job_preference_scores_col = db["job-preference-scores"]
+    ensure_score_collection_indexes(job_preference_scores_col)
 
     redis_client = redis.Redis(host=redis_host, port=redis_port)
-    scoring_run_manager = ScoringRunManager(job_descriptions_col, companies_col)
+    scoring_run_manager = ScoringRunManager(job_descriptions_col, companies_col, job_preference_scores_col)
 
     work_queue: queue.Queue[str | None] = queue.Queue(maxsize=max(1, worker_pool_size * 4))
     worker_threads = []

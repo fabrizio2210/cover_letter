@@ -115,16 +115,23 @@ message IdentityPreference {
     bool enabled = 4; // @gotags: bson:"enabled"
 }
 
+message PreferenceScore {
+    string preference_key = 1; // @gotags: bson:"preference_key"
+    string preference_guidance = 2; // @gotags: bson:"preference_guidance,omitempty"
+    double preference_weight = 3; // @gotags: bson:"preference_weight,omitempty"
+    int32 score = 4; // @gotags: bson:"score"
+    string rationale = 5; // @gotags: bson:"rationale,omitempty"
+    google.protobuf.Timestamp scored_at = 6; // @gotags: bson:"scored_at,omitempty"
+}
+
 message JobPreferenceScore {
     string id = 1; // @gotags: bson:"_id,omitempty"
     string job_id = 2; // @gotags: bson:"job_id"
     string identity_id = 3; // @gotags: bson:"identity_id"
-    string preference_key = 4; // @gotags: bson:"preference_key"
-    string preference_guidance = 5; // @gotags: bson:"preference_guidance,omitempty"
-    double preference_weight = 6; // @gotags: bson:"preference_weight,omitempty"
-    int32 score = 7; // @gotags: bson:"score"
-    string rationale = 8; // @gotags: bson:"rationale,omitempty"
-    google.protobuf.Timestamp scored_at = 9; // @gotags: bson:"scored_at,omitempty"
+    repeated PreferenceScore preference_scores = 4; // @gotags: bson:"preference_scores,omitempty"
+    ScoringStatus scoring_status = 5; // @gotags: bson:"scoring_status"
+    double weighted_score = 6; // @gotags: bson:"weighted_score"
+    int32 max_score = 7; // @gotags: bson:"max_score,omitempty"
 }
 
 message Job {
@@ -139,10 +146,6 @@ message Job {
     string source_url = 9; // @gotags: bson:"source_url"
     google.protobuf.Timestamp created_at = 10; // @gotags: bson:"created_at"
     google.protobuf.Timestamp updated_at = 11; // @gotags: bson:"updated_at"
-    ScoringStatus scoring_status = 12; // @gotags: bson:"scoring_status"
-    double weighted_score = 13; // @gotags: bson:"weighted_score"
-    int32 max_score = 14; // @gotags: bson:"max_score,omitempty"
-    repeated JobPreferenceScore scores = 15; // @gotags: bson:"scores,omitempty"
 }
 
 message CrawlTriggerRequest {

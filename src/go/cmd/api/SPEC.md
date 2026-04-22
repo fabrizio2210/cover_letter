@@ -138,10 +138,6 @@ The `preferences` field on `Identity` is therefore a JSON array and BSON array o
 | `source_url` | `source_url` | `string` | Canonical URL for the job |
 | `created_at` | `created_at` | Timestamp object | See §3.7 |
 | `updated_at` | `updated_at` | Timestamp object | See §3.7 |
-| `scoring_status` | `scoring_status` | `string` | one of `unscored`, `queued`, `scored`, `failed`, `skipped` |
-| `weighted_score` | `weighted_score` | `number` | Deterministic aggregate score persisted for sorting |
-| `max_score` | `max_score` | `integer` | Highest single preference score, optional ranking aid |
-| `scores` | `scores` | `[]JobPreferenceScore` | Aggregated read model; omitted on insert |
 
 Storage note:
 - API JSON uses string ids (`company_id`), but new MongoDB writes for relation fields should use `ObjectId` values.
@@ -154,6 +150,17 @@ Storage note:
 | `id` | `_id` | `string` | Hex ObjectID; omitted on insert |
 | `job_id` | `job_id` | `string` | Hex ObjectID ref → `job-descriptions` |
 | `identity_id` | `identity_id` | `string` | Hex ObjectID ref → `identities` |
+| `preference_scores` | `preference_scores` | `[]PreferenceScore` | Embedded per-preference score results for this job/identity pair |
+| `scoring_status` | `scoring_status` | `string` | one of `queued`, `scored`, `failed`, `skipped` |
+| `weighted_score` | `weighted_score` | `number` | Deterministic aggregate for this `(job_id, identity_id)` pair |
+| `max_score` | `max_score` | `integer` | Maximum attainable score span for this score document |
+
+One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
+
+**PreferenceScore**
+
+| JSON key | BSON key | Type | Notes |
+|---|---|---|---|
 | `preference_key` | `preference_key` | `string` | Stable preference identifier |
 | `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot |
 | `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking |
@@ -779,11 +786,11 @@ Implementation guardrail for maintainers:
 
 #### `GET /api/job-descriptions`
 Auth: required.
-Response `200`: array of `JobDescription` with `company_info` embedded and `scores` included when available.
+Response `200`: array of score-neutral `JobDescription` with `company_info` embedded.
 
 #### `GET /api/job-descriptions/:id`
 Auth: required.
-Response `200`: single `JobDescription` with `company_info` and `scores`.
+Response `200`: single score-neutral `JobDescription` with `company_info`.
 Response `404`:
 ```json
 { "error": "Job description not found" }
@@ -807,7 +814,6 @@ Request:
 Behavior:
 - If `company_id` is present, the handler links to that company.
 - If `company_id` is absent and `company_name` is present, the handler should resolve or create the company automatically.
-- New jobs start with `scoring_status = "unscored"` and `weighted_score = 0`.
 
 Response `201`: created `JobDescription`.
 
@@ -846,10 +852,18 @@ Response `200`:
 { "message": "Scoring queued successfully" }
 ```
 
+#### `GET /api/job-preference-scores`
+Auth: required.
+Query params:
+- `job_id` optional hex ObjectId string.
+- `identity_id` optional hex ObjectId string.
+
+Response `200`: array of `JobPreferenceScore` documents filtered by the provided params.
+
 Ranking semantics:
 - The AI writes per-preference scores only.
 - The application computes the weighted aggregate deterministically from the identity preference weights.
-- The aggregate score is persisted on the job description for fast sorting in list endpoints.
+- The aggregate score is persisted only on the matching `job-preference-scores` document.
 
 ---
 

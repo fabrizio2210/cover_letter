@@ -124,6 +124,13 @@ export interface JobPreferenceScore {
   id: string;
   job_id: string;
   identity_id: string;
+  preference_scores: PreferenceScore[];
+  scoring_status?: string;
+  weighted_score?: number;
+  max_score?: number;
+}
+
+export interface PreferenceScore {
   preference_key: string;
   preference_guidance?: string;
   preference_weight?: number;
@@ -143,10 +150,6 @@ export interface JobDescription {
   source_url?: string;
   created_at?: string | Timestamp;
   updated_at?: string | Timestamp;
-  scoring_status?: string;
-  weighted_score?: number;
-  max_score?: number;
-  scores?: JobPreferenceScore[];
 }
 
 export interface CrawlProgress {
@@ -202,7 +205,7 @@ Critical alignment rules:
 - `field_id` is the JSON key for company and identity field references, except for `PUT /api/identities/:id/field`, which uses `fieldId`.
 - `roles` on an `Identity` is a manually curated string array used for crawler discovery scope.
 - `preferences` on an `Identity` is an array of weighted preference descriptors.
-- `scores` on a `JobDescription` is an array of per-preference score objects.
+- Score data is not embedded on `JobDescription`; the UI joins jobs with `JobPreferenceScore` documents fetched separately.
 - `run_id` on a `CrawlProgress` is the parent identity-scoped crawl request id.
 - `workflow_run_id` on a `CrawlProgress` identifies one workflow execution attempt and changes on retry.
 - `workflow_id` on a `CrawlProgress` is the stable workflow key for workflow-level events.
@@ -357,8 +360,9 @@ Notes:
 
 | Method | Path | Request body | Success response |
 |---|---|---|---|
-| GET | `/api/job-descriptions` | — | `JobDescription[]` with `company_info` and optional `scores` |
+| GET | `/api/job-descriptions` | — | score-neutral `JobDescription[]` with `company_info` |
 | GET | `/api/job-descriptions/:id` | — | single `JobDescription` |
+| GET | `/api/job-preference-scores` | — | `JobPreferenceScore[]`; filterable by `job_id` and `identity_id` |
 | POST | `/api/job-descriptions` | `{ "company_id": "<hex or omit>", "company_name": "<string or omit>", "title": "string", "description": "string", "location": "string", "platform": "string", "external_job_id": "string", "source_url": "string" }` | created `JobDescription` |
 | PUT | `/api/job-descriptions/:id` | `{ "company_id": "<hex or omit>", "title": "string", "description": "string", "location": "string", "platform": "string", "external_job_id": "string", "source_url": "string" }` | `{ "message": "Job description updated successfully" }` |
 | POST | `/api/job-descriptions/:id/score` | — | `{ "message": "Scoring queued successfully" }` |
@@ -366,8 +370,8 @@ Notes:
 
 Notes:
 - The jobs list is the MVP entry point for the new hiring workflow.
-- `weighted_score` is a deterministic aggregate computed by the backend from the stored per-preference scores.
-- Per-preference values shown in the UI come from `scores`, not from re-running ranking logic in the browser.
+- Identity-scoped aggregates such as `weighted_score` are read from `JobPreferenceScore`, not from `JobDescription`.
+- Per-preference values shown in the UI come from `JobPreferenceScore`, not from re-running ranking logic in the browser.
 
 ### 6.7 Crawl Control And Progress
 

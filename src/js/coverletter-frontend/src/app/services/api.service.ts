@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, CoverLetter, CrawlProgress, ScoringProgress } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress } from '../models/models';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -106,6 +106,24 @@ export class ApiService {
   getJobDescription(id: string): Observable<JobDescription> {
     return this.http.get<JobDescription>(`${this.apiBase}/job-descriptions/${id}`)
       .pipe(catchError(() => of({} as JobDescription)));
+  }
+
+  getJobPreferenceScores(filters?: { jobId?: string; identityId?: string }): Observable<JobPreferenceScore[]> {
+    const params = new URLSearchParams();
+    if (filters?.jobId) {
+      params.set('job_id', filters.jobId);
+    }
+    if (filters?.identityId) {
+      params.set('identity_id', filters.identityId);
+    }
+
+    const query = params.toString();
+    const url = query
+      ? `${this.apiBase}/job-preference-scores?${query}`
+      : `${this.apiBase}/job-preference-scores`;
+
+    return this.http.get<JobPreferenceScore[]>(url)
+      .pipe(catchError(() => of([])));
   }
 
   scoreJobDescription(id: string): Observable<{ message: string }> {
@@ -318,10 +336,11 @@ export class ApiService {
 
   async getTopScoredJobsCount(): Promise<number> {
     try {
-      const jobs = await this.getJobDescriptions().toPromise();
-      if (!jobs) return 0;
-      // Count jobs with weighted_score >= 4.0 (top tier)
-      return jobs.filter(j => (j.weighted_score || 0) >= 4.0).length;
+      const scores = await this.getJobPreferenceScores().toPromise();
+      if (!scores) return 0;
+      return Array.from(this.getBestScoreByJob(scores).values())
+        .filter((score) => (score.weighted_score || 0) >= 4.0)
+        .length;
     } catch {
       return 0;
     }
@@ -338,16 +357,39 @@ export class ApiService {
     }
   }
 
-  async getTopScoredJobs(limit: number = 5): Promise<JobDescription[]> {
+  async getTopScoredJobs(limit: number = 5): Promise<ScoredJobDescription[]> {
     try {
-      const jobs = await this.getJobDescriptions().toPromise();
-      if (!jobs) return [];
-      // Sort by weighted_score descending and return top N
+      const [jobs, scores] = await Promise.all([
+        this.getJobDescriptions().toPromise(),
+        this.getJobPreferenceScores().toPromise(),
+      ]);
+      if (!jobs || !scores) return [];
+
+      const bestScoreByJob = this.getBestScoreByJob(scores);
+
       return jobs
-        .sort((a, b) => (b.weighted_score || 0) - (a.weighted_score || 0))
+        .map((job) => ({
+          ...job,
+          score: bestScoreByJob.get(job.id) || null,
+        }))
+        .filter((job) => !!job.score)
+        .sort((left, right) => (right.score?.weighted_score || 0) - (left.score?.weighted_score || 0))
         .slice(0, limit);
     } catch {
       return [];
     }
+  }
+
+  private getBestScoreByJob(scores: JobPreferenceScore[]): Map<string, JobPreferenceScore> {
+    const bestScoreByJob = new Map<string, JobPreferenceScore>();
+
+    scores.forEach((score) => {
+      const existing = bestScoreByJob.get(score.job_id);
+      if (!existing || (score.weighted_score || 0) > (existing.weighted_score || 0)) {
+        bestScoreByJob.set(score.job_id, score);
+      }
+    });
+
+    return bestScoreByJob;
   }
 }

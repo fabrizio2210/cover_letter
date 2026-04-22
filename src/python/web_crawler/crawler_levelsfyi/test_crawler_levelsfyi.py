@@ -143,10 +143,6 @@ def _make_card(
 
 
 class CrawlerLevelsFyiHelperTests(unittest.TestCase):
-    def test_scoring_status_mapping_defaults_to_unscored(self):
-        self.assertEqual(workflow_module._scoring_status_to_bson(common_pb2.SCORING_STATUS_QUEUED), "queued")
-        self.assertEqual(workflow_module._scoring_status_to_bson(999), "unscored")
-
     def test_to_object_id_handles_invalid_values(self):
         self.assertIsNotNone(workflow_module._to_object_id(str(ObjectId())))
         self.assertIsNone(workflow_module._to_object_id("not-an-objectid"))
@@ -216,7 +212,6 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
             external_job_id="ext-1",
             source_url="https://example.com/1",
             company_oid=company_oid,
-            scoring_status="unscored",
         )
         self.assertTrue(inserted)
         self.assertEqual(jobs.docs[0]["company"], company_oid)
@@ -224,7 +219,6 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
         self.assertEqual(str(jobs.docs[0]["_id"]), job_id)
 
         created_at = jobs.docs[0]["created_at"]
-        jobs.docs[0]["scoring_status"] = "scored"
 
         job_id_2, inserted_2 = workflow_module._upsert_job(
             jobs,
@@ -234,13 +228,11 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
             external_job_id="ext-1",
             source_url="https://example.com/2",
             company_oid=company_oid,
-            scoring_status="unscored",
         )
         self.assertFalse(inserted_2)
         self.assertEqual(job_id_2, job_id)
         self.assertEqual(jobs.docs[0]["title"], "Engineer II")
         self.assertEqual(jobs.docs[0]["created_at"], created_at)
-        self.assertEqual(jobs.docs[0]["scoring_status"], "scored")
 
     def test_try_enqueue_success_and_failure(self):
         config = _make_config()
@@ -475,7 +467,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         self.assertEqual(result.skipped_count, 0)
         self.assertEqual(len(db["jobs"].docs), 1)
 
-    def test_run_crawler_levelsfyi_enqueue_success_sets_queued_status(self):
+    def test_run_crawler_levelsfyi_enqueue_success_tracks_queue_handoff(self):
         identity_id = str(ObjectId())
         company_oid = ObjectId()
         db = FakeDatabase(
@@ -498,9 +490,8 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
 
         self.assertEqual(result.enqueued_count, 1)
         self.assertEqual(result.enqueue_failed_count, 0)
-        self.assertEqual(db["jobs"].docs[0]["scoring_status"], "queued")
 
-    def test_run_crawler_levelsfyi_enqueue_failure_sets_failed_status(self):
+    def test_run_crawler_levelsfyi_enqueue_failure_tracks_failed_enqueue(self):
         identity_id = str(ObjectId())
         company_oid = ObjectId()
         db = FakeDatabase(
@@ -524,7 +515,6 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
 
         self.assertEqual(result.enqueued_count, 0)
         self.assertEqual(result.enqueue_failed_count, 1)
-        self.assertEqual(db["jobs"].docs[0]["scoring_status"], "failed")
 
 
 class CrawlerLevelsFyiWorkerTests(unittest.TestCase):

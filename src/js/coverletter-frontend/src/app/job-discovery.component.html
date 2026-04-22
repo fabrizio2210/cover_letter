@@ -116,7 +116,7 @@
             <p>{{ job.company_info?.name || job.company_name || 'Unknown company' }}</p>
           </div>
           <div class="score-block">
-            <strong>{{ formatScore(job.weighted_score) }}</strong>
+            <strong>{{ formatScore(job.score?.weighted_score) }}</strong>
             <small>AI Match</small>
           </div>
         </div>
@@ -124,7 +124,7 @@
         <div class="job-meta">
           <span><span class="material-symbols-outlined">language</span> {{ job.platform || 'Unknown' }}</span>
           <span><span class="material-symbols-outlined">pin_drop</span> {{ job.location || 'Location not set' }}</span>
-          <span class="status-chip">{{ job.scoring_status || 'unscored' }}</span>
+          <span class="status-chip">{{ job.score?.scoring_status || 'unscored' }}</span>
         </div>
 
         <div class="rationale-box">

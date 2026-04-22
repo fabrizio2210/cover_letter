@@ -63,7 +63,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - For each job card: validate `job_title` or `description` against `identity.roles` using case-insensitive substring matching; skip non-matching cards.
 - For each matching job card: resolve the company `ObjectId`; upsert the job via `_upsert_job` with `platform = "levelsfyi"` and dedup key `(platform, external_job_id)`.
 - Determine newly discovered companies missing `ats_slug` and emit `CompanyDiscoveryEvent(reason="new_company_or_newly_actionable")` per company to the enrichment queue.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME` and update `scoring_status` to `"queued"` (or `"failed"` on enqueue error).
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 - Publish `running` → `completed` / `failed` progress snapshots.
 - Report intra-run progress via `progress_callback`.
 

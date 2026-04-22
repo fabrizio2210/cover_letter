@@ -20,7 +20,7 @@ def stable_test_score(job_id, preference_key):
 
 expected_scores = {key: stable_test_score(JOB_ID, key) for key in PREFERENCE_WEIGHTS}
 expected_weighted_score = sum(expected_scores[key] * weight for key, weight in PREFERENCE_WEIGHTS.items()) / sum(PREFERENCE_WEIGHTS.values())
-expected_max_score = max(expected_scores.values())
+expected_max_score = len(PREFERENCE_WEIGHTS) * 5
 
 end = time.time() + 30
 client = None
@@ -52,23 +52,23 @@ expected_job_object_id = ObjectId(JOB_ID)
 end = time.time() + 30
 while time.time() < end:
     job = jobs_col.find_one({'_id': expected_job_object_id})
-    scores = list(scores_col.find({'job_id': JOB_ID, 'identity_id': expected_identity_id}))
+    score_doc = scores_col.find_one({'job_id': JOB_ID, 'identity_id': expected_identity_id})
 
-    if job and job.get('scoring_status') == 'scored' and len(scores) == len(PREFERENCE_WEIGHTS):
-        if abs(float(job.get('weighted_score', 0.0)) - expected_weighted_score) > 1e-9:
+    if job and score_doc and score_doc.get('scoring_status') == 'scored':
+        if abs(float(score_doc.get('weighted_score', 0.0)) - expected_weighted_score) > 1e-9:
             print('NOT_FOUND')
             sys.exit(2)
 
-        if int(job.get('max_score', 0)) != expected_max_score:
+        if int(score_doc.get('max_score', 0)) != expected_max_score:
             print('NOT_FOUND')
             sys.exit(2)
 
-        updated_at = job.get('updated_at', {})
-        if not isinstance(updated_at, dict) or 'seconds' not in updated_at or 'nanos' not in updated_at:
+        preference_scores = score_doc.get('preference_scores', [])
+        if not isinstance(preference_scores, list) or len(preference_scores) != len(PREFERENCE_WEIGHTS):
             print('NOT_FOUND')
             sys.exit(2)
 
-        score_map = {doc.get('preference_key'): doc for doc in scores}
+        score_map = {doc.get('preference_key'): doc for doc in preference_scores}
         if set(score_map) != set(PREFERENCE_WEIGHTS):
             print('NOT_FOUND')
             sys.exit(2)

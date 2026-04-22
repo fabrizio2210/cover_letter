@@ -390,8 +390,6 @@ Rules that apply everywhere:
 | `company` | ObjectId | Ref to `companies` (`company_id` in API JSON) for new writes |
 | `created_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 | `updated_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
-| `scoring_status` | string | One of `unscored`, `queued`, `scored`, `failed`, `skipped` |
-| `weighted_score` | number | Must initialize to `0` |
 
 Reference compatibility note:
 - New crawler writes for references must use MongoDB `ObjectId`.
@@ -450,19 +448,11 @@ Rules:
 - Enqueue only after successful insert or update with a valid document id.
 - On job updates from recrawls, always re-enqueue when enqueue is enabled.
 - Enqueue payload must use key name `job_id` exactly.
-- If enqueue fails, persistence remains committed, `scoring_status` should be set to `failed`, error is logged, and crawler continues.
-
-Scoring lifecycle contract:
-- Allowed `scoring_status` values: `unscored`, `queued`, `scored`, `failed`, `skipped`.
-- Insert/update with enqueue enabled and enqueue success: set `scoring_status` to `queued`.
-- Insert/update with enqueue disabled: set `scoring_status` to `unscored`.
-- Enqueue failure: set `scoring_status` to `failed`.
-- Missing scoring prerequisites (for example unresolved company-field-identity linkage): set `scoring_status` to `skipped` and do not enqueue.
-- Successful scoring write by downstream worker: set `scoring_status` to `scored`.
+- If enqueue fails, persistence remains committed, the error is logged, and crawler continues.
 
 Ownership boundary:
 - Crawler produces job ids for scoring.
-- `ai_scorer` consumes queue and writes per-preference scores.
+- `ai_scorer` consumes queue and owns all score-document lifecycle and aggregate fields.
 - Deterministic aggregate ranking remains outside crawler responsibility.
 
 ---

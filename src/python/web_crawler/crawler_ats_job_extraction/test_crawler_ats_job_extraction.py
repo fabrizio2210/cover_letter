@@ -122,8 +122,6 @@ class UpsertJobTests(unittest.TestCase):
         self.assertEqual(doc["title"], "Engineer")
         self.assertEqual(doc["platform"], "greenhouse")
         self.assertEqual(doc["external_job_id"], "ext-1")
-        self.assertEqual(doc["scoring_status"], "unscored")
-        self.assertEqual(doc["weighted_score"], 0)
         self.assertEqual(doc["company_id"], self.company_oid)
         self.assertIn("seconds", doc["created_at"])
         self.assertIn("seconds", doc["updated_at"])
@@ -141,8 +139,6 @@ class UpsertJobTests(unittest.TestCase):
                     "description": "Old desc",
                     "location": "Old place",
                     "source_url": "https://old.com",
-                    "scoring_status": "scored",
-                    "weighted_score": 4.2,
                     "company_id": self.company_oid,
                     "created_at": {"seconds": 1000, "nanos": 0},
                     "updated_at": {"seconds": 1000, "nanos": 0},
@@ -157,8 +153,6 @@ class UpsertJobTests(unittest.TestCase):
         self.assertEqual(job_id, str(existing_id))
         doc = jobs_coll.docs[0]
         self.assertEqual(doc["title"], "New Title")
-        # scoring_status must not be reset on update
-        self.assertEqual(doc["scoring_status"], "scored")
         # created_at must not change
         self.assertEqual(doc["created_at"]["seconds"], 1000)
 
@@ -240,8 +234,6 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
                     "description": "Old",
                     "location": "Old",
                     "source_url": "https://old.com",
-                    "scoring_status": "scored",
-                    "weighted_score": 3.0,
                     "company_id": self.company_oid,
                     "created_at": {"seconds": 1000, "nanos": 0},
                     "updated_at": {"seconds": 1000, "nanos": 0},
@@ -326,9 +318,6 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertEqual(result.enqueued_count, 1)
         self.assertEqual(result.enqueue_failed_count, 0)
 
-        doc = db["jobs"].docs[0]
-        self.assertEqual(doc["scoring_status"], "queued")
-
     def test_run_crawler_ats_job_extraction_sets_scoring_status_failed_on_enqueue_failure(self):
         config = _make_config(enable_scoring_enqueue=True)
         db = self._make_fake_database(
@@ -345,8 +334,6 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
 
         self.assertEqual(result.enqueue_failed_count, 1)
         self.assertEqual(result.enqueued_count, 0)
-        doc = db["jobs"].docs[0]
-        self.assertEqual(doc["scoring_status"], "failed")
 
     def test_run_crawler_ats_job_extraction_no_enqueue_when_disabled(self):
         config = _make_config(enable_scoring_enqueue=False)
@@ -361,8 +348,6 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
 
         mock_connect.assert_not_called()
         self.assertEqual(result.enqueued_count, 0)
-        doc = db["jobs"].docs[0]
-        self.assertEqual(doc["scoring_status"], "unscored")
 
     def test_run_crawler_ats_job_extraction_skips_jobs_that_do_not_match_identity_roles(self):
         db = self._make_fake_database(

@@ -92,9 +92,9 @@ The worker is responsible for:
 - consuming jobs from the job scoring queue;
 - resolving job/company/identity scoring context from MongoDB;
 - scoring stored job descriptions against enabled weighted identity preferences;
-- storing per-preference scores in `job-preference-scores`;
+- upserting one identity-scoring document per `(job_id, identity_id)` in `job-preference-scores` with embedded per-preference scores;
 - computing weighted aggregate ranking deterministically;
-- updating `job-descriptions` scoring fields and status lifecycle;
+- persisting identity-scoped aggregate fields and scoring lifecycle on `job-preference-scores` documents;
 - publishing scoring-progress snapshots to Redis for API relay to frontend clients.
 
 The worker is not responsible for:
@@ -141,7 +141,7 @@ Each scoring message is a UTF-8 JSON object.
 - Invalid JSON messages are rejected and logged.
 - Messages without `job_id` are rejected and logged.
 - Messages whose `job_id` does not resolve to a job description are rejected and logged.
-- Messages that cannot resolve scoring prerequisites must result in `job-descriptions.scoring_status = skipped` and no per-preference writes.
+- Messages that cannot resolve scoring prerequisites must produce no job-level score writes; when an identity is resolved, the worker records `scoring_status = skipped` on the matching `job-preference-scores` document.
 
 ### 5.5 Contract Ownership
 
@@ -192,10 +192,10 @@ Progress rules:
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `job-descriptions` | read/update | Load jobs and persist aggregate ranking fields |
+| `job-descriptions` | read | Load jobs for scoring context |
 | `companies` | read | Resolve company linked to the job |
 | `identities` | read | Resolve identity linked by company field |
-| `job-preference-scores` | insert/update/read | Persist per-preference scoring results |
+| `job-preference-scores` | insert/update/read | Persist one score document per `(job_id, identity_id)` with embedded preference scores, aggregate fields, and lifecycle status |
 
 ### 6.2 Required Read Path for Job Scoring
 
@@ -234,26 +234,32 @@ At minimum this applies to:
 
 ## 7. Persisted Job Scoring Document Shape
 
-### 7.1 Required per-preference score fields (`job-preference-scores`)
+### 7.1 Required score-document fields (`job-preference-scores`)
 
 | BSON key | Type | Notes |
 |---|---|---|
 | `job_id` | string | String form of `job-descriptions._id` |
 | `identity_id` | string | String form of `identities._id` |
+| `preference_scores` | array | Embedded per-preference scores for this job/identity pair |
+| `scoring_status` | string | One of `queued`, `scored`, `failed`, `skipped` |
+| `weighted_score` | number | Deterministic weighted aggregate for this job/identity pair |
+| `max_score` | integer | Score span for this job/identity pair |
+
+Each entry in `preference_scores` must include:
+
+| BSON key | Type | Notes |
+|---|---|---|
 | `preference_key` | string | Stable key from identity preference |
 | `preference_guidance` | string | Guidance snapshot |
 | `preference_weight` | number | Weight snapshot |
 | `score` | integer | Integer score in range `1..5` |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 
-### 7.2 Required aggregate fields (`job-descriptions`)
+Uniqueness rule:
+- one document per `(job_id, identity_id)`;
+- writes are performed as MongoDB upserts using this key pair.
 
-| BSON key | Type | Notes |
-|---|---|---|
-| `weighted_score` | number | Deterministic weighted aggregate |
-| `max_score` | integer | Highest individual preference score |
-| `scoring_status` | string | One of `unscored`, `queued`, `scored`, `failed`, `skipped` |
-| `updated_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
+Aggregate and lifecycle fields are stored on `job-preference-scores`, not on `job-descriptions`.
 
 ---
 
@@ -284,13 +290,13 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 4. Resolve identity via the company field.
 5. Keep only enabled preferences from `identities.preferences`.
 6. For each enabled preference, request a score from Ollama within the currently assigned job worker.
-7. Persist one `job-preference-scores` document per preference.
+7. Upsert one `job-preference-scores` document for `(job_id, identity_id)` containing embedded per-preference scores.
 8. Compute weighted aggregate from stored scores and weights.
-9. Update `job-descriptions` aggregate fields, `scoring_status`, and `updated_at`.
+9. Update the same `job-preference-scores` document with aggregate fields and terminal `scoring_status`.
 10. Publish scoring-progress updates for run start, incremental completion, and terminal state.
 
 Scoring lifecycle expectations:
-- Allowed values: `unscored`, `queued`, `scored`, `failed`, `skipped`.
+- Allowed values on score documents: `queued`, `scored`, `failed`, `skipped`.
 - Set `scoring_status = scored` only after per-preference writes and aggregate update succeed.
 - Set `scoring_status = skipped` when prerequisites are missing.
 - Set `scoring_status = failed` on processing errors after dequeue where scoring cannot complete.

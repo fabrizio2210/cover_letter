@@ -27,18 +27,6 @@ logger = logging.getLogger(__name__)
 _WORKFLOW_ID = "crawler_levelsfyi"
 _PLATFORM = "levelsfyi"
 
-_SCORING_STATUS_BSON: dict[int, str] = {
-    common_pb2.SCORING_STATUS_UNSCORED: "unscored",
-    common_pb2.SCORING_STATUS_QUEUED: "queued",
-    common_pb2.SCORING_STATUS_SCORED: "scored",
-    common_pb2.SCORING_STATUS_FAILED: "failed",
-    common_pb2.SCORING_STATUS_SKIPPED: "skipped",
-}
-
-
-def _scoring_status_to_bson(status: int) -> str:
-    return _SCORING_STATUS_BSON.get(status, "unscored")
-
 
 def _now_timestamp() -> dict:
     return {"seconds": int(time.time()), "nanos": 0}
@@ -60,7 +48,6 @@ def _upsert_job(
     external_job_id: str,
     source_url: str,
     company_oid: ObjectId,
-    scoring_status: str,
 ) -> tuple[str, bool]:
     """Insert or update a job document. Returns (job_id_hex, was_inserted)."""
     existing = jobs_collection.find_one(
@@ -78,8 +65,6 @@ def _upsert_job(
             "company": company_oid,
             "created_at": _now_timestamp(),
             "updated_at": _now_timestamp(),
-            "scoring_status": scoring_status,
-            "weighted_score": 0,
         }
         result = jobs_collection.insert_one(doc)
         return str(result.inserted_id), True
@@ -297,8 +282,6 @@ def run_crawler_levelsfyi(
             result.skipped_count += 1
             continue
 
-        scoring_status = _scoring_status_to_bson(common_pb2.SCORING_STATUS_UNSCORED)
-
         try:
             job_id, was_inserted = _upsert_job(
                 jobs_collection,
@@ -308,7 +291,6 @@ def run_crawler_levelsfyi(
                 external_job_id=card.external_job_id,
                 source_url=card.source_url,
                 company_oid=company_oid,
-                scoring_status=scoring_status,
             )
         except Exception as exc:
             logger.warning(
@@ -327,16 +309,8 @@ def run_crawler_levelsfyi(
 
         if redis_client is not None and config.enable_scoring_enqueue:
             if _try_enqueue(redis_client, config, job_id):
-                jobs_collection.update_one(
-                    {"_id": ObjectId(job_id)},
-                    {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_QUEUED)}},
-                )
                 result.enqueued_count += 1
             else:
-                jobs_collection.update_one(
-                    {"_id": ObjectId(job_id)},
-                    {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_FAILED)}},
-                )
                 result.enqueue_failed_count += 1
 
     if progress_callback:

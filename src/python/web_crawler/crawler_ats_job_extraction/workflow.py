@@ -21,14 +21,6 @@ from src.python.web_crawler.role_filtering import load_identity_roles, text_matc
 
 logger = logging.getLogger(__name__)
 
-_SCORING_STATUS_BSON: dict[int, str] = {
-    common_pb2.SCORING_STATUS_UNSCORED: "unscored",
-    common_pb2.SCORING_STATUS_QUEUED: "queued",
-    common_pb2.SCORING_STATUS_SCORED: "scored",
-    common_pb2.SCORING_STATUS_FAILED: "failed",
-    common_pb2.SCORING_STATUS_SKIPPED: "skipped",
-}
-
 
 def estimate_ats_job_extraction_checks(company_count: int) -> int:
     """
@@ -37,10 +29,6 @@ def estimate_ats_job_extraction_checks(company_count: int) -> int:
     We budget at least one extraction unit per ATS-enriched company.
     """
     return max(company_count, 1)
-
-
-def _scoring_status_to_bson(status: int) -> str:
-    return _SCORING_STATUS_BSON.get(status, "unscored")
 
 
 def _to_object_id(value: str) -> ObjectId | None:
@@ -54,20 +42,13 @@ def _now_timestamp() -> dict:
     return {"seconds": int(time.time()), "nanos": 0}
 
 
-def _build_job_document(job: common_pb2.Job, company_oid: ObjectId, scoring_status: str) -> dict:
+def _build_job_document(job: common_pb2.Job, company_oid: ObjectId) -> dict:
     doc = MessageToDict(job, preserving_proto_field_name=True)
     doc.pop("id", None)
     doc.pop("company_info", None)
-    # scoring_status is an enum: MessageToDict serializes it as the enum name string,
-    # but we store the lowercase BSON string via _scoring_status_to_bson().
-    doc.pop("scoring_status", None)
-    # weighted_score defaults to 0.0 and may be omitted by MessageToDict; set explicitly.
-    doc.pop("weighted_score", None)
     doc["company_id"] = company_oid
     doc["created_at"] = _now_timestamp()
     doc["updated_at"] = _now_timestamp()
-    doc["scoring_status"] = scoring_status
-    doc["weighted_score"] = 0
     return doc
 
 
@@ -107,7 +88,7 @@ def upsert_job(
     )
 
     if existing is None:
-        doc = _build_job_document(job, company_oid, _scoring_status_to_bson(common_pb2.SCORING_STATUS_UNSCORED))
+        doc = _build_job_document(job, company_oid)
         insert_result = jobs_collection.insert_one(doc)
         return str(insert_result.inserted_id), True
     else:
@@ -237,15 +218,10 @@ def run_crawler_ats_job_extraction(
                             result.updated_count += 1
 
                         if config.enable_scoring_enqueue and redis_client is not None:
-                            job_oid = _to_object_id(job_id)
                             if _try_enqueue(redis_client, config, job_id):
                                 result.enqueued_count += 1
-                                if job_oid is not None:
-                                    jobs_collection.update_one({"_id": job_oid}, {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_QUEUED)}})
                             else:
                                 result.enqueue_failed_count += 1
-                                if job_oid is not None:
-                                    jobs_collection.update_one({"_id": job_oid}, {"$set": {"scoring_status": _scoring_status_to_bson(common_pb2.SCORING_STATUS_FAILED)}})
 
                     except Exception as exc:
                         logger.exception("crawler_ats_job_extraction: failed to upsert job external_id=%s company=%s: %s", job.external_job_id, company_id, exc)

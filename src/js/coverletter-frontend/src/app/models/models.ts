@@ -59,6 +59,13 @@ export interface JobPreferenceScore {
   id: string;
   job_id: string;
   identity_id: string;
+  preference_scores: PreferenceScore[];
+  scoring_status?: string;
+  weighted_score?: number;
+  max_score?: number;
+}
+
+export interface PreferenceScore {
   preference_key: string;
   preference_guidance?: string;
   preference_weight?: number;
@@ -80,10 +87,10 @@ export interface JobDescription {
   created_at?: string | Timestamp;
   updated_at?: string | Timestamp;
   company_info?: Company;
-  scores?: JobPreferenceScore[];
-  weighted_score?: number;
-  max_score?: number;
-  scoring_status?: string;
+}
+
+export interface ScoredJobDescription extends JobDescription {
+  score?: JobPreferenceScore | null;
 }
 
 export interface CoverLetter {

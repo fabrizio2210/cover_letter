@@ -76,14 +76,14 @@
         <div class="job-details">
           <div class="job-title-row">
             <h4 class="job-title">{{ job.title }}</h4>
-            <span class="job-badge" *ngIf="job.weighted_score && job.weighted_score >= 4.5">New</span>
+            <span class="job-badge" *ngIf="(job.score?.weighted_score ?? 0) >= 4.5">New</span>
           </div>
           <p class="job-company">{{ job.company_name }} • {{ job.location }}</p>
         </div>
         <div class="job-score">
           <div class="score-display">
             <span class="material-symbols-outlined">star</span>
-            <span class="score-value">{{ job.weighted_score | number: '1.1-1' }}</span>
+            <span class="score-value">{{ job.score?.weighted_score | number: '1.1-1' }}</span>
           </div>
           <p class="score-label">AI FIT SCORE</p>
         </div>

@@ -61,6 +61,7 @@ func main() {
 
 		auth.GET("/job-descriptions", handlers.GetJobDescriptions)
 		auth.GET("/job-descriptions/:id", handlers.GetJobDescription)
+		auth.GET("/job-preference-scores", handlers.GetJobPreferenceScores)
 		auth.POST("/job-descriptions", handlers.CreateJobDescription)
 		auth.PUT("/job-descriptions/:id", handlers.UpdateJobDescription)
 		auth.DELETE("/job-descriptions/:id", handlers.DeleteJobDescription)
