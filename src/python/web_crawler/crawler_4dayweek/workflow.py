@@ -199,6 +199,12 @@ def run_crawler_4dayweek(
 
     job_cards = adapter.discover_jobs(config)
     result.discovered_count = len(job_cards)
+    logger.debug(
+        "crawler_4dayweek: discovered %d job cards for identity %s across %d roles",
+        result.discovered_count,
+        identity_id,
+        len(roles),
+    )
     if not job_cards:
         if progress_callback:
             progress_callback(1, 1, "No jobs discovered from 4dayweek")
@@ -206,6 +212,11 @@ def run_crawler_4dayweek(
 
     estimated = max(len(job_cards), 1)
     company_map = _unique_company_names(job_cards)
+    logger.debug(
+        "crawler_4dayweek: deduplicated %d unique companies from %d discovered job cards",
+        len(company_map),
+        result.discovered_count,
+    )
     discovered_companies: list[DiscoveredCompany] = []
     discovered_canonical_names: list[str] = []
     existing_canonicals: set[str] = set()
@@ -240,6 +251,11 @@ def run_crawler_4dayweek(
             progress_callback(index, estimated, f"Upserting job {index}/{estimated}: {card.job_title}")
 
         if not text_matches_roles(card.job_title, card.description, roles):
+            logger.debug(
+                "crawler_4dayweek: job %s (external_id=%s) does not match identity roles; skipping",
+                card.job_title,
+                card.external_job_id,
+            )
             result.skipped_count += 1
             continue
 
@@ -272,6 +288,12 @@ def run_crawler_4dayweek(
                             result.new_company_ids.append(new_ids[0])
 
         if company_oid is None:
+            logger.debug(
+                "crawler_4dayweek: skipping job %s (%s) - could not resolve company for %r",
+                card.external_job_id,
+                card.source_url,
+                card.company_name,
+            )
             result.skipped_count += 1
             continue
 
@@ -311,5 +333,17 @@ def run_crawler_4dayweek(
                 f"{result.skipped_count} skipped"
             ),
         )
+
+    logger.debug(
+        "crawler_4dayweek summary: discovered=%d inserted=%d updated=%d skipped=%d enqueued=%d enqueue_failed=%d upsert_failed=%d new_companies=%d",
+        result.discovered_count,
+        result.inserted_count,
+        result.updated_count,
+        result.skipped_count,
+        result.enqueued_count,
+        result.enqueue_failed_count,
+        len(result.failed_urls),
+        len(result.new_company_ids),
+    )
 
     return result
