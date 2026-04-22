@@ -17,7 +17,6 @@ from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.enrichment_ats_enrichment.workflow import run_enrichment_ats_enrichment
 from src.python.web_crawler.workflow_messages import (
-    ats_job_trigger_event_to_json,
     parse_company_discovery_event,
     workflow_dispatch_to_json,
 )
@@ -54,24 +53,7 @@ def _dispatch_ats_job_extraction(
     ats_slug: str,
     producer_workflow_run_id: str,
 ) -> None:
-    """Emit an AtsJobTriggerEvent and dispatch a WorkflowDispatchMessage to the ATS extraction queue."""
-    trigger = common_pb2.AtsJobTriggerEvent(
-        run_id=run_id,
-        workflow_run_id=producer_workflow_run_id,
-        workflow_id=_WORKFLOW_ID,
-        identity_id=identity_id,
-        company_id=company_id,
-        ats_provider=ats_provider,
-        ats_slug=ats_slug,
-    )
-    trigger.emitted_at.CopyFrom(utc_timestamp())
-    logger.debug(
-        "emitted AtsJobTriggerEvent company=%s provider=%s slug=%s",
-        company_id,
-        ats_provider,
-        ats_slug,
-    )
-
+    """Dispatch a WorkflowDispatchMessage to the ATS extraction queue."""
     extraction_workflow_run_id = _new_workflow_run_id()
     dispatch = common_pb2.WorkflowDispatchMessage(
         run_id=run_id,
