@@ -51,6 +51,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 ## 4. Responsibilities
 
 - Parse `CompanyDiscoveryEvent` from the input queue; drop malformed messages.
+- Accept events emitted by two producers: the `dispatcher` (existing unenriched companies queued at user-trigger time) and `crawler_company_discovery` (newly discovered companies).
 - For each company: build a list of candidate career URLs from `discovery_sources` (careers_url, source_url, domain-derived paths).
 - Run parallel ATS detection across candidate URLs using a `ThreadPoolExecutor` with up to 10 workers.
 - **Phase A** (pre-fetch): load company state, skip already-enriched companies (`ats_provider` + `ats_slug` both set) and companies with terminal failures.

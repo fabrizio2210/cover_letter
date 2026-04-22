@@ -10,8 +10,14 @@ import redis
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
-from src.python.web_crawler.workflow_messages import crawl_trigger_to_dict, parse_crawl_trigger, workflow_dispatch_to_json
+from src.python.web_crawler.workflow_messages import (
+    company_discovery_event_to_json,
+    crawl_trigger_to_dict,
+    parse_crawl_trigger,
+    workflow_dispatch_to_json,
+)
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -25,6 +31,67 @@ def _connect_redis(config: CrawlerConfig) -> redis.Redis:
     client = redis.Redis(host=config.redis_host, port=config.redis_port, socket_connect_timeout=5, decode_responses=True)
     client.ping()
     return client
+
+
+def _query_companies_needing_enrichment(database) -> list[str]:
+    """Return hex _id strings for companies that still need ATS enrichment."""
+    companies = database["companies"]
+    cursor = companies.find(
+        {
+            "$and": [
+                {"enrichment_ats_enrichment_terminal_failure": {"$exists": False}},
+                {
+                    "$or": [
+                        {"ats_provider": {"$in": [None, ""]}},
+                        {"ats_provider": {"$exists": False}},
+                        {"ats_slug": {"$in": [None, ""]}},
+                        {"ats_slug": {"$exists": False}},
+                    ]
+                },
+            ]
+        },
+        {"_id": 1},
+    )
+    return [str(doc["_id"]) for doc in cursor]
+
+
+def _fan_out_enrichment_events(
+    redis_client: redis.Redis,
+    config: CrawlerConfig,
+    database,
+    *,
+    run_id: str,
+    identity_id: str,
+) -> int:
+    """Push one CompanyDiscoveryEvent per unenriched company to the enrichment queue."""
+    company_ids = _query_companies_needing_enrichment(database)
+    workflow_run_id = _new_workflow_run_id()
+    emitted = 0
+    for company_id in company_ids:
+        try:
+            event = common_pb2.CompanyDiscoveryEvent(
+                run_id=run_id,
+                workflow_run_id=workflow_run_id,
+                workflow_id="dispatcher",
+                identity_id=identity_id,
+                company_id=company_id,
+                reason="no_ats_slug",
+            )
+            event.emitted_at.CopyFrom(utc_timestamp())
+            redis_client.rpush(
+                config.crawler_enrichment_ats_enrichment_queue_name,
+                company_discovery_event_to_json(event),
+            )
+            emitted += 1
+        except Exception as exc:
+            logger.warning("failed to emit enrichment event for company %s: %s", company_id, exc)
+    logger.info(
+        "fanned out %d enrichment events run_id=%s identity_id=%s",
+        emitted,
+        run_id,
+        identity_id,
+    )
+    return emitted
 
 
 def _dispatch_workflow(
@@ -138,6 +205,15 @@ def worker_main(config: CrawlerConfig) -> None:
                 run_id,
                 levelsfyi_workflow_run_id,
                 identity_id,
+            )
+
+            database = get_database(config)
+            _fan_out_enrichment_events(
+                redis_client,
+                config,
+                database,
+                run_id=run_id,
+                identity_id=identity_id,
             )
 
         except Exception as exc:
