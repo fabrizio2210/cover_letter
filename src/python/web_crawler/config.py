@@ -11,6 +11,7 @@ CRAWLER_COMPANY_DISCOVERY_QUEUE = "crawler_company_discovery_queue"
 CRAWLER_ATS_JOB_EXTRACTION_QUEUE = "crawler_ats_job_extraction_queue"
 CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE = "enrichment_ats_enrichment_queue"
 CRAWLER_LEVELSFYI_QUEUE = "crawler_levelsfyi_queue"
+CRAWLER_4DAYWEEK_QUEUE = "crawler_4dayweek_queue"
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -57,11 +58,13 @@ class CrawlerConfig:
     redis_host: str = "localhost"
     redis_port: int = 6379
     enable_scoring_enqueue: bool = False
+    referer: str = "https://4dayweek.io/jobs"
     crawler_trigger_queue_name: str = CRAWLER_TRIGGER_QUEUE
     crawler_company_discovery_queue_name: str = CRAWLER_COMPANY_DISCOVERY_QUEUE
     crawler_ats_job_extraction_queue_name: str = CRAWLER_ATS_JOB_EXTRACTION_QUEUE
     crawler_enrichment_ats_enrichment_queue_name: str = CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE
     crawler_levelsfyi_queue_name: str = CRAWLER_LEVELSFYI_QUEUE
+    crawler_4dayweek_queue_name: str = CRAWLER_4DAYWEEK_QUEUE
     crawler_progress_channel_name: str = CRAWLER_PROGRESS_CHANNEL
     job_scoring_queue_name: str = JOB_SCORING_QUEUE
     enable_workflow_dispatch_mode: bool = False
@@ -93,11 +96,13 @@ class CrawlerConfig:
             redis_host=os.getenv("REDIS_HOST", "localhost"),
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
             enable_scoring_enqueue=_parse_bool(os.getenv("CRAWLER_ENABLE_SCORING_ENQUEUE"), default=False),
+            referer=os.getenv("CRAWLER_REFERER", "https://4dayweek.io/jobs"),
             crawler_trigger_queue_name=os.getenv("CRAWLER_TRIGGER_QUEUE_NAME", CRAWLER_TRIGGER_QUEUE),
             crawler_company_discovery_queue_name=os.getenv("CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME", CRAWLER_COMPANY_DISCOVERY_QUEUE),
             crawler_ats_job_extraction_queue_name=os.getenv("CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME", CRAWLER_ATS_JOB_EXTRACTION_QUEUE),
             crawler_enrichment_ats_enrichment_queue_name=os.getenv("CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME", CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE),
             crawler_levelsfyi_queue_name=os.getenv("CRAWLER_LEVELSFYI_QUEUE_NAME", CRAWLER_LEVELSFYI_QUEUE),
+            crawler_4dayweek_queue_name=os.getenv("CRAWLER_4DAYWEEK_QUEUE_NAME", CRAWLER_4DAYWEEK_QUEUE),
             crawler_progress_channel_name=os.getenv("CRAWLER_PROGRESS_CHANNEL_NAME", CRAWLER_PROGRESS_CHANNEL),
             job_scoring_queue_name=os.getenv("JOB_SCORING_QUEUE_NAME", JOB_SCORING_QUEUE),
             enable_workflow_dispatch_mode=_parse_bool(os.getenv("CRAWLER_ENABLE_WORKFLOW_DISPATCH_MODE"), default=False),

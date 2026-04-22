@@ -207,6 +207,21 @@ def worker_main(config: CrawlerConfig) -> None:
                 identity_id,
             )
 
+            fourdayweek_workflow_run_id = _dispatch_workflow(
+                redis_client,
+                config,
+                run_id=run_id,
+                identity_id=identity_id,
+                workflow_id="crawler_4dayweek",
+                queue_name=config.crawler_4dayweek_queue_name,
+            )
+            logger.info(
+                "dispatched crawler_4dayweek run_id=%s workflow_run_id=%s identity_id=%s",
+                run_id,
+                fourdayweek_workflow_run_id,
+                identity_id,
+            )
+
             database = get_database(config)
             _fan_out_enrichment_events(
                 redis_client,
