@@ -474,13 +474,34 @@ func (h *crawlProgressHub) lastRunWorkflowStats() (string, *timestamppb.Timestam
 	defer h.mu.RUnlock()
 
 	runID := h.latestCompletedRunID
+	completedAt := h.latestCompletedAt
+
+	// Fallback: if no explicit completion marker is set (e.g. no finalizing signal was ever
+	// emitted by the dispatcher), derive the latest completed run from the snapshots already
+	// in memory. This recovers the state after a hot-reload without requiring a new crawl.
+	if runID == "" && len(h.workflowStatsByRun) > 0 {
+		var latestSeconds int64
+		for candidateRunID := range h.workflowStatsByRun {
+			for _, snapshot := range h.snapshots {
+				if snapshot.RunId == candidateRunID && snapshot.Status == "completed" && isCrawlerWorkflow(snapshot.WorkflowId) {
+					t := timestampSeconds(snapshot.UpdatedAt)
+					if t > latestSeconds {
+						latestSeconds = t
+						runID = candidateRunID
+						completedAt = snapshot.UpdatedAt
+					}
+				}
+			}
+		}
+	}
+
 	if runID == "" {
 		return "", nil, []lastRunWorkflowStatsItem{}
 	}
 
 	statsForRun := h.workflowStatsByRun[runID]
 	if len(statsForRun) == 0 {
-		return runID, cloneTimestamp(h.latestCompletedAt), []lastRunWorkflowStatsItem{}
+		return runID, cloneTimestamp(completedAt), []lastRunWorkflowStatsItem{}
 	}
 
 	items := make([]lastRunWorkflowStatsItem, 0, len(dashboardWorkflowOrder))
@@ -492,7 +513,7 @@ func (h *crawlProgressHub) lastRunWorkflowStats() (string, *timestamppb.Timestam
 		items = append(items, item)
 	}
 
-	return runID, cloneTimestamp(h.latestCompletedAt), items
+	return runID, cloneTimestamp(completedAt), items
 }
 
 func (h *crawlProgressHub) updateWorkflowStatsLocked(snapshot *models.CrawlProgress) {
@@ -519,6 +540,13 @@ func (h *crawlProgressHub) updateWorkflowStatsLocked(snapshot *models.CrawlProgr
 	}
 
 	statsByWorkflow[workflowID] = workflowCountersForSnapshot(workflowID, snapshot)
+
+	// Also mark this run as the latest completed run so the dashboard widget is populated
+	// even when the dispatcher does not emit an explicit "finalizing" completion signal.
+	if h.latestCompletedAt == nil || timestampSeconds(snapshot.UpdatedAt) >= timestampSeconds(h.latestCompletedAt) {
+		h.latestCompletedRunID = snapshot.RunId
+		h.latestCompletedAt = cloneTimestamp(snapshot.UpdatedAt)
+	}
 }
 
 func crawlSnapshotKey(snapshot *models.CrawlProgress) string {

@@ -1,14 +1,16 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
-import { CrawlProgress, ScoredJobDescription } from './models/models';
+import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription } from './models/models';
 import { Subscription } from 'rxjs';
+import { dashboardWorkflowOrder, getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
 
 @Component({
   selector: 'app-dashboard-overview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './dashboard-overview.component.html',
   styleUrls: ['./dashboard-overview.component.css']
 })
@@ -26,12 +28,20 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   topScoredJobs: ScoredJobDescription[] = [];
   loadingJobs = false;
   loadingStats = false;
+  loadingWorkflowStats = false;
   activeCrawl: CrawlProgress | null = null;
+  lastRunWorkflowStats: LastRunWorkflowStatsResponse = {
+    run_id: '',
+    completed_at: null,
+    workflows: [],
+  };
+  private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private crawlStreamSubscription?: Subscription;
 
   ngOnInit(): void {
     this.loadStats();
     this.loadTopScoredJobs();
+    this.loadWorkflowStats();
     this.loadActiveCrawls();
     this.subscribeToCrawlProgress();
   }
@@ -79,20 +89,36 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   }
 
   get crawlPhaseLabel(): string {
-    switch (this.activeCrawl?.phase) {
-      case 'workflow1_company_discovery':
-        return 'Company discovery';
-      case 'enrichment_ats_enrichment':
-        return 'ATS enrichment';
-      case 'workflow3_ats_job_extraction':
-        return 'Job extraction';
-      case 'workflow4_4dayweek':
-        return '4dayweek scraping';
-      case 'finalizing':
-        return 'Finalizing';
-      default:
-        return 'Queued';
+    return getWorkflowLabel(this.activeCrawl?.workflow_id || this.activeCrawl?.workflow);
+  }
+
+  get workflowStatsRows(): LastRunWorkflowStatsItem[] {
+    const rowsById = new Map(this.lastRunWorkflowStats.workflows.map((workflow) => [workflow.workflow_id, workflow]));
+
+    return dashboardWorkflowOrder
+      .map((workflowId) => rowsById.get(workflowId))
+      .filter((workflow): workflow is LastRunWorkflowStatsItem => !!workflow);
+  }
+
+  get hasWorkflowStats(): boolean {
+    return this.workflowStatsRows.length > 0;
+  }
+
+  get lastRunCompletedAtLabel(): string {
+    const timestamp = this.lastRunWorkflowStats.completed_at;
+    if (!timestamp) {
+      return '';
     }
+
+    const completedAt = typeof timestamp === 'string'
+      ? new Date(timestamp)
+      : new Date((timestamp.seconds || 0) * 1000);
+
+    if (Number.isNaN(completedAt.getTime())) {
+      return '';
+    }
+
+    return completedAt.toLocaleString();
   }
 
   getCompanyInitials(company: string): string {
@@ -104,10 +130,52 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       .slice(0, 2);
   }
 
+  getWorkflowLabel(workflowId: LastRunWorkflowStatsItem['workflow_id']): string {
+    return getWorkflowLabel(workflowId);
+  }
+
+  getJobTags(job: ScoredJobDescription): string[] {
+    const tags: string[] = [];
+
+    if (job.platform) {
+      tags.push(job.platform);
+    }
+
+    if (job.location) {
+      tags.push(job.location);
+    }
+
+    if (job.score?.scoring_status) {
+      tags.push(job.score.scoring_status);
+    }
+
+    return tags.slice(0, 3);
+  }
+
+  private async loadWorkflowStats(): Promise<void> {
+    this.loadingWorkflowStats = true;
+    try {
+      this.lastRunWorkflowStats = await this.apiService.getLastRunWorkflowStats().toPromise() || {
+        run_id: '',
+        completed_at: null,
+        workflows: [],
+      };
+    } catch (error) {
+      console.error('Error loading workflow stats:', error);
+      this.lastRunWorkflowStats = {
+        run_id: '',
+        completed_at: null,
+        workflows: [],
+      };
+    } finally {
+      this.loadingWorkflowStats = false;
+    }
+  }
+
   private loadActiveCrawls(): void {
     this.apiService.getActiveCrawls().subscribe({
       next: (crawls) => {
-        this.activeCrawl = this.pickMostRelevantCrawl(crawls);
+        this.setCrawlSnapshots(crawls);
       },
     });
   }
@@ -115,10 +183,8 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   private subscribeToCrawlProgress(): void {
     this.crawlStreamSubscription = this.apiService.subscribeToCrawlProgress().subscribe({
       next: (progress) => {
-        this.activeCrawl = this.pickMostRelevantCrawl([
-          ...(this.activeCrawl ? [this.activeCrawl] : []),
-          progress,
-        ]);
+        this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(progress), progress);
+        this.activeCrawl = this.pickMostRelevantCrawl(Array.from(this.crawlSnapshotsByKey.values()));
       },
       error: () => {
         // Avoid duplicate toasts here; Job Discovery already surfaces stream failures more directly.
@@ -153,14 +219,12 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
     };
   }
 
-  private getStatusRank(status: CrawlProgress['status']): number {
-    if (status === 'running') {
-      return 3;
-    }
-    if (status === 'queued') {
-      return 2;
-    }
-    return 1;
+  private setCrawlSnapshots(crawls: CrawlProgress[]): void {
+    this.crawlSnapshotsByKey.clear();
+    crawls.forEach((crawl) => {
+      this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(crawl), crawl);
+    });
+    this.activeCrawl = this.pickMostRelevantCrawl(Array.from(this.crawlSnapshotsByKey.values()));
   }
 
   private getTimestampSeconds(value?: string | { seconds: number; nanos: number } | null): number {
@@ -171,5 +235,9 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       return Math.floor(new Date(value).getTime() / 1000);
     }
     return value.seconds || 0;
+  }
+
+  private getStatusRank(status: CrawlProgress['status']): number {
+    return getCrawlStatusRank(status);
   }
 }

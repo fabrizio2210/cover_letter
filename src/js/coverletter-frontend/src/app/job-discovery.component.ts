@@ -8,6 +8,7 @@ import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
 import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, ScoringProgress } from './models/models';
+import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
 type ProgressSource = 'crawl' | 'scoring';
@@ -60,7 +61,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   aiSkillGapAnalysis = false;
   private crawlStreamSubscription?: Subscription;
   private scoringStreamSubscription?: Subscription;
-  private crawlSnapshotsByIdentity = new Map<string, CrawlProgress>();
+  private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
   private completedProgressEvents = new Set<string>();
 
@@ -208,7 +209,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   get selectedIdentityCrawlProgress(): CrawlProgress | null {
-    const progress = this.crawlSnapshotsByIdentity.get(this.selectedIdentityId);
+    const progress = this.pickMostRelevantCrawl(this.getCrawlSnapshotsForIdentity(this.selectedIdentityId));
     if (!progress) {
       return null;
     }
@@ -268,7 +269,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
   getProgressPhaseLabel(progress: ActiveProgressSnapshot): string {
     if (progress.source === 'crawl') {
-      return this.getCrawlPhaseLabel(this.selectedIdentityCrawlProgress);
+      return getWorkflowLabel(this.selectedIdentityCrawlProgress?.workflow_id || this.selectedIdentityCrawlProgress?.workflow);
     }
     return 'AI scoring';
   }
@@ -302,11 +303,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.api.triggerCrawl(this.selectedIdentityId).subscribe({
       next: ({ identity_id, run_id }) => {
         this.triggeringCrawl = false;
-        this.crawlSnapshotsByIdentity.set(identity_id, {
+        const queuedProgress: CrawlProgress = {
           run_id,
           identity_id,
           status: 'queued',
-          phase: 'queued',
+          workflow: 'queued',
           message: 'Waiting for worker pickup',
           estimated_total: 4,
           completed: 0,
@@ -318,7 +319,8 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
           },
           finished_at: null,
           reason: '',
-        });
+        };
+        this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(queuedProgress), queuedProgress);
         this.feedbackService.showFeedback(`Crawl queued for ${this.activeIdentityName}.`);
       },
       error: (error) => {
@@ -330,20 +332,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   getCrawlPhaseLabel(progress: CrawlProgress | null): string {
-    switch (progress?.phase) {
-      case 'workflow1_company_discovery':
-        return 'Company discovery';
-      case 'enrichment_ats_enrichment':
-        return 'ATS enrichment';
-      case 'workflow3_ats_job_extraction':
-        return 'Job extraction';
-      case 'workflow4_4dayweek':
-        return '4dayweek scraping';
-      case 'finalizing':
-        return 'Finalizing';
-      default:
-        return 'Queued';
-    }
+    return getWorkflowLabel(progress?.workflow_id || progress?.workflow);
   }
 
   rerankVisibleJobs(): void {
@@ -639,7 +628,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.crawlStreamSubscription?.unsubscribe();
     this.crawlStreamSubscription = this.api.subscribeToCrawlProgress().subscribe({
       next: (progress) => {
-        this.crawlSnapshotsByIdentity.set(progress.identity_id, progress);
+        this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(progress), progress);
 
         if (progress.identity_id !== this.selectedIdentityId) {
           return;
@@ -684,12 +673,9 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   private setCrawlSnapshots(snapshots: CrawlProgress[]): void {
-    this.crawlSnapshotsByIdentity.clear();
+    this.crawlSnapshotsByKey.clear();
     snapshots.forEach((snapshot) => {
-      const existing = this.crawlSnapshotsByIdentity.get(snapshot.identity_id);
-      if (!existing || this.getTimestampSeconds(snapshot.updated_at) >= this.getTimestampSeconds(existing.updated_at)) {
-        this.crawlSnapshotsByIdentity.set(snapshot.identity_id, snapshot);
-      }
+      this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(snapshot), snapshot);
     });
   }
 
@@ -714,6 +700,33 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       completed: progress.completed ?? 0,
       percent: progress.percent ?? 0,
     };
+  }
+
+  private getCrawlSnapshotsForIdentity(identityId: string): CrawlProgress[] {
+    if (!identityId) {
+      return [];
+    }
+
+    return Array.from(this.crawlSnapshotsByKey.values())
+      .filter((snapshot) => snapshot.identity_id === identityId);
+  }
+
+  private pickMostRelevantCrawl(crawls: CrawlProgress[]): CrawlProgress | null {
+    if (!crawls.length) {
+      return null;
+    }
+
+    const prioritized = [...crawls].sort((left, right) => {
+      const leftRank = getCrawlStatusRank(left.status);
+      const rightRank = getCrawlStatusRank(right.status);
+      if (leftRank !== rightRank) {
+        return rightRank - leftRank;
+      }
+
+      return this.getTimestampSeconds(right.updated_at) - this.getTimestampSeconds(left.updated_at);
+    });
+
+    return prioritized[0] || null;
   }
 
   private refreshJobsOnTerminalProgress(source: ProgressSource, identityId: string, runId: string, status: string): void {

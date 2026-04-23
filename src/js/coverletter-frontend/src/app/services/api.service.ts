@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse } from '../models/models';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -143,6 +143,15 @@ export class ApiService {
 
     return this.http.get<CrawlProgress[]>(url)
       .pipe(catchError(() => of([])));
+  }
+
+  getLastRunWorkflowStats(): Observable<LastRunWorkflowStatsResponse> {
+    return this.http.get<LastRunWorkflowStatsResponse>(`${this.apiBase}/crawls/last-run/workflow-stats`)
+      .pipe(catchError(() => of({
+        run_id: '',
+        completed_at: null,
+        workflows: [],
+      })));
   }
 
   getActiveScoring(identityId?: string): Observable<ScoringProgress[]> {

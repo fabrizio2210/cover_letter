@@ -159,6 +159,86 @@
   transition: width 0.2s ease;
 }
 
+.workflow-visibility-section {
+  margin-bottom: 2rem;
+}
+
+.workflow-visibility-header {
+  margin-bottom: 1rem;
+}
+
+.workflow-visibility-header p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.workflow-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  padding: 1.1rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.workflow-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.workflow-card-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.workflow-chip {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+}
+
+.workflow-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.workflow-stat-row strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.workflow-empty-state {
+  background-color: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.9rem;
+  padding: 1.5rem;
+  text-align: center;
+  color: #64748b;
+}
+
 /* ===================== OPPORTUNITIES SECTION ===================== */
 .opportunities-section {
   margin-top: 3rem;
@@ -191,7 +271,12 @@
 }
 
 .jobs-feed {
-  display: space-y: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 34rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .job-card {
@@ -355,6 +440,17 @@
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .job-card-header,
+  .job-card-footer,
+  .workflow-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .job-score {
+    text-align: left;
   }
 }
 

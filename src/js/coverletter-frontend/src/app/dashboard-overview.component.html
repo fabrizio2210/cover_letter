@@ -54,7 +54,7 @@
     </div>
     <div class="crawler-progress-row">
       <span>{{ crawl.completed }} / {{ crawl.estimated_total }} checks</span>
-      <span>{{ crawl.phase }}</span>
+      <span>{{ crawl.workflow_id || crawl.workflow }}</span>
     </div>
     <div class="crawler-progress-track">
       <div class="crawler-progress-fill" [style.width.%]="crawl.percent"></div>
@@ -62,14 +62,54 @@
   </div>
 </section>
 
+<section class="workflow-visibility-section">
+  <div class="section-header workflow-visibility-header">
+    <div>
+      <h2>Last Completed Crawl Run</h2>
+      <p *ngIf="lastRunCompletedAtLabel">Completed {{ lastRunCompletedAtLabel }}</p>
+      <p *ngIf="!lastRunCompletedAtLabel && !loadingWorkflowStats">Workflow visibility from the latest completed run.</p>
+    </div>
+    <a routerLink="/dashboard/job-discovery" class="view-all-link">Open Job Discovery</a>
+  </div>
+
+  <div class="workflow-grid" *ngIf="!loadingWorkflowStats && hasWorkflowStats; else workflowStatsState">
+    <article class="workflow-card" *ngFor="let workflow of workflowStatsRows">
+      <div class="workflow-card-header">
+        <h3>{{ getWorkflowLabel(workflow.workflow_id) }}</h3>
+        <span class="workflow-chip">{{ workflow.workflow_id }}</span>
+      </div>
+
+      <div class="workflow-stat-row">
+        <span>Discovered jobs</span>
+        <strong>{{ workflow.discovered_jobs }}</strong>
+      </div>
+
+      <div class="workflow-stat-row">
+        <span>Discovered companies</span>
+        <strong>{{ workflow.discovered_companies }}</strong>
+      </div>
+    </article>
+  </div>
+
+  <ng-template #workflowStatsState>
+    <div class="workflow-empty-state" *ngIf="!loadingWorkflowStats; else workflowStatsLoading">
+      No completed crawl run is available yet.
+    </div>
+  </ng-template>
+
+  <ng-template #workflowStatsLoading>
+    <div class="loading-placeholder">Loading workflow visibility...</div>
+  </ng-template>
+</section>
+
 <!-- Top Scored Opportunities Section -->
 <section class="opportunities-section">
   <div class="section-header">
     <h2>Top Scored Opportunities</h2>
-    <a href="#" class="view-all-link">View All →</a>
+    <a routerLink="/dashboard/job-discovery" class="view-all-link">View All</a>
   </div>
 
-  <div class="jobs-feed" *ngIf="!loadingJobs; else jobsLoading">
+  <div class="jobs-feed" *ngIf="!loadingJobs && topScoredJobs.length > 0; else jobsLoading">
     <div class="job-card" *ngFor="let job of topScoredJobs">
       <div class="job-card-header">
         <div class="company-avatar">{{ getCompanyInitials(job.company_name || '') }}</div>
@@ -90,7 +130,7 @@
       </div>
       <div class="job-card-footer">
         <div class="job-tags">
-          <span class="tag" *ngFor="let tag of ['Design Systems', 'Tailwind CSS']">{{ tag }}</span>
+          <span class="tag" *ngFor="let tag of getJobTags(job)">{{ tag }}</span>
         </div>
         <button class="draft-button" (click)="draftLetter(job.id)">Draft Letter</button>
       </div>
@@ -98,6 +138,6 @@
   </div>
 
   <ng-template #jobsLoading>
-    <div class="loading-placeholder">Loading opportunities...</div>
+    <div class="loading-placeholder">{{ loadingJobs ? 'Loading opportunities...' : 'No scored opportunities yet.' }}</div>
   </ng-template>
 </section>

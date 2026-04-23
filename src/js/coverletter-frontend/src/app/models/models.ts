@@ -108,14 +108,22 @@ export interface CoverLetter {
 
 export interface CrawlProgress {
   run_id: string;
+  workflow_run_id?: string;
+  workflow_id?:
+    | 'crawler_company_discovery'
+    | 'enrichment_ats_enrichment'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
   identity_id: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
-  phase:
+  workflow:
     | 'queued'
-    | 'workflow1_company_discovery'
+    | 'crawler_company_discovery'
     | 'enrichment_ats_enrichment'
-    | 'workflow3_ats_job_extraction'
-    | 'workflow4_4dayweek'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi'
     | 'finalizing';
   message?: string;
   estimated_total: number;
@@ -139,6 +147,22 @@ export interface ScoringProgress {
   updated_at?: string | Timestamp;
   finished_at?: string | Timestamp | null;
   reason?: string;
+}
+
+export interface LastRunWorkflowStatsItem {
+  workflow_id:
+    | 'crawler_company_discovery'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
+  discovered_jobs: number;
+  discovered_companies: number;
+}
+
+export interface LastRunWorkflowStatsResponse {
+  run_id: string;
+  completed_at?: string | Timestamp | null;
+  workflows: LastRunWorkflowStatsItem[];
 }
 
 export interface FeedbackMessage {

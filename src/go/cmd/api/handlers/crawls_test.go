@@ -382,6 +382,67 @@ func TestGetLastRunWorkflowStats_CrawlerOnlyStableOrder(t *testing.T) {
 	}, ids)
 }
 
+func TestGetLastRunWorkflowStats_NoFinalizingSignal(t *testing.T) {
+	resetCrawlStateForTests()
+	now := time.Now().UTC()
+
+	// Simulate the real dispatcher behaviour: individual crawler_ workflows complete
+	// but no "finalizing" signal is ever sent. The dashboard widget must still populate.
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-no-finalizing",
+		WorkflowRunId: "wf-lvl",
+		WorkflowId:    "crawler_levelsfyi",
+		IdentityId:    "identity-1",
+		Status:        "completed",
+		Workflow:      "crawler_levelsfyi",
+		Completed:     8,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-2 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-2 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-no-finalizing",
+		WorkflowRunId: "wf-ats",
+		WorkflowId:    "crawler_ats_job_extraction",
+		IdentityId:    "identity-1",
+		Status:        "completed",
+		Workflow:      "crawler_ats_job_extraction",
+		Completed:     12,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-1 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-1 * time.Minute)),
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/last-run/workflow-stats", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetLastRunWorkflowStats(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "run-no-finalizing", response["run_id"])
+	require.NotNil(t, response["completed_at"])
+
+	workflows, ok := response["workflows"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, workflows, 2)
+
+	ids := make([]string, 0, len(workflows))
+	for _, raw := range workflows {
+		workflow, castOK := raw.(map[string]interface{})
+		require.True(t, castOK)
+		ids = append(ids, workflow["workflow_id"].(string))
+	}
+	// Stable order per dashboardWorkflowOrder; only the two completed workflows appear.
+	require.Equal(t, []string{
+		"crawler_levelsfyi",
+		"crawler_ats_job_extraction",
+	}, ids)
+}
+
 func TestStreamCrawlProgress_StreamsSSEEvent(t *testing.T) {
 	resetCrawlStateForTests()
 	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/stream", nil)
