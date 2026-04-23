@@ -166,13 +166,13 @@ Default redirect: `/dashboard` renders the overview directly (no longer redirect
 - Settings page hosting Fields management.
 
 Dashboard workflow-visibility rules:
-- The workflow stats widget always targets the latest completed parent crawl run globally, independent of identity.
+- The workflow stats widget shows the last completed result for each workflow independently; each workflow card reflects its own most recent completion regardless of which parent run it belonged to.
 - Only `crawler_` workflows are included in this widget; `enrichment_` workflows are excluded.
 - For each included workflow, the dashboard shows:
 	- `discovered_jobs`
 	- `discovered_companies`
 - `discovered_*` values represent persisted results only (`inserted + updated`), not raw pre-filter discovery candidates.
-- If no completed crawl run exists yet, the widget shows an empty state.
+- If no workflow has ever completed, the widget shows an empty state.
 
 ### Future features (no mock-up yet)
 - OTP-based login flow;

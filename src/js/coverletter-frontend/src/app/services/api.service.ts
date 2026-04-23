@@ -148,7 +148,6 @@ export class ApiService {
   getLastRunWorkflowStats(): Observable<LastRunWorkflowStatsResponse> {
     return this.http.get<LastRunWorkflowStatsResponse>(`${this.apiBase}/crawls/last-run/workflow-stats`)
       .pipe(catchError(() => of({
-        run_id: '',
         completed_at: null,
         workflows: [],
       })));

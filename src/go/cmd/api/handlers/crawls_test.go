@@ -248,7 +248,6 @@ func TestGetLastRunWorkflowStats_EmptyState(t *testing.T) {
 
 	var response map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
-	require.Equal(t, "", response["run_id"])
 	require.Nil(t, response["completed_at"])
 	workflows, ok := response["workflows"].([]interface{})
 	require.True(t, ok)
@@ -361,7 +360,6 @@ func TestGetLastRunWorkflowStats_CrawlerOnlyStableOrder(t *testing.T) {
 
 	var response map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
-	require.Equal(t, "run-latest", response["run_id"])
 	require.NotNil(t, response["completed_at"])
 
 	workflows, ok := response["workflows"].([]interface{})
@@ -423,7 +421,6 @@ func TestGetLastRunWorkflowStats_NoFinalizingSignal(t *testing.T) {
 
 	var response map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
-	require.Equal(t, "run-no-finalizing", response["run_id"])
 	require.NotNil(t, response["completed_at"])
 
 	workflows, ok := response["workflows"].([]interface{})

@@ -41,14 +41,13 @@ type crawlSubscriber chan *models.CrawlProgress
 type scoringSubscriber chan *models.ScoringProgress
 
 type crawlProgressHub struct {
-	mu                   sync.RWMutex
-	snapshots            map[string]*models.CrawlProgress
-	workflowStatsByRun   map[string]map[string]lastRunWorkflowStatsItem
-	latestCompletedRunID string
-	latestCompletedAt    *timestamppb.Timestamp
-	subscribers          map[int]crawlSubscriber
-	nextID               int
-	bridgeOnce           sync.Once
+	mu                     sync.RWMutex
+	snapshots               map[string]*models.CrawlProgress
+	latestStatsByWorkflow   map[string]lastRunWorkflowStatsItem
+	latestCompletedAt       *timestamppb.Timestamp
+	subscribers             map[int]crawlSubscriber
+	nextID                  int
+	bridgeOnce              sync.Once
 }
 
 type scoringProgressHub struct {
@@ -60,9 +59,9 @@ type scoringProgressHub struct {
 }
 
 var crawlHub = &crawlProgressHub{
-	snapshots:          make(map[string]*models.CrawlProgress),
-	workflowStatsByRun: make(map[string]map[string]lastRunWorkflowStatsItem),
-	subscribers:        make(map[int]crawlSubscriber),
+	snapshots:             make(map[string]*models.CrawlProgress),
+	latestStatsByWorkflow: make(map[string]lastRunWorkflowStatsItem),
+	subscribers:           make(map[int]crawlSubscriber),
 }
 
 var scoringHub = &scoringProgressHub{
@@ -171,10 +170,9 @@ func GetActiveCrawls(c *gin.Context) {
 func GetLastRunWorkflowStats(c *gin.Context) {
 	ensureCrawlProgressBridge()
 
-	completedRunID, completedAt, items := crawlHub.lastRunWorkflowStats()
-	if completedRunID == "" {
+	completedAt, items := crawlHub.lastRunWorkflowStats()
+	if len(items) == 0 {
 		c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{
-			RunID:       "",
 			CompletedAt: nil,
 			Workflows:   []lastRunWorkflowStatsItem{},
 		})
@@ -182,7 +180,6 @@ func GetLastRunWorkflowStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{
-		RunID:       completedRunID,
 		CompletedAt: completedAt,
 		Workflows:   items,
 	})
@@ -469,51 +466,57 @@ func (h *crawlProgressHub) findActiveByIdentity(identityID string) (*models.Craw
 	return cloneCrawlProgress(latest), true
 }
 
-func (h *crawlProgressHub) lastRunWorkflowStats() (string, *timestamppb.Timestamp, []lastRunWorkflowStatsItem) {
+func (h *crawlProgressHub) lastRunWorkflowStats() (*timestamppb.Timestamp, []lastRunWorkflowStatsItem) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	runID := h.latestCompletedRunID
 	completedAt := h.latestCompletedAt
 
-	// Fallback: if no explicit completion marker is set (e.g. no finalizing signal was ever
-	// emitted by the dispatcher), derive the latest completed run from the snapshots already
-	// in memory. This recovers the state after a hot-reload without requiring a new crawl.
-	if runID == "" && len(h.workflowStatsByRun) > 0 {
-		var latestSeconds int64
-		for candidateRunID := range h.workflowStatsByRun {
-			for _, snapshot := range h.snapshots {
-				if snapshot.RunId == candidateRunID && snapshot.Status == "completed" && isCrawlerWorkflow(snapshot.WorkflowId) {
-					t := timestampSeconds(snapshot.UpdatedAt)
-					if t > latestSeconds {
-						latestSeconds = t
-						runID = candidateRunID
+	// Fallback: rebuild latestStatsByWorkflow from in-memory snapshots when the hub was
+	// populated without an explicit completion signal (e.g. after a hot-reload).
+	if len(h.latestStatsByWorkflow) == 0 && len(h.snapshots) > 0 {
+		// Build a temporary per-workflow map from completed crawler snapshots.
+		// We do not mutate the locked struct here; we build a local copy for this response only.
+		tmp := make(map[string]lastRunWorkflowStatsItem)
+		tmpTimestamps := make(map[string]int64)
+		var overallLatestAt int64
+		for _, snapshot := range h.snapshots {
+			if snapshot.Status == "completed" && isCrawlerWorkflow(snapshot.WorkflowId) {
+				t := timestampSeconds(snapshot.UpdatedAt)
+				if prev, seen := tmpTimestamps[snapshot.WorkflowId]; !seen || t > prev {
+					tmpTimestamps[snapshot.WorkflowId] = t
+					tmp[snapshot.WorkflowId] = workflowCountersForSnapshot(snapshot.WorkflowId, snapshot)
+					if t > overallLatestAt {
+						overallLatestAt = t
 						completedAt = snapshot.UpdatedAt
 					}
 				}
 			}
 		}
+		if len(tmp) == 0 {
+			return nil, []lastRunWorkflowStatsItem{}
+		}
+		items := make([]lastRunWorkflowStatsItem, 0, len(dashboardWorkflowOrder))
+		for _, workflowID := range dashboardWorkflowOrder {
+			if item, ok := tmp[workflowID]; ok {
+				items = append(items, item)
+			}
+		}
+		return cloneTimestamp(completedAt), items
 	}
 
-	if runID == "" {
-		return "", nil, []lastRunWorkflowStatsItem{}
-	}
-
-	statsForRun := h.workflowStatsByRun[runID]
-	if len(statsForRun) == 0 {
-		return runID, cloneTimestamp(completedAt), []lastRunWorkflowStatsItem{}
+	if len(h.latestStatsByWorkflow) == 0 {
+		return nil, []lastRunWorkflowStatsItem{}
 	}
 
 	items := make([]lastRunWorkflowStatsItem, 0, len(dashboardWorkflowOrder))
 	for _, workflowID := range dashboardWorkflowOrder {
-		item, ok := statsForRun[workflowID]
-		if !ok {
-			continue
+		if item, ok := h.latestStatsByWorkflow[workflowID]; ok {
+			items = append(items, item)
 		}
-		items = append(items, item)
 	}
 
-	return runID, cloneTimestamp(completedAt), items
+	return cloneTimestamp(completedAt), items
 }
 
 func (h *crawlProgressHub) updateWorkflowStatsLocked(snapshot *models.CrawlProgress) {
@@ -521,30 +524,15 @@ func (h *crawlProgressHub) updateWorkflowStatsLocked(snapshot *models.CrawlProgr
 		return
 	}
 
-	if snapshot.Status == "completed" && snapshot.Workflow == "finalizing" {
-		if h.latestCompletedAt == nil || timestampSeconds(snapshot.UpdatedAt) >= timestampSeconds(h.latestCompletedAt) {
-			h.latestCompletedRunID = snapshot.RunId
-			h.latestCompletedAt = cloneTimestamp(snapshot.UpdatedAt)
-		}
-	}
-
 	if snapshot.Status != "completed" || !isCrawlerWorkflow(snapshot.WorkflowId) {
 		return
 	}
 
 	workflowID := snapshot.WorkflowId
-	statsByWorkflow, ok := h.workflowStatsByRun[snapshot.RunId]
-	if !ok {
-		statsByWorkflow = make(map[string]lastRunWorkflowStatsItem)
-		h.workflowStatsByRun[snapshot.RunId] = statsByWorkflow
-	}
 
-	statsByWorkflow[workflowID] = workflowCountersForSnapshot(workflowID, snapshot)
+	h.latestStatsByWorkflow[workflowID] = workflowCountersForSnapshot(workflowID, snapshot)
 
-	// Also mark this run as the latest completed run so the dashboard widget is populated
-	// even when the dispatcher does not emit an explicit "finalizing" completion signal.
 	if h.latestCompletedAt == nil || timestampSeconds(snapshot.UpdatedAt) >= timestampSeconds(h.latestCompletedAt) {
-		h.latestCompletedRunID = snapshot.RunId
 		h.latestCompletedAt = cloneTimestamp(snapshot.UpdatedAt)
 	}
 }
@@ -619,7 +607,6 @@ func cloneTimestamp(ts *timestamppb.Timestamp) *timestamppb.Timestamp {
 }
 
 type lastRunWorkflowStatsResponse struct {
-	RunID       string                     `json:"run_id"`
 	CompletedAt *timestamppb.Timestamp     `json:"completed_at"`
 	Workflows   []lastRunWorkflowStatsItem `json:"workflows"`
 }
@@ -698,8 +685,7 @@ func resetCrawlStateForTests() {
 	crawlHub.mu.Lock()
 	defer crawlHub.mu.Unlock()
 	crawlHub.snapshots = make(map[string]*models.CrawlProgress)
-	crawlHub.workflowStatsByRun = make(map[string]map[string]lastRunWorkflowStatsItem)
-	crawlHub.latestCompletedRunID = ""
+	crawlHub.latestStatsByWorkflow = make(map[string]lastRunWorkflowStatsItem)
 	crawlHub.latestCompletedAt = nil
 	for id, subscriber := range crawlHub.subscribers {
 		delete(crawlHub.subscribers, id)

@@ -160,7 +160,6 @@ export interface LastRunWorkflowStatsItem {
 }
 
 export interface LastRunWorkflowStatsResponse {
-  run_id: string;
   completed_at?: string | Timestamp | null;
   workflows: LastRunWorkflowStatsItem[];
 }

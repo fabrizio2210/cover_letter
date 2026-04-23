@@ -206,7 +206,6 @@ export interface LastRunWorkflowStatsItem {
 }
 
 export interface LastRunWorkflowStatsResponse {
-  run_id: string;
   completed_at?: string | Timestamp | null;
   workflows: LastRunWorkflowStatsItem[];
 }
@@ -290,9 +289,11 @@ Required frontend behavior:
 - Filter stream events by the currently selected identity in Job Discovery.
 - Allow Dashboard to show active progress even when the user is not on Job Discovery.
 - Render Dashboard workflow visibility stats as identity-agnostic values from the latest completed run globally, independent of selected identity in Job Discovery.
+- Render Dashboard workflow visibility stats as identity-agnostic values; each workflow card reflects its own most recent completion, independent of parent run and selected identity.
 - Include only `crawler_` workflow rows/cards in the Dashboard visibility widget and exclude `enrichment_` workflows.
 - Display `discovered_jobs` and `discovered_companies` exactly as returned by the API, where values are persisted-result counters (`inserted + updated`).
 - Render an empty state for the Dashboard visibility widget when `run_id` is empty and `workflows` is an empty array.
+- Render an empty state for the Dashboard visibility widget when `workflows` is an empty array.
 - Treat `completed`, `failed`, and `rejected` as terminal UI states.
 - Preserve distinct crawl workflow contributions by `workflow_run_id` rather than collapsing everything into one snapshot per identity.
 - Support multiple active crawl workflow items for one `identity_id` under the same parent `run_id`.

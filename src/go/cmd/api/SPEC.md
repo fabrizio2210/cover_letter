@@ -1000,11 +1000,10 @@ Rules:
 
 #### `GET /api/crawls/last-run/workflow-stats`
 Auth: required.
-Response `200`: latest completed parent crawl run workflow stats for dashboard visibility.
+Response `200`: last completed run stats per workflow for dashboard visibility. Each workflow independently shows its most recent completion, regardless of which parent run it belonged to.
 
 ```json
 {
-  "run_id": "<latest completed parent crawl run id>",
   "completed_at": { "seconds": 1711234600, "nanos": 0 },
   "workflows": [
     {
@@ -1035,7 +1034,6 @@ Response `200` when no completed run exists yet:
 
 ```json
 {
-  "run_id": "",
   "completed_at": null,
   "workflows": []
 }
@@ -1043,13 +1041,16 @@ Response `200` when no completed run exists yet:
 
 Rules:
 - This endpoint is identity-agnostic and does not accept identity filters.
-- `run_id` refers to the latest completed parent crawl run globally across identities.
+- Each workflow entry reflects the most recent completion of that specific workflow, independent of parent run.
+- `completed_at` is the timestamp of the most recently completed workflow across all returned workflows.
 - Only workflows with ids prefixed by `crawler_` are returned; `enrichment_` workflows are excluded.
 - `discovered_jobs` and `discovered_companies` are persisted-result counters (`inserted + updated`) and are non-negative integers.
 - Workflows should be returned in stable display order: `crawler_company_discovery`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
+- A workflow is only included in the response if it has completed at least once; workflows that have never run are omitted.
+- If no workflow has ever completed, `completed_at` is null and `workflows` is an empty array.
 
 Current implementation note (interim):
-- the API currently keeps latest completed-run workflow visibility snapshots in memory; restarting the API process clears this state until a new run completes.
+- the API currently keeps per-workflow last-completion snapshots in memory; restarting the API process clears this state until a workflow completes again.
 - durable historical run-summary persistence in MongoDB is planned as a follow-up hardening step.
 
 #### `GET /api/crawls/stream`

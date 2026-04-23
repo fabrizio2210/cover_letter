@@ -31,7 +31,6 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   loadingWorkflowStats = false;
   activeCrawl: CrawlProgress | null = null;
   lastRunWorkflowStats: LastRunWorkflowStatsResponse = {
-    run_id: '',
     completed_at: null,
     workflows: [],
   };
@@ -156,14 +155,12 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
     this.loadingWorkflowStats = true;
     try {
       this.lastRunWorkflowStats = await this.apiService.getLastRunWorkflowStats().toPromise() || {
-        run_id: '',
         completed_at: null,
         workflows: [],
       };
     } catch (error) {
       console.error('Error loading workflow stats:', error);
       this.lastRunWorkflowStats = {
-        run_id: '',
         completed_at: null,
         workflows: [],
       };
