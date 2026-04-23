@@ -1048,6 +1048,10 @@ Rules:
 - `discovered_jobs` and `discovered_companies` are persisted-result counters (`inserted + updated`) and are non-negative integers.
 - Workflows should be returned in stable display order: `crawler_company_discovery`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
 
+Current implementation note (interim):
+- the API currently keeps latest completed-run workflow visibility snapshots in memory; restarting the API process clears this state until a new run completes.
+- durable historical run-summary persistence in MongoDB is planned as a follow-up hardening step.
+
 #### `GET /api/crawls/stream`
 Auth: required.
 Response `200`: `text/event-stream`.

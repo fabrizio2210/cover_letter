@@ -187,6 +187,201 @@ func TestGetActiveCrawls_FiltersByIdentity(t *testing.T) {
 	require.Equal(t, "completed", snapshots[0].Status)
 }
 
+func TestGetActiveCrawls_PreservesDistinctWorkflowContributions(t *testing.T) {
+	resetCrawlStateForTests()
+	now := time.Now().UTC()
+
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:          "run-1",
+		WorkflowRunId:  "wf-1",
+		WorkflowId:     "crawler_company_discovery",
+		IdentityId:     "identity-a",
+		Status:         "running",
+		Workflow:       "crawler_company_discovery",
+		EstimatedTotal: 100,
+		Completed:      20,
+		Percent:        20,
+		UpdatedAt:      timestampPtr(now),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:          "run-1",
+		WorkflowRunId:  "wf-2",
+		WorkflowId:     "crawler_ats_job_extraction",
+		IdentityId:     "identity-a",
+		Status:         "running",
+		Workflow:       "crawler_ats_job_extraction",
+		EstimatedTotal: 80,
+		Completed:      10,
+		Percent:        12,
+		UpdatedAt:      timestampPtr(now.Add(1 * time.Second)),
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/active?identity_id=identity-a", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetActiveCrawls(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var snapshots []models.CrawlProgress
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &snapshots))
+	require.Len(t, snapshots, 2)
+
+	workflowRuns := map[string]bool{}
+	for _, snapshot := range snapshots {
+		workflowRuns[snapshot.WorkflowRunId] = true
+	}
+	require.True(t, workflowRuns["wf-1"])
+	require.True(t, workflowRuns["wf-2"])
+}
+
+func TestGetLastRunWorkflowStats_EmptyState(t *testing.T) {
+	resetCrawlStateForTests()
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/last-run/workflow-stats", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetLastRunWorkflowStats(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "", response["run_id"])
+	require.Nil(t, response["completed_at"])
+	workflows, ok := response["workflows"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, workflows, 0)
+}
+
+func TestGetLastRunWorkflowStats_CrawlerOnlyStableOrder(t *testing.T) {
+	resetCrawlStateForTests()
+	now := time.Now().UTC()
+
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-early",
+		WorkflowRunId: "wf-old",
+		WorkflowId:    "crawler_company_discovery",
+		IdentityId:    "identity-1",
+		Status:        "completed",
+		Workflow:      "crawler_company_discovery",
+		Completed:     5,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-10 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-10 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "run-early",
+		IdentityId: "identity-1",
+		Status:     "completed",
+		Workflow:   "finalizing",
+		Percent:    100,
+		UpdatedAt:  timestampPtr(now.Add(-9 * time.Minute)),
+		FinishedAt: timestampPtr(now.Add(-9 * time.Minute)),
+	})
+
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-latest",
+		WorkflowRunId: "wf-lvl",
+		WorkflowId:    "crawler_levelsfyi",
+		IdentityId:    "identity-2",
+		Status:        "completed",
+		Workflow:      "crawler_levelsfyi",
+		Completed:     7,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-4 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-4 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-latest",
+		WorkflowRunId: "wf-4dw",
+		WorkflowId:    "crawler_4dayweek",
+		IdentityId:    "identity-2",
+		Status:        "completed",
+		Workflow:      "crawler_4dayweek",
+		Completed:     3,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-3 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-3 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-latest",
+		WorkflowRunId: "wf-company",
+		WorkflowId:    "crawler_company_discovery",
+		IdentityId:    "identity-2",
+		Status:        "completed",
+		Workflow:      "crawler_company_discovery",
+		Completed:     11,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-2 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-2 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-latest",
+		WorkflowRunId: "wf-ats",
+		WorkflowId:    "crawler_ats_job_extraction",
+		IdentityId:    "identity-2",
+		Status:        "completed",
+		Workflow:      "crawler_ats_job_extraction",
+		Completed:     17,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-1 * time.Minute)),
+		FinishedAt:    timestampPtr(now.Add(-1 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "run-latest",
+		WorkflowRunId: "wf-enrichment",
+		WorkflowId:    "enrichment_ats_enrichment",
+		IdentityId:    "identity-2",
+		Status:        "completed",
+		Workflow:      "enrichment_ats_enrichment",
+		Completed:     99,
+		Percent:       100,
+		UpdatedAt:     timestampPtr(now.Add(-30 * time.Second)),
+		FinishedAt:    timestampPtr(now.Add(-30 * time.Second)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "run-latest",
+		IdentityId: "identity-2",
+		Status:     "completed",
+		Workflow:   "finalizing",
+		Percent:    100,
+		UpdatedAt:  timestampPtr(now),
+		FinishedAt: timestampPtr(now),
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/last-run/workflow-stats", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetLastRunWorkflowStats(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "run-latest", response["run_id"])
+	require.NotNil(t, response["completed_at"])
+
+	workflows, ok := response["workflows"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, workflows, 4)
+
+	ids := make([]string, 0, len(workflows))
+	for _, raw := range workflows {
+		workflow, castOK := raw.(map[string]interface{})
+		require.True(t, castOK)
+		ids = append(ids, workflow["workflow_id"].(string))
+	}
+	require.Equal(t, []string{
+		"crawler_company_discovery",
+		"crawler_levelsfyi",
+		"crawler_4dayweek",
+		"crawler_ats_job_extraction",
+	}, ids)
+}
+
 func TestStreamCrawlProgress_StreamsSSEEvent(t *testing.T) {
 	resetCrawlStateForTests()
 	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/stream", nil)
