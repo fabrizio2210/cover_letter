@@ -40,8 +40,7 @@ fi
 
 #######
 # TESTS
-tests/e2e.sh
-tests/e2e/test_workflow1_integration.sh
+bash scripts/test-gate.sh --mode full
 
 #############
 # BUILD IMAGE

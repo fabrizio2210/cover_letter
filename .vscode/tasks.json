@@ -10,6 +10,26 @@
                 "reveal": "silent",
                 "panel": "shared"
             }
+        },
+        {
+            "label": "Test Fast",
+            "type": "shell",
+            "command": "bash scripts/test-gate.sh --mode fast",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Test Full",
+            "type": "shell",
+            "command": "bash scripts/test-gate.sh --mode full",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
         }
     ]
 }
