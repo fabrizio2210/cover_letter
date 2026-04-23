@@ -17,6 +17,7 @@ from concurrent.futures import Future
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
+import src.python.web_crawler.executor as executor_module
 from src.python.web_crawler.executor import (
     ATSWorkerResult,
     ATSWorkerTask,
@@ -139,8 +140,11 @@ class TestDetectATSWorker(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.config = MagicMock(spec=CrawlerConfig)
-        self.config.user_agent = "test-agent"
+        self.config = CrawlerConfig(
+            mongo_host="mongodb://localhost:27017/",
+            db_name="cover_letter",
+            user_agent="test-agent",
+        )
         self.pool = ThreadSafeSessionPool(user_agent="test-agent")
         self.task = ATSWorkerTask(
             company_id="test-id",
@@ -256,8 +260,11 @@ class TestEnrichmentAtsEnrichmentIntegration(unittest.TestCase):
         """Test that executor properly submits and processes multiple tasks."""
         from concurrent.futures import ThreadPoolExecutor
         
-        config = MagicMock(spec=CrawlerConfig)
-        config.user_agent = "test-agent"
+        config = CrawlerConfig(
+            mongo_host="mongodb://localhost:27017/",
+            db_name="cover_letter",
+            user_agent="test-agent",
+        )
         pool = ThreadSafeSessionPool(user_agent="test-agent")
         
         tasks = [
@@ -287,7 +294,7 @@ class TestEnrichmentAtsEnrichmentIntegration(unittest.TestCase):
         with patch("src.python.web_crawler.executor._detect_ats_worker", side_effect=mock_worker):
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = [
-                    executor.submit(_detect_ats_worker, task, config, pool)
+                    executor.submit(executor_module._detect_ats_worker, task, config, pool)
                     for task in tasks
                 ]
                 

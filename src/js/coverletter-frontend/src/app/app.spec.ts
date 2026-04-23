@@ -1,23 +1,10 @@
-// import { TestBed } from '@angular/core/testing';
-// import { App } from './app';
+/// <reference types="jasmine" />
 
-// describe('App', () => {
-//   beforeEach(async () => {
-//     await TestBed.configureTestingModule({
-//       imports: [App],
-//     }).compileComponents();
-//   });
+import { AppComponent } from './app.component';
 
-//   it('should create the app', () => {
-//     const fixture = TestBed.createComponent(App);
-//     const app = fixture.componentInstance;
-//     expect(app).toBeTruthy();
-//   });
-
-//   it('should render title', () => {
-//     const fixture = TestBed.createComponent(App);
-//     fixture.detectChanges();
-//     const compiled = fixture.nativeElement as HTMLElement;
-//     expect(compiled.querySelector('h1')?.textContent).toContain('Hello, coverletter-frontend');
-//   });
-// });
+describe('AppComponent', () => {
+	it('should be instantiable', () => {
+		const app = new AppComponent();
+		expect(app).toBeTruthy();
+	});
+});
