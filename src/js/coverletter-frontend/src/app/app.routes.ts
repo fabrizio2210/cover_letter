@@ -8,7 +8,7 @@ import { CoverLettersListComponent } from './coverletters-list.component';
 import { RecipientsComponent } from './recipients.component';
 import { SettingsComponent } from './settings.component';
 import { LetterEditorComponent } from './letter-editor.component';
-import { authGuard } from './auth.guard';
+import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
     { path: 'login', component: LoginComponent },

@@ -2,10 +2,10 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { ApiService } from './services/api.service';
-import { FeedbackService } from './services/feedback.service';
-import { IdentityContextService } from './services/identity-context.service';
-import { Company, Field, Identity, Recipient } from './models/models';
+import { ApiService } from './core/services/api.service';
+import { FeedbackService } from './core/services/feedback.service';
+import { IdentityContextService } from './core/services/identity-context.service';
+import { Company, Field, Identity, Recipient } from './shared/models/models';
 
 interface RecipientFormState {
   id?: string;

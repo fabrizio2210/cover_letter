@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { FeedbackService } from './services/feedback.service';
-import { CoverLetter } from './models/models';
+import { FeedbackService } from './core/services/feedback.service';
+import { CoverLetter } from './shared/models/models';
 
 @Component({
   selector: 'app-letter-editor',

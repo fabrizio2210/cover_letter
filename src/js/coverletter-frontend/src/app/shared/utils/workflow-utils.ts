@@ -1,4 +1,4 @@
-import { CrawlProgress, LastRunWorkflowStatsItem } from './models/models';
+import { CrawlProgress, LastRunWorkflowStatsItem } from '../models/models';
 
 export const dashboardWorkflowOrder: LastRunWorkflowStatsItem['workflow_id'][] = [
   'crawler_company_discovery',

@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FeedbackService } from './services/feedback.service';
+import { FeedbackService } from './core/services/feedback.service';
 import { Subscription } from 'rxjs';
 
 @Component({

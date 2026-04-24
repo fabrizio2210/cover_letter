@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
-import { FeedbackService } from './services/feedback.service';
-import { Field, Identity, IdentityPreference } from './models/models';
+import { FeedbackService } from './core/services/feedback.service';
+import { Field, Identity, IdentityPreference } from './shared/models/models';
 
 const IDENTITY_ICONS = ['terminal', 'layers', 'brush', 'favorite', 'psychology', 'engineering', 'code', 'category'];
 const ICON_COLORS = [

@@ -1,11 +1,11 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ApiService } from './services/api.service';
-import { FeedbackService } from './services/feedback.service';
-import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription, WorkflowCumulativeJobsItem, WorkflowCumulativeJobsResponse } from './models/models';
+import { ApiService } from './core/services/api.service';
+import { FeedbackService } from './core/services/feedback.service';
+import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription, WorkflowCumulativeJobsItem, WorkflowCumulativeJobsResponse } from './shared/models/models';
 import { Subscription } from 'rxjs';
-import { dashboardWorkflowOrder, getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
+import { dashboardWorkflowOrder, getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './shared/utils/workflow-utils';
 
 @Component({
   selector: 'app-dashboard-overview',

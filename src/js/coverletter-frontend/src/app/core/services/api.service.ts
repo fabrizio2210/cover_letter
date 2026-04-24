@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse } from '../models/models';
-import { AuthService } from './auth.service';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse } from '../../shared/models/models';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable({
   providedIn: 'root'

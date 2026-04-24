@@ -4,11 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, forkJoin } from 'rxjs';
 
-import { ApiService } from './services/api.service';
-import { FeedbackService } from './services/feedback.service';
-import { IdentityContextService } from './services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress } from './models/models';
-import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
+import { ApiService } from './core/services/api.service';
+import { FeedbackService } from './core/services/feedback.service';
+import { IdentityContextService } from './core/services/identity-context.service';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress } from './shared/models/models';
+import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './shared/utils/workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
 type ProgressSource = 'crawl' | 'scoring';

@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { FeedbackService } from './services/feedback.service';
-import { Field } from './models/models';
+import { FeedbackService } from './core/services/feedback.service';
+import { Field } from './shared/models/models';
 
 @Component({
   selector: 'app-fields-list',
