@@ -16,10 +16,10 @@ def _make_config() -> CrawlerConfig:
 
 
 class WorkflowCountersTests(unittest.TestCase):
-    def test_increment_discovered_jobs_counter_updates_settings_document(self):
+    def test_increment_discovered_jobs_counter_updates_stats_document(self):
         config = _make_config()
         fake_collection = Mock()
-        fake_database = {"settings": fake_collection}
+        fake_database = {"stats": fake_collection}
 
         with patch("src.python.web_crawler.workflow_counters.get_database", return_value=fake_database):
             increment_discovered_jobs_counter(
@@ -37,7 +37,7 @@ class WorkflowCountersTests(unittest.TestCase):
     def test_increment_discovered_jobs_counter_skips_non_positive_delta(self):
         config = _make_config()
         fake_collection = Mock()
-        fake_database = {"settings": fake_collection}
+        fake_database = {"stats": fake_collection}
 
         with patch("src.python.web_crawler.workflow_counters.get_database", return_value=fake_database):
             increment_discovered_jobs_counter(config, workflow_id="crawler_4dayweek", delta=0)

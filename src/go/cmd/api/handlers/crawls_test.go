@@ -442,7 +442,7 @@ func TestGetLastRunWorkflowStats_NoFinalizingSignal(t *testing.T) {
 
 func TestGetWorkflowCumulativeJobs_EmptyStateDefaultsToZero(t *testing.T) {
 	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
-		"settings": {findOneDoc: nil},
+		"stats": {findOneDoc: nil},
 	}}}
 	oldMongo := GetMongoClient
 	GetMongoClient = func() MongoClientIface { return fakeC }
@@ -479,7 +479,7 @@ func TestGetWorkflowCumulativeJobs_EmptyStateDefaultsToZero(t *testing.T) {
 
 func TestGetWorkflowCumulativeJobs_PartialDocumentPreservesStableOrder(t *testing.T) {
 	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
-		"settings": {
+		"stats": {
 			findOneDoc: bson.M{
 				"_id": "crawler_workflow_cumulative_jobs",
 				"discovered_jobs_by_workflow": bson.M{

@@ -26,7 +26,7 @@ const (
 	defaultCrawlerTriggerQueue    = "crawler_trigger_queue"
 	defaultCrawlerProgressChannel = "crawler_progress_channel"
 	defaultScoringProgressChannel = "scoring_progress_channel"
-	settingsCollectionName        = "settings"
+	statsCollectionName           = "stats"
 	workflowCountersDocID         = "crawler_workflow_cumulative_jobs"
 	workflowCountersField         = "discovered_jobs_by_workflow"
 
@@ -197,9 +197,9 @@ func GetWorkflowCumulativeJobs(c *gin.Context) {
 		dbName = "cover_letter"
 	}
 
-	settingsCollection := GetMongoClient().Database(dbName).Collection(settingsCollectionName)
-	var settingsDoc bson.M
-	err := settingsCollection.FindOne(context.Background(), bson.M{"_id": workflowCountersDocID}).Decode(&settingsDoc)
+	statsCollection := GetMongoClient().Database(dbName).Collection(statsCollectionName)
+	var statsDoc bson.M
+	err := statsCollection.FindOne(context.Background(), bson.M{"_id": workflowCountersDocID}).Decode(&statsDoc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			c.JSON(http.StatusOK, workflowCumulativeJobsResponse{Workflows: defaultWorkflowCumulativeJobs()})
@@ -209,9 +209,9 @@ func GetWorkflowCumulativeJobs(c *gin.Context) {
 		return
 	}
 
-	rawByWorkflow, _ := settingsDoc[workflowCountersField].(bson.M)
+	rawByWorkflow, _ := statsDoc[workflowCountersField].(bson.M)
 	if rawByWorkflow == nil {
-		if alt, ok := settingsDoc[workflowCountersField].(map[string]interface{}); ok {
+		if alt, ok := statsDoc[workflowCountersField].(map[string]interface{}); ok {
 			rawByWorkflow = bson.M(alt)
 		}
 	}
