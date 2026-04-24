@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Callable
 
 import requests
+from bson import ObjectId
+from bson.errors import InvalidId
 
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import WorkflowResult
@@ -24,101 +25,85 @@ def _seconds_60_days_ago() -> int:
     return int((datetime.now(timezone.utc) - timedelta(days=_CLOSED_AFTER_DAYS)).timestamp())
 
 
+def _to_object_id(value: str) -> ObjectId | None:
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        return None
+
+
 def run_enrichment_retiring_jobs(
     database,
     config: CrawlerConfig,
-    progress_callback: Callable[[int, int, str], None] | None = None,
+    job_id: str,
 ) -> WorkflowResult:
-    """Check all open jobs for 404 source URLs and remove jobs closed for over 60 days.
+    """Check a single job's source_url and retire it if necessary.
 
-    Phase A — Mark closed: probe each open job's source_url; set ``is_open=False``
-    and ``closed_at`` when the server responds with HTTP 404.
+    Phase A — Mark closed: if the job is open, probe its source_url; set
+    ``is_open=False`` and ``closed_at`` when the server responds with HTTP 404.
 
-    Phase B — Remove expired: delete job documents where ``is_open=False`` and
-    ``closed_at.seconds`` is older than 60 days.
+    Phase B — Remove expired: if the job is closed and ``closed_at`` is older
+    than 60 days, delete the job document.
     """
-    jobs_collection = database["jobs"]
     result = WorkflowResult()
 
-    # ===== PHASE A: Mark jobs as closed when source_url returns 404 =====
-    open_jobs = list(
-        jobs_collection.find(
-            {"source_url": {"$exists": True, "$ne": ""}, "is_open": {"$ne": False}}
-        )
-    )
+    job_oid = _to_object_id(job_id)
+    if job_oid is None:
+        logger.warning("enrichment_retiring_jobs: invalid job_id %r, skipping", job_id)
+        result.failed_count += 1
+        return result
 
-    total_open = len(open_jobs)
-    checked = 0
+    jobs_collection = database["jobs"]
+    job = jobs_collection.find_one({"_id": job_oid})
+    if job is None:
+        logger.debug("enrichment_retiring_jobs: job %s not found, skipping", job_id)
+        result.skipped_count += 1
+        return result
 
-    logger.info("enrichment_retiring_jobs: Phase A — checking %d open jobs for availability", total_open)
-
-    if progress_callback:
-        progress_callback(0, max(total_open, 1), f"Checking {total_open} open jobs for availability")
-
-    session = requests.Session()
-    session.headers.update({"User-Agent": config.user_agent})
-
-    try:
-        for job in open_jobs:
-            source_url = job.get("source_url", "")
-            job_id = str(job.get("_id", ""))
-            checked += 1
-
-            try:
-                response = session.head(
-                    source_url,
-                    timeout=config.http_timeout_seconds,
-                    allow_redirects=True,
+    # ===== PHASE A: Mark job as closed when source_url returns 404 =====
+    if job.get("is_open") is not False:
+        source_url = job.get("source_url", "")
+        session = requests.Session()
+        session.headers.update({"User-Agent": config.user_agent})
+        try:
+            response = session.head(
+                source_url,
+                timeout=config.http_timeout_seconds,
+                allow_redirects=True,
+            )
+            if response.status_code == 404:
+                closed_at = _now_timestamp()
+                jobs_collection.update_one(
+                    {"_id": job_oid},
+                    {"$set": {"is_open": False, "closed_at": closed_at}},
                 )
-                if response.status_code == 404:
-                    jobs_collection.update_one(
-                        {"_id": job["_id"]},
-                        {"$set": {"is_open": False, "closed_at": _now_timestamp()}},
-                    )
-                    result.updated_count += 1
-                    logger.debug(
-                        "enrichment_retiring_jobs: marked job %s as closed (404 on %s)",
-                        job_id,
-                        source_url,
-                    )
-            except Exception as exc:
+                job["is_open"] = False
+                job["closed_at"] = closed_at
+                result.updated_count += 1
                 logger.debug(
-                    "enrichment_retiring_jobs: failed to check job %s url %s: %s",
+                    "enrichment_retiring_jobs: marked job %s as closed (404 on %s)",
                     job_id,
                     source_url,
-                    exc,
                 )
-                result.failed_count += 1
+        except Exception as exc:
+            logger.debug(
+                "enrichment_retiring_jobs: failed to check job %s url %s: %s",
+                job_id,
+                source_url,
+                exc,
+            )
+            result.failed_count += 1
+            return result
+        finally:
+            session.close()
 
-            if progress_callback:
-                progress_callback(
-                    checked,
-                    max(total_open, 1),
-                    f"Checked {checked}/{total_open} jobs",
-                )
-    finally:
-        session.close()
-
-    logger.info(
-        "enrichment_retiring_jobs: Phase A complete — %d jobs marked closed out of %d checked",
-        result.updated_count,
-        checked,
-    )
-
-    # ===== PHASE B: Remove jobs that have been closed for more than 60 days =====
-    cutoff_seconds = _seconds_60_days_ago()
-
-    delete_result = jobs_collection.delete_many(
-        {
-            "is_open": False,
-            "closed_at.seconds": {"$lt": cutoff_seconds},
-        }
-    )
-    result.deleted_count = delete_result.deleted_count
-
-    logger.info(
-        "enrichment_retiring_jobs: Phase B complete — %d expired jobs deleted",
-        result.deleted_count,
-    )
+    # ===== PHASE B: Delete job if it has been closed for more than 60 days =====
+    if job.get("is_open") is False:
+        closed_at = job.get("closed_at") or {}
+        closed_seconds = closed_at.get("seconds", 0) if isinstance(closed_at, dict) else 0
+        if closed_seconds < _seconds_60_days_ago():
+            jobs_collection.delete_one({"_id": job_oid})
+            result.deleted_count += 1
+            logger.debug("enrichment_retiring_jobs: deleted expired job %s", job_id)
 
     return result

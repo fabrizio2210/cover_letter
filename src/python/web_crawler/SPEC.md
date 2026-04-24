@@ -100,8 +100,7 @@ High-level orchestration:
 | `CRAWLER_USER_AGENT` | browser-like UA string | No | Request header to reduce bot blocking |
 | `CRAWLER_REFERER` | `https://4dayweek.io/jobs` | No | Referer for 4dayweek requests |
 | `CRAWLER_LEVELSFYI_MAX_COMPANIES_PER_ROLE` | `50` | No | Cap on company discoveries retained per identity role from Levels.fyi |
-| `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | Optional on-demand trigger queue for the `enrichment_retiring_jobs` worker |
-| `CRAWLER_ENRICHMENT_RETIRING_JOBS_INTERVAL_SECONDS` | `3600` | No | Seconds between automatic `enrichment_retiring_jobs` runs |
+| `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | Input queue for the `enrichment_retiring_jobs` worker — one message per job to check |
 
 Platform-specific configuration may include source names, ATS slugs, and source URLs (via config file or environment).
 

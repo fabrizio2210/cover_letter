@@ -70,7 +70,6 @@ class CrawlerConfig:
     job_scoring_queue_name: str = JOB_SCORING_QUEUE
     enable_workflow_dispatch_mode: bool = False
     crawler_enrichment_retiring_jobs_queue_name: str = CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE
-    crawler_enrichment_retiring_jobs_interval_seconds: int = 3600
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -110,5 +109,4 @@ class CrawlerConfig:
             job_scoring_queue_name=os.getenv("JOB_SCORING_QUEUE_NAME", JOB_SCORING_QUEUE),
             enable_workflow_dispatch_mode=_parse_bool(os.getenv("CRAWLER_ENABLE_WORKFLOW_DISPATCH_MODE"), default=False),
             crawler_enrichment_retiring_jobs_queue_name=os.getenv("CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME", CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE),
-            crawler_enrichment_retiring_jobs_interval_seconds=int(os.getenv("CRAWLER_ENRICHMENT_RETIRING_JOBS_INTERVAL_SECONDS", "3600")),
         )

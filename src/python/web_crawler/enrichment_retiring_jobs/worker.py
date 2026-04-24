@@ -4,6 +4,7 @@ import argparse
 import logging
 import time
 import uuid
+from typing import cast
 
 import redis
 
@@ -11,6 +12,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.enrichment_retiring_jobs.workflow import _WORKFLOW_ID, run_enrichment_retiring_jobs
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
+from src.python.web_crawler.workflow_messages import parse_job_retire_event
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -44,19 +46,41 @@ def worker_main(config: CrawlerConfig) -> None:
                     config.redis_port,
                 )
 
-            # Block until a trigger message arrives or the interval elapses.
-            # When the timeout expires redis returns None, which triggers the
-            # periodic retirement run.
-            redis_client.blpop(
-                [config.crawler_enrichment_retiring_jobs_queue_name],
-                timeout=config.crawler_enrichment_retiring_jobs_interval_seconds,
+            queue_item = cast(
+                tuple[str, str] | None,
+                redis_client.blpop(
+                    [config.crawler_enrichment_retiring_jobs_queue_name], timeout=0
+                ),
             )
+            if not queue_item:
+                continue
 
-            # run_id identifies the parent run; workflow_run_id identifies this
-            # specific workflow execution attempt within that run.
-            run_id = _new_workflow_run_id()
-            workflow_run_id = _new_workflow_run_id()
-            identity_id = "system"
+            _, raw_payload = queue_item
+            try:
+                event = parse_job_retire_event(raw_payload)
+            except Exception as exc:
+                logger.warning("enrichment_retiring_jobs: invalid job retire event payload: %s", exc)
+                continue
+
+            run_id = event["run_id"]
+            workflow_run_id = event["workflow_run_id"]
+            identity_id = event["identity_id"]
+            job_id = event["job_id"]
+
+            if not job_id:
+                logger.warning(
+                    "enrichment_retiring_jobs: event missing job_id: %s", raw_payload
+                )
+                continue
+
+            # Generate a new workflow_run_id for this retirement attempt if the
+            # caller did not supply one.
+            if not workflow_run_id:
+                workflow_run_id = _new_workflow_run_id()
+            if not run_id:
+                run_id = workflow_run_id
+            if not identity_id:
+                identity_id = "system"
 
             started_at = utc_timestamp()
             publish_progress(
@@ -75,7 +99,7 @@ def worker_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                result = run_enrichment_retiring_jobs(database, config)
+                result = run_enrichment_retiring_jobs(database, config, job_id)
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -89,14 +113,16 @@ def worker_main(config: CrawlerConfig) -> None:
                     started_at=started_at,
                     finished_at=finished_at,
                     message=(
-                        f"retiring jobs completed: {result.updated_count} marked closed, "
-                        f"{result.deleted_count} deleted"
+                        f"retiring job {job_id}: updated={result.updated_count}, "
+                        f"deleted={result.deleted_count}"
                     ),
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
             except Exception as exc:
-                logger.exception("enrichment_retiring_jobs run failed: %s", exc)
+                logger.exception(
+                    "enrichment_retiring_jobs failed for job %s: %s", job_id, exc
+                )
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -109,7 +135,7 @@ def worker_main(config: CrawlerConfig) -> None:
                     completed=0,
                     started_at=started_at,
                     finished_at=finished_at,
-                    message="retiring jobs failed",
+                    message=f"retiring job {job_id} failed",
                     reason="run_failed",
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
@@ -128,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--worker",
         action="store_true",
         required=True,
-        help="Run as a long-lived periodic worker",
+        help="Run as a long-lived Redis dispatch queue worker",
     )
     return parser
 
