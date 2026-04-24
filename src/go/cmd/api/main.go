@@ -66,6 +66,7 @@ func main() {
 		auth.PUT("/job-descriptions/:id", handlers.UpdateJobDescription)
 		auth.DELETE("/job-descriptions/:id", handlers.DeleteJobDescription)
 		auth.POST("/job-descriptions/:id/score", handlers.ScoreJobDescription)
+		auth.POST("/job-descriptions/:id/check", handlers.CheckJobDescription)
 
 		auth.POST("/crawls", handlers.TriggerCrawl)
 		auth.GET("/crawls/active", handlers.GetActiveCrawls)

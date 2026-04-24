@@ -486,6 +486,45 @@ func DeleteJobDescription(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Job description deleted successfully"})
 }
 
+// CheckJobDescription enqueues a job for the enrichment_retiring_jobs workflow.
+func CheckJobDescription(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := primitive.ObjectIDFromHex(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	collection, _, _ := jobDescriptionsCollection()
+	var jobDoc bson.M
+	if err := collection.FindOne(context.Background(), bson.M{"_id": mustObjectID(id)}).Decode(&jobDoc); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job description not found"})
+		return
+	}
+
+	queueName := os.Getenv("CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME")
+	if queueName == "" {
+		queueName = "enrichment_retiring_jobs_queue"
+	}
+
+	payloadBytes, err := json.Marshal(map[string]string{"job_id": id})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
+		return
+	}
+
+	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue check"})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"message": "Check queued successfully"})
+}
+
+func mustObjectID(hex string) primitive.ObjectID {
+	oid, _ := primitive.ObjectIDFromHex(hex)
+	return oid
+}
+
 // ScoreJobDescription enqueues a job for scoring.
 func ScoreJobDescription(c *gin.Context) {
 	id := c.Param("id")
