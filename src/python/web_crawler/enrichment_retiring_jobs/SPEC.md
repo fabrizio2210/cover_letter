@@ -22,7 +22,6 @@ The `enrichment_retiring_jobs` package enriches a single job document per invoca
 | Worker module | `src.python.web_crawler.enrichment_retiring_jobs.worker` |
 | Docker CMD | `python -m src.python.web_crawler.enrichment_retiring_jobs.worker --worker` |
 | Input queue | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` (default `enrichment_retiring_jobs_queue`) |
-| Progress channel | `CRAWLER_PROGRESS_CHANNEL_NAME` |
 | Workflow ID | `enrichment_retiring_jobs` |
 
 The worker uses `blpop` with `timeout=0`, blocking until a message arrives. Each message carries a `job_id` and optional `run_id`, `workflow_run_id`, and `identity_id` fields. The worker processes exactly one job per message, then blocks again.
@@ -40,7 +39,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | Input queue for per-job retirement requests |
-| `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | Progress channel |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | HTTP probe timeout per job URL |
 | `CRAWLER_USER_AGENT` | browser-like string | Request user-agent |
 
@@ -48,18 +46,20 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ## 4. Input Contract
 
-Queue messages are JSON objects:
+Queue messages are `JobRetireEvent` proto messages serialized as JSON (see `src/go/internal/proto/common/common.proto`):
 
 ```
 {
   job_id:          string   // MongoDB _id hex of the job to check (required)
   run_id:          string   // parent run identifier (optional; defaults to workflow_run_id)
   workflow_run_id: string   // workflow execution identifier (optional; auto-generated if absent)
+  workflow_id:     string   // workflow identifier (optional)
   identity_id:     string   // identity context (optional; defaults to "system")
+  emitted_at:      Timestamp // when the event was emitted (optional)
 }
 ```
 
-Messages missing `job_id` are dropped with a WARNING log. Messages with an invalid `job_id` (not a valid ObjectId) result in `failed_count += 1` and are otherwise skipped.
+Serialization helpers: `workflow_messages.job_retire_event_to_json` / `parse_job_retire_event`.
 
 ---
 

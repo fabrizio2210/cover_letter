@@ -62,10 +62,10 @@ def worker_main(config: CrawlerConfig) -> None:
                 logger.warning("enrichment_retiring_jobs: invalid job retire event payload: %s", exc)
                 continue
 
-            run_id = event["run_id"]
-            workflow_run_id = event["workflow_run_id"]
-            identity_id = event["identity_id"]
-            job_id = event["job_id"]
+            run_id = event.run_id
+            workflow_run_id = event.workflow_run_id
+            identity_id = event.identity_id
+            job_id = event.job_id
 
             if not job_id:
                 logger.warning(

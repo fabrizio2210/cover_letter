@@ -109,36 +109,16 @@ def ats_job_trigger_event_to_json(payload: common_pb2.AtsJobTriggerEvent) -> str
     return json.dumps(wire)
 
 
-def job_retire_event_to_json(
-    *,
-    run_id: str,
-    workflow_run_id: str,
-    identity_id: str,
-    job_id: str,
-) -> str:
-    """Serialize a job retire event to a JSON string for enqueuing."""
-    return json.dumps(
-        {
-            "run_id": run_id,
-            "workflow_run_id": workflow_run_id,
-            "identity_id": identity_id,
-            "job_id": job_id,
-        }
-    )
+def job_retire_event_to_json(payload: common_pb2.JobRetireEvent) -> str:
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)
 
 
-def parse_job_retire_event(raw_payload: str) -> dict:
-    """Parse a job retire event from a raw JSON queue payload.
-
-    Returns a dict with keys ``run_id``, ``workflow_run_id``, ``identity_id``,
-    and ``job_id`` (all strings, possibly empty).
-    """
+def parse_job_retire_event(raw_payload: str) -> common_pb2.JobRetireEvent:
+    """Parse a job retire event from a raw JSON queue payload."""
     parsed = json.loads(raw_payload)
     if not isinstance(parsed, dict):
         raise ValueError("job retire event payload must be a JSON object")
-    return {
-        "run_id": str(parsed.get("run_id") or "").strip(),
-        "workflow_run_id": str(parsed.get("workflow_run_id") or "").strip(),
-        "identity_id": str(parsed.get("identity_id") or "").strip(),
-        "job_id": str(parsed.get("job_id") or "").strip(),
-    }
+    message = common_pb2.JobRetireEvent()
+    ParseDict(parsed, message)
+    return message
