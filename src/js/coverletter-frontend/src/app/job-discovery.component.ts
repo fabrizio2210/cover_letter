@@ -7,7 +7,7 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, ScoringProgress } from './models/models';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress } from './models/models';
 import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
@@ -61,9 +61,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   aiSkillGapAnalysis = false;
   private crawlStreamSubscription?: Subscription;
   private scoringStreamSubscription?: Subscription;
+  private jobUpdateStreamSubscription?: Subscription;
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
   private completedProgressEvents = new Set<string>();
+  private checkedJobIds = new Set<string>();
 
   @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
@@ -85,11 +87,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.loadData();
     this.subscribeToCrawlProgress();
     this.subscribeToScoringProgress();
+    this.subscribeToJobUpdates();
   }
 
   ngOnDestroy(): void {
     this.crawlStreamSubscription?.unsubscribe();
     this.scoringStreamSubscription?.unsubscribe();
+    this.jobUpdateStreamSubscription?.unsubscribe();
   }
 
   loadData(): void {
@@ -117,6 +121,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         }
 
         this.applyScoresToJobs();
+        this.checkDisplayedJobs();
 
         this.loading = false;
       },
@@ -759,5 +764,47 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       return Math.floor(new Date(value).getTime() / 1000);
     }
     return value.seconds || 0;
+  }
+
+  private checkDisplayedJobs(): void {
+    this.filteredJobs.forEach((job) => {
+      if (!job.id || this.checkedJobIds.has(job.id)) {
+        return;
+      }
+      this.checkedJobIds.add(job.id);
+      this.api.checkJobDescription(job.id).subscribe({ error: () => {} });
+    });
+  }
+
+  private subscribeToJobUpdates(): void {
+    this.jobUpdateStreamSubscription?.unsubscribe();
+    this.jobUpdateStreamSubscription = this.api.subscribeToJobUpdates().subscribe({
+      next: (event: JobUpdateEvent) => {
+        if (event.job_id) {
+          this.reloadSingleJob(event.job_id);
+        }
+      },
+      error: () => {
+        this.feedbackService.showFeedback('Lost job updates stream connection.', true);
+      },
+    });
+  }
+
+  private reloadSingleJob(jobId: string): void {
+    this.api.getJobDescription(jobId).subscribe({
+      next: (updatedJob) => {
+        if (!updatedJob?.id) {
+          return;
+        }
+        const index = this.rawJobs.findIndex((j) => j.id === jobId);
+        if (index >= 0) {
+          this.rawJobs[index] = updatedJob;
+        } else {
+          this.rawJobs = [...this.rawJobs, updatedJob];
+        }
+        this.applyScoresToJobs();
+      },
+      error: () => {},
+    });
   }
 }

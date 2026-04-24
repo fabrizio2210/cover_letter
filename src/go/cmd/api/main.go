@@ -60,12 +60,14 @@ func main() {
 		auth.POST("/cover-letters/:id/send", handlers.SendCoverLetter)
 
 		auth.GET("/job-descriptions", handlers.GetJobDescriptions)
+		auth.GET("/job-descriptions/stream", handlers.StreamJobUpdates)
 		auth.GET("/job-descriptions/:id", handlers.GetJobDescription)
 		auth.GET("/job-preference-scores", handlers.GetJobPreferenceScores)
 		auth.POST("/job-descriptions", handlers.CreateJobDescription)
 		auth.PUT("/job-descriptions/:id", handlers.UpdateJobDescription)
 		auth.DELETE("/job-descriptions/:id", handlers.DeleteJobDescription)
 		auth.POST("/job-descriptions/:id/score", handlers.ScoreJobDescription)
+		auth.POST("/job-descriptions/:id/check", handlers.CheckJobDescription)
 
 		auth.POST("/crawls", handlers.TriggerCrawl)
 		auth.GET("/crawls/active", handlers.GetActiveCrawls)

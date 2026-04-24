@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent } from '../models/models';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -128,6 +128,10 @@ export class ApiService {
 
   scoreJobDescription(id: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, {});
+  }
+
+  checkJobDescription(id: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/check`, {});
   }
 
   triggerCrawl(identityId: string): Observable<{ message: string; run_id: string; identity_id: string; status: string }> {
@@ -296,6 +300,81 @@ export class ApiService {
               }
 
               observer.next(JSON.parse(payload) as ScoringProgress);
+            }
+          }
+
+          observer.complete();
+        })
+        .catch((error) => {
+          if (abortController.signal.aborted) {
+            return;
+          }
+          observer.error(error);
+        });
+
+      return () => abortController.abort();
+    });
+  }
+
+  subscribeToJobUpdates(): Observable<JobUpdateEvent> {
+    return new Observable<JobUpdateEvent>((observer) => {
+      const token = this.authService.getToken();
+      if (!token) {
+        observer.error(new Error('Missing auth token'));
+        return undefined;
+      }
+
+      const abortController = new AbortController();
+
+      void fetch(`${this.apiBase}/job-descriptions/stream`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/event-stream',
+        },
+        signal: abortController.signal,
+      })
+        .then(async (response) => {
+          if (response.status === 401) {
+            this.authService.logout();
+            throw new Error('Unauthorized');
+          }
+
+          if (!response.ok || !response.body) {
+            throw new Error(`Failed to open job updates stream (${response.status})`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+
+            for (const eventChunk of events) {
+              const lines = eventChunk
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+              const dataLine = lines.find((line) => line.startsWith('data:'));
+              if (!dataLine) {
+                continue;
+              }
+
+              const payload = dataLine.slice(5).trim();
+              if (!payload) {
+                continue;
+              }
+
+              observer.next(JSON.parse(payload) as JobUpdateEvent);
             }
           }
 

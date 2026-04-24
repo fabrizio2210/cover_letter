@@ -17,6 +17,7 @@ class WorkflowResult:
     updated_count: int = 0
     skipped_count: int = 0
     failed_count: int = 0
+    deleted_count: int = 0
     enqueued_count: int = 0
     enqueue_failed_count: int = 0
     ats_providers: dict[str, int] = field(default_factory=dict)

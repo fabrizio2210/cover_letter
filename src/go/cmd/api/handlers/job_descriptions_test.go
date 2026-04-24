@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	thelpers "github.com/fabrizio2210/cover_letter/src/go/cmd/api/testing"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -240,4 +244,70 @@ func TestUpdateIdentityPreferences_Success(t *testing.T) {
 	require.True(t, ok)
 	_, ok = setDoc["preferences"]
 	require.True(t, ok)
+}
+
+func TestCheckJobDescription_InvalidID(t *testing.T) {
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/invalid/check", nil)
+	ctx.Params = append(ctx.Params, gin.Param{Key: "id", Value: "invalid"})
+
+	CheckJobDescription(ctx)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCheckJobDescription_NotFound(t *testing.T) {
+	jobsCollection := &fakeCollection{docs: []bson.M{}}
+	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"job-descriptions": jobsCollection}}
+	fakeClient := &fakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	id := primitive.NewObjectID().Hex()
+	req, _ := http.NewRequest(http.MethodPost, "/api/job-descriptions/"+id+"/check", nil)
+	ctx, w := thelpers.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/"+id+"/check", req)
+	ctx.Params = append(ctx.Params, gin.Param{Key: "id", Value: id})
+
+	CheckJobDescription(ctx)
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCheckJobDescription_QueuesPayload(t *testing.T) {
+	m, err := miniredis.Run()
+	require.NoError(t, err)
+	defer m.Close()
+
+	rclient := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	SetRedisClientForTests(rclient)
+	t.Setenv("CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME", "test_retiring_jobs_queue")
+
+	jobID := primitive.NewObjectID()
+	jobsCollection := &fakeCollection{findOneDoc: bson.M{"_id": jobID, "title": "SWE"}}
+	fakeDB := &fakeDatabase{cols: map[string]*fakeCollection{"job-descriptions": jobsCollection}}
+	fakeClient := &fakeClient{db: fakeDB}
+
+	old := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeClient }
+	defer func() { GetMongoClient = old }()
+
+	req, _ := http.NewRequest(http.MethodPost, "/api/job-descriptions/"+jobID.Hex()+"/check", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: jobID.Hex()})
+
+	CheckJobDescription(c)
+	require.Equal(t, http.StatusAccepted, w.Code)
+
+	queueValues, err := rclient.LRange(context.Background(), "test_retiring_jobs_queue", 0, -1).Result()
+	require.NoError(t, err)
+	require.Len(t, queueValues, 1)
+
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(queueValues[0]), &payload))
+	require.Equal(t, jobID.Hex(), payload["job_id"])
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Check queued successfully", response["message"])
 }

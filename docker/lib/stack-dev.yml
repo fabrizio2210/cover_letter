@@ -269,6 +269,24 @@ services:
     networks:
       - backends
 
+  enrichment-retiring-jobs:
+    image: fabrizio2210/coverletter-enrichment-retiring-jobs-dev
+    build:
+      context: ../..
+      dockerfile: docker/x86_64/Dockerfile-enrichment-retiring-jobs-dev
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
+      JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
   mongo:
     image: mongo
     restart: always
@@ -309,6 +327,8 @@ services:
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
       - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
+      - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
+      - JOB_UPDATE_CHANNEL_NAME=job_update_channel
     volumes:
       - ../../src/go/:/app
     labels:

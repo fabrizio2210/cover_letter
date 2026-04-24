@@ -192,6 +192,15 @@ message AtsJobTriggerEvent {
     google.protobuf.Timestamp emitted_at = 8;
 }
 
+message JobRetireEvent {
+    string run_id = 1;
+    string workflow_run_id = 2;
+    string workflow_id = 3;
+    string identity_id = 4;
+    string job_id = 5;
+    google.protobuf.Timestamp emitted_at = 6;
+}
+
 message CrawlProgress {
     string run_id = 1;
     string identity_id = 2;
@@ -221,4 +230,11 @@ message ScoringProgress {
     google.protobuf.Timestamp updated_at = 9;
     google.protobuf.Timestamp finished_at = 10;
     string reason = 11;
+}
+
+message JobUpdateEvent {
+    string job_id = 1;
+    string workflow_id = 2;
+    string workflow_run_id = 3;
+    google.protobuf.Timestamp emitted_at = 4;
 }

@@ -3,18 +3,19 @@ module github.com/fabrizio2210/cover_letter/src/go/cmd/api
 go 1.25
 
 require (
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/fabrizio2210/cover_letter/src/go v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/stretchr/testify v1.8.3
 	go.mongodb.org/mongo-driver v1.17.4
+	google.golang.org/protobuf v1.36.11
 )
 
 replace github.com/fabrizio2210/cover_letter/src/go => ../../
 
 require (
-	github.com/alicebob/miniredis/v2 v2.37.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -50,6 +51,5 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

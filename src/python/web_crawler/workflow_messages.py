@@ -107,3 +107,24 @@ def parse_company_discovery_event(raw_payload: str) -> common_pb2.CompanyDiscove
 def ats_job_trigger_event_to_json(payload: common_pb2.AtsJobTriggerEvent) -> str:
     wire = MessageToDict(payload, preserving_proto_field_name=True)
     return json.dumps(wire)
+
+
+def job_retire_event_to_json(payload: common_pb2.JobRetireEvent) -> str:
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)
+
+
+def parse_job_retire_event(raw_payload: str) -> common_pb2.JobRetireEvent:
+    """Parse a job retire event from a raw JSON queue payload."""
+    parsed = json.loads(raw_payload)
+    if not isinstance(parsed, dict):
+        raise ValueError("job retire event payload must be a JSON object")
+    message = common_pb2.JobRetireEvent()
+    ParseDict(parsed, message)
+    return message
+
+
+def job_update_event_to_json(payload: common_pb2.JobUpdateEvent) -> str:
+    """Serialize a JobUpdateEvent to a JSON string for publishing to Redis."""
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)
