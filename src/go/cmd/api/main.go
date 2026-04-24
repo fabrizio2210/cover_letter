@@ -60,6 +60,7 @@ func main() {
 		auth.POST("/cover-letters/:id/send", handlers.SendCoverLetter)
 
 		auth.GET("/job-descriptions", handlers.GetJobDescriptions)
+		auth.GET("/job-descriptions/stream", handlers.StreamJobUpdates)
 		auth.GET("/job-descriptions/:id", handlers.GetJobDescription)
 		auth.GET("/job-preference-scores", handlers.GetJobPreferenceScores)
 		auth.POST("/job-descriptions", handlers.CreateJobDescription)

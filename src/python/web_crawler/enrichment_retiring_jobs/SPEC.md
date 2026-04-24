@@ -72,6 +72,24 @@ Serialization helpers: `workflow_messages.job_retire_event_to_json` / `parse_job
   - On any other response or network error: leave the document unchanged.
 - If the job is closed (`is_open: false`) and `closed_at` is older than 60 days: delete the document.
 - Publish `running` → `completed` / `failed` progress snapshots per queue message.
+- After a successful run (`completed`), emit a `JobUpdateEvent` to `job_update_channel` so the UI can reload the job.
+
+---
+
+## 5.1 Output — Job Update Event
+
+After completing a job retirement run (status `completed`), the worker publishes a `JobUpdateEvent` to the Redis pub/sub channel defined by `JOB_UPDATE_CHANNEL_NAME` (default: `job_update_channel`).
+
+```json
+{
+  "job_id": "<hex ObjectID of the checked job>",
+  "workflow_id": "enrichment_retiring_jobs",
+  "workflow_run_id": "<workflow run identifier>",
+  "emitted_at": { "seconds": <unix>, "nanos": 0 }
+}
+```
+
+Serialization helper: `workflow_messages.job_update_event_to_json`.
 
 ---
 
