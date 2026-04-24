@@ -144,7 +144,8 @@ def worker_main(config: CrawlerConfig) -> None:
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
-                _publish_job_update(redis_client, config, job_id=job_id, workflow_run_id=workflow_run_id)
+                if result.updated_count > 0 or result.deleted_count > 0:
+                    _publish_job_update(redis_client, config, job_id=job_id, workflow_run_id=workflow_run_id)
             except Exception as exc:
                 logger.exception(
                     "enrichment_retiring_jobs failed for job %s: %s", job_id, exc
