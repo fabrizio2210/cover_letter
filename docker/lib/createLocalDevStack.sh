@@ -9,6 +9,7 @@ docker build -t fabrizio2210/coverletter-crawler-ats-job-extraction-dev -f docke
 docker build -t fabrizio2210/coverletter-crawler-levelsfyi-dev -f docker/x86_64/Dockerfile-crawler-levelsfyi-dev .
 docker build -t fabrizio2210/coverletter-crawler-4dayweek-dev -f docker/x86_64/Dockerfile-crawler-4dayweek-dev .
 docker build -t fabrizio2210/coverletter-enrichment-ats-enrichment-dev -f docker/x86_64/Dockerfile-enrichment-ats-enrichment-dev .
+docker build -t fabrizio2210/coverletter-enrichment-retiring-jobs-dev -f docker/x86_64/Dockerfile-enrichment-retiring-jobs-dev .
 docker build -t fabrizio2210/coverletter-api-dev -f docker/x86_64/Dockerfile-api-dev .
 docker build -t fabrizio2210/coverletter-frontend-dev -f docker/x86_64/Dockerfile-frontend-dev .
 
