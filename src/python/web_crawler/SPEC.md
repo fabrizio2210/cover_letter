@@ -50,7 +50,7 @@ Each accepted crawl request generates a parent `run_id`. The crawler fans out mo
 
 The crawler uses two workflow kinds:
 1. crawler workflows, which discover jobs, companies, or both;
-2. enrichment workflows, which consume newly actionable company discoveries and emit ATS-ready follow-up triggers.
+2. enrichment workflows, which enrich a single entity (company or job). Enrichment workflows are not limited to ATS-related processing; they can be generic and operate on any entity type. For example, `enrichment_ats_enrichment` enriches company documents with ATS provider and slug metadata, while `enrichment_retiring_jobs` enriches job documents with closure state and removes stale entries.
 
 Module naming conventions:
 - `*_worker.py`: long-lived Redis queue workers and CLI entrypoints.
@@ -59,6 +59,7 @@ Module naming conventions:
 Stable workflow identifiers:
 - `crawler_company_discovery`
 - `enrichment_ats_enrichment`
+- `enrichment_retiring_jobs`
 - `crawler_ats_job_extraction`
 - `crawler_4dayweek`
 - `crawler_levelsfyi`
@@ -99,6 +100,8 @@ High-level orchestration:
 | `CRAWLER_USER_AGENT` | browser-like UA string | No | Request header to reduce bot blocking |
 | `CRAWLER_REFERER` | `https://4dayweek.io/jobs` | No | Referer for 4dayweek requests |
 | `CRAWLER_LEVELSFYI_MAX_COMPANIES_PER_ROLE` | `50` | No | Cap on company discoveries retained per identity role from Levels.fyi |
+| `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | Optional on-demand trigger queue for the `enrichment_retiring_jobs` worker |
+| `CRAWLER_ENRICHMENT_RETIRING_JOBS_INTERVAL_SECONDS` | `3600` | No | Seconds between automatic `enrichment_retiring_jobs` runs |
 
 Platform-specific configuration may include source names, ATS slugs, and source URLs (via config file or environment).
 
