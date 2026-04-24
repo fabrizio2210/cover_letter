@@ -1,4 +1,4 @@
-@import './shared-styles/tables.css';
+@import '../../shared-styles/tables.css';
 
 section.fields {
     max-width: 1000px;

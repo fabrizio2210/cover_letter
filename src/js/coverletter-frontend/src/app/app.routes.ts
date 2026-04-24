@@ -1,13 +1,13 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './login.component';
-import { DashboardComponent } from './dashboard.component';
-import { DashboardOverviewComponent } from './dashboard-overview.component';
-import { JobDiscoveryComponent } from './job-discovery.component';
-import { IdentitiesComponent } from './identities.component';
-import { CoverLettersListComponent } from './coverletters-list.component';
-import { RecipientsComponent } from './recipients.component';
-import { SettingsComponent } from './settings.component';
-import { LetterEditorComponent } from './letter-editor.component';
+import { LoginComponent } from './features/auth/login.component';
+import { DashboardComponent } from './features/dashboard/dashboard.component';
+import { DashboardOverviewComponent } from './features/dashboard/dashboard-overview.component';
+import { JobDiscoveryComponent } from './features/job-discovery/job-discovery.component';
+import { IdentitiesComponent } from './features/identities/identities.component';
+import { CoverLettersListComponent } from './features/cover-letters/coverletters-list.component';
+import { RecipientsComponent } from './features/recipients/recipients.component';
+import { SettingsComponent } from './features/settings/settings.component';
+import { LetterEditorComponent } from './features/cover-letters/letter-editor.component';
 import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [

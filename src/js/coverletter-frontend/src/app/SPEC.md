@@ -1,8 +1,9 @@
 # Frontend Specification
 
-**This file is the authoritative reference for the Angular frontend.**
+**This file is the root contract index for the Angular frontend.**
 Agents editing any component, service, model, or route MUST consult this file before making changes.
-It documents exact API payload shapes, canonical TypeScript interfaces, routing, the auth pattern, and known bugs.
+It owns shared contracts: API payload shapes, canonical TypeScript interfaces, routing, auth behavior, and cross-feature conventions.
+Route-specific screen behavior is delegated to the per-feature `SPEC.md` files under `features/`.
 
 > Source of truth: `src/js/coverletter-frontend/src/app/` — backend contract is in `src/go/cmd/api/SPEC.md`.
 
@@ -21,6 +22,23 @@ It documents exact API payload shapes, canonical TypeScript interfaces, routing,
 | API base | All calls use relative path `/api` — no environment config |
 
 The frontend is served behind an Nginx reverse proxy that routes `/api/*` to the Go backend. The proxy config is in `docker/x86_64/nginx.conf`.
+
+### Feature Contract Ownership
+
+Feature-local behavior and design intent are delegated to:
+
+- `src/js/coverletter-frontend/src/app/features/auth/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/dashboard/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/job-discovery/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/identities/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/recipients/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/cover-letters/SPEC.md`
+- `src/js/coverletter-frontend/src/app/features/settings/SPEC.md`
+
+Folder ownership:
+- `core/` contains cross-cutting infrastructure such as auth and app-wide services.
+- `shared/` contains canonical frontend models and reusable utilities.
+- `features/` contains route-facing components and per-feature behavioral specs.
 
 ---
 
@@ -49,7 +67,7 @@ Removed from primary nav (routes retired):
 
 ## 3. Canonical TypeScript Models
 
-Define these interfaces once in `app/models/models.ts` and import everywhere. Do not re-declare them per component.
+Define these interfaces once in `app/shared/models/models.ts` and import everywhere. Do not re-declare them per component.
 
 ```typescript
 export interface Field {
@@ -252,10 +270,10 @@ Critical alignment rules:
 
 ### Current state
 - `POST /api/login` returns `{ token: string }`, which is stored in `localStorage['token']`.
-- Auth is centralized in `app/services/auth.service.ts`.
-- `app/services/auth.interceptor.ts` automatically adds `Authorization: Bearer <token>` to non-login API requests.
+- Auth is centralized in `app/core/auth/auth.service.ts`.
+- `app/core/auth/auth.interceptor.ts` automatically adds `Authorization: Bearer <token>` to non-login API requests.
 - On HTTP `401` (non-login requests), the interceptor calls `AuthService.logout()` and redirects to `/login`.
-- `/dashboard` is protected by `authGuard` (`app/auth.guard.ts`) using `AuthService.isAuthenticated()`.
+- `/dashboard` is protected by `authGuard` (`app/core/auth/auth.guard.ts`) using `AuthService.isAuthenticated()`.
 - There is no visible logout button in the UI yet, but the logout behavior exists in the auth service.
 - Login is password-only (`{ password: string }`). OTP-based login described in the project-level spec is not yet implemented.
 
@@ -279,7 +297,7 @@ isAuthenticated(): boolean
 
 ### `FeedbackService`
 
-Location: `app/services/feedback.service.ts`
+Location: `app/core/services/feedback.service.ts`
 
 ```typescript
 showFeedback(message: string, isError?: boolean): void
@@ -462,17 +480,16 @@ Notes:
 
 ## 7. Component Inventory
 
-| Component | Template | Responsibilities |
+| Area | Primary route components | Owning spec |
 |---|---|---|
-| `AppComponent` | inline | Root router outlet only |
-| `LoginComponent` | external HTML | Login form, token storage, redirect to dashboard |
-| `DashboardComponent` | external HTML | Full-page layout: sidebar, glassmorphism top bar, toast rendering, child route outlet; at `/dashboard` also renders stats cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), a Top Scored Opportunities scrollable feed, and live crawler progress for active runs |
-| `JobDiscoveryComponent` | external HTML | Ranked job feed (card per job: title, company, AI match score, "Prepare Cover Letter" / "Mark as Not Interested" actions); filter bar with search, filter chips, Re-Rank trigger, and identity-scoped crawl trigger; selecting a job surfaces company details and open positions context; right-side intelligence panel: crawler-status widget with live progress bar, workflow text, and per-identity discovery settings (identity selector, AI score threshold slider, toggles for Remote-first / Skill-gap analysis) |
-| `LetterEditorComponent` | external HTML | Split-pane layout: left pane = rich-text editor with formatting toolbar and word count; right pane = AI Refiner chat panel with conversation history, "Apply Change" / "Undo" actions. Accessed via `/dashboard/letter-editor/:id` |
-| `IdentitiesComponent` | external HTML | Bento-grid of identity cards; each card shows: header (icon, name, last-updated), Discovery Scope tag chips with "Manage Tags", Quick Stats (matches count, affinity %), Preferences & Weights bar rows with "Add Preference"; below grid: Global Curator Preferences section (writing tone, discovery interval, AI creativity slider) |
-| `RecipientsComponent` | external HTML | Recipients list shell at `/dashboard/recipients`; recipients table supports CRUD and lifecycle actions. |
-| `SettingsComponent` | external HTML | Settings shell hosting `FieldsListComponent`; accessible via sidebar Settings link at `/dashboard/settings` |
-| `FieldsListComponent` | inline or external | Field CRUD; rendered inside `SettingsComponent` |
+| App root | `AppComponent` | this file |
+| Auth | `LoginComponent` | `features/auth/SPEC.md` |
+| Dashboard | `DashboardComponent`, `DashboardOverviewComponent` | `features/dashboard/SPEC.md` |
+| Job Discovery | `JobDiscoveryComponent` | `features/job-discovery/SPEC.md` |
+| Identities | `IdentitiesComponent` | `features/identities/SPEC.md` |
+| Recipients | `RecipientsComponent` | `features/recipients/SPEC.md` |
+| Cover Letters | `CoverLettersListComponent`, `LetterEditorComponent` | `features/cover-letters/SPEC.md` |
+| Settings | `SettingsComponent`, `FieldsListComponent` | `features/settings/SPEC.md` |
 
 ### Retired components (superseded)
 The following components are replaced by the new inventory above and should not be used for new development:
@@ -575,15 +592,8 @@ Remaining caveat:
 
 ## 10. Unimplemented Features
 
-### Target features (UX-specified in mock-ups, not yet built in Angular)
-
-- `DashboardComponent` overview page: stats cards, Top Scored Opportunities feed, and live crawl-progress card fed by backend stream updates.
-- `JobDiscoveryComponent`: ranked job feed, filter chips, Re-Rank trigger, manual crawl trigger for the selected identity, crawler-status widget with live progress bar and workflow text, per-identity discovery settings panel, and company detail context from selected jobs.
-- `IdentitiesComponent`: bento-grid cards with Discovery Scope tag chips, Quick Stats, preference weight bars, Add Preference action, Global Curator Preferences section.
-- `LetterEditorComponent`: split-pane layout with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo).
-- `RecipientsComponent`: recipients UX refinements (sorting/filtering/lifecycle controls).
-- `SettingsComponent` wrapping `FieldsListComponent`.
-- Sorting and filtering across entity tables.
+Feature-local unimplemented UX details now belong in the relevant feature `SPEC.md` files under `features/`.
+This root file should only keep cross-feature gaps.
 
 ### Future features (no mock-up yet)
 

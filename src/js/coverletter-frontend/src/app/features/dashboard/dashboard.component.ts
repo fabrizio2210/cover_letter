@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FeedbackService } from './core/services/feedback.service';
+import { FeedbackService } from '../../core/services/feedback.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -9,7 +9,7 @@ import { Subscription } from 'rxjs';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css', './styles/feedback.css']
+  styleUrls: ['./dashboard.component.css', '../../styles/feedback.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private feedbackService = inject(FeedbackService);

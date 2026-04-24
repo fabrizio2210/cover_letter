@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { FeedbackService } from './core/services/feedback.service';
-import { CoverLetter, Timestamp } from './shared/models/models';
+import { FeedbackService } from '../../core/services/feedback.service';
+import { CoverLetter, Timestamp } from '../../shared/models/models';
 
 @Component({
   selector: 'app-coverletters-list',

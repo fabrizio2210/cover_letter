@@ -1,4 +1,4 @@
-@import './shared-styles/tables.css';
+@import '../../shared-styles/tables.css';
 
 section.coverletters {
   max-width: 1000px;
