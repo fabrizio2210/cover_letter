@@ -326,6 +326,7 @@ services:
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
       - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
+      - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
     volumes:
       - ../../src/go/:/app
     labels:

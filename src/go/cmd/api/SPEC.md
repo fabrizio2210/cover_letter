@@ -39,6 +39,7 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | crawler-progress consumer and SSE relay |
 | `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | scoring-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
+| `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | job-description check producer handler |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
 ---
@@ -301,7 +302,25 @@ The emailer is expected to:
 - Wrap the HTML body in the `html_signature`.
 - Send via SMTP.
 
-### 5.4 `crawler_trigger_queue`
+### 5.4 `enrichment_retiring_jobs_queue`
+
+Env var: `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` (default: `enrichment_retiring_jobs_queue`)
+Consumer: Python `web_crawler` `enrichment_retiring_jobs` worker.
+
+**Payload** (from `POST /api/job-descriptions/:id/check`):
+
+```json
+{
+  "job_id": "<job description hex object id>"
+}
+```
+
+Rules enforced by the consumer:
+- Missing `job_id` → message is dropped with a warning log.
+- The worker probes the job's `source_url`; if it returns HTTP 404, the job is marked as closed (`is_open=false`).
+- If the job has been closed for more than 60 days it is deleted.
+
+### 5.5 `crawler_trigger_queue`
 
 Env var: `CRAWLER_TRIGGER_QUEUE_NAME` (default: `crawler_trigger_queue`)
 Consumer: Python `web_crawler` service.
@@ -326,7 +345,7 @@ Producer-side expectations:
 - The API should reject duplicate active-run requests for the same identity with HTTP `409` whenever current active state is known.
 - Queueing the crawl request is asynchronous; success means the request was accepted for worker pickup, not that crawling has started yet.
 
-### 5.5 `crawler_progress_channel`
+### 5.6 `crawler_progress_channel`
 
 Env var: `CRAWLER_PROGRESS_CHANNEL_NAME` (default: `crawler_progress_channel`)
 Publisher: Python `web_crawler` service.
@@ -382,7 +401,7 @@ Rules:
 - The API may expose multiple active workflow contributions for one `run_id` and one `identity_id`.
 - Dashboard workflow visibility stats for the latest completed run are served by a dedicated endpoint in section 7.7 and are not inferred from `estimated_total`/`completed` progress units.
 
-### 5.6 `scoring_progress_channel`
+### 5.7 `scoring_progress_channel`
 
 Env var: `SCORING_PROGRESS_CHANNEL_NAME` (default: `scoring_progress_channel`)
 Publisher: Python `ai_scorer` service.
@@ -852,6 +871,15 @@ Pushes a message to `job_scoring_queue` (see §5.2).
 Response `200`:
 ```json
 { "message": "Scoring queued successfully" }
+```
+
+#### `POST /api/job-descriptions/:id/check`
+Auth: required.
+No request body.
+Pushes a `JobRetireEvent` message to `enrichment_retiring_jobs_queue` (see §5.4) to trigger the `enrichment_retiring_jobs` workflow for that job.
+Response `202`:
+```json
+{ "message": "Check queued successfully" }
 ```
 
 #### `GET /api/job-preference-scores`
