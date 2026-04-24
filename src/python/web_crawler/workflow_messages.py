@@ -114,6 +114,11 @@ def job_retire_event_to_json(payload: common_pb2.JobRetireEvent) -> str:
     return json.dumps(wire)
 
 
+def job_retire_notification_to_json(job_id: str, is_open: bool, deleted: bool) -> str:
+    """Serialize a job retire notification for publishing to the Redis pub/sub channel."""
+    return json.dumps({"job_id": job_id, "is_open": is_open, "deleted": deleted})
+
+
 def parse_job_retire_event(raw_payload: str) -> common_pb2.JobRetireEvent:
     """Parse a job retire event from a raw JSON queue payload."""
     parsed = json.loads(raw_payload)

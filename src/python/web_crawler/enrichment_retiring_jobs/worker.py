@@ -12,7 +12,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.enrichment_retiring_jobs.workflow import _WORKFLOW_ID, run_enrichment_retiring_jobs
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
-from src.python.web_crawler.workflow_messages import parse_job_retire_event
+from src.python.web_crawler.workflow_messages import job_retire_notification_to_json, parse_job_retire_event
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -101,6 +101,20 @@ def worker_main(config: CrawlerConfig) -> None:
                 database = get_database(config)
                 result = run_enrichment_retiring_jobs(database, config, job_id)
                 finished_at = utc_timestamp()
+
+                # Emit a notification so the UI can surgically reload or remove
+                # the job without a full-list refresh.
+                if result.deleted_count > 0:
+                    redis_client.publish(
+                        config.job_retire_notification_channel_name,
+                        job_retire_notification_to_json(job_id, is_open=False, deleted=True),
+                    )
+                elif result.updated_count > 0:
+                    redis_client.publish(
+                        config.job_retire_notification_channel_name,
+                        job_retire_notification_to_json(job_id, is_open=False, deleted=False),
+                    )
+
                 publish_progress(
                     redis_client,
                     config,

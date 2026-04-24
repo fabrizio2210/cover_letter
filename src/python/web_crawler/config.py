@@ -13,6 +13,7 @@ CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE = "enrichment_ats_enrichment_queue"
 CRAWLER_LEVELSFYI_QUEUE = "crawler_levelsfyi_queue"
 CRAWLER_4DAYWEEK_QUEUE = "crawler_4dayweek_queue"
 CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE = "enrichment_retiring_jobs_queue"
+JOB_RETIRE_NOTIFICATION_CHANNEL = "job_retire_notification_channel"
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -70,6 +71,7 @@ class CrawlerConfig:
     job_scoring_queue_name: str = JOB_SCORING_QUEUE
     enable_workflow_dispatch_mode: bool = False
     crawler_enrichment_retiring_jobs_queue_name: str = CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE
+    job_retire_notification_channel_name: str = JOB_RETIRE_NOTIFICATION_CHANNEL
 
     @classmethod
     def from_env(cls) -> "CrawlerConfig":
@@ -109,4 +111,5 @@ class CrawlerConfig:
             job_scoring_queue_name=os.getenv("JOB_SCORING_QUEUE_NAME", JOB_SCORING_QUEUE),
             enable_workflow_dispatch_mode=_parse_bool(os.getenv("CRAWLER_ENABLE_WORKFLOW_DISPATCH_MODE"), default=False),
             crawler_enrichment_retiring_jobs_queue_name=os.getenv("CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME", CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE),
+            job_retire_notification_channel_name=os.getenv("JOB_RETIRE_NOTIFICATION_CHANNEL_NAME", JOB_RETIRE_NOTIFICATION_CHANNEL),
         )

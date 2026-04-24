@@ -39,6 +39,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | Input queue for per-job retirement requests |
+| `JOB_RETIRE_NOTIFICATION_CHANNEL_NAME` | `job_retire_notification_channel` | Pub/sub channel for UI notifications on job close/delete |
 | `CRAWLER_HTTP_TIMEOUT_SECONDS` | `20` | HTTP probe timeout per job URL |
 | `CRAWLER_USER_AGENT` | browser-like string | Request user-agent |
 
@@ -72,6 +73,8 @@ Serialization helpers: `workflow_messages.job_retire_event_to_json` / `parse_job
   - On any other response or network error: leave the document unchanged.
 - If the job is closed (`is_open: false`) and `closed_at` is older than 60 days: delete the document.
 - Publish `running` → `completed` / `failed` progress snapshots per queue message.
+- If the job was closed (Phase A): publish a `JobRetireNotification` (`is_open=false, deleted=false`) to `job_retire_notification_channel_name`.
+- If the job was deleted (Phase B): publish a `JobRetireNotification` (`is_open=false, deleted=true`) to `job_retire_notification_channel_name`.
 
 ---
 

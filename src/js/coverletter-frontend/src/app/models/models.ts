@@ -84,6 +84,7 @@ export interface JobDescription {
   platform: string;
   external_job_id: string;
   source_url: string;
+  is_open?: boolean;
   created_at?: string | Timestamp;
   updated_at?: string | Timestamp;
   company_info?: Company;
@@ -168,4 +169,10 @@ export interface LastRunWorkflowStatsResponse {
 export interface FeedbackMessage {
   message: string;
   isError: boolean;
+}
+
+export interface JobRetireNotification {
+  job_id: string;
+  is_open: boolean;
+  deleted: boolean;
 }

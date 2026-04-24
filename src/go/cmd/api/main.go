@@ -66,6 +66,7 @@ func main() {
 		auth.PUT("/job-descriptions/:id", handlers.UpdateJobDescription)
 		auth.DELETE("/job-descriptions/:id", handlers.DeleteJobDescription)
 		auth.POST("/job-descriptions/:id/score", handlers.ScoreJobDescription)
+		auth.POST("/job-descriptions/:id/retire-check", handlers.EnqueueJobRetireCheck)
 
 		auth.POST("/crawls", handlers.TriggerCrawl)
 		auth.GET("/crawls/active", handlers.GetActiveCrawls)
@@ -73,6 +74,7 @@ func main() {
 		auth.GET("/crawls/stream", handlers.StreamCrawlProgress)
 		auth.GET("/scoring/active", handlers.GetActiveScoring)
 		auth.GET("/scoring/stream", handlers.StreamScoringProgress)
+		auth.GET("/job-retire-notifications/stream", handlers.StreamJobRetireNotifications)
 	}
 
 	r.Run(":8080")

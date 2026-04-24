@@ -201,6 +201,17 @@ message JobRetireEvent {
     google.protobuf.Timestamp emitted_at = 6;
 }
 
+// JobRetireNotification is published to job_retire_notification_channel by the
+// enrichment_retiring_jobs worker when a job has been closed (is_open=false) or
+// permanently deleted. The UI subscribes to the SSE relay and reloads or removes
+// the affected job without refreshing the whole list.
+message JobRetireNotification {
+    string job_id = 1;
+    bool is_open = 2;
+    bool deleted = 3;
+    google.protobuf.Timestamp emitted_at = 4;
+}
+
 message CrawlProgress {
     string run_id = 1;
     string identity_id = 2;

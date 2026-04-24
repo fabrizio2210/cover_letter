@@ -7,7 +7,7 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
 import { IdentityContextService } from './services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, ScoringProgress } from './models/models';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobRetireNotification, ScoredJobDescription, ScoringProgress } from './models/models';
 import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
@@ -61,6 +61,8 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   aiSkillGapAnalysis = false;
   private crawlStreamSubscription?: Subscription;
   private scoringStreamSubscription?: Subscription;
+  private jobRetireStreamSubscription?: Subscription;
+  private retireCheckedJobIds = new Set<string>();
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
   private completedProgressEvents = new Set<string>();
@@ -85,11 +87,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.loadData();
     this.subscribeToCrawlProgress();
     this.subscribeToScoringProgress();
+    this.subscribeToJobRetireNotifications();
   }
 
   ngOnDestroy(): void {
     this.crawlStreamSubscription?.unsubscribe();
     this.scoringStreamSubscription?.unsubscribe();
+    this.jobRetireStreamSubscription?.unsubscribe();
   }
 
   loadData(): void {
@@ -130,6 +134,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   get filteredJobs(): ScoredJobDescription[] {
     return this.jobs
       .filter((job) => !this.hiddenJobIds.has(job.id))
+      .filter((job) => job.is_open !== false)
       .filter((job) => this.matchesIdentity(job))
       .filter((job) => this.matchesCompany(job))
       .filter((job) => this.passesScoreFilter(job))
@@ -597,6 +602,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       if (!this.selectedJobId || !this.jobs.some((job) => job.id === this.selectedJobId)) {
         this.selectedJobId = this.jobs[0].id;
       }
+      this.scheduleRetireChecksForDisplayedJobs();
       return;
     }
 
@@ -670,6 +676,42 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         this.feedbackService.showFeedback('Lost scoring progress stream connection.', true);
       },
     });
+  }
+
+  private subscribeToJobRetireNotifications(): void {
+    this.jobRetireStreamSubscription?.unsubscribe();
+    this.jobRetireStreamSubscription = this.api.subscribeToJobRetireNotifications().subscribe({
+      next: (notification: JobRetireNotification) => {
+        if (notification.deleted) {
+          this.rawJobs = this.rawJobs.filter((job) => job.id !== notification.job_id);
+          this.applyScoresToJobs();
+        } else if (!notification.is_open) {
+          // Reload the single job so the UI reflects the updated state (is_open=false).
+          this.api.getJobDescription(notification.job_id).subscribe((updatedJob) => {
+            if (!updatedJob || !updatedJob.id) {
+              return;
+            }
+            const idx = this.rawJobs.findIndex((job) => job.id === notification.job_id);
+            if (idx !== -1) {
+              this.rawJobs[idx] = updatedJob;
+              this.applyScoresToJobs();
+            }
+          });
+        }
+      },
+      error: () => {
+        // Non-critical background subscription — suppress to avoid alarming the user.
+      },
+    });
+  }
+
+  private scheduleRetireChecksForDisplayedJobs(): void {
+    for (const job of this.filteredJobs) {
+      if (!this.retireCheckedJobIds.has(job.id)) {
+        this.retireCheckedJobIds.add(job.id);
+        this.api.enqueueJobRetireCheck(job.id, this.selectedIdentityId || undefined).subscribe();
+      }
+    }
   }
 
   private setCrawlSnapshots(snapshots: CrawlProgress[]): void {

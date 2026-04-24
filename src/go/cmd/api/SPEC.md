@@ -40,6 +40,8 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | scoring-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
+| `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | per-job retire check producer handlers |
+| `JOB_RETIRE_NOTIFICATION_CHANNEL_NAME` | `job_retire_notification_channel` | No | job retire notification consumer and SSE relay |
 
 ---
 
@@ -853,6 +855,29 @@ Response `200`:
 ```json
 { "message": "Scoring queued successfully" }
 ```
+
+#### `POST /api/job-descriptions/:id/retire-check`
+Auth: required.
+Request (all fields optional):
+```json
+{ "identity_id": "<hex ObjectId>" }
+```
+Pushes a `JobRetireEvent` to `enrichment_retiring_jobs_queue` so the worker probes the job's `source_url` and retires it if necessary.
+Response `202`:
+```json
+{ "message": "Retire check queued", "job_id": "<id>" }
+```
+Response `400`: invalid job ID.
+
+#### `GET /api/job-retire-notifications/stream`
+Auth: required.
+Server-Sent Events stream. Relays `job_retire_notification_channel` pub/sub messages to the browser.
+Each event has type `job-retire` and a JSON payload:
+```json
+{ "job_id": "string", "is_open": false, "deleted": false }
+```
+- `is_open=false, deleted=false`: job was marked closed; client should reload the job.
+- `is_open=false, deleted=true`: job was permanently deleted; client should remove it from the list.
 
 #### `GET /api/job-preference-scores`
 Auth: required.
