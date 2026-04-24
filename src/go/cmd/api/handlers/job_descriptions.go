@@ -489,14 +489,15 @@ func DeleteJobDescription(c *gin.Context) {
 // CheckJobDescription enqueues a job for the enrichment_retiring_jobs workflow.
 func CheckJobDescription(c *gin.Context) {
 	id := c.Param("id")
-	if _, err := primitive.ObjectIDFromHex(id); err != nil {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
 
 	collection, _, _ := jobDescriptionsCollection()
 	var jobDoc bson.M
-	if err := collection.FindOne(context.Background(), bson.M{"_id": mustObjectID(id)}).Decode(&jobDoc); err != nil {
+	if err := collection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&jobDoc); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job description not found"})
 		return
 	}
@@ -518,11 +519,6 @@ func CheckJobDescription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{"message": "Check queued successfully"})
-}
-
-func mustObjectID(hex string) primitive.ObjectID {
-	oid, _ := primitive.ObjectIDFromHex(hex)
-	return oid
 }
 
 // ScoreJobDescription enqueues a job for scoring.
