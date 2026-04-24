@@ -155,6 +155,13 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
     return getWorkflowLabel(workflowId);
   }
 
+  getCumulativeCounterLabel(workflowId: WorkflowCumulativeJobsItem['workflow_id']): string {
+    if (workflowId === 'crawler_company_discovery') {
+      return 'Discovered companies';
+    }
+    return 'Discovered jobs';
+  }
+
   getJobTags(job: ScoredJobDescription): string[] {
     const tags: string[] = [];
 

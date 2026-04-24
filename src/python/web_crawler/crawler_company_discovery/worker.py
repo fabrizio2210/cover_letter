@@ -15,6 +15,7 @@ from src.python.web_crawler.crawler_company_discovery.workflow import (
 )
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
+from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
@@ -76,6 +77,11 @@ def worker_main(config: CrawlerConfig) -> None:
             try:
                 database = get_database(config)
                 result = run_crawler_company_discovery(database, config, identity_id)
+                increment_discovered_jobs_counter(
+                    config,
+                    workflow_id=_WORKFLOW_ID,
+                    delta=result.inserted_count + result.updated_count,
+                )
                 _emit_enrichment_events(
                     redis_client,
                     config,
