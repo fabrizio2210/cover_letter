@@ -11,6 +11,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.crawler_ats_job_extraction.workflow import run_crawler_ats_job_extraction
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
+from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
@@ -73,7 +74,13 @@ def worker_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                run_crawler_ats_job_extraction(database, config, identity_id=identity_id)
+                crawl_result = run_crawler_ats_job_extraction(database, config, identity_id=identity_id)
+                discovered_jobs = crawl_result.inserted_count + crawl_result.updated_count
+                increment_discovered_jobs_counter(
+                    config,
+                    workflow_id=_WORKFLOW_ID,
+                    delta=discovered_jobs,
+                )
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -82,8 +89,8 @@ def worker_main(config: CrawlerConfig) -> None:
                     identity_id=identity_id,
                     status="completed",
                     workflow=_WORKFLOW_ID,
-                    estimated_total=1,
-                    completed=1,
+                    estimated_total=max(crawl_result.fetched_count, 1),
+                    completed=discovered_jobs,
                     started_at=started_at,
                     finished_at=finished_at,
                     message="ATS job extraction completed",

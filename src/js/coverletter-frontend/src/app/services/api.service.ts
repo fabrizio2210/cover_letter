@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent } from '../models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse } from '../models/models';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -155,6 +155,11 @@ export class ApiService {
         completed_at: null,
         workflows: [],
       })));
+  }
+
+  getWorkflowCumulativeJobs(): Observable<WorkflowCumulativeJobsResponse> {
+    return this.http.get<WorkflowCumulativeJobsResponse>(`${this.apiBase}/crawls/workflow-cumulative-jobs`)
+      .pipe(catchError(() => of({ workflows: [] })));
   }
 
   getActiveScoring(identityId?: string): Observable<ScoringProgress[]> {

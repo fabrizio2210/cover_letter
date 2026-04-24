@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from './services/api.service';
 import { FeedbackService } from './services/feedback.service';
-import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription } from './models/models';
+import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription, WorkflowCumulativeJobsItem, WorkflowCumulativeJobsResponse } from './models/models';
 import { Subscription } from 'rxjs';
 import { dashboardWorkflowOrder, getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from './workflow-utils';
 
@@ -29,9 +29,13 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   loadingJobs = false;
   loadingStats = false;
   loadingWorkflowStats = false;
+  loadingWorkflowCumulativeJobs = false;
   activeCrawl: CrawlProgress | null = null;
   lastRunWorkflowStats: LastRunWorkflowStatsResponse = {
     completed_at: null,
+    workflows: [],
+  };
+  workflowCumulativeJobs: WorkflowCumulativeJobsResponse = {
     workflows: [],
   };
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
@@ -41,6 +45,7 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
     this.loadStats();
     this.loadTopScoredJobs();
     this.loadWorkflowStats();
+    this.loadWorkflowCumulativeJobs();
     this.loadActiveCrawls();
     this.subscribeToCrawlProgress();
   }
@@ -101,6 +106,23 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
 
   get hasWorkflowStats(): boolean {
     return this.workflowStatsRows.length > 0;
+  }
+
+  get workflowCumulativeJobsRows(): WorkflowCumulativeJobsItem[] {
+    const rowsById = new Map(
+      this.workflowCumulativeJobs.workflows.map((workflow) => [workflow.workflow_id, workflow])
+    );
+
+    return dashboardWorkflowOrder.map((workflowId) => {
+      const row = rowsById.get(workflowId);
+      if (row) {
+        return row;
+      }
+      return {
+        workflow_id: workflowId,
+        discovered_jobs_cumulative: 0,
+      };
+    });
   }
 
   get lastRunCompletedAtLabel(): string {
@@ -166,6 +188,20 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       };
     } finally {
       this.loadingWorkflowStats = false;
+    }
+  }
+
+  private async loadWorkflowCumulativeJobs(): Promise<void> {
+    this.loadingWorkflowCumulativeJobs = true;
+    try {
+      this.workflowCumulativeJobs = await this.apiService.getWorkflowCumulativeJobs().toPromise() || {
+        workflows: [],
+      };
+    } catch (error) {
+      console.error('Error loading cumulative workflow jobs:', error);
+      this.workflowCumulativeJobs = { workflows: [] };
+    } finally {
+      this.loadingWorkflowCumulativeJobs = false;
     }
   }
 

@@ -1122,6 +1122,40 @@ Current implementation note (interim):
 - the API currently keeps per-workflow last-completion snapshots in memory; restarting the API process clears this state until a workflow completes again.
 - durable historical run-summary persistence in MongoDB is planned as a follow-up hardening step.
 
+#### `GET /api/crawls/workflow-cumulative-jobs`
+Auth: required.
+Response `200`: global cumulative discovered-job counters by crawler workflow.
+
+```json
+{
+  "workflows": [
+    {
+      "workflow_id": "crawler_company_discovery",
+      "discovered_jobs_cumulative": 0
+    },
+    {
+      "workflow_id": "crawler_levelsfyi",
+      "discovered_jobs_cumulative": 128
+    },
+    {
+      "workflow_id": "crawler_4dayweek",
+      "discovered_jobs_cumulative": 41
+    },
+    {
+      "workflow_id": "crawler_ats_job_extraction",
+      "discovered_jobs_cumulative": 309
+    }
+  ]
+}
+```
+
+Rules:
+- Counters are global (not identity-scoped).
+- Values are persisted and survive API restarts.
+- `discovered_jobs_cumulative` increments by persisted results only (`inserted + updated`) from each successful workflow completion.
+- Workflows are returned in stable display order: `crawler_company_discovery`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
+- If no persisted counter document exists yet, all workflows return `0`.
+
 #### `GET /api/crawls/stream`
 Auth: required.
 Response `200`: `text/event-stream`.

@@ -210,6 +210,19 @@ export interface LastRunWorkflowStatsResponse {
   workflows: LastRunWorkflowStatsItem[];
 }
 
+export interface WorkflowCumulativeJobsItem {
+  workflow_id:
+    | 'crawler_company_discovery'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
+  discovered_jobs_cumulative: number;
+}
+
+export interface WorkflowCumulativeJobsResponse {
+  workflows: WorkflowCumulativeJobsItem[];
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;
@@ -284,6 +297,7 @@ Required frontend behavior:
 - Fetch an initial crawl snapshot from `GET /api/crawls/active` when Dashboard or Job Discovery loads.
 - Subscribe to `GET /api/crawls/stream` as a server-sent events stream for live updates.
 - Fetch latest completed crawler workflow visibility stats from `GET /api/crawls/last-run/workflow-stats` when Dashboard loads.
+- Fetch cumulative discovered-jobs counters from `GET /api/crawls/workflow-cumulative-jobs` when Dashboard loads.
 - Fetch an initial scoring snapshot from `GET /api/scoring/active` when Job Discovery loads.
 - Subscribe to `GET /api/scoring/stream` as a server-sent events stream for live updates.
 - Filter stream events by the currently selected identity in Job Discovery.
@@ -292,6 +306,7 @@ Required frontend behavior:
 - Render Dashboard workflow visibility stats as identity-agnostic values; each workflow card reflects its own most recent completion, independent of parent run and selected identity.
 - Include only `crawler_` workflow rows/cards in the Dashboard visibility widget and exclude `enrichment_` workflows.
 - Display `discovered_jobs` and `discovered_companies` exactly as returned by the API, where values are persisted-result counters (`inserted + updated`).
+- Display cumulative stat cards using `discovered_jobs_cumulative` exactly as returned by the API.
 - Render an empty state for the Dashboard visibility widget when `run_id` is empty and `workflows` is an empty array.
 - Render an empty state for the Dashboard visibility widget when `workflows` is an empty array.
 - Treat `completed`, `failed`, and `rejected` as terminal UI states.
@@ -405,6 +420,7 @@ Notes:
 | GET | `/api/crawls/active` | — | `CrawlProgress[]` |
 | GET | `/api/crawls/stream` | — | `text/event-stream` carrying `crawl-progress` events |
 | GET | `/api/crawls/last-run/workflow-stats` | — | `LastRunWorkflowStatsResponse` |
+| GET | `/api/crawls/workflow-cumulative-jobs` | — | `WorkflowCumulativeJobsResponse` |
 
 Notes:
 - Job Discovery is the primary screen that starts crawls.
@@ -413,6 +429,7 @@ Notes:
 - The stream event payload matches `CrawlProgress` exactly.
 - Dashboard and Job Discovery both listen for the same crawl-progress event shape.
 - Dashboard workflow visibility stats are loaded from the dedicated `GET /api/crawls/last-run/workflow-stats` endpoint and are intentionally separate from active progress stream payloads.
+- Dashboard cumulative workflow stat cards are loaded from `GET /api/crawls/workflow-cumulative-jobs` and reuse the existing stat-card visual style.
 
 ### 6.8 Scoring Progress
 

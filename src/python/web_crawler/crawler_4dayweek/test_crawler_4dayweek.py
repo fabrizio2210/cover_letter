@@ -285,7 +285,8 @@ class Crawler4DayWeekWorkerTests(unittest.TestCase):
             patch(
                 "src.python.web_crawler.crawler_4dayweek.worker.run_crawler_4dayweek",
                 return_value=WorkflowResult(new_company_ids=[str(ObjectId())]),
-            ):
+            ), \
+            patch("src.python.web_crawler.crawler_4dayweek.worker.increment_discovered_jobs_counter") as mock_increment:
             with self.assertRaises(KeyboardInterrupt):
                 worker_module.worker_main(config)
 
@@ -293,6 +294,11 @@ class Crawler4DayWeekWorkerTests(unittest.TestCase):
         self.assertEqual(len(payloads), 1)
         self.assertEqual(payloads[0]["workflow_id"], "crawler_4dayweek")
         self.assertEqual(payloads[0]["reason"], "new_company_via_4dayweek")
+        mock_increment.assert_called_once_with(
+            config,
+            workflow_id="crawler_4dayweek",
+            delta=0,
+        )
 
 
 if __name__ == "__main__":

@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -23,6 +26,9 @@ const (
 	defaultCrawlerTriggerQueue    = "crawler_trigger_queue"
 	defaultCrawlerProgressChannel = "crawler_progress_channel"
 	defaultScoringProgressChannel = "scoring_progress_channel"
+	settingsCollectionName        = "settings"
+	workflowCountersDocID         = "crawler_workflow_cumulative_jobs"
+	workflowCountersField         = "discovered_jobs_by_workflow"
 
 	workflowCrawlerCompanyDiscovery = "crawler_company_discovery"
 	workflowCrawlerLevelsfyi        = "crawler_levelsfyi"
@@ -41,13 +47,13 @@ type crawlSubscriber chan *models.CrawlProgress
 type scoringSubscriber chan *models.ScoringProgress
 
 type crawlProgressHub struct {
-	mu                     sync.RWMutex
-	snapshots               map[string]*models.CrawlProgress
-	latestStatsByWorkflow   map[string]lastRunWorkflowStatsItem
-	latestCompletedAt       *timestamppb.Timestamp
-	subscribers             map[int]crawlSubscriber
-	nextID                  int
-	bridgeOnce              sync.Once
+	mu                    sync.RWMutex
+	snapshots             map[string]*models.CrawlProgress
+	latestStatsByWorkflow map[string]lastRunWorkflowStatsItem
+	latestCompletedAt     *timestamppb.Timestamp
+	subscribers           map[int]crawlSubscriber
+	nextID                int
+	bridgeOnce            sync.Once
 }
 
 type scoringProgressHub struct {
@@ -183,6 +189,42 @@ func GetLastRunWorkflowStats(c *gin.Context) {
 		CompletedAt: completedAt,
 		Workflows:   items,
 	})
+}
+
+func GetWorkflowCumulativeJobs(c *gin.Context) {
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "cover_letter"
+	}
+
+	settingsCollection := GetMongoClient().Database(dbName).Collection(settingsCollectionName)
+	var settingsDoc bson.M
+	err := settingsCollection.FindOne(context.Background(), bson.M{"_id": workflowCountersDocID}).Decode(&settingsDoc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			c.JSON(http.StatusOK, workflowCumulativeJobsResponse{Workflows: defaultWorkflowCumulativeJobs()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load cumulative workflow counters"})
+		return
+	}
+
+	rawByWorkflow, _ := settingsDoc[workflowCountersField].(bson.M)
+	if rawByWorkflow == nil {
+		if alt, ok := settingsDoc[workflowCountersField].(map[string]interface{}); ok {
+			rawByWorkflow = bson.M(alt)
+		}
+	}
+
+	workflows := defaultWorkflowCumulativeJobs()
+	for idx := range workflows {
+		if rawByWorkflow == nil {
+			continue
+		}
+		workflows[idx].DiscoveredJobsCumulative = clampNonNegative(toInt32(rawByWorkflow[workflows[idx].WorkflowID]))
+	}
+
+	c.JSON(http.StatusOK, workflowCumulativeJobsResponse{Workflows: workflows})
 }
 
 func StreamCrawlProgress(c *gin.Context) {
@@ -609,6 +651,49 @@ func cloneTimestamp(ts *timestamppb.Timestamp) *timestamppb.Timestamp {
 type lastRunWorkflowStatsResponse struct {
 	CompletedAt *timestamppb.Timestamp     `json:"completed_at"`
 	Workflows   []lastRunWorkflowStatsItem `json:"workflows"`
+}
+
+type workflowCumulativeJobsResponse struct {
+	Workflows []workflowCumulativeJobsItem `json:"workflows"`
+}
+
+type workflowCumulativeJobsItem struct {
+	WorkflowID               string `json:"workflow_id"`
+	DiscoveredJobsCumulative int32  `json:"discovered_jobs_cumulative"`
+}
+
+func defaultWorkflowCumulativeJobs() []workflowCumulativeJobsItem {
+	items := make([]workflowCumulativeJobsItem, 0, len(dashboardWorkflowOrder))
+	for _, workflowID := range dashboardWorkflowOrder {
+		items = append(items, workflowCumulativeJobsItem{
+			WorkflowID:               workflowID,
+			DiscoveredJobsCumulative: 0,
+		})
+	}
+	return items
+}
+
+func toInt32(value interface{}) int32 {
+	switch typed := value.(type) {
+	case int:
+		return int32(typed)
+	case int32:
+		return typed
+	case int64:
+		return int32(typed)
+	case float64:
+		return int32(typed)
+	case float32:
+		return int32(typed)
+	case string:
+		parsed, err := strconv.ParseInt(typed, 10, 32)
+		if err != nil {
+			return 0
+		}
+		return int32(parsed)
+	default:
+		return 0
+	}
 }
 
 type lastRunWorkflowStatsItem struct {

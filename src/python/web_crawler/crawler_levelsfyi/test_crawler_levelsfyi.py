@@ -582,6 +582,7 @@ class CrawlerLevelsFyiWorkerTests(unittest.TestCase):
             patch("src.python.web_crawler.crawler_levelsfyi.worker.parse_workflow_dispatch", return_value=message), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.get_database", return_value=FakeDatabase()), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.run_crawler_levelsfyi", return_value=result) as mock_run, \
+            patch("src.python.web_crawler.crawler_levelsfyi.worker.increment_discovered_jobs_counter") as mock_increment, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker._emit_enrichment_events") as mock_emit, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.publish_progress") as mock_publish, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.time.sleep", side_effect=StopIteration):
@@ -589,6 +590,11 @@ class CrawlerLevelsFyiWorkerTests(unittest.TestCase):
                 worker_module.worker_main(config)
 
         mock_run.assert_called_once()
+        mock_increment.assert_called_once_with(
+            config,
+            workflow_id="crawler_levelsfyi",
+            delta=2,
+        )
         mock_emit.assert_called_once()
         statuses = [call.kwargs.get("status") for call in mock_publish.mock_calls if hasattr(call, "kwargs")]
         self.assertIn("running", statuses)

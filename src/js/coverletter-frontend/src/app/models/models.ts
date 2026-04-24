@@ -164,6 +164,19 @@ export interface LastRunWorkflowStatsResponse {
   workflows: LastRunWorkflowStatsItem[];
 }
 
+export interface WorkflowCumulativeJobsItem {
+  workflow_id:
+    | 'crawler_company_discovery'
+    | 'crawler_ats_job_extraction'
+    | 'crawler_4dayweek'
+    | 'crawler_levelsfyi';
+  discovered_jobs_cumulative: number;
+}
+
+export interface WorkflowCumulativeJobsResponse {
+  workflows: WorkflowCumulativeJobsItem[];
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;

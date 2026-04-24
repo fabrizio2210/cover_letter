@@ -16,6 +16,7 @@ from src.python.web_crawler.crawler_levelsfyi.workflow import (
 )
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
+from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
@@ -112,6 +113,12 @@ def worker_main(config: CrawlerConfig) -> None:
                     config,
                     identity_id,
                     progress_callback=_progress_callback,
+                )
+
+                increment_discovered_jobs_counter(
+                    config,
+                    workflow_id=_WORKFLOW_ID,
+                    delta=crawl_result.inserted_count + crawl_result.updated_count,
                 )
 
                 _emit_enrichment_events(

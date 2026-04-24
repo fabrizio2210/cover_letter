@@ -72,6 +72,7 @@ func main() {
 		auth.POST("/crawls", handlers.TriggerCrawl)
 		auth.GET("/crawls/active", handlers.GetActiveCrawls)
 		auth.GET("/crawls/last-run/workflow-stats", handlers.GetLastRunWorkflowStats)
+		auth.GET("/crawls/workflow-cumulative-jobs", handlers.GetWorkflowCumulativeJobs)
 		auth.GET("/crawls/stream", handlers.StreamCrawlProgress)
 		auth.GET("/scoring/active", handlers.GetActiveScoring)
 		auth.GET("/scoring/stream", handlers.StreamScoringProgress)

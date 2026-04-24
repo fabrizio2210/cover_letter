@@ -43,6 +43,30 @@
   </div>
 </section>
 
+<section class="stats-section">
+  <div class="section-header workflow-visibility-header">
+    <div>
+      <h2>Cumulative Discovered Jobs by Workflow</h2>
+      <p>All-time persisted counters grouped by crawler workflow.</p>
+    </div>
+  </div>
+
+  <div class="stats-grid" *ngIf="!loadingWorkflowCumulativeJobs; else cumulativeJobsLoading">
+    <div class="stat-card" *ngFor="let workflow of workflowCumulativeJobsRows">
+      <div class="stat-header">
+        <span class="material-symbols-outlined stat-icon">bar_chart</span>
+        <span class="stat-badge">{{ workflow.workflow_id }}</span>
+      </div>
+      <h3 class="stat-label">{{ getWorkflowLabel(workflow.workflow_id) }}</h3>
+      <p class="stat-value">{{ workflow.discovered_jobs_cumulative }}</p>
+    </div>
+  </div>
+
+  <ng-template #cumulativeJobsLoading>
+    <div class="loading-placeholder">Loading cumulative workflow jobs...</div>
+  </ng-template>
+</section>
+
 <section class="crawler-overview-section" *ngIf="activeCrawl as crawl">
   <div class="crawler-overview-card">
     <p class="crawler-eyebrow">Crawler Active</p>

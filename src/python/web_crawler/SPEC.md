@@ -222,6 +222,8 @@ Common output rules for crawler workflows:
 - Each crawler workflow must expose terminal workflow counters for dashboard visibility of the last completed parent run: `discovered_jobs` and `discovered_companies`.
 - `discovered_jobs` and `discovered_companies` are persisted-result counters only (`inserted + updated`) and must not include raw pre-filter candidates.
 - Workflow visibility counters must be non-negative integers.
+- Successful crawler workflow completions also increment global cumulative discovered-jobs counters in MongoDB (`settings` collection) using `inserted + updated` deltas.
+- Cumulative counters are keyed by `workflow_id` and exposed by API endpoint `GET /api/crawls/workflow-cumulative-jobs`.
 
 Workflow visibility counter mapping:
 - `crawler_company_discovery`: `discovered_companies` may be positive; `discovered_jobs` must be `0`.

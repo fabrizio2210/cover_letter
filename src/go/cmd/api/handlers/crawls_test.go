@@ -440,6 +440,94 @@ func TestGetLastRunWorkflowStats_NoFinalizingSignal(t *testing.T) {
 	}, ids)
 }
 
+func TestGetWorkflowCumulativeJobs_EmptyStateDefaultsToZero(t *testing.T) {
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"settings": {findOneDoc: nil},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/workflow-cumulative-jobs", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetWorkflowCumulativeJobs(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+
+	workflows, ok := response["workflows"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, workflows, 4)
+
+	ids := make([]string, 0, len(workflows))
+	for _, raw := range workflows {
+		workflow := raw.(map[string]interface{})
+		ids = append(ids, workflow["workflow_id"].(string))
+		require.Equal(t, float64(0), workflow["discovered_jobs_cumulative"])
+	}
+	require.Equal(t, []string{
+		"crawler_company_discovery",
+		"crawler_levelsfyi",
+		"crawler_4dayweek",
+		"crawler_ats_job_extraction",
+	}, ids)
+}
+
+func TestGetWorkflowCumulativeJobs_PartialDocumentPreservesStableOrder(t *testing.T) {
+	fakeC := &fakeClient{db: &fakeDatabase{cols: map[string]*fakeCollection{
+		"settings": {
+			findOneDoc: bson.M{
+				"_id": "crawler_workflow_cumulative_jobs",
+				"discovered_jobs_by_workflow": bson.M{
+					"crawler_levelsfyi":          int32(12),
+					"crawler_ats_job_extraction": int64(33),
+				},
+			},
+		},
+	}}}
+	oldMongo := GetMongoClient
+	GetMongoClient = func() MongoClientIface { return fakeC }
+	defer func() { GetMongoClient = oldMongo }()
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/workflow-cumulative-jobs", nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	GetWorkflowCumulativeJobs(c)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+
+	workflows := response["workflows"].([]interface{})
+	require.Len(t, workflows, 4)
+
+	byID := map[string]float64{}
+	ids := make([]string, 0, len(workflows))
+	for _, raw := range workflows {
+		workflow := raw.(map[string]interface{})
+		id := workflow["workflow_id"].(string)
+		ids = append(ids, id)
+		byID[id] = workflow["discovered_jobs_cumulative"].(float64)
+	}
+
+	require.Equal(t, []string{
+		"crawler_company_discovery",
+		"crawler_levelsfyi",
+		"crawler_4dayweek",
+		"crawler_ats_job_extraction",
+	}, ids)
+	require.Equal(t, float64(0), byID["crawler_company_discovery"])
+	require.Equal(t, float64(12), byID["crawler_levelsfyi"])
+	require.Equal(t, float64(0), byID["crawler_4dayweek"])
+	require.Equal(t, float64(33), byID["crawler_ats_job_extraction"])
+}
+
 func TestStreamCrawlProgress_StreamsSSEEvent(t *testing.T) {
 	resetCrawlStateForTests()
 	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/stream", nil)
