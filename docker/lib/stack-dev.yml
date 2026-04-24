@@ -281,6 +281,7 @@ services:
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
+      JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
     volumes:
       - ../../:/app
     networks:
@@ -327,6 +328,7 @@ services:
       - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
       - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
+      - JOB_UPDATE_CHANNEL_NAME=job_update_channel
     volumes:
       - ../../src/go/:/app
     labels:

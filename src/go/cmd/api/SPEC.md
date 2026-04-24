@@ -40,6 +40,7 @@ All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each h
 | `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | scoring-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
 | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | job-description check producer handler |
+| `JOB_UPDATE_CHANNEL_NAME` | `job_update_channel` | No | job-update consumer and SSE relay |
 | `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
 
 ---
@@ -436,6 +437,28 @@ Rules:
 - `started_at` is set on the first `running` event.
 - `finished_at` is set for terminal states: `completed` and `failed`.
 - The API must treat the most recent event per `run_id` as the authoritative live snapshot exposed to clients.
+
+### 5.8 `job_update_channel`
+
+Env var: `JOB_UPDATE_CHANNEL_NAME` (default: `job_update_channel`)
+Publisher: Python `enrichment_retiring_jobs` worker (after completing a per-job check).
+Consumer: Go API service, which relays events to authenticated browser clients via the `GET /api/job-descriptions/stream` SSE endpoint.
+
+**Payload** (`JobUpdateEvent` from `common.proto`):
+
+```json
+{
+  "job_id": "<hex ObjectID of the checked/updated job>",
+  "workflow_id": "enrichment_retiring_jobs",
+  "workflow_run_id": "<workflow run identifier>",
+  "emitted_at": { "seconds": <unix>, "nanos": 0 }
+}
+```
+
+Rules:
+- Published once per successful job retirement run (status `completed`).
+- `job_id` identifies the exact job document that was checked and potentially modified.
+- The UI receives this event and reloads the specific job via `GET /api/job-descriptions/:id`.
 
 ---
 
@@ -881,6 +904,24 @@ Response `202`:
 ```json
 { "message": "Check queued successfully" }
 ```
+
+#### `GET /api/job-descriptions/stream`
+Auth: required.
+Long-lived SSE (`text/event-stream`) connection.
+Relays `JobUpdateEvent` messages from the `job_update_channel` Redis pub/sub channel to connected browser clients.
+Each event is emitted with `event: job-update` and a JSON `data:` line.
+
+**SSE event payload**:
+```json
+{
+  "job_id": "<hex ObjectID of the updated job>",
+  "workflow_id": "enrichment_retiring_jobs",
+  "workflow_run_id": "<workflow run identifier>",
+  "emitted_at": { "seconds": <unix>, "nanos": 0 }
+}
+```
+
+The UI subscribes to this stream and reloads the specific job document when it receives a `job-update` event for a displayed job.
 
 #### `GET /api/job-preference-scores`
 Auth: required.

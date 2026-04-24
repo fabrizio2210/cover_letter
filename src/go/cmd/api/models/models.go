@@ -15,3 +15,4 @@ type CrawlTriggerRequest = common.CrawlTriggerRequest
 type CrawlTriggerQueuePayload = common.CrawlTriggerQueuePayload
 type CrawlProgress = common.CrawlProgress
 type ScoringProgress = common.ScoringProgress
+type JobUpdateEvent = common.JobUpdateEvent

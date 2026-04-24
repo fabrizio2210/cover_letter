@@ -12,7 +12,8 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.enrichment_retiring_jobs.workflow import _WORKFLOW_ID, run_enrichment_retiring_jobs
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
-from src.python.web_crawler.workflow_messages import parse_job_retire_event
+from src.python.web_crawler.workflow_messages import job_update_event_to_json, parse_job_retire_event
+from src.python.ai_querier import common_pb2
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -20,6 +21,30 @@ logger = logging.getLogger(__name__)
 
 def _new_workflow_run_id() -> str:
     return uuid.uuid4().hex
+
+
+def _publish_job_update(
+    redis_client: redis.Redis,
+    config: CrawlerConfig,
+    *,
+    job_id: str,
+    workflow_run_id: str,
+) -> None:
+    """Publish a JobUpdateEvent to the job update channel so the UI can reload the job."""
+    try:
+        event = common_pb2.JobUpdateEvent(
+            job_id=job_id,
+            workflow_id=_WORKFLOW_ID,
+            workflow_run_id=workflow_run_id,
+        )
+        event.emitted_at.CopyFrom(utc_timestamp())
+        payload = job_update_event_to_json(event)
+        redis_client.publish(config.job_update_channel_name, payload)
+        logger.debug("enrichment_retiring_jobs: published job update for %s", job_id)
+    except Exception as exc:
+        logger.warning(
+            "enrichment_retiring_jobs: failed to publish job update for %s: %s", job_id, exc
+        )
 
 
 def _connect_redis(config: CrawlerConfig) -> redis.Redis:
@@ -119,6 +144,8 @@ def worker_main(config: CrawlerConfig) -> None:
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
+                if result.updated_count > 0 or result.deleted_count > 0:
+                    _publish_job_update(redis_client, config, job_id=job_id, workflow_run_id=workflow_run_id)
             except Exception as exc:
                 logger.exception(
                     "enrichment_retiring_jobs failed for job %s: %s", job_id, exc

@@ -122,3 +122,9 @@ def parse_job_retire_event(raw_payload: str) -> common_pb2.JobRetireEvent:
     message = common_pb2.JobRetireEvent()
     ParseDict(parsed, message)
     return message
+
+
+def job_update_event_to_json(payload: common_pb2.JobUpdateEvent) -> str:
+    """Serialize a JobUpdateEvent to a JSON string for publishing to Redis."""
+    wire = MessageToDict(payload, preserving_proto_field_name=True)
+    return json.dumps(wire)

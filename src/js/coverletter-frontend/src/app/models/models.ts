@@ -169,3 +169,10 @@ export interface FeedbackMessage {
   message: string;
   isError: boolean;
 }
+
+export interface JobUpdateEvent {
+  job_id: string;
+  workflow_id?: string;
+  workflow_run_id?: string;
+  emitted_at?: string | Timestamp | null;
+}
