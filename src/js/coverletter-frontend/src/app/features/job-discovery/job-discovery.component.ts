@@ -62,6 +62,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   private crawlStreamSubscription?: Subscription;
   private scoringStreamSubscription?: Subscription;
   private jobUpdateStreamSubscription?: Subscription;
+  private activitySummaryRefreshTimeout?: ReturnType<typeof setTimeout>;
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
   private completedProgressEvents = new Set<string>();
@@ -96,6 +97,10 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.crawlStreamSubscription?.unsubscribe();
     this.scoringStreamSubscription?.unsubscribe();
     this.jobUpdateStreamSubscription?.unsubscribe();
+    if (this.activitySummaryRefreshTimeout) {
+      clearTimeout(this.activitySummaryRefreshTimeout);
+      this.activitySummaryRefreshTimeout = undefined;
+    }
   }
 
   loadData(): void {
@@ -135,15 +140,21 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadActivitySummary(): void {
-    this.activitySummaryLoading = true;
+  private loadActivitySummary(silent = false): void {
+    // Keep current card mounted during background refreshes to avoid UI flicker.
+    if (!silent || !this.activitySummary) {
+      this.activitySummaryLoading = true;
+    }
     this.api.getActivitySummary(this.selectedIdentityId).subscribe({
       next: (summary) => {
         this.activitySummary = summary;
         this.activitySummaryLoading = false;
       },
       error: () => {
-        this.activitySummary = null;
+        // Preserve previous data on background refresh failures.
+        if (!silent) {
+          this.activitySummary = null;
+        }
         this.activitySummaryLoading = false;
       }
     });
@@ -652,13 +663,10 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.crawlStreamSubscription = this.api.subscribeToCrawlProgress().subscribe({
       next: (progress) => {
         this.crawlSnapshotsByKey.set(getCrawlSnapshotKey(progress), progress);
+        this.scheduleActivitySummaryRefresh();
 
         if (progress.identity_id !== this.selectedIdentityId) {
           return;
-        }
-
-        if (progress.status === 'completed') {
-          this.feedbackService.showFeedback(`Crawl completed for ${this.activeIdentityName}.`);
         }
 
         if (progress.status === 'failed' || progress.status === 'rejected') {
@@ -678,6 +686,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.scoringStreamSubscription = this.api.subscribeToScoringProgress().subscribe({
       next: (progress) => {
         this.scoringSnapshotsByIdentity.set(progress.identity_id, progress);
+        this.scheduleActivitySummaryRefresh();
 
         if (progress.identity_id === this.selectedIdentityId && progress.status === 'completed') {
           this.feedbackService.showFeedback(`Scoring completed for ${this.activeIdentityName}.`);
@@ -693,6 +702,17 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
         this.feedbackService.showFeedback('Lost scoring progress stream connection.', true);
       },
     });
+  }
+
+  private scheduleActivitySummaryRefresh(): void {
+    if (this.activitySummaryRefreshTimeout) {
+      return;
+    }
+
+    this.activitySummaryRefreshTimeout = setTimeout(() => {
+      this.activitySummaryRefreshTimeout = undefined;
+      this.loadActivitySummary(true);
+    }, 1000);
   }
 
   private setCrawlSnapshots(snapshots: CrawlProgress[]): void {
