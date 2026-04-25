@@ -248,26 +248,8 @@ services:
       - ../../:/app
     networks:
       - backends
-
-  enrichment-ats-enrichment:
-    image: fabrizio2210/coverletter-enrichment-ats-enrichment-dev
-    build:
-      context: ../..
-      dockerfile: docker/x86_64/Dockerfile-enrichment-ats-enrichment-dev
-    restart: always
-    environment:
-      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
-      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
-      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
-      SERPER_API_KEY: ${SERPER_API_KEY}
-    volumes:
-      - ../../:/app
-    networks:
-      - backends
+    deploy:
+      replicas: 4
 
   enrichment-retiring-jobs:
     image: fabrizio2210/coverletter-enrichment-retiring-jobs-dev

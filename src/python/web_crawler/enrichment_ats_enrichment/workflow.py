@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Callable, Iterable
 from urllib.parse import urlsplit, urlunsplit
@@ -328,206 +327,197 @@ def run_enrichment_ats_enrichment(
                 f"Phase A complete: {ready_for_processing}/{total_companies} companies ready for ATS detection",
             )
 
-        # ========== PHASE B: Parallel ATS detection using thread pool ==========
-        logger.info("enrichment_ats_enrichment: Phase B - Starting parallel ATS detection with 10 workers")
+        # ========== PHASE B: Sequential ATS detection ==========
+        logger.info("enrichment_ats_enrichment: Phase B - Starting sequential ATS detection")
         
         session_pool = ThreadSafeSessionPool(config.user_agent)
         
         try:
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_task_info = {
-                    executor.submit(_detect_ats_worker, task, config, session_pool): (task, company_proto, company_state)
-                    for task, company_proto, company_state in tasks_to_process
-                }
+            completed_count = 0
+            for task, company_proto, company_state in tasks_to_process:
+                completed_count += 1
+                completed_checks += _task_progress_units(task)
 
-                logger.info("enrichment_ats_enrichment: Submitted %d tasks to executor", len(future_to_task_info))
+                try:
+                    worker_result: ATSWorkerResult = _detect_ats_worker(task, config, session_pool)
 
-                completed_count = 0
-                for future in as_completed(future_to_task_info):
-                    task, company_proto, company_state = future_to_task_info[future]
-                    completed_count += 1
-                    completed_checks += _task_progress_units(task)
+                    # ===== PHASE B.1: Process worker result =====
+                    if worker_result.success:
+                        provider = worker_result.provider
+                        slug = worker_result.slug
+                        if not provider or not slug:
+                            raise ValueError("worker returned success without provider and slug")
 
-                    try:
-                        worker_result: ATSWorkerResult = future.result()
-                        
-                        # ===== PHASE B.1: Process worker result =====
-                        if worker_result.success:
-                            provider = worker_result.provider
-                            slug = worker_result.slug
-                            if not provider or not slug:
-                                raise ValueError("worker returned success without provider and slug")
+                        # Successful detection + direct slug resolution
+                        logger.debug(
+                            "enrichment_ats_enrichment: ATS detection successful for company %s: provider=%s slug=%s",
+                            worker_result.company_id,
+                            provider,
+                            slug,
+                        )
+                        companies_collection.update_one(
+                            {"_id": worker_result.company_object_id},
+                            {"$set": {"ats_provider": provider, "ats_slug": slug}},
+                        )
+                        result.enriched_count += 1
+                        result.ats_providers[provider] = result.ats_providers.get(provider, 0) + 1
 
-                            # Successful detection + direct slug resolution
+                    elif worker_result.error_type == "ats_request_failure:dns_resolution" or worker_result.error_type == "ats_request_failure:timeout":
+                        # Terminal failures: record and skip
+                        logger.debug(
+                            "enrichment_ats_enrichment: Terminal failure for company %s: %s at %s",
+                            worker_result.company_id,
+                            worker_result.error_type,
+                            worker_result.error_url,
+                        )
+                        failure_type = worker_result.error_type.split(":")[-1]
+                        _record_terminal_failure(
+                            companies_collection,
+                            worker_result.company_object_id,
+                            failure_type,
+                            worker_result.error_url or "unknown",
+                            worker_result.error_message,
+                        )
+                        result.skipped_count += 1
+                        result.failed_companies.append(
+                            {
+                                "company_id": worker_result.company_id,
+                                "company_name": worker_result.company_name,
+                                "error": f"terminal {failure_type} failure",
+                            }
+                        )
+
+                    elif worker_result.error_type == "slug_not_resolved_direct":
+                        provider = worker_result.provider
+                        if not provider:
+                            raise ValueError("worker returned slug_not_resolved_direct without provider")
+
+                        # Direct slug resolution failed; attempt SERP fallback
+                        logger.debug(
+                            "enrichment_ats_enrichment: Direct slug resolution failed for company %s (provider=%s). Attempting SERP fallback.",
+                            worker_result.company_id,
+                            provider,
+                        )
+
+                        prior = _has_prior_search_attempt(company_state, provider)
+                        should_attempt_serp = (not prior) or config.force_serp_retry_on_prior_attempt
+
+                        if should_attempt_serp:
+                            estimated_checks += 1
+                            if prior and config.force_serp_retry_on_prior_attempt:
+                                logger.debug(
+                                    "enrichment_ats_enrichment: Bypassing prior SERP-attempt gate for company %s (provider=%s)",
+                                    worker_result.company_id,
+                                    provider,
+                                )
+
                             logger.debug(
-                                "enrichment_ats_enrichment: ATS detection successful for company %s: provider=%s slug=%s",
+                                "enrichment_ats_enrichment: Calling SERP fallback for company %s (provider=%s)",
                                 worker_result.company_id,
                                 provider,
-                                slug,
                             )
-                            companies_collection.update_one(
-                                {"_id": worker_result.company_object_id},
-                                {"$set": {"ats_provider": provider, "ats_slug": slug}},
-                            )
-                            result.enriched_count += 1
-                            result.ats_providers[provider] = result.ats_providers.get(provider, 0) + 1
-                        
-                        elif worker_result.error_type == "ats_request_failure:dns_resolution" or worker_result.error_type == "ats_request_failure:timeout":
-                            # Terminal failures: record and skip
-                            logger.debug(
-                                "enrichment_ats_enrichment: Terminal failure for company %s: %s at %s",
-                                worker_result.company_id,
-                                worker_result.error_type,
-                                worker_result.error_url,
-                            )
-                            failure_type = worker_result.error_type.split(":")[-1]
-                            _record_terminal_failure(
-                                companies_collection,
-                                worker_result.company_object_id,
-                                failure_type,
-                                worker_result.error_url or "unknown",
-                                worker_result.error_message,
-                            )
+                            try:
+                                _mark_search_attempt_started(
+                                    companies_collection,
+                                    worker_result.company_object_id,
+                                    provider,
+                                )
+                                slug = resolve_slug_via_search_dorking(
+                                    company_proto.name,
+                                    provider,
+                                    config,
+                                    session=session,
+                                )
+                                logger.debug(
+                                    "enrichment_ats_enrichment: SERP fallback result for company %s: slug=%s",
+                                    worker_result.company_id,
+                                    slug or "not found",
+                                )
+                                _mark_search_attempt_outcome(
+                                    companies_collection,
+                                    worker_result.company_object_id,
+                                    provider,
+                                    "success" if slug else "no_results",
+                                )
+
+                                if slug:
+                                    companies_collection.update_one(
+                                        {"_id": worker_result.company_object_id},
+                                        {"$set": {"ats_provider": provider, "ats_slug": slug}},
+                                    )
+                                    result.enriched_count += 1
+                                    result.ats_providers[provider] = result.ats_providers.get(provider, 0) + 1
+                                    logger.debug(
+                                        "enrichment_ats_enrichment: SERP fallback successful for company %s: provider=%s slug=%s",
+                                        worker_result.company_id,
+                                        provider,
+                                        slug,
+                                    )
+                                else:
+                                    result.skipped_count += 1
+                                    result.failed_companies.append(
+                                        {
+                                            "company_id": worker_result.company_id,
+                                            "company_name": worker_result.company_name,
+                                            "error": f"slug unresolved for provider {provider}",
+                                        }
+                                    )
+                            finally:
+                                completed_checks += 1
+                        else:
                             result.skipped_count += 1
                             result.failed_companies.append(
                                 {
                                     "company_id": worker_result.company_id,
                                     "company_name": worker_result.company_name,
-                                    "error": f"terminal {failure_type} failure",
+                                    "error": f"direct slug resolution failed; SERP fallback skipped (already attempted)",
                                 }
                             )
-                        
-                        elif worker_result.error_type == "slug_not_resolved_direct":
-                            provider = worker_result.provider
-                            if not provider:
-                                raise ValueError("worker returned slug_not_resolved_direct without provider")
 
-                            # Direct slug resolution failed; attempt SERP fallback in main thread
-                            logger.debug(
-                                "enrichment_ats_enrichment: Direct slug resolution failed for company %s (provider=%s). Attempting SERP fallback.",
-                                worker_result.company_id,
-                                provider,
-                            )
-
-                            prior = _has_prior_search_attempt(company_state, provider)
-                            should_attempt_serp = (not prior) or config.force_serp_retry_on_prior_attempt
-
-                            if should_attempt_serp:
-                                estimated_checks += 1
-                                if prior and config.force_serp_retry_on_prior_attempt:
-                                    logger.debug(
-                                        "enrichment_ats_enrichment: Bypassing prior SERP-attempt gate for company %s (provider=%s)",
-                                        worker_result.company_id,
-                                        provider,
-                                    )
-
-                                logger.debug(
-                                    "enrichment_ats_enrichment: Calling SERP fallback for company %s (provider=%s)",
-                                    worker_result.company_id,
-                                    provider,
-                                )
-                                try:
-                                    _mark_search_attempt_started(
-                                        companies_collection,
-                                        worker_result.company_object_id,
-                                        provider,
-                                    )
-                                    slug = resolve_slug_via_search_dorking(
-                                        company_proto.name,
-                                        provider,
-                                        config,
-                                        session=session,
-                                    )
-                                    logger.debug(
-                                        "enrichment_ats_enrichment: SERP fallback result for company %s: slug=%s",
-                                        worker_result.company_id,
-                                        slug or "not found",
-                                    )
-                                    _mark_search_attempt_outcome(
-                                        companies_collection,
-                                        worker_result.company_object_id,
-                                        provider,
-                                        "success" if slug else "no_results",
-                                    )
-
-                                    if slug:
-                                        companies_collection.update_one(
-                                            {"_id": worker_result.company_object_id},
-                                            {"$set": {"ats_provider": provider, "ats_slug": slug}},
-                                        )
-                                        result.enriched_count += 1
-                                        result.ats_providers[provider] = result.ats_providers.get(provider, 0) + 1
-                                        logger.debug(
-                                            "enrichment_ats_enrichment: SERP fallback successful for company %s: provider=%s slug=%s",
-                                            worker_result.company_id,
-                                            provider,
-                                            slug,
-                                        )
-                                    else:
-                                        result.skipped_count += 1
-                                        result.failed_companies.append(
-                                            {
-                                                "company_id": worker_result.company_id,
-                                                "company_name": worker_result.company_name,
-                                                "error": f"slug unresolved for provider {provider}",
-                                            }
-                                        )
-                                finally:
-                                    completed_checks += 1
-                            else:
-                                result.skipped_count += 1
-                                result.failed_companies.append(
-                                    {
-                                        "company_id": worker_result.company_id,
-                                        "company_name": worker_result.company_name,
-                                        "error": f"direct slug resolution failed; SERP fallback skipped (already attempted)",
-                                    }
-                                )
-                        
+                    else:
+                        # Other errors: no ATS provider detected, unexpected errors, etc.
+                        if worker_result.error_type == "unexpected_error":
+                            result.failed_count += 1
                         else:
-                            # Other errors: no ATS provider detected, unexpected errors, etc.
-                            if worker_result.error_type == "unexpected_error":
-                                result.failed_count += 1
-                            else:
-                                result.skipped_count += 1
-                            result.failed_companies.append(
-                                {
-                                    "company_id": worker_result.company_id,
-                                    "company_name": worker_result.company_name,
-                                    "error": worker_result.error_message or "ATS detection failed",
-                                }
-                            )
-                            logger.debug(
-                                "enrichment_ats_enrichment: ATS detection failed for company %s: %s",
-                                worker_result.company_id,
-                                worker_result.error_message,
-                            )
-                        
-                        # Progress reporting
-                        if progress_callback:
-                            progress_callback(
-                            completed_checks,
-                                estimated_checks,
-                                f"ATS detection progress: {completed_count}/{ready_for_processing} companies completed",
-                            )
-
-                    except Exception as exc:
-                        logger.exception("enrichment_ats_enrichment: Unexpected error processing worker result for company %s", task.company_id)
-                        result.failed_count += 1
+                            result.skipped_count += 1
                         result.failed_companies.append(
                             {
-                                "company_id": task.company_id,
-                                "company_name": task.company_name,
-                                "error": f"Error processing worker result: {str(exc)}",
+                                "company_id": worker_result.company_id,
+                                "company_name": worker_result.company_name,
+                                "error": worker_result.error_message or "ATS detection failed",
                             }
                         )
+                        logger.debug(
+                            "enrichment_ats_enrichment: ATS detection failed for company %s: %s",
+                            worker_result.company_id,
+                            worker_result.error_message,
+                        )
 
-                if progress_callback:
-                    progress_callback(
-                        completed_checks,
-                        estimated_checks,
-                        f"Phase B complete: {completed_count}/{ready_for_processing} companies processed",
+                    # Progress reporting
+                    if progress_callback:
+                        progress_callback(
+                            completed_checks,
+                            estimated_checks,
+                            f"ATS detection progress: {completed_count}/{ready_for_processing} companies completed",
+                        )
+
+                except Exception as exc:
+                    logger.exception("enrichment_ats_enrichment: Unexpected error processing worker result for company %s", task.company_id)
+                    result.failed_count += 1
+                    result.failed_companies.append(
+                        {
+                            "company_id": task.company_id,
+                            "company_name": task.company_name,
+                            "error": f"Error processing worker result: {str(exc)}",
+                        }
                     )
+
+            if progress_callback:
+                progress_callback(
+                    completed_checks,
+                    estimated_checks,
+                    f"Phase B complete: {completed_count}/{ready_for_processing} companies processed",
+                )
 
             logger.info("enrichment_ats_enrichment: Phase B complete. Enriched=%d, Skipped=%d, Failed=%d", result.enriched_count, result.skipped_count, result.failed_count)
         
