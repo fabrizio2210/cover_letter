@@ -395,6 +395,33 @@ func TestCrawlHubFindActiveByIdentity(t *testing.T) {
 	}
 }
 
+func TestCrawlHubFindActiveByIdentity_IgnoresSupersededQueuedLifecycle(t *testing.T) {
+	setTestGlobals(t)
+
+	now := time.Now().UTC()
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r1",
+		IdentityId: "id1",
+		Status:     "queued",
+		Workflow:   "queued",
+		UpdatedAt:  timestamppb.New(now.Add(-2 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "r1",
+		WorkflowRunId: "wr1",
+		WorkflowId:    workflowCrawlerCompanyDiscovery,
+		IdentityId:    "id1",
+		Status:        "completed",
+		Workflow:      workflowCrawlerCompanyDiscovery,
+		UpdatedAt:     timestamppb.New(now.Add(-1 * time.Minute)),
+	})
+
+	active, ok := crawlHub.findActiveByIdentity("id1")
+	if ok {
+		t.Fatalf("expected no active crawl, got %+v", active)
+	}
+}
+
 func TestCrawlHubLastRunWorkflowStats(t *testing.T) {
 	setTestGlobals(t)
 
@@ -661,6 +688,46 @@ func TestGetActiveCrawls(t *testing.T) {
 	}
 	if len(filtered) != 1 || filtered[0].IdentityId != "id2" {
 		t.Fatalf("unexpected filtered response: %+v", filtered)
+	}
+}
+
+func TestGetActiveCrawls_OmitsSupersededQueuedLifecycleSnapshots(t *testing.T) {
+	setTestGlobals(t)
+
+	now := time.Now().UTC()
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r1",
+		IdentityId: "id1",
+		Status:     "queued",
+		Workflow:   "queued",
+		UpdatedAt:  timestamppb.New(now.Add(-2 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:         "r1",
+		WorkflowRunId: "wr1",
+		WorkflowId:    workflowCrawlerCompanyDiscovery,
+		IdentityId:    "id1",
+		Status:        "completed",
+		Workflow:      workflowCrawlerCompanyDiscovery,
+		UpdatedAt:     timestamppb.New(now.Add(-1 * time.Minute)),
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/active?identity_id=id1", nil)
+	c, w := testctx.CreateGinTestContext(http.MethodGet, "/api/crawls/active?identity_id=id1", req)
+	GetActiveCrawls(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var snapshots []*models.CrawlProgress
+	if err := json.Unmarshal(w.Body.Bytes(), &snapshots); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("expected 1 snapshot, got %d", len(snapshots))
+	}
+	if snapshots[0].Status != "completed" || snapshots[0].WorkflowRunId != "wr1" {
+		t.Fatalf("unexpected snapshot returned: %+v", snapshots[0])
 	}
 }
 

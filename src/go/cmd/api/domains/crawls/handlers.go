@@ -616,6 +616,9 @@ func (h *crawlProgressHub) listSnapshots(identityID string) []*models.CrawlProgr
 	defer h.mu.RUnlock()
 	result := make([]*models.CrawlProgress, 0, len(h.snapshots))
 	for _, snapshot := range h.snapshots {
+		if h.isSupersededQueuedLifecycleSnapshotLocked(snapshot) {
+			continue
+		}
 		if identityID != "" && snapshot.IdentityId != identityID {
 			continue
 		}
@@ -639,6 +642,9 @@ func (h *crawlProgressHub) findActiveByIdentity(identityID string) (*models.Craw
 	defer h.mu.RUnlock()
 	var latest *models.CrawlProgress
 	for _, snapshot := range h.snapshots {
+		if h.isSupersededQueuedLifecycleSnapshotLocked(snapshot) {
+			continue
+		}
 		if snapshot.IdentityId != identityID {
 			continue
 		}
@@ -652,6 +658,26 @@ func (h *crawlProgressHub) findActiveByIdentity(identityID string) (*models.Craw
 		return nil, false
 	}
 	return cloneCrawlProgress(latest), true
+}
+
+func (h *crawlProgressHub) isSupersededQueuedLifecycleSnapshotLocked(snapshot *models.CrawlProgress) bool {
+	if !isQueuedLifecycleSnapshot(snapshot) {
+		return false
+	}
+
+	for _, other := range h.snapshots {
+		if other == nil || other == snapshot {
+			continue
+		}
+		if other.RunId != snapshot.RunId {
+			continue
+		}
+		if other.WorkflowRunId != "" || other.WorkflowId != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (h *crawlProgressHub) lastRunWorkflowStats() (*timestamppb.Timestamp, []lastRunWorkflowStatsItem) {
@@ -727,6 +753,14 @@ func crawlSnapshotKey(snapshot *models.CrawlProgress) string {
 		return "run:" + snapshot.RunId + ":lifecycle"
 	}
 	return "identity:" + snapshot.IdentityId + ":workflow:" + snapshot.Workflow + ":status:" + snapshot.Status
+}
+
+func isQueuedLifecycleSnapshot(snapshot *models.CrawlProgress) bool {
+	if snapshot == nil {
+		return false
+	}
+
+	return snapshot.RunId != "" && snapshot.WorkflowRunId == "" && snapshot.WorkflowId == "" && snapshot.Workflow == "queued"
 }
 
 func isCrawlerWorkflow(workflowID string) bool {
