@@ -1,4 +1,4 @@
-package handlers
+package crawls
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -41,6 +42,29 @@ var dashboardWorkflowOrder = []string{
 	workflowCrawlerLevelsfyi,
 	workflowCrawler4DayWeek,
 	workflowCrawlerATSExtraction,
+}
+
+type MongoClientIface interface {
+	Database(name string) MongoDatabaseIface
+}
+
+type MongoDatabaseIface interface {
+	Collection(name string) MongoCollectionIface
+}
+
+type MongoCollectionIface interface {
+	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
+}
+
+type MongoCursorIface interface {
+	Next(ctx context.Context) bool
+	Decode(v interface{}) error
+	Close(ctx context.Context) error
+}
+
+type MongoSingleResultIface interface {
+	Decode(v interface{}) error
 }
 
 type crawlSubscriber chan *models.CrawlProgress
@@ -75,6 +99,84 @@ var scoringHub = &scoringProgressHub{
 	subscribers: make(map[int]scoringSubscriber),
 }
 
+var getMongoClient = func() MongoClientIface {
+	return &realMongoClient{client: db.GetDB()}
+}
+
+var queuePush = func(ctx context.Context, queueName string, payload []byte) error {
+	return defaultRedisClient().RPush(ctx, queueName, payload).Err()
+}
+
+var subscribeChannel = func(ctx context.Context, channelName string) (<-chan *redis.Message, func() error) {
+	pubsub := defaultRedisClient().Subscribe(ctx, channelName)
+	return pubsub.Channel(), pubsub.Close
+}
+
+func SetMongoClientProvider(provider func() MongoClientIface) {
+	if provider == nil {
+		return
+	}
+	getMongoClient = provider
+}
+
+func SetQueuePushProvider(provider func(ctx context.Context, queueName string, payload []byte) error) {
+	if provider == nil {
+		return
+	}
+	queuePush = provider
+}
+
+func SetSubscribeChannelProvider(provider func(ctx context.Context, channelName string) (<-chan *redis.Message, func() error)) {
+	if provider == nil {
+		return
+	}
+	subscribeChannel = provider
+}
+
+func defaultRedisClient() *redis.Client {
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+}
+
+type realMongoClient struct{ client *mongo.Client }
+
+func (r *realMongoClient) Database(name string) MongoDatabaseIface {
+	return &realMongoDatabase{db: r.client.Database(name)}
+}
+
+type realMongoDatabase struct{ db *mongo.Database }
+
+func (r *realMongoDatabase) Collection(name string) MongoCollectionIface {
+	return &realMongoCollection{col: r.db.Collection(name)}
+}
+
+type realMongoCollection struct{ col *mongo.Collection }
+
+func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
+	return r.col.FindOne(ctx, filter)
+}
+
+type realMongoCursor struct{ cur *mongo.Cursor }
+
+func (r *realMongoCursor) Next(ctx context.Context) bool   { return r.cur.Next(ctx) }
+func (r *realMongoCursor) Decode(v interface{}) error      { return r.cur.Decode(v) }
+func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(ctx) }
+
 func TriggerCrawl(c *gin.Context) {
 	ensureCrawlProgressBridge()
 
@@ -96,7 +198,7 @@ func TriggerCrawl(c *gin.Context) {
 		if dbName == "" {
 			dbName = "cover_letter"
 		}
-		collection := GetMongoClient().Database(dbName).Collection("identities")
+		collection := getMongoClient().Database(dbName).Collection("identities")
 		var identity bson.M
 		if err := collection.FindOne(context.Background(), bson.M{"_id": identityOID}).Decode(&identity); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Identity not found"})
@@ -136,11 +238,7 @@ func TriggerCrawl(c *gin.Context) {
 		Reason:         "",
 	}
 
-	payload := &models.CrawlTriggerQueuePayload{
-		RunId:       runID,
-		IdentityId:  identityID,
-		RequestedAt: timestamppb.New(now),
-	}
+	payload := &models.CrawlTriggerQueuePayload{RunId: runID, IdentityId: identityID, RequestedAt: timestamppb.New(now)}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -153,18 +251,13 @@ func TriggerCrawl(c *gin.Context) {
 		queueName = defaultCrawlerTriggerQueue
 	}
 
-	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+	if err := queuePush(context.Background(), queueName, payloadBytes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue crawl"})
 		return
 	}
 
 	crawlHub.publish(queuedSnapshot)
-	c.JSON(http.StatusAccepted, gin.H{
-		"message":     "Crawl queued successfully",
-		"run_id":      runID,
-		"identity_id": identityID,
-		"status":      "queued",
-	})
+	c.JSON(http.StatusAccepted, gin.H{"message": "Crawl queued successfully", "run_id": runID, "identity_id": identityID, "status": "queued"})
 }
 
 func GetActiveCrawls(c *gin.Context) {
@@ -178,17 +271,11 @@ func GetLastRunWorkflowStats(c *gin.Context) {
 
 	completedAt, items := crawlHub.lastRunWorkflowStats()
 	if len(items) == 0 {
-		c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{
-			CompletedAt: nil,
-			Workflows:   []lastRunWorkflowStatsItem{},
-		})
+		c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{CompletedAt: nil, Workflows: []lastRunWorkflowStatsItem{}})
 		return
 	}
 
-	c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{
-		CompletedAt: completedAt,
-		Workflows:   items,
-	})
+	c.JSON(http.StatusOK, lastRunWorkflowStatsResponse{CompletedAt: completedAt, Workflows: items})
 }
 
 func GetWorkflowCumulativeJobs(c *gin.Context) {
@@ -197,7 +284,7 @@ func GetWorkflowCumulativeJobs(c *gin.Context) {
 		dbName = "cover_letter"
 	}
 
-	statsCollection := GetMongoClient().Database(dbName).Collection(statsCollectionName)
+	statsCollection := getMongoClient().Database(dbName).Collection(statsCollectionName)
 	var statsDoc bson.M
 	err := statsCollection.FindOne(context.Background(), bson.M{"_id": workflowCountersDocID}).Decode(&statsDoc)
 	if err != nil {
@@ -324,8 +411,7 @@ func ensureCrawlProgressBridge() {
 					channelName = defaultCrawlerProgressChannel
 				}
 
-				pubsub := rdb.Subscribe(context.Background(), channelName)
-				channel := pubsub.Channel()
+				channel, closeFn := subscribeChannel(context.Background(), channelName)
 				for message := range channel {
 					var snapshot models.CrawlProgress
 					if err := json.Unmarshal([]byte(message.Payload), &snapshot); err != nil {
@@ -335,8 +421,10 @@ func ensureCrawlProgressBridge() {
 					crawlHub.publish(&snapshot)
 				}
 
-				if err := pubsub.Close(); err != nil && err != redis.Nil {
-					log.Printf("failed to close crawl progress subscription: %v", err)
+				if closeFn != nil {
+					if err := closeFn(); err != nil && err != redis.Nil {
+						log.Printf("failed to close crawl progress subscription: %v", err)
+					}
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -353,8 +441,7 @@ func ensureScoringProgressBridge() {
 					channelName = defaultScoringProgressChannel
 				}
 
-				pubsub := rdb.Subscribe(context.Background(), channelName)
-				channel := pubsub.Channel()
+				channel, closeFn := subscribeChannel(context.Background(), channelName)
 				for message := range channel {
 					var snapshot models.ScoringProgress
 					if err := json.Unmarshal([]byte(message.Payload), &snapshot); err != nil {
@@ -364,8 +451,10 @@ func ensureScoringProgressBridge() {
 					scoringHub.publish(&snapshot)
 				}
 
-				if err := pubsub.Close(); err != nil && err != redis.Nil {
-					log.Printf("failed to close scoring progress subscription: %v", err)
+				if closeFn != nil {
+					if err := closeFn(); err != nil && err != redis.Nil {
+						log.Printf("failed to close scoring progress subscription: %v", err)
+					}
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -514,24 +603,16 @@ func (h *crawlProgressHub) lastRunWorkflowStats() (*timestamppb.Timestamp, []las
 
 	completedAt := h.latestCompletedAt
 
-	// Fallback: rebuild latestStatsByWorkflow from in-memory snapshots when the hub was
-	// populated without an explicit completion signal (e.g. after a hot-reload).
 	if len(h.latestStatsByWorkflow) == 0 && len(h.snapshots) > 0 {
-		// Build a temporary per-workflow map from completed crawler snapshots.
-		// We do not mutate the locked struct here; we build a local copy for this response only.
 		tmp := make(map[string]lastRunWorkflowStatsItem)
 		tmpTimestamps := make(map[string]int64)
-		var overallLatestAt int64
 		for _, snapshot := range h.snapshots {
 			if snapshot.Status == "completed" && isCrawlerWorkflow(snapshot.WorkflowId) {
 				t := timestampSeconds(snapshot.UpdatedAt)
 				if prev, seen := tmpTimestamps[snapshot.WorkflowId]; !seen || t > prev {
 					tmpTimestamps[snapshot.WorkflowId] = t
 					tmp[snapshot.WorkflowId] = workflowCountersForSnapshot(snapshot.WorkflowId, snapshot)
-					if t > overallLatestAt {
-						overallLatestAt = t
-						completedAt = snapshot.UpdatedAt
-					}
+					completedAt = snapshot.UpdatedAt
 				}
 			}
 		}
@@ -571,7 +652,6 @@ func (h *crawlProgressHub) updateWorkflowStatsLocked(snapshot *models.CrawlProgr
 	}
 
 	workflowID := snapshot.WorkflowId
-
 	h.latestStatsByWorkflow[workflowID] = workflowCountersForSnapshot(workflowID, snapshot)
 
 	if h.latestCompletedAt == nil || timestampSeconds(snapshot.UpdatedAt) >= timestampSeconds(h.latestCompletedAt) {
@@ -665,10 +745,7 @@ type workflowCumulativeJobsItem struct {
 func defaultWorkflowCumulativeJobs() []workflowCumulativeJobsItem {
 	items := make([]workflowCumulativeJobsItem, 0, len(dashboardWorkflowOrder))
 	for _, workflowID := range dashboardWorkflowOrder {
-		items = append(items, workflowCumulativeJobsItem{
-			WorkflowID:               workflowID,
-			DiscoveredJobsCumulative: 0,
-		})
+		items = append(items, workflowCumulativeJobsItem{WorkflowID: workflowID, DiscoveredJobsCumulative: 0})
 	}
 	return items
 }
@@ -766,7 +843,23 @@ func timestampPtr(now time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(now)
 }
 
-func resetCrawlStateForTests() {
+// PublishCrawlProgressForTests injects a crawl progress snapshot into hub state.
+func PublishCrawlProgressForTests(snapshot *models.CrawlProgress) {
+	crawlHub.publish(snapshot)
+}
+
+// ListCrawlSnapshotsForTests returns current snapshots, optionally filtered by identity.
+func ListCrawlSnapshotsForTests(identityID string) []*models.CrawlProgress {
+	return crawlHub.listSnapshots(identityID)
+}
+
+// TimestampPtrForTests keeps handlers tests stable while logic lives in domain.
+func TimestampPtrForTests(now time.Time) *timestamppb.Timestamp {
+	return timestampPtr(now)
+}
+
+// ResetCrawlStateForTests clears in-memory crawl hub state for deterministic tests.
+func ResetCrawlStateForTests() {
 	crawlHub.mu.Lock()
 	defer crawlHub.mu.Unlock()
 	crawlHub.snapshots = make(map[string]*models.CrawlProgress)

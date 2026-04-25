@@ -1,4 +1,4 @@
-package handlers
+package fields
 
 import (
 	"context"
@@ -6,12 +6,95 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+type MongoClientIface interface {
+	Database(name string) MongoDatabaseIface
+}
+
+type MongoDatabaseIface interface {
+	Collection(name string) MongoCollectionIface
+}
+
+type MongoCollectionIface interface {
+	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
+	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
+	UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
+	DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
+}
+
+type MongoCursorIface interface {
+	Next(ctx context.Context) bool
+	Decode(v interface{}) error
+	Close(ctx context.Context) error
+}
+
+type MongoSingleResultIface interface {
+	Decode(v interface{}) error
+}
+
+var getMongoClient = func() MongoClientIface {
+	return &realMongoClient{client: db.GetDB()}
+}
+
+// SetMongoClientProvider allows wrapper packages/tests to inject a custom client.
+func SetMongoClientProvider(provider func() MongoClientIface) {
+	if provider == nil {
+		return
+	}
+	getMongoClient = provider
+}
+
+type realMongoClient struct{ client *mongo.Client }
+
+func (r *realMongoClient) Database(name string) MongoDatabaseIface {
+	return &realMongoDatabase{db: r.client.Database(name)}
+}
+
+type realMongoDatabase struct{ db *mongo.Database }
+
+func (r *realMongoDatabase) Collection(name string) MongoCollectionIface {
+	return &realMongoCollection{col: r.db.Collection(name)}
+}
+
+type realMongoCollection struct{ col *mongo.Collection }
+
+func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, doc)
+}
+
+func (r *realMongoCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
+	return r.col.FindOne(ctx, filter)
+}
+
+func (r *realMongoCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	return r.col.UpdateOne(ctx, filter, update)
+}
+
+func (r *realMongoCollection) DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error) {
+	return r.col.DeleteOne(ctx, filter)
+}
+
+type realMongoCursor struct{ cur *mongo.Cursor }
+
+func (r *realMongoCursor) Next(ctx context.Context) bool   { return r.cur.Next(ctx) }
+func (r *realMongoCursor) Decode(v interface{}) error      { return r.cur.Decode(v) }
+func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(ctx) }
 
 // CreateField creates a new field.
 func CreateField(c *gin.Context) {
@@ -21,7 +104,7 @@ func CreateField(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -52,7 +135,7 @@ func CreateField(c *gin.Context) {
 
 // GetFields fetches all fields.
 func GetFields(c *gin.Context) {
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
@@ -76,7 +159,6 @@ func GetFields(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode fields"})
 			return
 		}
-		// normalize _id → id
 		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
 			d["id"] = idVal.Hex()
 		} else if idStr, ok := d["_id"].(string); ok {
@@ -100,7 +182,7 @@ func DeleteField(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -137,7 +219,7 @@ func UpdateField(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"

@@ -1,4 +1,4 @@
-package handlers
+package identities
 
 import (
 	"context"
@@ -6,11 +6,97 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// Mongo abstractions are local to this domain so handlers can delegate here
+// while still injecting fakes from tests through SetMongoClientProvider.
+type MongoClientIface interface {
+	Database(name string) MongoDatabaseIface
+}
+
+type MongoDatabaseIface interface {
+	Collection(name string) MongoCollectionIface
+}
+
+type MongoCollectionIface interface {
+	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
+	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
+	UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
+	DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
+}
+
+type MongoCursorIface interface {
+	Next(ctx context.Context) bool
+	Decode(v interface{}) error
+	Close(ctx context.Context) error
+}
+
+type MongoSingleResultIface interface {
+	Decode(v interface{}) error
+}
+
+var getMongoClient = func() MongoClientIface {
+	return &realMongoClient{client: db.GetDB()}
+}
+
+// SetMongoClientProvider allows wrapper packages/tests to provide a custom client.
+func SetMongoClientProvider(provider func() MongoClientIface) {
+	if provider == nil {
+		return
+	}
+	getMongoClient = provider
+}
+
+type realMongoClient struct{ client *mongo.Client }
+
+func (r *realMongoClient) Database(name string) MongoDatabaseIface {
+	return &realMongoDatabase{db: r.client.Database(name)}
+}
+
+type realMongoDatabase struct{ db *mongo.Database }
+
+func (r *realMongoDatabase) Collection(name string) MongoCollectionIface {
+	return &realMongoCollection{col: r.db.Collection(name)}
+}
+
+type realMongoCollection struct{ col *mongo.Collection }
+
+func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, doc)
+}
+
+func (r *realMongoCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
+	return r.col.FindOne(ctx, filter)
+}
+
+func (r *realMongoCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	return r.col.UpdateOne(ctx, filter, update)
+}
+
+func (r *realMongoCollection) DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error) {
+	return r.col.DeleteOne(ctx, filter)
+}
+
+type realMongoCursor struct{ cur *mongo.Cursor }
+
+func (r *realMongoCursor) Next(ctx context.Context) bool   { return r.cur.Next(ctx) }
+func (r *realMongoCursor) Decode(v interface{}) error      { return r.cur.Decode(v) }
+func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(ctx) }
 
 // CreateIdentity creates a new identity.
 func CreateIdentity(c *gin.Context) {
@@ -20,7 +106,7 @@ func CreateIdentity(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -50,7 +136,7 @@ func CreateIdentity(c *gin.Context) {
 
 // GetIdentities fetches all identities from the database.
 func GetIdentities(c *gin.Context) {
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
@@ -79,14 +165,12 @@ func GetIdentities(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode identities"})
 			return
 		}
-		// normalize _id → id
 		if idVal, ok := d["_id"].(primitive.ObjectID); ok {
 			d["id"] = idVal.Hex()
 		} else if idStr, ok := d["_id"].(string); ok {
 			d["id"] = idStr
 		}
 		delete(d, "_id")
-		// normalize fieldInfo → field_info and its nested _id → id
 		if fi, ok := d["fieldInfo"]; ok {
 			if fiMap, ok := fi.(bson.M); ok {
 				if idVal, ok := fiMap["_id"].(primitive.ObjectID); ok {
@@ -117,7 +201,7 @@ func DeleteIdentity(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -145,7 +229,7 @@ func UpdateIdentityGeneric(c *gin.Context, update bson.M) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -168,7 +252,7 @@ func UpdateIdentityGeneric(c *gin.Context, update bson.M) {
 	c.JSON(http.StatusOK, gin.H{"message": "Identity updated successfully"})
 }
 
-// UpdateIdentityDescription wrapper
+// UpdateIdentityDescription wrapper.
 func UpdateIdentityDescription(c *gin.Context) {
 	var req struct {
 		Description string `json:"description"`
@@ -180,7 +264,7 @@ func UpdateIdentityDescription(c *gin.Context) {
 	UpdateIdentityGeneric(c, bson.M{"description": req.Description})
 }
 
-// UpdateIdentityName wrapper
+// UpdateIdentityName wrapper.
 func UpdateIdentityName(c *gin.Context) {
 	var req struct {
 		Name string `json:"name"`
@@ -192,7 +276,7 @@ func UpdateIdentityName(c *gin.Context) {
 	UpdateIdentityGeneric(c, bson.M{"name": req.Name})
 }
 
-// UpdateIdentitySignature wrapper
+// UpdateIdentitySignature wrapper.
 func UpdateIdentitySignature(c *gin.Context) {
 	var req struct {
 		HtmlSignature string `json:"html_signature"`
@@ -208,7 +292,7 @@ func UpdateIdentitySignature(c *gin.Context) {
 	UpdateIdentityGeneric(c, bson.M{"html_signature": req.HtmlSignature})
 }
 
-// UpdateIdentityRoles wrapper
+// UpdateIdentityRoles wrapper.
 func UpdateIdentityRoles(c *gin.Context) {
 	var req struct {
 		Roles []string `json:"roles"`

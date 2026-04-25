@@ -4,7 +4,22 @@
 Agents editing any handler, model, or route MUST consult this file before making changes.
 It documents exact field names (JSON vs BSON divergences are a common source of bugs), Redis queue payload schemas, and all HTTP routes with request/response bodies.
 
-> Source of truth: `handlers/`, `models/models.go`, `../../internal/proto/common/common.proto`, `main.go`
+> Source of truth: `main.go`, `facade/`, `domains/`, `models/models.go`, `../../internal/proto/common/common.proto`
+
+### Subdivision Index
+
+- Facade layer: `facade/SPEC.md`
+- Auth domain: `domains/auth/SPEC.md`
+- Fields domain: `domains/fields/SPEC.md`
+- Companies domain: `domains/companies/SPEC.md`
+- Recipients domain: `domains/recipients/SPEC.md`
+- Identities domain: `domains/identities/SPEC.md`
+- Cover letters domain: `domains/coverletters/SPEC.md`
+- Jobs domain: `domains/jobs/SPEC.md`
+- Crawls domain: `domains/crawls/SPEC.md`
+
+Ownership rule:
+- Endpoint implementations live under `domains/<domain>/` and are re-exported from `facade/`.
 
 ---
 
@@ -24,24 +39,24 @@ It documents exact field names (JSON vs BSON divergences are a common source of 
 
 ## 2. Environment Variables
 
-All variables are read at runtime. Handlers read `DB_NAME` lazily (inside each handler call, not at startup) so they all share one table.
+All variables are read at runtime. API domains read `DB_NAME` lazily (inside each handler call, not at startup) so they all share one table.
 
 | Variable | Default | Required | Used by |
 |---|---|---|---|
 | `JWT_SECRET` | `change_this_secret` | Yes (change in prod) | `main.go` — JWT signing/verification |
-| `ADMIN_PASSWORD` | *(none)* | Yes | `handlers/auth.go` — login check |
+| `ADMIN_PASSWORD` | *(none)* | Yes | `domains/auth/login.go` — login check |
 | `MONGO_HOST` | *(none)* | Yes | `db/mongo.go` — full MongoDB URI (e.g. `mongodb://mongo:27017/`) |
-| `DB_NAME` | `cover_letter` | No | all handlers — MongoDB database name |
-| `REDIS_HOST` | `localhost` | No | `handlers/cover_letters.go` `init()` |
-| `REDIS_PORT` | `6379` | No | `handlers/cover_letters.go` `init()` |
-| `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `handlers/recipients.go`, `handlers/cover_letters.go` |
+| `DB_NAME` | `cover_letter` | No | domain handlers — MongoDB database name |
+| `REDIS_HOST` | `localhost` | No | Redis clients in domain handlers |
+| `REDIS_PORT` | `6379` | No | Redis clients in domain handlers |
+| `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | `domains/recipients/handlers.go`, `domains/coverletters/handlers.go` |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | crawl-trigger producer handlers |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | crawler-progress consumer and SSE relay |
 | `SCORING_PROGRESS_CHANNEL_NAME` | `scoring_progress_channel` | No | scoring-progress consumer and SSE relay |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | job-description scoring producer handlers |
 | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | No | job-description check producer handler |
 | `JOB_UPDATE_CHANNEL_NAME` | `job_update_channel` | No | job-update consumer and SSE relay |
-| `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `handlers/cover_letters.go` |
+| `EMAILS_TO_SEND_QUEUE` | `emails_to_send` | No | `domains/coverletters/handlers.go` |
 
 ---
 
@@ -1223,6 +1238,6 @@ Rules:
 The following services exist as empty stubs (`src/go/cmd/emailer/`, `src/go/cmd/authentication/`) and are **not yet implemented**:
 
 - **`emailer`** — consumes `emails_to_send` queue and sends emails via SMTP. When implemented, it will need `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` environment variables.
-- **`authentication`** — future dedicated auth service. Currently auth is embedded in the API handler (`handlers/auth.go`).
+- **`authentication`** — future dedicated auth service. Currently auth is embedded in the API domain (`domains/auth/login.go`).
 
 For Python worker specs (`ai_querier`, `ai_scorer`, `telegram_bot`, `web_crawler`) see separate spec files.

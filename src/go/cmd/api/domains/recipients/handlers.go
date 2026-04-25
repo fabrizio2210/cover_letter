@@ -1,4 +1,4 @@
-package handlers
+package recipients
 
 import (
 	"context"
@@ -7,17 +7,129 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
-
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type MongoClientIface interface {
+	Database(name string) MongoDatabaseIface
+}
+
+type MongoDatabaseIface interface {
+	Collection(name string) MongoCollectionIface
+}
+
+type MongoCollectionIface interface {
+	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
+	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
+	UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
+	DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
+}
+
+type MongoCursorIface interface {
+	All(ctx context.Context, result interface{}) error
+	Next(ctx context.Context) bool
+	Decode(v interface{}) error
+	Close(ctx context.Context) error
+}
+
+type MongoSingleResultIface interface {
+	Decode(v interface{}) error
+}
+
+var getMongoClient = func() MongoClientIface {
+	return &realMongoClient{client: db.GetDB()}
+}
+
+var queuePush = func(ctx context.Context, queueName string, payload []byte) error {
+	return defaultRedisClient().RPush(ctx, queueName, payload).Err()
+}
+
+// SetMongoClientProvider allows wrappers/tests to inject custom clients.
+func SetMongoClientProvider(provider func() MongoClientIface) {
+	if provider == nil {
+		return
+	}
+	getMongoClient = provider
+}
+
+// SetQueuePushProvider allows wrappers/tests to inject queue behavior.
+func SetQueuePushProvider(provider func(ctx context.Context, queueName string, payload []byte) error) {
+	if provider == nil {
+		return
+	}
+	queuePush = provider
+}
+
+func defaultRedisClient() *redis.Client {
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+}
+
+type realMongoClient struct{ client *mongo.Client }
+
+func (r *realMongoClient) Database(name string) MongoDatabaseIface {
+	return &realMongoDatabase{db: r.client.Database(name)}
+}
+
+type realMongoDatabase struct{ db *mongo.Database }
+
+func (r *realMongoDatabase) Collection(name string) MongoCollectionIface {
+	return &realMongoCollection{col: r.db.Collection(name)}
+}
+
+type realMongoCollection struct{ col *mongo.Collection }
+
+func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, doc)
+}
+
+func (r *realMongoCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
+	return r.col.FindOne(ctx, filter)
+}
+
+func (r *realMongoCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	return r.col.UpdateOne(ctx, filter, update)
+}
+
+func (r *realMongoCollection) DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error) {
+	return r.col.DeleteOne(ctx, filter)
+}
+
+type realMongoCursor struct{ cur *mongo.Cursor }
+
+func (r *realMongoCursor) All(ctx context.Context, result interface{}) error {
+	return r.cur.All(ctx, result)
+}
+
+func (r *realMongoCursor) Next(ctx context.Context) bool   { return r.cur.Next(ctx) }
+func (r *realMongoCursor) Decode(v interface{}) error      { return r.cur.Decode(v) }
+func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(ctx) }
+
 // GetRecipients fetches all recipients from the database.
 func GetRecipients(c *gin.Context) {
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
@@ -25,7 +137,6 @@ func GetRecipients(c *gin.Context) {
 	}
 	collection := client.Database(dbName).Collection("recipients")
 
-	// Aggregation pipeline to join with the 'companies' collection
 	pipeline := mongo.Pipeline{
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: "companies"},
@@ -93,7 +204,7 @@ func CreateRecipient(c *gin.Context) {
 		insertDoc["company_id"] = companyObjID
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -149,7 +260,7 @@ func DeleteRecipient(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -187,7 +298,7 @@ func UpdateRecipientDescription(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -229,7 +340,7 @@ func UpdateRecipientName(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -263,7 +374,7 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -291,7 +402,7 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 		return
 	}
 
-	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+	if err := queuePush(context.Background(), queueName, payloadBytes); err != nil {
 		log.Printf("Error pushing to queue: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue generation"})
 		return
@@ -317,7 +428,7 @@ func AssociateCompanyWithRecipient(c *gin.Context) {
 		return
 	}
 
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -344,6 +455,3 @@ func AssociateCompanyWithRecipient(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Company associated successfully", "modifiedCount": result.ModifiedCount})
 }
-
-// Removed duplicated field-related handlers (GetFields, CreateField, UpdateField, DeleteField).
-// Those handlers are declared and implemented in fields.go to avoid duplication.

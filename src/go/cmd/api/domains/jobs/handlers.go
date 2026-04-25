@@ -1,17 +1,160 @@
-package handlers
+package jobs
 
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"google.golang.org/protobuf/proto"
 )
+
+const defaultJobUpdateChannel = "job_update_channel"
+
+type MongoClientIface interface {
+	Database(name string) MongoDatabaseIface
+}
+
+type MongoDatabaseIface interface {
+	Collection(name string) MongoCollectionIface
+}
+
+type MongoCollectionIface interface {
+	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
+	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
+	UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
+	DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
+}
+
+type MongoCursorIface interface {
+	All(ctx context.Context, result interface{}) error
+	Next(ctx context.Context) bool
+	Decode(v interface{}) error
+	Close(ctx context.Context) error
+}
+
+type MongoSingleResultIface interface {
+	Decode(v interface{}) error
+}
+
+type jobUpdateSubscriber chan *models.JobUpdateEvent
+
+type jobUpdateHub struct {
+	mu          sync.RWMutex
+	subscribers map[int]jobUpdateSubscriber
+	nextID      int
+	bridgeOnce  sync.Once
+}
+
+var jobUpdateHub_ = &jobUpdateHub{subscribers: make(map[int]jobUpdateSubscriber)}
+
+var getMongoClient = func() MongoClientIface {
+	return &realMongoClient{client: db.GetDB()}
+}
+
+var queuePush = func(ctx context.Context, queueName string, payload []byte) error {
+	return defaultRedisClient().RPush(ctx, queueName, payload).Err()
+}
+
+var subscribeChannel = func(ctx context.Context, channelName string) (<-chan *redis.Message, func() error) {
+	pubsub := defaultRedisClient().Subscribe(ctx, channelName)
+	return pubsub.Channel(), pubsub.Close
+}
+
+// SetMongoClientProvider allows wrappers/tests to inject custom clients.
+func SetMongoClientProvider(provider func() MongoClientIface) {
+	if provider == nil {
+		return
+	}
+	getMongoClient = provider
+}
+
+// SetQueuePushProvider allows wrappers/tests to inject queue behavior.
+func SetQueuePushProvider(provider func(ctx context.Context, queueName string, payload []byte) error) {
+	if provider == nil {
+		return
+	}
+	queuePush = provider
+}
+
+// SetSubscribeChannelProvider allows wrappers/tests to inject pub/sub behavior.
+func SetSubscribeChannelProvider(provider func(ctx context.Context, channelName string) (<-chan *redis.Message, func() error)) {
+	if provider == nil {
+		return
+	}
+	subscribeChannel = provider
+}
+
+func defaultRedisClient() *redis.Client {
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+}
+
+type realMongoClient struct{ client *mongo.Client }
+
+func (r *realMongoClient) Database(name string) MongoDatabaseIface {
+	return &realMongoDatabase{db: r.client.Database(name)}
+}
+
+type realMongoDatabase struct{ db *mongo.Database }
+
+func (r *realMongoDatabase) Collection(name string) MongoCollectionIface {
+	return &realMongoCollection{col: r.db.Collection(name)}
+}
+
+type realMongoCollection struct{ col *mongo.Collection }
+
+func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, doc)
+}
+
+func (r *realMongoCollection) FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface {
+	return r.col.FindOne(ctx, filter)
+}
+
+func (r *realMongoCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	return r.col.UpdateOne(ctx, filter, update)
+}
+
+func (r *realMongoCollection) DeleteOne(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error) {
+	return r.col.DeleteOne(ctx, filter)
+}
+
+type realMongoCursor struct{ cur *mongo.Cursor }
+
+func (r *realMongoCursor) All(ctx context.Context, result interface{}) error {
+	return r.cur.All(ctx, result)
+}
+func (r *realMongoCursor) Next(ctx context.Context) bool   { return r.cur.Next(ctx) }
+func (r *realMongoCursor) Decode(v interface{}) error      { return r.cur.Decode(v) }
+func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(ctx) }
 
 type timestampObject struct {
 	Seconds int64 `bson:"seconds" json:"seconds"`
@@ -119,7 +262,7 @@ func normalizeJobDoc(doc bson.M) bson.M {
 }
 
 func jobPreferenceScoresCollection() (MongoCollectionIface, string) {
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -197,7 +340,7 @@ func collectionHasDocuments(collection MongoCollectionIface) bool {
 }
 
 func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string) {
-	client := GetMongoClient()
+	client := getMongoClient()
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		dbName = "cover_letter"
@@ -212,7 +355,6 @@ func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string
 		return legacyJobs, client, dbName
 	}
 
-	// Keep canonical collection as default write target when neither has data yet.
 	return jobDescriptions, client, dbName
 }
 
@@ -513,7 +655,7 @@ func CheckJobDescription(c *gin.Context) {
 		return
 	}
 
-	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+	if err := queuePush(context.Background(), queueName, payloadBytes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue check"})
 		return
 	}
@@ -548,10 +690,147 @@ func ScoreJobDescription(c *gin.Context) {
 		return
 	}
 
-	if err := rdb.RPush(context.Background(), queueName, payloadBytes).Err(); err != nil {
+	if err := queuePush(context.Background(), queueName, payloadBytes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue scoring"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Scoring queued successfully"})
+}
+
+// StreamJobUpdates streams job update events as server-sent events to the client.
+func StreamJobUpdates(c *gin.Context) {
+	ensureJobUpdateBridge()
+
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	subscriberID, subscriber := jobUpdateHub_.subscribe()
+	defer jobUpdateHub_.unsubscribe(subscriberID)
+
+	ctx := c.Request.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-subscriber:
+			if !ok {
+				return
+			}
+			payload, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			if _, err := c.Writer.Write([]byte("event: job-update\n")); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write([]byte("data: ")); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write(payload); err != nil {
+				return
+			}
+			if _, err := c.Writer.Write([]byte("\n\n")); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		}
+	}
+}
+
+func ensureJobUpdateBridge() {
+	jobUpdateHub_.bridgeOnce.Do(func() {
+		go func() {
+			for {
+				channelName := os.Getenv("JOB_UPDATE_CHANNEL_NAME")
+				if channelName == "" {
+					channelName = defaultJobUpdateChannel
+				}
+
+				channel, closeFn := subscribeChannel(context.Background(), channelName)
+				for message := range channel {
+					var event models.JobUpdateEvent
+					if err := json.Unmarshal([]byte(message.Payload), &event); err != nil {
+						log.Printf("failed to decode job update event: %v", err)
+						continue
+					}
+					jobUpdateHub_.publish(&event)
+				}
+
+				if closeFn != nil {
+					if err := closeFn(); err != nil && err != redis.Nil {
+						log.Printf("failed to close job update subscription: %v", err)
+					}
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+		}()
+	})
+}
+
+func (h *jobUpdateHub) publish(event *models.JobUpdateEvent) {
+	cloned := cloneJobUpdateEvent(event)
+
+	h.mu.RLock()
+	subscribers := make([]jobUpdateSubscriber, 0, len(h.subscribers))
+	for _, subscriber := range h.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	h.mu.RUnlock()
+
+	for _, subscriber := range subscribers {
+		broadcast := cloneJobUpdateEvent(cloned)
+		select {
+		case subscriber <- broadcast:
+		default:
+		}
+	}
+}
+
+func (h *jobUpdateHub) subscribe() (int, jobUpdateSubscriber) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.nextID++
+	id := h.nextID
+	channel := make(jobUpdateSubscriber, 16)
+	h.subscribers[id] = channel
+	return id, channel
+}
+
+func (h *jobUpdateHub) unsubscribe(id int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if subscriber, ok := h.subscribers[id]; ok {
+		delete(h.subscribers, id)
+		close(subscriber)
+	}
+}
+
+func cloneJobUpdateEvent(event *models.JobUpdateEvent) *models.JobUpdateEvent {
+	if event == nil {
+		return nil
+	}
+	cloned, ok := proto.Clone(event).(*models.JobUpdateEvent)
+	if !ok {
+		return &models.JobUpdateEvent{}
+	}
+	return cloned
+}
+
+// PublishJobUpdateForTests injects a synthetic event into the in-memory hub.
+func PublishJobUpdateForTests(event *models.JobUpdateEvent) {
+	jobUpdateHub_.publish(event)
+}
+
+// ResetJobUpdateStateForTests clears subscribers and state for deterministic tests.
+func ResetJobUpdateStateForTests() {
+	jobUpdateHub_.mu.Lock()
+	defer jobUpdateHub_.mu.Unlock()
+	for id, subscriber := range jobUpdateHub_.subscribers {
+		delete(jobUpdateHub_.subscribers, id)
+		close(subscriber)
+	}
+	jobUpdateHub_.nextID = 0
 }
