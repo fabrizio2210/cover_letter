@@ -436,6 +436,101 @@
   font-style: italic;
 }
 
+.active-workflows-list-dashboard {
+  margin: 0.8rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workflow-item-dashboard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.6rem;
+  font-size: 0.85rem;
+  color: #d6e5ff;
+}
+
+.workflow-status-badge-dashboard {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.15);
+  color: #c8daff;
+}
+
+.workflow-status-running {
+  background: rgba(255, 235, 130, 0.2);
+  color: #ffeb82;
+}
+
+.workflow-name {
+  font-weight: 600;
+  color: #eff4ff;
+}
+
+.workflow-message {
+  color: #b8d4ff;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.no-active-text {
+  color: #c8daff;
+}
+
+.queue-depth-summary-dashboard {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 1rem;
+}
+
+.queue-header {
+  margin: 0 0 0.3rem;
+  color: #eff4ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.queue-note {
+  margin: 0 0 0.6rem;
+  color: #b8d4ff;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.queue-items-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.queue-item-dashboard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+  color: #d6e5ff;
+}
+
+.queue-item-dashboard strong {
+  color: #a8d8ff;
+  font-weight: 700;
+  margin-left: 0.5rem;
+}
+
+.queue-empty {
+  color: #b8d4ff;
+  font-style: italic;
+}
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 768px) {
   .stats-grid {

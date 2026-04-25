@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { FeedbackService } from '../../core/services/feedback.service';
-import { CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription, WorkflowCumulativeJobsItem, WorkflowCumulativeJobsResponse } from '../../shared/models/models';
+import { ActivitySummaryResponse, CrawlProgress, LastRunWorkflowStatsItem, LastRunWorkflowStatsResponse, ScoredJobDescription, WorkflowCumulativeJobsItem, WorkflowCumulativeJobsResponse } from '../../shared/models/models';
 import { Subscription } from 'rxjs';
 import { dashboardWorkflowOrder, getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from '../../shared/utils/workflow-utils';
 
@@ -38,6 +38,8 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   workflowCumulativeJobs: WorkflowCumulativeJobsResponse = {
     workflows: [],
   };
+  activitySummary: ActivitySummaryResponse | null = null;
+  activitySummaryLoading = false;
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private crawlStreamSubscription?: Subscription;
 
@@ -47,6 +49,7 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
     this.loadWorkflowStats();
     this.loadWorkflowCumulativeJobs();
     this.loadActiveCrawls();
+    this.loadActivitySummary();
     this.subscribeToCrawlProgress();
   }
 
@@ -279,5 +282,29 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
 
   private getStatusRank(status: CrawlProgress['status']): number {
     return getCrawlStatusRank(status);
+  }
+
+  private loadActivitySummary(): void {
+    this.activitySummaryLoading = true;
+    this.apiService.getActivitySummary().subscribe({
+      next: (summary) => {
+        this.activitySummary = summary;
+        this.activitySummaryLoading = false;
+      },
+      error: () => {
+        this.activitySummary = null;
+        this.activitySummaryLoading = false;
+      }
+    });
+  }
+
+  isQueueEmpty(queueDepth: any): boolean {
+    return queueDepth.crawler_trigger === 0 &&
+      queueDepth.crawler_company_discovery === 0 &&
+      queueDepth.crawler_ats_job_extraction === 0 &&
+      queueDepth.crawler_levelsfyi === 0 &&
+      queueDepth.crawler_4dayweek === 0 &&
+      queueDepth.crawler_enrichment_ats === 0 &&
+      queueDepth.job_scoring === 0;
   }
 }

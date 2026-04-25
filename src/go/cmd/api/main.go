@@ -71,6 +71,7 @@ func main() {
 
 		auth.POST("/crawls", facade.TriggerCrawl)
 		auth.GET("/crawls/active", facade.GetActiveCrawls)
+		auth.GET("/crawls/activity-summary", facade.GetActivitySummary)
 		auth.GET("/crawls/last-run/workflow-stats", facade.GetLastRunWorkflowStats)
 		auth.GET("/crawls/workflow-cumulative-jobs", facade.GetWorkflowCumulativeJobs)
 		auth.GET("/crawls/stream", facade.StreamCrawlProgress)

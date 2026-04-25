@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse } from '../../shared/models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse, ActivitySummaryResponse } from '../../shared/models/models';
 import { AuthService } from '../auth/auth.service';
 
 @Injectable({
@@ -160,6 +160,27 @@ export class ApiService {
   getWorkflowCumulativeJobs(): Observable<WorkflowCumulativeJobsResponse> {
     return this.http.get<WorkflowCumulativeJobsResponse>(`${this.apiBase}/crawls/workflow-cumulative-jobs`)
       .pipe(catchError(() => of({ workflows: [] })));
+  }
+
+  getActivitySummary(identityId?: string): Observable<ActivitySummaryResponse> {
+    const url = identityId
+      ? `${this.apiBase}/crawls/activity-summary?identity_id=${encodeURIComponent(identityId)}`
+      : `${this.apiBase}/crawls/activity-summary`;
+
+    return this.http.get<ActivitySummaryResponse>(url)
+      .pipe(catchError(() => of({
+        identity_id: '',
+        active_workflows: [],
+        global_queue_depth: {
+          crawler_trigger: 0,
+          crawler_company_discovery: 0,
+          crawler_ats_job_extraction: 0,
+          crawler_levelsfyi: 0,
+          crawler_4dayweek: 0,
+          crawler_enrichment_ats: 0,
+          job_scoring: 0,
+        },
+      })));
   }
 
   getActiveScoring(identityId?: string): Observable<ScoringProgress[]> {

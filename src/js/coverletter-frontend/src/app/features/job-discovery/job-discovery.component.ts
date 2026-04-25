@@ -7,7 +7,7 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 import { IdentityContextService } from '../../core/services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress } from '../../shared/models/models';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress, ActivitySummaryResponse } from '../../shared/models/models';
 import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from '../../shared/utils/workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
@@ -66,6 +66,8 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
   private completedProgressEvents = new Set<string>();
   private checkedJobIds = new Set<string>();
+  activitySummary: ActivitySummaryResponse | null = null;
+  activitySummaryLoading = false;
 
   @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
@@ -122,12 +124,27 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
         this.applyScoresToJobs();
         this.checkDisplayedJobs();
+        this.loadActivitySummary();
 
         this.loading = false;
       },
       error: () => {
         this.loading = false;
         this.feedbackService.showFeedback('Failed to load Job Discovery data.', true);
+      }
+    });
+  }
+
+  private loadActivitySummary(): void {
+    this.activitySummaryLoading = true;
+    this.api.getActivitySummary(this.selectedIdentityId).subscribe({
+      next: (summary) => {
+        this.activitySummary = summary;
+        this.activitySummaryLoading = false;
+      },
+      error: () => {
+        this.activitySummary = null;
+        this.activitySummaryLoading = false;
       }
     });
   }
@@ -458,6 +475,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.identityContext.setSelectedIdentityId(normalizedIdentityId);
     this.updateIdentityQueryParam(normalizedIdentityId);
     this.applyScoresToJobs();
+    this.loadActivitySummary();
   }
 
   private passesScoreFilter(job: ScoredJobDescription): boolean {
@@ -806,5 +824,15 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       },
       error: () => {},
     });
+  }
+
+  isQueueEmpty(queueDepth: any): boolean {
+    return queueDepth.crawler_trigger === 0 &&
+      queueDepth.crawler_company_discovery === 0 &&
+      queueDepth.crawler_ats_job_extraction === 0 &&
+      queueDepth.crawler_levelsfyi === 0 &&
+      queueDepth.crawler_4dayweek === 0 &&
+      queueDepth.crawler_enrichment_ats === 0 &&
+      queueDepth.job_scoring === 0;
   }
 }

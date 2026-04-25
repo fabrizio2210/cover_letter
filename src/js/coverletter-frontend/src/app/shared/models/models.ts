@@ -177,6 +177,28 @@ export interface WorkflowCumulativeJobsResponse {
   workflows: WorkflowCumulativeJobsItem[];
 }
 
+export interface ActiveWorkflowItem {
+  workflow_id: string;
+  status: 'queued' | 'running';
+  message?: string;
+}
+
+export interface ActivityQueueDepth {
+  crawler_trigger: number;
+  crawler_company_discovery: number;
+  crawler_ats_job_extraction: number;
+  crawler_levelsfyi: number;
+  crawler_4dayweek: number;
+  crawler_enrichment_ats: number;
+  job_scoring: number;
+}
+
+export interface ActivitySummaryResponse {
+  identity_id: string;
+  active_workflows: ActiveWorkflowItem[];
+  global_queue_depth: ActivityQueueDepth;
+}
+
 export interface FeedbackMessage {
   message: string;
   isError: boolean;

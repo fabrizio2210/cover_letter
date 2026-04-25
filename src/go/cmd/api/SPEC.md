@@ -1082,6 +1082,47 @@ Rules:
 - The API should preserve distinct workflow contributions by `workflow_run_id`.
 - Filtering by `identity_id` may be supported via query string when only one identity view is needed.
 
+#### `GET /api/crawls/activity-summary`
+Auth: required.
+Response `200`: global queue depths and identity-scoped active workflows for parallel work tracking.
+
+Query parameters:
+- `identity_id` (optional): when provided, filter active workflows to this identity; queue depths remain global.
+
+```json
+{
+  "identity_id": "<hex or empty>",
+  "active_workflows": [
+    {
+      "workflow_id": "crawler_company_discovery",
+      "status": "running",
+      "message": "Collecting company candidates"
+    },
+    {
+      "workflow_id": "crawler_ats_job_extraction",
+      "status": "queued",
+      "message": ""
+    }
+  ],
+  "global_queue_depth": {
+    "crawler_trigger": 0,
+    "crawler_company_discovery": 5,
+    "crawler_ats_job_extraction": 12,
+    "crawler_levelsfyi": 2,
+    "crawler_4dayweek": 0,
+    "crawler_enrichment_ats": 18,
+    "job_scoring": 42
+  }
+}
+```
+
+Rules:
+- `global_queue_depth` values are **global** Redis list lengths, not identity-scoped. The UI must label them honestly.
+- `active_workflows` contains workflows with `status` of `queued` or `running` for the optionally selected identity.
+- If `identity_id` is empty or omitted, `active_workflows` reflects all active crawl workflows across all identities.
+- Queue depth counts are point-in-time Redis `LLEN` results; they may change between requests as workers consume messages.
+- This endpoint is designed for the parallel work model where multiple workflows run independently and cannot produce a reliable end-to-end percentage.
+
 #### `GET /api/crawls/last-run/workflow-stats`
 Auth: required.
 Response `200`: last completed run stats per workflow for dashboard visibility. Each workflow independently shows its most recent completion, regardless of which parent run it belonged to.

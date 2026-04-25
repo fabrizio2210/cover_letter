@@ -9,6 +9,7 @@ This file is the authoritative reference for crawl/scoring progress handlers und
 Owned endpoints:
 - POST /api/crawls
 - GET /api/crawls/active
+- GET /api/crawls/activity-summary
 - GET /api/crawls/last-run/workflow-stats
 - GET /api/crawls/workflow-cumulative-jobs
 - GET /api/crawls/stream
@@ -25,4 +26,5 @@ Behavior highlights:
 - Duplicate crawl starts for the same identity are rejected when an active queued/running crawl exists.
 - Crawl/scoring stream endpoints emit SSE events named crawl-progress and scoring-progress.
 - Last-run workflow stats and cumulative counters preserve stable dashboard workflow ordering.
+- Activity summary endpoint exposes real-time global queue depths and identity-scoped active workflows for parallel work tracking.
 

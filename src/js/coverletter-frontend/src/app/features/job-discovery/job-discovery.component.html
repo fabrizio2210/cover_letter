@@ -56,21 +56,71 @@
         <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
       </label>
 
-      <div class="crawl-status-card" *ngIf="selectedIdentityActiveProgress as activeProgress">
+      <div class="crawl-status-card" *ngIf="activitySummary && !activitySummaryLoading">
         <div class="crawl-status-header">
-          <strong>{{ getProgressPhaseLabel(activeProgress) }}</strong>
-          <span class="crawl-status-badge" [class.crawl-status-terminal]="!isActiveProgressStatus(activeProgress.status)">
-            {{ activeProgress.status }}
+          <strong>Crawler & Scoring Activity</strong>
+          <span class="crawl-status-badge">
+            {{ activitySummary.active_workflows.length > 0 ? 'active' : 'idle' }}
           </span>
         </div>
-        <p>{{ activeProgress.message || (getProgressSourceLabel(activeProgress) + ' progress update') }}</p>
-        <div class="crawl-progress-row">
-          <span>{{ getProgressSourceLabel(activeProgress) }} • {{ activeProgress.completed }} / {{ activeProgress.estimated_total }}</span>
-          <span>{{ activeProgress.percent }}%</span>
+
+        <p *ngIf="activitySummary.active_workflows.length > 0">
+          {{ activitySummary.active_workflows.length }} workflow(s) running
+        </p>
+        <p *ngIf="activitySummary.active_workflows.length === 0">
+          No active crawl or scoring workflows
+        </p>
+
+        <div *ngIf="activitySummary.active_workflows.length > 0" class="active-workflows-list">
+          <div *ngFor="let workflow of activitySummary.active_workflows" class="workflow-item">
+            <span class="workflow-status-badge" [class.workflow-status-running]="workflow.status === 'running'">
+              {{ workflow.status }}
+            </span>
+            <span class="workflow-name">{{ workflow.workflow_id }}</span>
+            <span *ngIf="workflow.message" class="workflow-message">{{ workflow.message }}</span>
+          </div>
         </div>
-        <div class="crawl-progress-track">
-          <div class="crawl-progress-fill" [style.width.%]="activeProgress.percent"></div>
+
+        <div class="queue-depth-summary">
+          <div class="queue-info">
+            <strong>Global Queue Backlog</strong>
+            <p class="queue-note">Global counts across all identities</p>
+          </div>
+          <div class="queue-items">
+            <div *ngIf="activitySummary.global_queue_depth.crawler_trigger > 0" class="queue-item">
+              <span>Crawler triggers:</span> <strong>{{ activitySummary.global_queue_depth.crawler_trigger }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_company_discovery > 0" class="queue-item">
+              <span>Company discovery:</span> <strong>{{ activitySummary.global_queue_depth.crawler_company_discovery }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_ats_job_extraction > 0" class="queue-item">
+              <span>ATS extraction:</span> <strong>{{ activitySummary.global_queue_depth.crawler_ats_job_extraction }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_levelsfyi > 0" class="queue-item">
+              <span>LevelsFyi crawl:</span> <strong>{{ activitySummary.global_queue_depth.crawler_levelsfyi }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_4dayweek > 0" class="queue-item">
+              <span>4DayWeek crawl:</span> <strong>{{ activitySummary.global_queue_depth.crawler_4dayweek }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_enrichment_ats > 0" class="queue-item">
+              <span>Enrichment:</span> <strong>{{ activitySummary.global_queue_depth.crawler_enrichment_ats }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.job_scoring > 0" class="queue-item">
+              <span>Job scoring:</span> <strong>{{ activitySummary.global_queue_depth.job_scoring }}</strong>
+            </div>
+            <div *ngIf="isQueueEmpty(activitySummary.global_queue_depth)" class="queue-item">
+              <span class="queue-empty">No pending work</span>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="crawl-status-card" *ngIf="activitySummaryLoading">
+        <div class="crawl-status-header">
+          <strong>Crawler & Scoring Activity</strong>
+          <span class="crawl-status-badge">loading</span>
+        </div>
+        <p>Loading activity status...</p>
       </div>
     </section>
   </aside>

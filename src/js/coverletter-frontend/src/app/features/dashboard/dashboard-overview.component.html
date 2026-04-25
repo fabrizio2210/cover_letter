@@ -67,22 +67,58 @@
   </ng-template>
 </section>
 
-<section class="crawler-overview-section" *ngIf="activeCrawl as crawl">
-  <div class="crawler-overview-card">
-    <p class="crawler-eyebrow">Crawler Active</p>
-    <h3>{{ crawlPhaseLabel }}</h3>
-    <p>{{ crawl.message || 'Live crawl progress from the worker queue.' }}</p>
-    <div class="crawler-progress-row">
-      <span>{{ crawl.status }} for {{ crawl.identity_id }}</span>
-      <span>{{ crawl.percent }}%</span>
+<section class="crawler-overview-section">
+  <div class="crawler-overview-card" *ngIf="activitySummary && !activitySummaryLoading">
+    <p class="crawler-eyebrow">Crawler & Scoring Activity</p>
+    <h3>{{ activitySummary.active_workflows.length > 0 ? 'Active Workflows' : 'No Active Workflows' }}</h3>
+    
+    <div *ngIf="activitySummary.active_workflows.length > 0" class="active-workflows-list-dashboard">
+      <div *ngFor="let workflow of activitySummary.active_workflows" class="workflow-item-dashboard">
+        <span class="workflow-status-badge-dashboard" [class.workflow-status-running]="workflow.status === 'running'">
+          {{ workflow.status }}
+        </span>
+        <span class="workflow-name">{{ workflow.workflow_id }}</span>
+        <span *ngIf="workflow.message" class="workflow-message">{{ workflow.message }}</span>
+      </div>
     </div>
-    <div class="crawler-progress-row">
-      <span>{{ crawl.completed }} / {{ crawl.estimated_total }} checks</span>
-      <span>{{ crawl.workflow_id || crawl.workflow }}</span>
+
+    <p *ngIf="activitySummary.active_workflows.length === 0" class="no-active-text">No active crawl or scoring workflows</p>
+
+    <div class="queue-depth-summary-dashboard">
+      <h4 class="queue-header">Global Queue Backlog</h4>
+      <p class="queue-note">Global counts across all identities</p>
+      <div class="queue-items-dashboard">
+        <div *ngIf="activitySummary.global_queue_depth.crawler_trigger > 0" class="queue-item-dashboard">
+          <span>Crawler triggers:</span> <strong>{{ activitySummary.global_queue_depth.crawler_trigger }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.crawler_company_discovery > 0" class="queue-item-dashboard">
+          <span>Company discovery:</span> <strong>{{ activitySummary.global_queue_depth.crawler_company_discovery }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.crawler_ats_job_extraction > 0" class="queue-item-dashboard">
+          <span>ATS extraction:</span> <strong>{{ activitySummary.global_queue_depth.crawler_ats_job_extraction }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.crawler_levelsfyi > 0" class="queue-item-dashboard">
+          <span>LevelsFyi crawl:</span> <strong>{{ activitySummary.global_queue_depth.crawler_levelsfyi }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.crawler_4dayweek > 0" class="queue-item-dashboard">
+          <span>4DayWeek crawl:</span> <strong>{{ activitySummary.global_queue_depth.crawler_4dayweek }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.crawler_enrichment_ats > 0" class="queue-item-dashboard">
+          <span>Enrichment:</span> <strong>{{ activitySummary.global_queue_depth.crawler_enrichment_ats }}</strong>
+        </div>
+        <div *ngIf="activitySummary.global_queue_depth.job_scoring > 0" class="queue-item-dashboard">
+          <span>Job scoring:</span> <strong>{{ activitySummary.global_queue_depth.job_scoring }}</strong>
+        </div>
+        <div *ngIf="isQueueEmpty(activitySummary.global_queue_depth)" class="queue-item-dashboard">
+          <span class="queue-empty">No pending work</span>
+        </div>
+      </div>
     </div>
-    <div class="crawler-progress-track">
-      <div class="crawler-progress-fill" [style.width.%]="crawl.percent"></div>
-    </div>
+  </div>
+
+  <div class="crawler-overview-card" *ngIf="activitySummaryLoading">
+    <p class="crawler-eyebrow">Crawler & Scoring Activity</p>
+    <p>Loading activity status...</p>
   </div>
 </section>
 

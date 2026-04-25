@@ -144,9 +144,9 @@ func waitForScoringSubscribers(t *testing.T, expected int) {
 
 func TestClampNonNegative(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    int32
-		want  int32
+		name string
+		in   int32
+		want int32
 	}{
 		{name: "negative", in: -1, want: 0},
 		{name: "zero", in: 0, want: 0},
@@ -919,8 +919,8 @@ func TestCrawlHubLastRunWorkflowStatsFallbackFromSnapshots(t *testing.T) {
 
 	// Build a hub with snapshots but no pre-computed latestStatsByWorkflow to exercise fallback branch.
 	h := &crawlProgressHub{
-		snapshots: map[string]*models.CrawlProgress{},
-		subscribers: map[int]crawlSubscriber{},
+		snapshots:             map[string]*models.CrawlProgress{},
+		subscribers:           map[int]crawlSubscriber{},
 		latestStatsByWorkflow: map[string]lastRunWorkflowStatsItem{},
 	}
 	now := time.Now().UTC()
@@ -1010,5 +1010,97 @@ func TestSubscribeProviderSetterIsApplied(t *testing.T) {
 	}
 	if closeFn == nil {
 		t.Fatal("expected non-nil close function")
+	}
+}
+
+func TestGetActivitySummary(t *testing.T) {
+	setTestGlobals(t)
+
+	// Test with empty state
+	c, w := testctx.CreateGinTestContext(http.MethodGet, "/api/crawls/activity-summary", nil)
+	GetActivitySummary(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var summary activitySummaryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+
+	if len(summary.ActiveWorkflows) != 0 {
+		t.Fatalf("expected empty active workflows, got %d", len(summary.ActiveWorkflows))
+	}
+
+	// Add some active crawls
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r1",
+		IdentityId: "id1",
+		Status:     "running",
+		WorkflowId: workflowCrawlerCompanyDiscovery,
+		Message:    "Processing companies",
+	})
+
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r1",
+		IdentityId: "id2",
+		Status:     "queued",
+		WorkflowId: workflowCrawlerATSExtraction,
+		Message:    "",
+	})
+
+	// Terminal crawl should not appear
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r2",
+		IdentityId: "id1",
+		Status:     "completed",
+		WorkflowId: workflowCrawlerLevelsfyi,
+	})
+
+	// Test with identity filter
+	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/activity-summary?identity_id=id1", nil)
+	c2, w2 := testctx.CreateGinTestContext(http.MethodGet, "/api/crawls/activity-summary?identity_id=id1", req)
+	GetActivitySummary(c2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+
+	if err := json.Unmarshal(w2.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+
+	if summary.IdentityID != "id1" {
+		t.Fatalf("expected identity_id=id1, got %s", summary.IdentityID)
+	}
+
+	if len(summary.ActiveWorkflows) != 1 {
+		t.Fatalf("expected 1 active workflow for id1, got %d", len(summary.ActiveWorkflows))
+	}
+
+	if summary.ActiveWorkflows[0].WorkflowID != workflowCrawlerCompanyDiscovery {
+		t.Fatalf("expected workflow_id=%s, got %s", workflowCrawlerCompanyDiscovery, summary.ActiveWorkflows[0].WorkflowID)
+	}
+}
+
+func TestApplyQueueDefaults(t *testing.T) {
+	queues := map[string]string{
+		queueCrawlerTrigger:          "",
+		queueCrawlerCompanyDiscovery: "custom_queue",
+		queueCrawlerATSExtraction:    "",
+	}
+
+	result := applyQueueDefaults(queues)
+
+	if result[queueCrawlerTrigger] != defaultCrawlerTriggerQueue {
+		t.Fatalf("expected default for trigger queue, got %s", result[queueCrawlerTrigger])
+	}
+
+	if result[queueCrawlerCompanyDiscovery] != "custom_queue" {
+		t.Fatalf("expected custom_queue to be preserved, got %s", result[queueCrawlerCompanyDiscovery])
+	}
+
+	if result[queueCrawlerATSExtraction] != defaultCrawlerATSExtractionQueue {
+		t.Fatalf("expected default for ATS extraction queue, got %s", result[queueCrawlerATSExtraction])
 	}
 }

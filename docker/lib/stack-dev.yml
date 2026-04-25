@@ -327,6 +327,13 @@ services:
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
       - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
+      - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
+      - CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME=crawler_company_discovery_queue
+      - CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME=crawler_ats_job_extraction_queue
+      - CRAWLER_LEVELSFYI_QUEUE_NAME=crawler_levelsfyi_queue
+      - CRAWLER_4DAYWEEK_QUEUE_NAME=crawler_4dayweek_queue
+      - CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME=enrichment_ats_enrichment_queue
+      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
       - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
       - JOB_UPDATE_CHANNEL_NAME=job_update_channel
     volumes:

@@ -65,6 +65,7 @@ var TriggerCrawl = crawlsdomain.TriggerCrawl
 var GetActiveCrawls = crawlsdomain.GetActiveCrawls
 var GetLastRunWorkflowStats = crawlsdomain.GetLastRunWorkflowStats
 var GetWorkflowCumulativeJobs = crawlsdomain.GetWorkflowCumulativeJobs
+var GetActivitySummary = crawlsdomain.GetActivitySummary
 var StreamCrawlProgress = crawlsdomain.StreamCrawlProgress
 var GetActiveScoring = crawlsdomain.GetActiveScoring
 var StreamScoringProgress = crawlsdomain.StreamScoringProgress

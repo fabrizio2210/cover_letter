@@ -24,12 +24,18 @@ import (
 )
 
 const (
-	defaultCrawlerTriggerQueue    = "crawler_trigger_queue"
-	defaultCrawlerProgressChannel = "crawler_progress_channel"
-	defaultScoringProgressChannel = "scoring_progress_channel"
-	statsCollectionName           = "stats"
-	workflowCountersDocID         = "crawler_workflow_cumulative_jobs"
-	workflowCountersField         = "discovered_jobs_by_workflow"
+	defaultCrawlerTriggerQueue          = "crawler_trigger_queue"
+	defaultCrawlerProgressChannel       = "crawler_progress_channel"
+	defaultScoringProgressChannel       = "scoring_progress_channel"
+	defaultCrawlerCompanyDiscoveryQueue = "crawler_company_discovery_queue"
+	defaultCrawlerATSExtractionQueue    = "crawler_ats_job_extraction_queue"
+	defaultCrawlerLevelsfyiQueue        = "crawler_levelsfyi_queue"
+	defaultCrawler4DayWeekQueue         = "crawler_4dayweek_queue"
+	defaultCrawlerEnrichmentAtsQueue    = "enrichment_ats_enrichment_queue"
+	defaultJobScoringQueue              = "job_scoring_queue"
+	statsCollectionName                 = "stats"
+	workflowCountersDocID               = "crawler_workflow_cumulative_jobs"
+	workflowCountersField               = "discovered_jobs_by_workflow"
 
 	workflowCrawlerCompanyDiscovery = "crawler_company_discovery"
 	workflowCrawlerLevelsfyi        = "crawler_levelsfyi"
@@ -312,6 +318,46 @@ func GetWorkflowCumulativeJobs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, workflowCumulativeJobsResponse{Workflows: workflows})
+}
+
+func GetActivitySummary(c *gin.Context) {
+	ensureCrawlProgressBridge()
+	ensureScoringProgressBridge()
+
+	identityID := c.Query("identity_id")
+
+	// Collect active crawl snapshots for this identity
+	activeCrawls := crawlHub.listSnapshots(identityID)
+	activeWorkflows := make([]activeWorkflowItem, 0)
+	for _, crawl := range activeCrawls {
+		if crawl.Status == "queued" || crawl.Status == "running" {
+			activeWorkflows = append(activeWorkflows, activeWorkflowItem{
+				WorkflowID: crawl.WorkflowId,
+				Status:     crawl.Status,
+				Message:    crawl.Message,
+			})
+		}
+	}
+
+	// Get queue depths
+	queues := getQueueNames()
+	queueDepths := getQueueDepths(queues)
+
+	response := activitySummaryResponse{
+		IdentityID:      identityID,
+		ActiveWorkflows: activeWorkflows,
+		GlobalQueueDepth: activityQueueDepth{
+			CrawlerTrigger:          queueDepths[queueCrawlerTrigger],
+			CrawlerCompanyDiscovery: queueDepths[queueCrawlerCompanyDiscovery],
+			CrawlerATSExtraction:    queueDepths[queueCrawlerATSExtraction],
+			CrawlerLevelsfyi:        queueDepths[queueCrawlerLevelsfyi],
+			Crawler4DayWeek:         queueDepths[queueCrawler4DayWeek],
+			CrawlerEnrichmentAts:    queueDepths[queueCrawlerEnrichmentAts],
+			JobScoring:              queueDepths[queueJobScoring],
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func StreamCrawlProgress(c *gin.Context) {
@@ -841,6 +887,91 @@ func cloneScoringProgress(snapshot *models.ScoringProgress) *models.ScoringProgr
 
 func timestampPtr(now time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(now)
+}
+
+// Queue depth response types
+const (
+	queueCrawlerTrigger          = "crawler_trigger"
+	queueCrawlerCompanyDiscovery = "crawler_company_discovery"
+	queueCrawlerATSExtraction    = "crawler_ats_job_extraction"
+	queueCrawlerLevelsfyi        = "crawler_levelsfyi"
+	queueCrawler4DayWeek         = "crawler_4dayweek"
+	queueCrawlerEnrichmentAts    = "crawler_enrichment_ats"
+	queueJobScoring              = "job_scoring"
+)
+
+type activityQueueDepth struct {
+	CrawlerTrigger          int64 `json:"crawler_trigger"`
+	CrawlerCompanyDiscovery int64 `json:"crawler_company_discovery"`
+	CrawlerATSExtraction    int64 `json:"crawler_ats_job_extraction"`
+	CrawlerLevelsfyi        int64 `json:"crawler_levelsfyi"`
+	Crawler4DayWeek         int64 `json:"crawler_4dayweek"`
+	CrawlerEnrichmentAts    int64 `json:"crawler_enrichment_ats"`
+	JobScoring              int64 `json:"job_scoring"`
+}
+
+type activeWorkflowItem struct {
+	WorkflowID string `json:"workflow_id"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+}
+
+type activitySummaryResponse struct {
+	IdentityID       string               `json:"identity_id"`
+	ActiveWorkflows  []activeWorkflowItem `json:"active_workflows"`
+	GlobalQueueDepth activityQueueDepth   `json:"global_queue_depth"`
+}
+
+func getQueueNames() map[string]string {
+	return map[string]string{
+		queueCrawlerTrigger:          os.Getenv("CRAWLER_TRIGGER_QUEUE_NAME"),
+		queueCrawlerCompanyDiscovery: os.Getenv("CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME"),
+		queueCrawlerATSExtraction:    os.Getenv("CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME"),
+		queueCrawlerLevelsfyi:        os.Getenv("CRAWLER_LEVELSFYI_QUEUE_NAME"),
+		queueCrawler4DayWeek:         os.Getenv("CRAWLER_4DAYWEEK_QUEUE_NAME"),
+		queueCrawlerEnrichmentAts:    os.Getenv("CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME"),
+		queueJobScoring:              os.Getenv("JOB_SCORING_QUEUE_NAME"),
+	}
+}
+
+func applyQueueDefaults(queueNames map[string]string) map[string]string {
+	defaults := map[string]string{
+		queueCrawlerTrigger:          defaultCrawlerTriggerQueue,
+		queueCrawlerCompanyDiscovery: defaultCrawlerCompanyDiscoveryQueue,
+		queueCrawlerATSExtraction:    defaultCrawlerATSExtractionQueue,
+		queueCrawlerLevelsfyi:        defaultCrawlerLevelsfyiQueue,
+		queueCrawler4DayWeek:         defaultCrawler4DayWeekQueue,
+		queueCrawlerEnrichmentAts:    defaultCrawlerEnrichmentAtsQueue,
+		queueJobScoring:              defaultJobScoringQueue,
+	}
+	for key, defaultValue := range defaults {
+		if queueNames[key] == "" {
+			queueNames[key] = defaultValue
+		}
+	}
+	return queueNames
+}
+
+func getQueueDepths(queueNames map[string]string) map[string]int64 {
+	queueNames = applyQueueDefaults(queueNames)
+	depths := make(map[string]int64)
+	redisClient := defaultRedisClient()
+
+	for key, queueName := range queueNames {
+		if queueName == "" {
+			depths[key] = 0
+			continue
+		}
+		len, err := redisClient.LLen(context.Background(), queueName).Result()
+		if err != nil && err != redis.Nil {
+			log.Printf("failed to get queue depth for %s: %v", queueName, err)
+			depths[key] = 0
+		} else {
+			depths[key] = len
+		}
+	}
+
+	return depths
 }
 
 // PublishCrawlProgressForTests injects a crawl progress snapshot into hub state.
