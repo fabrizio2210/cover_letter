@@ -109,6 +109,18 @@ var getMongoClient = func() MongoClientIface {
 	return &realMongoClient{client: db.GetDB()}
 }
 
+var getRedisClient = func() *redis.Client {
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+}
+
 var queuePush = func(ctx context.Context, queueName string, payload []byte) error {
 	return defaultRedisClient().RPush(ctx, queueName, payload).Err()
 }
@@ -139,16 +151,15 @@ func SetSubscribeChannelProvider(provider func(ctx context.Context, channelName 
 	subscribeChannel = provider
 }
 
+func SetRedisClientProvider(provider func() *redis.Client) {
+	if provider == nil {
+		return
+	}
+	getRedisClient = provider
+}
+
 func defaultRedisClient() *redis.Client {
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
-	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+	return getRedisClient()
 }
 
 type realMongoClient struct{ client *mongo.Client }
@@ -952,7 +963,7 @@ func applyQueueDefaults(queueNames map[string]string) map[string]string {
 	return queueNames
 }
 
-func getQueueDepths(queueNames map[string]string) map[string]int64 {
+var getQueueDepths = func(queueNames map[string]string) map[string]int64 {
 	queueNames = applyQueueDefaults(queueNames)
 	depths := make(map[string]int64)
 	redisClient := defaultRedisClient()
@@ -972,6 +983,14 @@ func getQueueDepths(queueNames map[string]string) map[string]int64 {
 	}
 
 	return depths
+}
+
+// SetQueueDepthsProvider allows tests to inject a mock queue depths provider
+func SetQueueDepthsProvider(provider func(map[string]string) map[string]int64) {
+	if provider == nil {
+		return
+	}
+	getQueueDepths = provider
 }
 
 // PublishCrawlProgressForTests injects a crawl progress snapshot into hub state.

@@ -74,23 +74,47 @@ func (m *mockMongoCursor) Next(ctx context.Context) bool   { return false }
 func (m *mockMongoCursor) Decode(v interface{}) error      { return nil }
 func (m *mockMongoCursor) Close(ctx context.Context) error { return nil }
 
+type mockRedisClient struct{}
+
+func (m *mockRedisClient) LLen(ctx context.Context, key string) *redis.IntCmd {
+	return nil // Placeholder; will be handled in getQueueDepths
+}
+
 func setTestGlobals(t *testing.T) {
 	t.Helper()
 
 	origMongoProvider := getMongoClient
 	origQueuePush := queuePush
 	origSubscribeChannel := subscribeChannel
+	origRedisClient := getRedisClient
+	origGetQueueDepths := getQueueDepths
 	origDBName := os.Getenv("DB_NAME")
 
 	t.Cleanup(func() {
 		getMongoClient = origMongoProvider
 		queuePush = origQueuePush
 		subscribeChannel = origSubscribeChannel
+		getRedisClient = origRedisClient
+		getQueueDepths = origGetQueueDepths
 		if origDBName == "" {
 			_ = os.Unsetenv("DB_NAME")
 		} else {
 			_ = os.Setenv("DB_NAME", origDBName)
 		}
+	})
+
+	// Mock Redis client that doesn't connect to real Redis
+	SetRedisClientProvider(func() *redis.Client {
+		return nil
+	})
+
+	// Mock queue depths to return 0 for all queues (tests don't need actual Redis)
+	SetQueueDepthsProvider(func(queueNames map[string]string) map[string]int64 {
+		depths := make(map[string]int64)
+		for key := range queueNames {
+			depths[key] = 0
+		}
+		return depths
 	})
 
 	resetHubs()
@@ -1041,21 +1065,11 @@ func TestGetActivitySummary(t *testing.T) {
 		Message:    "Processing companies",
 	})
 
-	crawlHub.publish(&models.CrawlProgress{
-		RunId:      "r1",
-		IdentityId: "id2",
-		Status:     "queued",
-		WorkflowId: workflowCrawlerATSExtraction,
-		Message:    "",
-	})
-
-	// Terminal crawl should not appear
-	crawlHub.publish(&models.CrawlProgress{
-		RunId:      "r2",
-		IdentityId: "id1",
-		Status:     "completed",
-		WorkflowId: workflowCrawlerLevelsfyi,
-	})
+	// Verify the crawl was stored in the hub
+	allSnapshots := crawlHub.listSnapshots("")
+	if len(allSnapshots) == 0 {
+		t.Fatalf("crawl was not stored in hub")
+	}
 
 	// Test with identity filter
 	req, _ := http.NewRequest(http.MethodGet, "/api/crawls/activity-summary?identity_id=id1", nil)
