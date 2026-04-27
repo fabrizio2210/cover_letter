@@ -110,7 +110,8 @@ export interface CrawlProgress {
   run_id: string;
   workflow_run_id?: string;
   workflow_id?:
-    | 'crawler_company_discovery'
+    | 'crawler_ycombinator'
+    | 'crawler_hackernews'
     | 'enrichment_ats_enrichment'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
@@ -119,7 +120,8 @@ export interface CrawlProgress {
   status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
   workflow:
     | 'queued'
-    | 'crawler_company_discovery'
+    | 'crawler_ycombinator'
+    | 'crawler_hackernews'
     | 'enrichment_ats_enrichment'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
@@ -151,7 +153,8 @@ export interface ScoringProgress {
 
 export interface LastRunWorkflowStatsItem {
   workflow_id:
-    | 'crawler_company_discovery'
+    | 'crawler_ycombinator'
+    | 'crawler_hackernews'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
     | 'crawler_levelsfyi';
@@ -166,7 +169,8 @@ export interface LastRunWorkflowStatsResponse {
 
 export interface WorkflowCumulativeJobsItem {
   workflow_id:
-    | 'crawler_company_discovery'
+    | 'crawler_ycombinator'
+    | 'crawler_hackernews'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
     | 'crawler_levelsfyi';
@@ -185,7 +189,8 @@ export interface ActiveWorkflowItem {
 
 export interface ActivityQueueDepth {
   crawler_trigger: number;
-  crawler_company_discovery: number;
+  crawler_ycombinator: number;
+  crawler_hackernews: number;
   crawler_ats_job_extraction: number;
   crawler_levelsfyi: number;
   crawler_4dayweek: number;

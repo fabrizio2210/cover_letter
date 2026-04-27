@@ -27,9 +27,10 @@ const (
 	defaultCrawlerTriggerQueue          = "crawler_trigger_queue"
 	defaultCrawlerProgressChannel       = "crawler_progress_channel"
 	defaultScoringProgressChannel       = "scoring_progress_channel"
-	defaultCrawlerCompanyDiscoveryQueue = "crawler_company_discovery_queue"
-	defaultCrawlerATSExtractionQueue    = "crawler_ats_job_extraction_queue"
-	defaultCrawlerLevelsfyiQueue        = "crawler_levelsfyi_queue"
+	defaultCrawlerYCombinatorQueue   = "crawler_ycombinator_queue"
+	defaultCrawlerHackerNewsQueue    = "crawler_hackernews_queue"
+	defaultCrawlerATSExtractionQueue = "crawler_ats_job_extraction_queue"
+	defaultCrawlerLevelsfyiQueue     = "crawler_levelsfyi_queue"
 	defaultCrawler4DayWeekQueue         = "crawler_4dayweek_queue"
 	defaultCrawlerEnrichmentAtsQueue    = "enrichment_ats_enrichment_queue"
 	defaultJobScoringQueue              = "job_scoring_queue"
@@ -37,14 +38,16 @@ const (
 	workflowCountersDocID               = "crawler_workflow_cumulative_jobs"
 	workflowCountersField               = "discovered_jobs_by_workflow"
 
-	workflowCrawlerCompanyDiscovery = "crawler_company_discovery"
-	workflowCrawlerLevelsfyi        = "crawler_levelsfyi"
-	workflowCrawler4DayWeek         = "crawler_4dayweek"
-	workflowCrawlerATSExtraction    = "crawler_ats_job_extraction"
+	workflowCrawlerYCombinator   = "crawler_ycombinator"
+	workflowCrawlerHackerNews    = "crawler_hackernews"
+	workflowCrawlerLevelsfyi     = "crawler_levelsfyi"
+	workflowCrawler4DayWeek      = "crawler_4dayweek"
+	workflowCrawlerATSExtraction = "crawler_ats_job_extraction"
 )
 
 var dashboardWorkflowOrder = []string{
-	workflowCrawlerCompanyDiscovery,
+	workflowCrawlerYCombinator,
+	workflowCrawlerHackerNews,
 	workflowCrawlerLevelsfyi,
 	workflowCrawler4DayWeek,
 	workflowCrawlerATSExtraction,
@@ -359,7 +362,8 @@ func GetActivitySummary(c *gin.Context) {
 		ActiveWorkflows: activeWorkflows,
 		GlobalQueueDepth: activityQueueDepth{
 			CrawlerTrigger:          queueDepths[queueCrawlerTrigger],
-			CrawlerCompanyDiscovery: queueDepths[queueCrawlerCompanyDiscovery],
+			CrawlerYCombinator:      queueDepths[queueCrawlerYCombinator],
+			CrawlerHackerNews:       queueDepths[queueCrawlerHackerNews],
 			CrawlerATSExtraction:    queueDepths[queueCrawlerATSExtraction],
 			CrawlerLevelsfyi:        queueDepths[queueCrawlerLevelsfyi],
 			Crawler4DayWeek:         queueDepths[queueCrawler4DayWeek],
@@ -765,7 +769,7 @@ func isQueuedLifecycleSnapshot(snapshot *models.CrawlProgress) bool {
 
 func isCrawlerWorkflow(workflowID string) bool {
 	switch workflowID {
-	case workflowCrawlerCompanyDiscovery, workflowCrawlerLevelsfyi, workflowCrawler4DayWeek, workflowCrawlerATSExtraction:
+	case workflowCrawlerYCombinator, workflowCrawlerHackerNews, workflowCrawlerLevelsfyi, workflowCrawler4DayWeek, workflowCrawlerATSExtraction:
 		return true
 	default:
 		return false
@@ -777,7 +781,7 @@ func workflowCountersForSnapshot(workflowID string, snapshot *models.CrawlProgre
 	discovered := clampNonNegative(snapshot.Completed)
 
 	switch workflowID {
-	case workflowCrawlerCompanyDiscovery:
+	case workflowCrawlerYCombinator, workflowCrawlerHackerNews:
 		item.DiscoveredJobs = 0
 		item.DiscoveredCompanies = discovered
 	case workflowCrawlerATSExtraction:
@@ -936,9 +940,10 @@ func timestampPtr(now time.Time) *timestamppb.Timestamp {
 
 // Queue depth response types
 const (
-	queueCrawlerTrigger          = "crawler_trigger"
-	queueCrawlerCompanyDiscovery = "crawler_company_discovery"
-	queueCrawlerATSExtraction    = "crawler_ats_job_extraction"
+	queueCrawlerTrigger       = "crawler_trigger"
+	queueCrawlerYCombinator   = "crawler_ycombinator"
+	queueCrawlerHackerNews    = "crawler_hackernews"
+	queueCrawlerATSExtraction = "crawler_ats_job_extraction"
 	queueCrawlerLevelsfyi        = "crawler_levelsfyi"
 	queueCrawler4DayWeek         = "crawler_4dayweek"
 	queueCrawlerEnrichmentAts    = "crawler_enrichment_ats"
@@ -946,9 +951,10 @@ const (
 )
 
 type activityQueueDepth struct {
-	CrawlerTrigger          int64 `json:"crawler_trigger"`
-	CrawlerCompanyDiscovery int64 `json:"crawler_company_discovery"`
-	CrawlerATSExtraction    int64 `json:"crawler_ats_job_extraction"`
+	CrawlerTrigger       int64 `json:"crawler_trigger"`
+	CrawlerYCombinator   int64 `json:"crawler_ycombinator"`
+	CrawlerHackerNews    int64 `json:"crawler_hackernews"`
+	CrawlerATSExtraction int64 `json:"crawler_ats_job_extraction"`
 	CrawlerLevelsfyi        int64 `json:"crawler_levelsfyi"`
 	Crawler4DayWeek         int64 `json:"crawler_4dayweek"`
 	CrawlerEnrichmentAts    int64 `json:"crawler_enrichment_ats"`
@@ -969,9 +975,10 @@ type activitySummaryResponse struct {
 
 func getQueueNames() map[string]string {
 	return map[string]string{
-		queueCrawlerTrigger:          os.Getenv("CRAWLER_TRIGGER_QUEUE_NAME"),
-		queueCrawlerCompanyDiscovery: os.Getenv("CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME"),
-		queueCrawlerATSExtraction:    os.Getenv("CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME"),
+		queueCrawlerTrigger:       os.Getenv("CRAWLER_TRIGGER_QUEUE_NAME"),
+		queueCrawlerYCombinator:   os.Getenv("CRAWLER_YCOMBINATOR_QUEUE_NAME"),
+		queueCrawlerHackerNews:    os.Getenv("CRAWLER_HACKERNEWS_QUEUE_NAME"),
+		queueCrawlerATSExtraction: os.Getenv("CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME"),
 		queueCrawlerLevelsfyi:        os.Getenv("CRAWLER_LEVELSFYI_QUEUE_NAME"),
 		queueCrawler4DayWeek:         os.Getenv("CRAWLER_4DAYWEEK_QUEUE_NAME"),
 		queueCrawlerEnrichmentAts:    os.Getenv("CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME"),
@@ -981,9 +988,10 @@ func getQueueNames() map[string]string {
 
 func applyQueueDefaults(queueNames map[string]string) map[string]string {
 	defaults := map[string]string{
-		queueCrawlerTrigger:          defaultCrawlerTriggerQueue,
-		queueCrawlerCompanyDiscovery: defaultCrawlerCompanyDiscoveryQueue,
-		queueCrawlerATSExtraction:    defaultCrawlerATSExtractionQueue,
+		queueCrawlerTrigger:       defaultCrawlerTriggerQueue,
+		queueCrawlerYCombinator:   defaultCrawlerYCombinatorQueue,
+		queueCrawlerHackerNews:    defaultCrawlerHackerNewsQueue,
+		queueCrawlerATSExtraction: defaultCrawlerATSExtractionQueue,
 		queueCrawlerLevelsfyi:        defaultCrawlerLevelsfyiQueue,
 		queueCrawler4DayWeek:         defaultCrawler4DayWeekQueue,
 		queueCrawlerEnrichmentAts:    defaultCrawlerEnrichmentAtsQueue,

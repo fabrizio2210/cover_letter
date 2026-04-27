@@ -173,7 +173,8 @@ export class ApiService {
         active_workflows: [],
         global_queue_depth: {
           crawler_trigger: 0,
-          crawler_company_discovery: 0,
+          crawler_ycombinator: 0,
+          crawler_hackernews: 0,
           crawler_ats_job_extraction: 0,
           crawler_levelsfyi: 0,
           crawler_4dayweek: 0,

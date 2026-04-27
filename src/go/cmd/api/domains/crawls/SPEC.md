@@ -84,7 +84,7 @@ Response `200`: latest completed workflow stats for dashboard visibility.
 Rules:
 - Identity-agnostic endpoint.
 - Includes only workflows with id prefix `crawler_`.
-- Stable order: `crawler_company_discovery`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
+- Stable order: `crawler_ycombinator`, `crawler_hackernews`, `crawler_levelsfyi`, `crawler_4dayweek`, `crawler_ats_job_extraction`.
 - If nothing has completed yet: `{ "completed_at": null, "workflows": [] }`.
 
 ### GET /api/crawls/workflow-cumulative-jobs
@@ -157,7 +157,7 @@ Payload:
 {
 	"run_id": "<crawl run id>",
 	"workflow_run_id": "<workflow execution attempt id>",
-	"workflow_id": "crawler_company_discovery",
+	"workflow_id": "crawler_ycombinator",
 	"identity_id": "<identity hex object id>",
 	"status": "queued",
 	"workflow": "queued",

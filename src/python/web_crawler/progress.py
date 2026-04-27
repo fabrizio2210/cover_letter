@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 _WORKFLOW_MESSAGES = {
     "queued": "Waiting for worker pickup",
-    "crawler_company_discovery": "Collecting company candidates",
+    "crawler_ycombinator": "Collecting Y Combinator company candidates",
+    "crawler_hackernews": "Collecting Hacker News company candidates",
     "enrichment_ats_enrichment": "Resolving ATS providers and slugs",
     "crawler_ats_job_extraction": "Fetching ATS job postings",
     "crawler_4dayweek": "Collecting 4dayweek jobs",

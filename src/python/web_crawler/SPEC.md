@@ -57,7 +57,20 @@ Module naming conventions:
 - `*_workflow.py`: pure workflow/business-logic orchestration modules.
 
 Stable workflow identifiers:
-- `crawler_company_discovery`
+- `crawler_ycombinator`
+- `crawler_hackernews`
+- `crawler_linkedin`
+- `crawler_indeed`
+- `crawler_simplyhired`
+- `crawler_builtin`
+- `crawler_otta`
+- `crawler_wellfound`
+- `crawler_workatastartup`
+- `crawler_crunchbase`
+- `crawler_techstars`
+- `crawler_500global`
+- `crawler_a16z`
+- `crawler_sequoia`
 - `enrichment_ats_enrichment`
 - `enrichment_retiring_jobs`
 - `crawler_ats_job_extraction`
@@ -88,7 +101,8 @@ High-level orchestration:
 | `REDIS_PORT` | `6379` | No | Redis port for scoring queue output |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Redis queue name for crawl requests consumed by the worker |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Redis channel used to publish crawl progress snapshots |
-| `CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME` | `crawler_company_discovery_queue` | No | Redis queue consumed by the `crawler_company_discovery` worker |
+| `CRAWLER_YCOMBINATOR_QUEUE_NAME` | `crawler_ycombinator_queue` | No | Redis queue consumed by the `crawler_ycombinator` worker |
+| `CRAWLER_HACKERNEWS_QUEUE_NAME` | `crawler_hackernews_queue` | No | Redis queue consumed by the `crawler_hackernews` worker |
 | `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME` | `crawler_ats_job_extraction_queue` | No | Redis queue consumed by the `crawler_ats_job_extraction` worker |
 | `CRAWLER_LEVELSFYI_QUEUE_NAME` | `crawler_levelsfyi_queue` | No | Redis queue consumed by the `crawler_levelsfyi` worker |
 | `JOB_SCORING_QUEUE_NAME` | `job_scoring_queue` | No | Redis queue name for scoring payloads |
@@ -175,7 +189,7 @@ Query construction rules:
 
 ### 5.2 Source Families
 
-The `crawler_company_discovery` workflow draws from four classes of discovery sources. Full source tables, per-source behavior, Levels.fyi public-route strategy, extraction expectations, and compliance notes live in [`crawler_company_discovery/SPEC.md`](crawler_company_discovery/SPEC.md) sections 7–8.
+The discovery workflows draw from four classes of discovery sources. Full source tables, per-source behavior, Levels.fyi public-route strategy, extraction expectations, and compliance notes live in the respective `crawler_*/SPEC.md` files.
 
 - **Role-query job boards and search sources**: LinkedIn, Indeed, SimplyHired, Built In, Levels.fyi, Otta — primary role-filtered hiring signals.
 - **Curated startup and job communities**: Y Combinator, Wellfound, Work at a Startup — supplementary high-signal company discovery.
@@ -208,7 +222,7 @@ The crawler is organized as independently triggerable workflows that can partici
 Crawler workflows discover jobs, companies, or both. They may be UI-triggered, event-triggered, or both.
 
 Stable crawler workflow identifiers:
-- `crawler_company_discovery`
+- `crawler_ycombinator`
 - `crawler_ats_job_extraction`
 - `crawler_4dayweek`
 - `crawler_levelsfyi`
@@ -226,7 +240,8 @@ Common output rules for crawler workflows:
 - Cumulative counters are keyed by `workflow_id` and exposed by API endpoint `GET /api/crawls/workflow-cumulative-jobs`.
 
 Workflow visibility counter mapping:
-- `crawler_company_discovery`: `discovered_companies` may be positive; `discovered_jobs` must be `0`.
+- `crawler_ycombinator`: `discovered_companies` may be positive; `discovered_jobs` must be `0`.
+- `crawler_hackernews`: `discovered_companies` may be positive; `discovered_jobs` must be `0`.
 - `crawler_ats_job_extraction`: `discovered_jobs` may be positive; `discovered_companies` must be `0`.
 - `crawler_4dayweek`: both `discovered_jobs` and `discovered_companies` may be positive.
 - `crawler_levelsfyi`: both `discovered_jobs` and `discovered_companies` may be positive.
@@ -235,13 +250,21 @@ Dashboard scope rule:
 - Dashboard workflow-visibility stats include only `crawler_` workflows from the latest completed parent run.
 - `enrichment_` workflows still publish normal progress and internal events but are excluded from this dashboard stat aggregation.
 
-##### `crawler_company_discovery`
+##### `crawler_ycombinator`
 
 Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles`.
 
 DB writes: upsert into `companies` using canonicalized company name; preserve source attribution metadata.
 
-See [`crawler_company_discovery/SPEC.md`](crawler_company_discovery/SPEC.md) for source families, adapter contract, company upsert semantics, and enrichment event output.
+See [`crawler_ycombinator/SPEC.md`](crawler_ycombinator/SPEC.md) for details.
+
+##### `crawler_hackernews`
+
+Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles`.
+
+DB writes: upsert into `companies` using canonicalized company name; preserve source attribution metadata.
+
+See [`crawler_hackernews/SPEC.md`](crawler_hackernews/SPEC.md) for details.
 
 ##### `crawler_ats_job_extraction`
 
@@ -295,8 +318,8 @@ Triggering rules:
 - A retry of the same workflow under the same parent `run_id` must get a new `workflow_run_id` while retaining the same `workflow_id`.
 
 Dependency rules:
-- `crawler_company_discovery` and `crawler_4dayweek` are UI-triggered crawler workflows and can start in parallel.
-- `crawler_levelsfyi` is a UI-triggered crawler workflow and starts in parallel with `crawler_company_discovery` and `crawler_4dayweek`.
+- `crawler_ycombinator` and `crawler_4dayweek` are UI-triggered crawler workflows and can start in parallel.
+- `crawler_levelsfyi` is a UI-triggered crawler workflow and starts in parallel with `crawler_ycombinator` and `crawler_4dayweek`.
 - `enrichment_ats_enrichment` depends on company-discovery events emitted by crawler workflows.
 - `crawler_ats_job_extraction` depends on ATS-job-trigger events emitted by `enrichment_ats_enrichment`, but it can be triggered by UI as well.
 - Parent-run completion is derived when all required UI-triggered workflows and all spawned child workflows for that parent `run_id` reach terminal states.
@@ -370,7 +393,7 @@ Mutable field updates should preserve contract keys while allowing refreshed des
 
 ### 8.2 Role-Based Filtering Before Insertion
 
-Role filtering is a validation gate applied before any job insert/update in job-producing crawler workflows. It is not applied in `crawler_company_discovery` or `enrichment_ats_enrichment` because those workflows do not persist jobs.
+Role filtering is a validation gate applied before any job insert/update in job-producing crawler workflows. It is not applied in `crawler_ycombinator` or `enrichment_ats_enrichment` because those workflows do not persist jobs.
 
 Filtering mechanism and matching rules:
 - `crawler_ats_job_extraction`: see [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) section 6.
@@ -504,7 +527,7 @@ Implementation note:
 - Redis payload transport may serialize those proto messages as JSON at rest, but producer/consumer code must construct and parse generated protobuf classes at boundaries.
 
 Required internal routing fields:
-- `workflow_id` — stable module key, one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi`
+- `workflow_id` — stable module key, one of `crawler_ycombinator`, `crawler_hackernews`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi`
 - `workflow_run_id` — unique execution-attempt id for that workflow message
 - `run_id` — parent crawl run when the workflow was spawned from a public crawl request; omitted or left empty for singular workflow execution when no parent run exists
 
@@ -522,7 +545,7 @@ Payload shape:
 {
   "run_id": "<parent crawl run id>",
   "workflow_run_id": "<producer workflow attempt id>",
-  "workflow_id": "crawler_company_discovery",
+  "workflow_id": "crawler_ycombinator",
   "identity_id": "<identity hex object id>",
   "company_id": "<company hex object id>",
   "reason": "new_company_or_newly_actionable"
@@ -561,10 +584,10 @@ Payload:
 {
   "run_id": "<crawl run id>",
   "workflow_run_id": "<workflow execution attempt id>",
-  "workflow_id": "crawler_company_discovery",
+  "workflow_id": "crawler_ycombinator",
   "identity_id": "<identity hex object id>",
   "status": "running",
-  "workflow": "crawler_company_discovery",
+  "workflow": "crawler_ycombinator",
   "message": "Collecting company candidates",
   "estimated_total": 120,
   "completed": 36,
@@ -585,7 +608,7 @@ Publication lifecycle:
 
 Rules:
 - `percent` must be derived from the best available estimate and must stay in the inclusive range `0..100`.
-- `workflow_id` must be one of `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi` when the event represents a workflow contribution.
+- `workflow_id` must be one of `crawler_ycombinator`, `crawler_hackernews`, `enrichment_ats_enrichment`, `crawler_ats_job_extraction`, `crawler_4dayweek`, `crawler_levelsfyi` when the event represents a workflow contribution.
 - `workflow_run_id` must uniquely identify one workflow execution attempt.
 - `workflow` should equal `workflow_id` for workflow-level events and may be `queued` or `finalizing` for parent-run lifecycle events.
 - `finished_at` is populated only for terminal events.
@@ -670,7 +693,7 @@ Before changing crawler code in this folder:
 5. Update this spec and related service specs together when shared contracts change.
 
 **Role-based filtering guardrails**:
-- Role filtering (section 8.2) is a validation gate in `crawler_ats_job_extraction` only; do not add filtering to `crawler_company_discovery`, `enrichment_ats_enrichment`, `crawler_4dayweek`, or `crawler_levelsfyi`.
+- Role filtering (section 8.2) is a validation gate in `crawler_ats_job_extraction` only; do not add filtering to `crawler_ycombinator`, `enrichment_ats_enrichment`, `crawler_4dayweek`, or `crawler_levelsfyi`.
 - Do NOT store `identity_id`, `role_matched`, or other role-tracking fields on job documents.
 - Role filtering happens per-crawl, per-identity execution; filtering state is not persisted downstream.
 - Modify role filtering logic ONLY in `crawler_ats_job_extraction` before job upsert calls.

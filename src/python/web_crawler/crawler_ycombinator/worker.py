@@ -8,11 +8,11 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.crawler_company_discovery.workflow import (
+from src.python.web_crawler.crawler_ycombinator.workflow import (
     _WORKFLOW_ID,
-    _emit_enrichment_events,
-    run_crawler_company_discovery,
+    run_crawler_ycombinator,
 )
+from src.python.web_crawler.workflow_utils import emit_enrichment_events
 from src.python.web_crawler.db import get_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
@@ -39,7 +39,7 @@ def worker_main(config: CrawlerConfig) -> None:
 
             queue_item = cast(
                 tuple[str, str] | None,
-                redis_client.blpop([config.crawler_company_discovery_queue_name], timeout=0),
+                redis_client.blpop([config.crawler_ycombinator_queue_name], timeout=0),
             )
             if not queue_item:
                 continue
@@ -76,17 +76,18 @@ def worker_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                result = run_crawler_company_discovery(database, config, identity_id)
+                result = run_crawler_ycombinator(database, config, identity_id)
                 increment_discovered_jobs_counter(
                     config,
                     workflow_id=_WORKFLOW_ID,
                     delta=result.inserted_count + result.updated_count,
                 )
-                _emit_enrichment_events(
+                emit_enrichment_events(
                     redis_client,
                     config,
                     run_id=run_id,
                     workflow_run_id=workflow_run_id,
+                    workflow_id=_WORKFLOW_ID,
                     identity_id=identity_id,
                     company_ids=result.enrichment_pending_company_ids,
                 )
@@ -102,12 +103,12 @@ def worker_main(config: CrawlerConfig) -> None:
                     completed=result.inserted_count + result.updated_count,
                     started_at=started_at,
                     finished_at=finished_at,
-                    message="Company discovery completed",
+                    message="Y Combinator company discovery completed",
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
                 )
             except Exception as exc:
-                logger.exception("crawler_company_discovery failed for identity %s: %s", identity_id, exc)
+                logger.exception("crawler_ycombinator failed for identity %s: %s", identity_id, exc)
                 finished_at = utc_timestamp()
                 publish_progress(
                     redis_client,
@@ -120,7 +121,7 @@ def worker_main(config: CrawlerConfig) -> None:
                     completed=0,
                     started_at=started_at,
                     finished_at=finished_at,
-                    message="Company discovery failed",
+                    message="Y Combinator company discovery failed",
                     reason="run_failed",
                     workflow_id=_WORKFLOW_ID,
                     workflow_run_id=workflow_run_id,
@@ -132,7 +133,7 @@ def worker_main(config: CrawlerConfig) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the crawler_company_discovery workflow worker")
+    parser = argparse.ArgumentParser(description="Run the crawler_ycombinator workflow worker")
     parser.add_argument("--worker", action="store_true", required=True, help="Run as a long-lived Redis dispatch queue worker")
     return parser
 
