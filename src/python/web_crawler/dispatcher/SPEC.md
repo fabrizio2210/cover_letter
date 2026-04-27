@@ -25,7 +25,7 @@ The dispatcher has **no knowledge of business extraction logic**. It does not to
 | Docker CMD | `python -m src.python.web_crawler.dispatcher.main --worker` |
 | Execution style | Long-lived Redis queue worker (`--worker` flag required) |
 | Input queue | `CRAWLER_TRIGGER_QUEUE_NAME` (default `crawler_trigger_queue`) |
-| Output queues | `CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME`, `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME`, `CRAWLER_LEVELSFYI_QUEUE_NAME`, `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME` |
+| Output queues | `CRAWLER_YCOMBINATOR_QUEUE_NAME`, `CRAWLER_HACKERNEWS_QUEUE_NAME`, `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME`, `CRAWLER_LEVELSFYI_QUEUE_NAME`, `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME` |
 | Progress channel | `CRAWLER_PROGRESS_CHANNEL_NAME` (publishes initial `queued` snapshot) |
 
 ---
@@ -41,7 +41,8 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | `REDIS_HOST` | `localhost` | Redis connection host |
 | `REDIS_PORT` | `6379` | Redis connection port |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | Queue this worker blocks on |
-| `CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME` | `crawler_company_discovery_queue` | Fan-out target |
+| `CRAWLER_YCOMBINATOR_QUEUE_NAME` | `crawler_ycombinator_queue` | Fan-out target |
+| `CRAWLER_HACKERNEWS_QUEUE_NAME` | `crawler_hackernews_queue` | Fan-out target |
 | `CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME` | `crawler_ats_job_extraction_queue` | Fan-out target |
 | `CRAWLER_LEVELSFYI_QUEUE_NAME` | `crawler_levelsfyi_queue` | Fan-out target |
 | `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME` | `crawler_enrichment_ats_enrichment_queue` | Enrichment fan-out target |
@@ -91,7 +92,7 @@ One message per target crawler workflow pushed to each queue:
 WorkflowDispatchMessage {
   run_id:           string  // forwarded from trigger
   workflow_run_id:  string  // new UUID hex per workflow
-  workflow_id:      string  // e.g. "crawler_company_discovery"
+  workflow_id:      string  // e.g. "crawler_ycombinator"
   identity_id:      string  // forwarded from trigger
   trigger_kind:     "public_crawl"
   attempt:          1

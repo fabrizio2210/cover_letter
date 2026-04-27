@@ -12,7 +12,7 @@ from pymongo.errors import OperationFailure
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.models import DiscoveredCompany
-from src.python.web_crawler.crawler_company_discovery.workflow import run_crawler_company_discovery
+from src.python.web_crawler.crawler_ycombinator.workflow import run_crawler_ycombinator
 
 
 class StubAdapter:
@@ -73,7 +73,7 @@ class CrawlerCompanyDiscoveryMongoIntegrationTests(unittest.TestCase):
                 self.skipTest("Mongo integration tests require authenticated write access")
             raise
 
-    def test_run_crawler_company_discovery_persists_and_updates_companies(self):
+    def test_run_crawler_ycombinator_persists_and_updates_companies(self):
         first_run_companies = [
             DiscoveredCompany(
                 name="Acme, Inc.",
@@ -96,10 +96,10 @@ class CrawlerCompanyDiscoveryMongoIntegrationTests(unittest.TestCase):
         ]
 
         with patch(
-            "src.python.web_crawler.crawler_company_discovery.workflow.get_enabled_adapters",
+            "src.python.web_crawler.crawler_ycombinator.workflow.get_enabled_adapters",
             return_value=[StubAdapter(companies=first_run_companies)],
         ):
-            result = run_crawler_company_discovery(self.database, self.config, str(self.identity_id))
+            result = run_crawler_ycombinator(self.database, self.config, str(self.identity_id))
 
         self.assertEqual(result.discovered_count, 2)
         self.assertEqual(result.inserted_count, 2)
@@ -133,10 +133,10 @@ class CrawlerCompanyDiscoveryMongoIntegrationTests(unittest.TestCase):
         ]
 
         with patch(
-            "src.python.web_crawler.crawler_company_discovery.workflow.get_enabled_adapters",
+            "src.python.web_crawler.crawler_ycombinator.workflow.get_enabled_adapters",
             return_value=[StubAdapter(companies=second_run_companies)],
         ):
-            second_result = run_crawler_company_discovery(self.database, self.config, str(self.identity_id))
+            second_result = run_crawler_ycombinator(self.database, self.config, str(self.identity_id))
 
         self.assertEqual(second_result.discovered_count, 1)
         self.assertEqual(second_result.inserted_count, 0)

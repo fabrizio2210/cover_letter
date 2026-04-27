@@ -162,18 +162,33 @@ def worker_main(config: CrawlerConfig) -> None:
                 message="Worker picked up queued crawl request",
             )
 
-            workflow_run_id = _dispatch_workflow(
+            ycombinator_workflow_run_id = _dispatch_workflow(
                 redis_client,
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
-                workflow_id="crawler_company_discovery",
-                queue_name=config.crawler_company_discovery_queue_name,
+                workflow_id="crawler_ycombinator",
+                queue_name=config.crawler_ycombinator_queue_name,
             )
             logger.info(
-                "dispatched crawler_company_discovery run_id=%s workflow_run_id=%s identity_id=%s",
+                "dispatched crawler_ycombinator run_id=%s workflow_run_id=%s identity_id=%s",
                 run_id,
-                workflow_run_id,
+                ycombinator_workflow_run_id,
+                identity_id,
+            )
+
+            hackernews_workflow_run_id = _dispatch_workflow(
+                redis_client,
+                config,
+                run_id=run_id,
+                identity_id=identity_id,
+                workflow_id="crawler_hackernews",
+                queue_name=config.crawler_hackernews_queue_name,
+            )
+            logger.info(
+                "dispatched crawler_hackernews run_id=%s workflow_run_id=%s identity_id=%s",
+                run_id,
+                hackernews_workflow_run_id,
                 identity_id,
             )
 

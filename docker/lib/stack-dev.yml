@@ -133,7 +133,7 @@ services:
       REDIS_PORT: 6379
       CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-      CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME: "crawler_company_discovery_queue"
+      CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
       CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
       CRAWLER_LEVELSFYI_QUEUE_NAME: "crawler_levelsfyi_queue"
       CRAWLER_4DAYWEEK_QUEUE_NAME: "crawler_4dayweek_queue"
@@ -145,11 +145,11 @@ services:
     networks:
       - backends
 
-  crawler-company-discovery:
-    image: fabrizio2210/coverletter-crawler-company-discovery-dev
+  crawler-ycombinator:
+    image: fabrizio2210/coverletter-crawler-ycombinator-dev
     build:
       context: ../..
-      dockerfile: docker/x86_64/Dockerfile-crawler-company-discovery-dev
+      dockerfile: docker/x86_64/Dockerfile-crawler-ycombinator-dev
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
@@ -157,9 +157,27 @@ services:
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-      CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME: "crawler_company_discovery_queue"
+      CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       SERPER_API_KEY: ${SERPER_API_KEY}
+    volumes:
+      - ../../:/app
+    networks:
+      - backends
+
+  crawler-hackernews:
+    image: fabrizio2210/coverletter-crawler-hackernews-dev
+    build:
+      context: ../../
+      dockerfile: docker/x86_64/Dockerfile-crawler-hackernews-dev
+    environment:
+      MONGO_HOST: "mongodb://mongodb:27017/"
+      DB_NAME: "cover_letter"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+      SERPER_API_KEY: \${SERPER_API_KEY}
     volumes:
       - ../../:/app
     networks:
@@ -310,7 +328,8 @@ services:
       - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
       - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
-      - CRAWLER_COMPANY_DISCOVERY_QUEUE_NAME=crawler_company_discovery_queue
+      - CRAWLER_YCOMBINATOR_QUEUE_NAME=crawler_ycombinator_queue
+      - CRAWLER_HACKERNEWS_QUEUE_NAME=crawler_hackernews_queue
       - CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME=crawler_ats_job_extraction_queue
       - CRAWLER_LEVELSFYI_QUEUE_NAME=crawler_levelsfyi_queue
       - CRAWLER_4DAYWEEK_QUEUE_NAME=crawler_4dayweek_queue

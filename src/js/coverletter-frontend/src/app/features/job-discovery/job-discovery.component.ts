@@ -848,7 +848,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
   isQueueEmpty(queueDepth: any): boolean {
     return queueDepth.crawler_trigger === 0 &&
-      queueDepth.crawler_company_discovery === 0 &&
+      queueDepth.crawler_ycombinator === 0 &&
       queueDepth.crawler_ats_job_extraction === 0 &&
       queueDepth.crawler_levelsfyi === 0 &&
       queueDepth.crawler_4dayweek === 0 &&

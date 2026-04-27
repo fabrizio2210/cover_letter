@@ -90,8 +90,11 @@
             <div *ngIf="activitySummary.global_queue_depth.crawler_trigger > 0" class="queue-item">
               <span>Crawler triggers:</span> <strong>{{ activitySummary.global_queue_depth.crawler_trigger }}</strong>
             </div>
-            <div *ngIf="activitySummary.global_queue_depth.crawler_company_discovery > 0" class="queue-item">
-              <span>Company discovery:</span> <strong>{{ activitySummary.global_queue_depth.crawler_company_discovery }}</strong>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_ycombinator > 0" class="queue-item">
+              <span>YC discovery:</span> <strong>{{ activitySummary.global_queue_depth.crawler_ycombinator }}</strong>
+            </div>
+            <div *ngIf="activitySummary.global_queue_depth.crawler_hackernews > 0" class="queue-item">
+              <span>HN discovery:</span> <strong>{{ activitySummary.global_queue_depth.crawler_hackernews }}</strong>
             </div>
             <div *ngIf="activitySummary.global_queue_depth.crawler_ats_job_extraction > 0" class="queue-item">
               <span>ATS extraction:</span> <strong>{{ activitySummary.global_queue_depth.crawler_ats_job_extraction }}</strong>
