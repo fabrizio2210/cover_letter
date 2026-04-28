@@ -42,3 +42,46 @@ func GetDB() *mongo.Client {
 func SetTestClient(c *mongo.Client) {
 	clientInstance = c
 }
+
+// GetDatabaseName returns the appropriate database name for a given collection and user.
+func GetDatabaseName(collectionName string, userID string) string {
+	globalCollections := map[string]bool{
+		"jobs":             true,
+		"job-descriptions": true,
+		"companies":        true,
+		"fields":           true,
+		"stats":            true,
+	}
+
+	if globalCollections[collectionName] {
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			return "cover_letter"
+		}
+		return dbName
+	}
+
+	if collectionName == "settings" {
+		if userID == "" {
+			dbName := os.Getenv("DB_NAME")
+			if dbName == "" {
+				return "cover_letter"
+			}
+			return dbName
+		}
+		return "user_" + userID
+	}
+
+	// For per-user collections, userID should ideally be present.
+	if userID == "" {
+		// Log warning or handle strictly in production.
+		// Fallback to default for now to avoid breaking existing dev workflows if any.
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			return "cover_letter"
+		}
+		return dbName
+	}
+
+	return "user_" + userID
+}

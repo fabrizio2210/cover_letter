@@ -261,12 +261,11 @@ func normalizeJobDoc(doc bson.M) bson.M {
 	return doc
 }
 
-func jobPreferenceScoresCollection() (MongoCollectionIface, string) {
+func jobPreferenceScoresCollection(c *gin.Context) (MongoCollectionIface, string) {
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("job-preference-scores", userIDStr)
 	return client.Database(dbName).Collection("job-preference-scores"), dbName
 }
 
@@ -320,7 +319,7 @@ func GetJobPreferenceScores(c *gin.Context) {
 		match["identity_id"] = identityID
 	}
 
-	scoreCollection, _ := jobPreferenceScoresCollection()
+	scoreCollection, _ := jobPreferenceScoresCollection(c)
 	scores, err := loadNormalizedScoreDocs(scoreCollection, match)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job preference scores"})
@@ -341,10 +340,7 @@ func collectionHasDocuments(collection MongoCollectionIface) bool {
 
 func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string) {
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("job-descriptions", "")
 	jobDescriptions := client.Database(dbName).Collection("job-descriptions")
 	legacyJobs := client.Database(dbName).Collection("jobs")
 

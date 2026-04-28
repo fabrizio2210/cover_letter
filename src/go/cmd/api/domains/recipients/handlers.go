@@ -129,12 +129,10 @@ func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(
 
 // GetRecipients fetches all recipients from the database.
 func GetRecipients(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	pipeline := mongo.Pipeline{
@@ -204,11 +202,10 @@ func CreateRecipient(c *gin.Context) {
 		insertDoc["company_id"] = companyObjID
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	result, err := collection.InsertOne(context.Background(), insertDoc)
@@ -260,11 +257,10 @@ func DeleteRecipient(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
@@ -298,11 +294,10 @@ func UpdateRecipientDescription(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	result, err := collection.UpdateOne(
@@ -340,11 +335,10 @@ func UpdateRecipientName(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	result, err := collection.UpdateOne(
@@ -374,11 +368,10 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	var recipient models.Recipient
@@ -428,11 +421,10 @@ func AssociateCompanyWithRecipient(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("recipients", userIDStr)
 	collection := client.Database(dbName).Collection("recipients")
 
 	var update bson.M

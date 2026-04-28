@@ -123,11 +123,10 @@ func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(
 
 // GetCoverLetters fetches all cover letters from the database.
 func GetCoverLetters(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	pipeline := mongo.Pipeline{
@@ -167,11 +166,10 @@ func GetCoverLetter(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	pipeline := mongo.Pipeline{
@@ -217,11 +215,10 @@ func DeleteCoverLetter(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
@@ -255,11 +252,10 @@ func UpdateCoverLetter(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	result, err := collection.UpdateOne(
@@ -297,11 +293,10 @@ func RefineCoverLetter(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	var doc bson.M
@@ -367,11 +362,10 @@ func SendCoverLetter(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("cover-letters", userIDStr)
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	var doc bson.M

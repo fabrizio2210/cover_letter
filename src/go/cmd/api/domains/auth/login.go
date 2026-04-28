@@ -13,6 +13,7 @@ import (
 func Login(jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
+			Username string `json:"username"`
 			Password string `json:"password"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -26,7 +27,13 @@ func Login(jwtSecret []byte) gin.HandlerFunc {
 			return
 		}
 
+		userID := req.Username
+		if userID == "" {
+			userID = "admin"
+		}
+
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sub": userID,
 			"exp": time.Now().Add(24 * time.Hour).Unix(),
 		})
 		tokenString, err := token.SignedString(jwtSecret)

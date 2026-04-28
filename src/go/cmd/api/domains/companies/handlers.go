@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/gin-gonic/gin"
@@ -98,10 +97,7 @@ func (r *realMongoCursor) Close(ctx context.Context) error { return r.cur.Close(
 // GetCompanies fetches all companies with their field info.
 func GetCompanies(c *gin.Context) {
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("companies", "")
 	collection := client.Database(dbName).Collection("companies")
 
 	pipeline := mongo.Pipeline{
@@ -209,10 +205,7 @@ func CreateCompany(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("companies", "")
 	collection := client.Database(dbName).Collection("companies")
 
 	result, err := collection.InsertOne(context.Background(), company)
@@ -273,10 +266,7 @@ func UpdateCompany(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("companies", "")
 	collection := client.Database(dbName).Collection("companies")
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, update)
@@ -301,10 +291,7 @@ func DeleteCompany(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("companies", "")
 	collection := client.Database(dbName).Collection("companies")
 
 	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
@@ -337,10 +324,7 @@ func AssociateFieldWithCompany(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("companies", "")
 	collection := client.Database(dbName).Collection("companies")
 
 	var update bson.M

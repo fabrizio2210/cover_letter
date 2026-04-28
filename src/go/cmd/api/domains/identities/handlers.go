@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
@@ -106,11 +105,10 @@ func CreateIdentity(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("identities", userIDStr)
 	collection := client.Database(dbName).Collection("identities")
 
 	result, err := collection.InsertOne(context.Background(), &identity)
@@ -136,12 +134,10 @@ func CreateIdentity(c *gin.Context) {
 
 // GetIdentities fetches all identities from the database.
 func GetIdentities(c *gin.Context) {
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("identities", userIDStr)
 	collection := client.Database(dbName).Collection("identities")
 
 	pipeline := bson.A{
@@ -201,11 +197,10 @@ func DeleteIdentity(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("identities", userIDStr)
 	collection := client.Database(dbName).Collection("identities")
 
 	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
@@ -229,11 +224,10 @@ func UpdateIdentityGeneric(c *gin.Context, update bson.M) {
 		return
 	}
 
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("identities", userIDStr)
 	collection := client.Database(dbName).Collection("identities")
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": update})

@@ -38,6 +38,12 @@ func JWT(secret []byte) gin.HandlerFunc {
 			return
 		}
 
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if sub, ok := claims["sub"].(string); ok {
+				c.Set("userId", sub)
+			}
+		}
+
 		c.Next()
 	}
 }

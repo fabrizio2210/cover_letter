@@ -12,13 +12,14 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [FormsModule, CommonModule]
 })
 export class LoginComponent {
+  username = '';
   password = '';
   error = '';
 
   constructor(private http: HttpClient, private router: Router, private authService: AuthService) {}
 
   login() {
-    this.http.post<{token: string}>('/api/login', { password: this.password })
+    this.http.post<{token: string}>('/api/login', { username: this.username, password: this.password })
       .subscribe({
         next: (res) => {
           this.authService.setToken(res.token);

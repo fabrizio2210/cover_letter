@@ -236,8 +236,8 @@ func TestCrawlSnapshotKey(t *testing.T) {
 }
 
 func TestIsCrawlerWorkflow(t *testing.T) {
-	if !isCrawlerWorkflow(workflowCrawlerCompanyDiscovery) {
-		t.Fatal("company discovery should be a crawler workflow")
+	if !isCrawlerWorkflow(workflowCrawlerYCombinator) {
+		t.Fatal("ycombinator should be a crawler workflow")
 	}
 	if !isCrawlerWorkflow(workflowCrawlerLevelsfyi) {
 		t.Fatal("levelsfyi should be a crawler workflow")
@@ -256,9 +256,9 @@ func TestIsCrawlerWorkflow(t *testing.T) {
 func TestWorkflowCountersForSnapshot(t *testing.T) {
 	snapshot := &models.CrawlProgress{Completed: 5}
 
-	item := workflowCountersForSnapshot(workflowCrawlerCompanyDiscovery, snapshot)
+	item := workflowCountersForSnapshot(workflowCrawlerYCombinator, snapshot)
 	if item.DiscoveredJobs != 0 || item.DiscoveredCompanies != 5 {
-		t.Fatalf("company_discovery counters mismatch: %+v", item)
+		t.Fatalf("ycombinator counters mismatch: %+v", item)
 	}
 
 	item = workflowCountersForSnapshot(workflowCrawlerATSExtraction, snapshot)
@@ -409,10 +409,10 @@ func TestCrawlHubFindActiveByIdentity_IgnoresSupersededQueuedLifecycle(t *testin
 	crawlHub.publish(&models.CrawlProgress{
 		RunId:         "r1",
 		WorkflowRunId: "wr1",
-		WorkflowId:    workflowCrawlerCompanyDiscovery,
+		WorkflowId:    workflowCrawlerYCombinator,
 		IdentityId:    "id1",
 		Status:        "completed",
-		Workflow:      workflowCrawlerCompanyDiscovery,
+		Workflow:      workflowCrawlerYCombinator,
 		UpdatedAt:     timestamppb.New(now.Add(-1 * time.Minute)),
 	})
 
@@ -441,7 +441,7 @@ func TestCrawlHubLastRunWorkflowStats(t *testing.T) {
 	crawlHub.publish(&models.CrawlProgress{
 		RunId:      "r2",
 		Status:     "completed",
-		WorkflowId: workflowCrawlerCompanyDiscovery,
+		WorkflowId: workflowCrawlerYCombinator,
 		Completed:  3,
 		UpdatedAt:  timestamppb.New(now.Add(1 * time.Second)),
 	})
@@ -455,7 +455,7 @@ func TestCrawlHubLastRunWorkflowStats(t *testing.T) {
 	}
 
 	gotIDs := []string{items[0].WorkflowID, items[1].WorkflowID}
-	wantOrder := []string{workflowCrawlerCompanyDiscovery, workflowCrawlerATSExtraction}
+	wantOrder := []string{workflowCrawlerYCombinator, workflowCrawlerATSExtraction}
 	if strings.Join(gotIDs, ",") != strings.Join(wantOrder, ",") {
 		t.Fatalf("unexpected workflow order: got=%v want=%v", gotIDs, wantOrder)
 	}
@@ -705,10 +705,10 @@ func TestGetActiveCrawls_OmitsSupersededQueuedLifecycleSnapshots(t *testing.T) {
 	crawlHub.publish(&models.CrawlProgress{
 		RunId:         "r1",
 		WorkflowRunId: "wr1",
-		WorkflowId:    workflowCrawlerCompanyDiscovery,
+		WorkflowId:    workflowCrawlerYCombinator,
 		IdentityId:    "id1",
 		Status:        "completed",
-		Workflow:      workflowCrawlerCompanyDiscovery,
+		Workflow:      workflowCrawlerYCombinator,
 		UpdatedAt:     timestamppb.New(now.Add(-1 * time.Minute)),
 	})
 
@@ -750,9 +750,9 @@ func TestGetLastRunWorkflowStats(t *testing.T) {
 
 	now := time.Now().UTC()
 	crawlHub.publish(&models.CrawlProgress{
-		RunId:      "r-company",
+		RunId:      "r-ycombinator",
 		Status:     "completed",
-		WorkflowId: workflowCrawlerCompanyDiscovery,
+		WorkflowId: workflowCrawlerYCombinator,
 		Completed:  2,
 		UpdatedAt:  timestamppb.New(now),
 	})
@@ -779,7 +779,7 @@ func TestGetLastRunWorkflowStats(t *testing.T) {
 		t.Fatalf("expected 2 workflows, got %d", len(response.Workflows))
 	}
 	ids := []string{response.Workflows[0].WorkflowID, response.Workflows[1].WorkflowID}
-	if strings.Join(ids, ",") != strings.Join([]string{workflowCrawlerCompanyDiscovery, workflowCrawlerATSExtraction}, ",") {
+	if strings.Join(ids, ",") != strings.Join([]string{workflowCrawlerYCombinator, workflowCrawlerATSExtraction}, ",") {
 		t.Fatalf("unexpected workflow order: %v", ids)
 	}
 }
@@ -836,10 +836,10 @@ func TestGetWorkflowCumulativeJobs(t *testing.T) {
 						*target = bson.M{
 							"_id": workflowCountersDocID,
 							workflowCountersField: bson.M{
-								workflowCrawlerCompanyDiscovery: int32(1),
-								workflowCrawlerATSExtraction:    int64(2),
-								workflowCrawler4DayWeek:         float64(3),
-								workflowCrawlerLevelsfyi:        "4",
+								workflowCrawlerYCombinator:   int32(1),
+								workflowCrawlerATSExtraction: int64(2),
+								workflowCrawler4DayWeek:      float64(3),
+								workflowCrawlerLevelsfyi:     "4",
 							},
 						}
 						return nil
@@ -864,10 +864,10 @@ func TestGetWorkflowCumulativeJobs(t *testing.T) {
 		}
 
 		want := map[string]int32{
-			workflowCrawlerCompanyDiscovery: 1,
-			workflowCrawlerLevelsfyi:        4,
-			workflowCrawler4DayWeek:         3,
-			workflowCrawlerATSExtraction:    2,
+			workflowCrawlerYCombinator:   1,
+			workflowCrawlerLevelsfyi:     4,
+			workflowCrawler4DayWeek:      3,
+			workflowCrawlerATSExtraction: 2,
 		}
 		for _, wf := range response.Workflows {
 			if wf.DiscoveredJobsCumulative != want[wf.WorkflowID] {
@@ -1025,7 +1025,7 @@ func TestCrawlHubLastRunWorkflowStatsFallbackFromSnapshots(t *testing.T) {
 	h.snapshots["b"] = &models.CrawlProgress{
 		RunId:      "b",
 		Status:     "completed",
-		WorkflowId: workflowCrawlerCompanyDiscovery,
+		WorkflowId: workflowCrawlerYCombinator,
 		Completed:  4,
 		UpdatedAt:  timestamppb.New(now.Add(1 * time.Second)),
 	}
@@ -1043,7 +1043,7 @@ func TestCrawlHubLastRunWorkflowStatsFallbackFromSnapshots(t *testing.T) {
 	for _, item := range items {
 		ids = append(ids, item.WorkflowID)
 	}
-	want := []string{workflowCrawlerCompanyDiscovery, workflowCrawlerLevelsfyi}
+	want := []string{workflowCrawlerYCombinator, workflowCrawlerLevelsfyi}
 	if strings.Join(ids, ",") != strings.Join(want, ",") {
 		t.Fatalf("unexpected order got=%v want=%v", ids, want)
 	}
@@ -1128,7 +1128,7 @@ func TestGetActivitySummary(t *testing.T) {
 		RunId:      "r1",
 		IdentityId: "id1",
 		Status:     "running",
-		WorkflowId: workflowCrawlerCompanyDiscovery,
+		WorkflowId: workflowCrawlerYCombinator,
 		Message:    "Processing companies",
 	})
 
@@ -1159,16 +1159,16 @@ func TestGetActivitySummary(t *testing.T) {
 		t.Fatalf("expected 1 active workflow for id1, got %d", len(summary.ActiveWorkflows))
 	}
 
-	if summary.ActiveWorkflows[0].WorkflowID != workflowCrawlerCompanyDiscovery {
-		t.Fatalf("expected workflow_id=%s, got %s", workflowCrawlerCompanyDiscovery, summary.ActiveWorkflows[0].WorkflowID)
+	if summary.ActiveWorkflows[0].WorkflowID != workflowCrawlerYCombinator {
+		t.Fatalf("expected workflow_id=%s, got %s", workflowCrawlerYCombinator, summary.ActiveWorkflows[0].WorkflowID)
 	}
 }
 
 func TestApplyQueueDefaults(t *testing.T) {
 	queues := map[string]string{
-		queueCrawlerTrigger:          "",
-		queueCrawlerCompanyDiscovery: "custom_queue",
-		queueCrawlerATSExtraction:    "",
+		queueCrawlerTrigger:        "",
+		queueCrawlerYCombinator:    "custom_queue",
+		queueCrawlerATSExtraction:  "",
 	}
 
 	result := applyQueueDefaults(queues)
@@ -1177,8 +1177,8 @@ func TestApplyQueueDefaults(t *testing.T) {
 		t.Fatalf("expected default for trigger queue, got %s", result[queueCrawlerTrigger])
 	}
 
-	if result[queueCrawlerCompanyDiscovery] != "custom_queue" {
-		t.Fatalf("expected custom_queue to be preserved, got %s", result[queueCrawlerCompanyDiscovery])
+	if result[queueCrawlerYCombinator] != "custom_queue" {
+		t.Fatalf("expected custom_queue to be preserved, got %s", result[queueCrawlerYCombinator])
 	}
 
 	if result[queueCrawlerATSExtraction] != defaultCrawlerATSExtractionQueue {

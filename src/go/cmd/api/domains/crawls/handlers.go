@@ -214,10 +214,9 @@ func TriggerCrawl(c *gin.Context) {
 	}
 
 	{
-		dbName := os.Getenv("DB_NAME")
-		if dbName == "" {
-			dbName = "cover_letter"
-		}
+		userID, _ := c.Get("userId")
+		userIDStr, _ := userID.(string)
+		dbName := db.GetDatabaseName("identities", userIDStr)
 		collection := getMongoClient().Database(dbName).Collection("identities")
 		var identity bson.M
 		if err := collection.FindOne(context.Background(), bson.M{"_id": identityOID}).Decode(&identity); err != nil {
@@ -299,10 +298,7 @@ func GetLastRunWorkflowStats(c *gin.Context) {
 }
 
 func GetWorkflowCumulativeJobs(c *gin.Context) {
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName(statsCollectionName, "")
 
 	statsCollection := getMongoClient().Database(dbName).Collection(statsCollectionName)
 	var statsDoc bson.M

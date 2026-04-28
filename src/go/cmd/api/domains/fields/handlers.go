@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
@@ -105,10 +104,7 @@ func CreateField(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("fields", "")
 	collection := client.Database(dbName).Collection("fields")
 
 	result, err := collection.InsertOne(context.Background(), field)
@@ -136,11 +132,7 @@ func CreateField(c *gin.Context) {
 // GetFields fetches all fields.
 func GetFields(c *gin.Context) {
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		log.Println("Warning: DB_NAME environment variable not set. Using default 'cover_letter'.")
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("fields", "")
 	collection := client.Database(dbName).Collection("fields")
 
 	cursor, err := collection.Aggregate(context.Background(), mongo.Pipeline{})
@@ -183,10 +175,7 @@ func DeleteField(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("fields", "")
 	collection := client.Database(dbName).Collection("fields")
 
 	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID})
@@ -220,10 +209,7 @@ func UpdateField(c *gin.Context) {
 	}
 
 	client := getMongoClient()
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "cover_letter"
-	}
+	dbName := db.GetDatabaseName("fields", "")
 	collection := client.Database(dbName).Collection("fields")
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": bson.M{"field": req.Field}})
