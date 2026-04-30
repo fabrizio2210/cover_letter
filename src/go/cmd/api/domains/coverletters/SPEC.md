@@ -129,6 +129,7 @@ Payload:
 
 ```json
 {
+	"user_id": "<jwt sub>",
 	"recipient": "<email address>",
 	"conversation_id": "<gemini conversation id string>",
 	"prompt": "<user refinement prompt>"
@@ -136,9 +137,10 @@ Payload:
 ```
 
 Rules:
-- Missing `recipient` makes the message invalid and it is dropped.
+- Missing `user_id` or `recipient` makes the message invalid and it is dropped.
 - Missing `conversation_id` causes consumer to treat it as initial generation.
 - If `conversation_id` is present and `prompt` is absent, refinement is attempted with an empty prompt.
+- Worker must derive per-user DB name from `user_id` and read global company context from `cover_letter_global`.
 
 ### Queue: `emails_to_send`
 
@@ -152,6 +154,7 @@ Payload:
 
 ```json
 {
+	"user_id": "<jwt sub>",
 	"recipient": "<email address>",
 	"cover_letter": "<markdown body of the letter>"
 }

@@ -33,6 +33,7 @@ Request:
 Behavior:
 - Enqueue crawl request onto `crawler_trigger_queue`.
 - Generate `run_id` before enqueueing.
+- Include authenticated `user_id` (`JWT sub`) in queue payload.
 - Return `409` if an active crawl already exists for the same `identity_id`.
 
 Response `202`:
@@ -133,6 +134,7 @@ Payload:
 
 ```json
 {
+	"user_id": "<jwt sub>",
 	"run_id": "<server-generated crawl run id>",
 	"identity_id": "<identity hex object id>",
 	"requested_at": { "seconds": 1711234567, "nanos": 0 }
@@ -140,8 +142,9 @@ Payload:
 ```
 
 Rules:
-- Missing `run_id` or `identity_id` causes rejection.
+- Missing `user_id`, `run_id`, or `identity_id` causes rejection.
 - Active duplicate run for same identity should emit terminal `rejected` progress with reason `already_running`.
+- Worker must derive per-user DB access from `user_id` and must not accept alternate user-controlled DB names.
 
 ### Channel: `crawler_progress_channel`
 

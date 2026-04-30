@@ -1,6 +1,6 @@
 # Cover Letter
 
-This is a web application which allows users, currently just one, to manage the life cycle of a cover letter for a job application and to evaluate job opportunities before applying.
+This is a web application which allows multiple users to manage the life cycle of cover letters for job applications and evaluate job opportunities before applying.
 The idea is to discover relevant openings, rank them against user preferences, and send highly customised cover letters to potential employers by leveraging LLM services (Gemini for cover letters, Ollama for local job scoring).
 
 This document describes product and architecture intent at a high level.
@@ -88,17 +88,22 @@ Initially the application was developed with a Telegram bot to avoid dealing wit
 
 ## Structure of the data
 
-The database is currently named `cover_letter`, but will be in the future named after the user in order to have separated instances.
-The DB contains at least these collections:
-- `fields`
-- `companies`
-- `identities`
-- `recipients`
+The persistence model is split between one global database and one database per user.
+
+Global database (fixed name): `cover_letter_global`
 - `jobs`
-- `job-preference-scores`
+- `companies`
+- `fields`
+- `global_settings`
+- `stats`
+
+Per-user database (name: `cover_letter_<sub>`, where `sub` is the user UUID from JWT):
 - `cover-letters`
+- `identities`
+- `job-preference-scores`
+- `recipients`
+- `user_settings`
 - `crawls`
-- `settings`
 
 Exact model fields, API payload keys, and JSON/BSON mapping are defined in [Backend API Specification](src/go/cmd/api/SPEC.md).
 
@@ -117,6 +122,10 @@ Collections are linked through document IDs:
 - job-preference scores link to job descriptions and identities, with one `job-preference-scores` document per `(job_id, identity_id)` and embedded per-preference results;
 - cover letters link to recipients;
 - companies and identities link to fields.
+
+Queue message contract:
+- user-scoped asynchronous payloads include `user_id` (equal to JWT `sub`);
+- workers derive per-user DB name from `user_id` at runtime and must not accept user-controlled DB overrides.
 
 Crawler-enriched company metadata may also include ATS linkage fields (`ats_provider`, `ats_slug`) used to drive ATS job extraction.
 
@@ -147,13 +156,14 @@ Five primary routes are accessible from the persistent sidebar, plus a Settings 
 | Letter Editor | `/dashboard/letter-editor/:id` | Split-pane: markdown editor (left) + AI Refiner chat (right) |
 | Identities | `/dashboard/identities` | Bento-grid identity cards with discovery-scope tags, quick stats, and preference weight bars; global curator preferences |
 | Recipients | `/dashboard/recipients` | Recipients list and management |
-| Settings | `/dashboard/settings` | Fields CRUD management |
+| Settings | `/dashboard/settings` | User-specific settings management |
 
 Default redirect: `/dashboard` renders the overview directly (no longer redirects to recipients).
 
 ### Implemented capabilities
 - authenticated dashboard access with stats overview and top-scored job cards;
-- CRUD management for companies (via Job discovery tab), recipients (via Recipients tab), fields (via Settings), and identities;
+- CRUD management for companies (via Job discovery tab), recipients (via Recipients tab), and identities;
+- admin-only fields CRUD management through `/api/admin/fields`;
 - cover letter listing, split-pane editor, AI refinement requests, and send actions;
 - feedback toasts for asynchronous operations.
 
@@ -163,7 +173,7 @@ Default redirect: `/dashboard` renders the overview directly (no longer redirect
 - Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
 - Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), scrollable Top Scored Opportunities feed, live crawler progress for the currently active identity run, and a last-completed-run workflow stats widget that shows discovered jobs and discovered companies for each `crawler_` workflow;
 - Recipients page refinements (sorting/filtering and lifecycle actions);
-- Settings page hosting Fields management.
+- Settings page hosting user-specific settings (not global fields management).
 
 Dashboard workflow-visibility rules:
 - The workflow stats widget shows the last completed result for each workflow independently; each workflow card reflects its own most recent completion regardless of which parent run it belonged to.
@@ -193,9 +203,16 @@ If vetted by the user, the cover letter will be sent via email.
 ## Authentication
 
 Current state:
-- password-based login for the web app;
-- JWT-based authenticated API access.
-- AI implementation testing can be performed from http://localhost/dashboard; use password "password" at login.
+- password-based login for user sessions;
+- admin login flow for admin-only routes;
+- JWT-based authenticated API access for both flows.
+
+JWT contract:
+- user JWT includes `sub` and `exp` and is verified with `JWT_SECRET`;
+- admin JWT includes `sub`, `role: "admin"`, and `exp` and is verified with `ADMIN_JWT_SECRET`;
+- per-user DB scope derives from `sub`.
+
+AI implementation testing can be performed from http://localhost/dashboard; use password "password" at login.
 
 Future state:
 - OTP login via email for allowed addresses;

@@ -13,6 +13,10 @@ Owned endpoints:
 - PUT /api/companies/:id/field
 - DELETE /api/companies/:id
 
+Database ownership:
+- `companies` is a global collection in `cover_letter_global`.
+- Company endpoints do not use per-user Mongo databases.
+
 ## Model Contract
 
 ### Company

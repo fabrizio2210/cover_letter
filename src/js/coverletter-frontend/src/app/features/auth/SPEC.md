@@ -5,13 +5,17 @@ This file owns frontend behavior for authentication screens and auth entry routi
 ## Scope
 - `login.component.ts`
 - `login.component.html`
+- `admin-login.component.ts` (if present)
 - Route: `/login`
+- Route: `/admin/login`
 
 ## Responsibilities
-- Render the password-only login form.
-- Call `POST /api/login` with `{ password }`.
-- Persist the returned JWT through `AuthService`.
-- Redirect successful login to `/dashboard`.
+- Render user-password login form for user, while password-only login form for admin flow.
+- Call `POST /api/login` with `{ password }` for user login.
+- Call `POST /api/admin/login` with `{ password }` for admin login.
+- Persist user/admin JWTs through `AuthService` with separate scopes.
+- Redirect successful user login to `/dashboard`.
+- Redirect successful admin login to admin-only UI surface.
 - Render login errors inline on the page.
 
 ## Dependencies
@@ -22,4 +26,5 @@ This file owns frontend behavior for authentication screens and auth entry routi
 ## UX Rules
 - Login remains a standalone public route.
 - No dashboard shell should render on `/login`.
+- No user dashboard shell should render on `/admin/login`.
 - OTP is out of scope until explicitly implemented.

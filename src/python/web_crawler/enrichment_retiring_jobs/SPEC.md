@@ -24,7 +24,7 @@ The `enrichment_retiring_jobs` package enriches a single job document per invoca
 | Input queue | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` (default `enrichment_retiring_jobs_queue`) |
 | Workflow ID | `enrichment_retiring_jobs` |
 
-The worker uses `blpop` with `timeout=0`, blocking until a message arrives. Each message carries a `job_id` and optional `run_id`, `workflow_run_id`, and `identity_id` fields. The worker processes exactly one job per message, then blocks again.
+The worker uses `blpop` with `timeout=0`, blocking until a message arrives. Each message carries a required `user_id` and `job_id`, plus optional `run_id`, `workflow_run_id`, and `identity_id` fields. The worker processes exactly one job per message, then blocks again.
 
 ---
 
@@ -35,7 +35,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI |
-| `DB_NAME` | `cover_letter` | Database name |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME` | `enrichment_retiring_jobs_queue` | Input queue for per-job retirement requests |
@@ -50,6 +49,7 @@ Queue messages are `JobRetireEvent` proto messages serialized as JSON (see `src/
 
 ```
 {
+  user_id:         string   // JWT sub (required)
   job_id:          string   // MongoDB _id hex of the job to check (required)
   run_id:          string   // parent run identifier (optional; defaults to workflow_run_id)
   workflow_run_id: string   // workflow execution identifier (optional; auto-generated if absent)
@@ -124,7 +124,7 @@ Serialization helper: `workflow_messages.job_update_event_to_json`.
 | Scenario | Behaviour |
 |---|---|
 | Malformed queue payload | Drop; log WARNING |
-| Missing `job_id` field | Drop; log WARNING |
+| Missing `user_id` or `job_id` field | Drop; log WARNING |
 | Invalid `job_id` (non-ObjectId) | `failed_count += 1`; return |
 | Job document not found | `skipped_count += 1`; return |
 | Network error on HEAD request | Log DEBUG; `failed_count += 1`; return (no Phase B) |

@@ -40,7 +40,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI |
-| `DB_NAME` | `cover_letter` | Database name |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_4DAYWEEK_QUEUE_NAME` | `crawler_4dayweek_queue` | Input queue |
@@ -56,13 +55,14 @@ Inherited from `CrawlerConfig`. Relevant subset:
 ## 4. Responsibilities
 
 - Parse `WorkflowDispatchMessage` from the input queue; drop malformed messages.
+- Validate `user_id` on input payload and derive per-user DB name as `cover_letter_<user_id>`.
 - Discover job URLs from the 4dayweek sitemap or list-page fallback (see section 5).
 - Deduplicate discovered URLs before extraction.
 - For each job URL: extract job and company details using JSON-LD then DOM fallback (see section 6).
 - Resolve or create company in `companies` using canonicalized company name.
-- Validate extracted jobs against `identity.roles` before persistence; skip non-matching jobs.
+- Validate extracted jobs against per-user `identity.roles` before persistence; skip non-matching jobs.
 - Upsert matching jobs into `jobs` with `platform = "4dayweek"` and dedup key `(platform, external_job_id)`.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 - Publish `running` → `completed` / `failed` progress snapshots.
 - Role filtering is required before any job upsert.
 
@@ -124,8 +124,6 @@ Jobs are stored in the `jobs` collection:
   company:         ObjectId,
   created_at:      { seconds, nanos },
   updated_at:      { seconds, nanos },
-  scoring_status:  "unscored" | "queued" | "scored" | "failed" | "skipped",
-  weighted_score:  0,
 }
 ```
 
@@ -144,7 +142,7 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 | Scenario | Behaviour |
 |---|---|
 | Malformed dispatch message | Drop, log WARNING |
-| Missing `run_id` or `identity_id` | Drop, log WARNING |
+| Missing `user_id`, `run_id`, or `identity_id` | Drop, log WARNING |
 | Sitemap fetch fails | Fall back to list-page crawl; if both fail, publish `failed` progress |
 | Job URL extraction fails | Log WARNING, skip URL, continue |
 | Company resolution fails | Log WARNING, skip job, continue |

@@ -39,7 +39,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI |
-| `DB_NAME` | `cover_letter` | Database name |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_LEVELSFYI_QUEUE_NAME` | `crawler_levelsfyi_queue` | Input queue |
@@ -56,14 +55,15 @@ Inherited from `CrawlerConfig`. Relevant subset:
 ## 4. Responsibilities
 
 - Parse `WorkflowDispatchMessage` from the input queue; drop malformed messages.
-- Load identity roles from `database["identities"]`; skip extraction if no roles are present.
+- Validate `user_id` on input payload and derive per-user DB name as `cover_letter_<user_id>`.
+- Load identity roles from per-user `database["identities"]`; skip extraction if no roles are present.
 - Call `LevelsFyiAdapter.discover_jobs(roles, config)` to fetch job cards.
 - Levels.fyi job extraction supports layered parsing: structured JSON in inline scripts first, then company-grouped `/jobs` HTML (company heading + job links), then legacy card markup fallbacks.
 - Batch-upsert all discovered companies via `upsert_companies`; build a canonical-name → `ObjectId` lookup.
 - For each job card: validate `job_title` or `description` against `identity.roles` using case-insensitive substring matching; skip non-matching cards.
 - For each matching job card: resolve the company `ObjectId`; upsert the job via `_upsert_job` with `platform = "levelsfyi"` and dedup key `(platform, external_job_id)`.
 - Determine newly discovered companies missing `ats_slug` and emit `CompanyDiscoveryEvent(reason="new_company_or_newly_actionable")` per company to the enrichment queue.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 - Publish `running` → `completed` / `failed` progress snapshots.
 - Report intra-run progress via `progress_callback`.
 
@@ -71,7 +71,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ## 5. Identity Role Contract
 
-- Roles loaded from `database["identities"]` by `ObjectId(identity_id)`.
+- Roles loaded from per-user `database["identities"]` by `ObjectId(identity_id)`.
 - No roles → skip all extraction; log INFO; return empty `WorkflowResult`.
 - A job card is accepted only if any role keyword appears in `job_title` or `description` (case-insensitive substring match).
 - Non-matching job cards are skipped before job upsert.
@@ -101,8 +101,6 @@ Jobs are stored in the `jobs` collection:
   company:         ObjectId,   // NOTE: field name is "company" not "company_id"
   created_at:      { seconds, nanos },
   updated_at:      { seconds, nanos },
-  scoring_status:  "unscored" | "queued" | "scored" | "failed" | "skipped",
-  weighted_score:  0,
 }
 ```
 
@@ -114,6 +112,7 @@ Upsert on `{platform, external_job_id}`: inserts on first sight, updates `title`
 
 ```
 CompanyDiscoveryEvent {
+  user_id:         string
   run_id:          string
   workflow_run_id: string
   workflow_id:     "crawler_levelsfyi"
@@ -148,7 +147,7 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 | Scenario | Behaviour |
 |---|---|
 | Malformed dispatch message | Drop, log WARNING |
-| Missing `identity_id` | Drop, log WARNING |
+| Missing `user_id` or `identity_id` | Drop, log WARNING |
 | Identity has no roles | Return empty result, log INFO |
 | `discover_jobs` returns empty | Return early, report no-jobs progress |
 | Parser cannot recover company from any fallback | Job may still be discovered, but unresolved company leads to skip path |

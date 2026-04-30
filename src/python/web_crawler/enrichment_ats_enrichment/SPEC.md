@@ -35,7 +35,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI |
-| `DB_NAME` | `cover_letter` | Database name |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME` | `crawler_enrichment_ats_enrichment_queue` | Input queue |
@@ -88,6 +87,7 @@ Rules:
 
 ```
 CompanyDiscoveryEvent {
+  user_id:         string
   run_id:          string
   workflow_run_id: string
   identity_id:     string
@@ -102,6 +102,7 @@ CompanyDiscoveryEvent {
 
 ```
 WorkflowDispatchMessage {
+  user_id:          string
   run_id:           string
   workflow_run_id:  string  // new UUID hex
   workflow_id:      "crawler_ats_job_extraction"
@@ -160,7 +161,7 @@ Companies with a terminal failure are skipped on all subsequent enrichment runs 
 | Scenario | Behaviour |
 |---|---|
 | Malformed event payload | Drop, log WARNING |
-| Missing `identity_id` or `company_id` | Drop, log WARNING |
+| Missing `user_id`, `identity_id`, or `company_id` | Drop, log WARNING |
 | Company already enriched | Skip silently (`skipped_count += 1`) |
 | Terminal failure on record | Skip, append to `failed_companies` |
 | No candidate URLs | Skip, append to `failed_companies` |

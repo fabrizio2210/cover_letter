@@ -7,10 +7,10 @@ This file is the authoritative reference for field handlers under this domain sl
 ## Scope
 
 Owned endpoints:
-- GET /api/fields
-- POST /api/fields
-- PUT /api/fields/:id
-- DELETE /api/fields/:id
+- GET /api/admin/fields
+- POST /api/admin/fields
+- PUT /api/admin/fields/:id
+- DELETE /api/admin/fields/:id
 
 ## Model Contract
 
@@ -23,16 +23,21 @@ Owned endpoints:
 
 Proto-first rules:
 - `common.proto` is the canonical schema for wire fields and Mongo tags.
-- `POST /api/fields` and full-model operations should bind to `models.Field`.
+- `POST /api/admin/fields` and full-model operations should bind to `models.Field`.
 - Avoid custom request structs for proto-defined fields unless payload is endpoint-specific.
 
 ## HTTP Contract
 
 Common rules:
-- Auth required for all endpoints in this domain.
+- Admin auth required for all endpoints in this domain (`role == "admin"`).
+- Endpoints are served from `/api/admin/*` and are not available on user routes.
 - `:id` must be a MongoDB hex ObjectID string.
 
-### GET /api/fields
+Database ownership:
+- `fields` collection is global and stored in `cover_letter_global`.
+- User-scoped databases do not own a `fields` collection.
+
+### GET /api/admin/fields
 
 Response `200`: array of `Field`.
 
@@ -40,7 +45,7 @@ Response `200`: array of `Field`.
 [{ "id": "<hex>", "field": "Photography" }]
 ```
 
-### POST /api/fields
+### POST /api/admin/fields
 
 Request:
 
@@ -50,7 +55,7 @@ Request:
 
 Response `201`: created `Field` with `id` populated.
 
-### PUT /api/fields/:id
+### PUT /api/admin/fields/:id
 
 Request:
 
@@ -64,7 +69,7 @@ Response `200`:
 { "message": "Field updated successfully" }
 ```
 
-### DELETE /api/fields/:id
+### DELETE /api/admin/fields/:id
 
 Response `200`:
 
@@ -74,6 +79,6 @@ Response `200`:
 
 ## Implementation
 
-- Canonical behavior is implemented in `domains/fields/handlers.go`.
+- Canonical behavior is implemented in `domains/fields/admin_handlers.go`.
 
 

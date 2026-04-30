@@ -35,7 +35,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI |
-| `DB_NAME` | `cover_letter` | Database name |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `CRAWLER_HACKERNEWS_QUEUE_NAME` | `crawler_hackernews_queue` | Input queue |
@@ -47,10 +46,11 @@ Inherited from `CrawlerConfig`. Relevant subset:
 ## 4. Responsibilities
 
 - Parse `WorkflowDispatchMessage` from the input queue; drop malformed messages.
-- Load the identity document from MongoDB `identities` and extract `roles`; raise if identity is missing or has no roles.
+- Validate `user_id` on input payload and derive per-user DB name as `cover_letter_<user_id>`.
+- Load the identity document from per-user MongoDB `identities` and extract `roles`; raise if identity is missing or has no roles.
 - Run `HackerNewsAdapter` against the identity's role list.
 - Deduplicate discovered companies by canonical name before upserting.
-- Upsert companies into the `companies` collection with `discovery_sources`, `canonical_name`, and optional `field_id`.
+- Upsert companies into global `cover_letter_global.companies` with `discovery_sources`, `canonical_name`, and optional `field_id`.
 - Determine which upserted companies have no `ats_slug` yet — these are pending enrichment.
 - Push one `CompanyDiscoveryEvent(reason="no_ats_slug")` per pending company to the enrichment queue.
 - Publish `running` → `completed` (or `failed`) progress snapshots on the progress channel.

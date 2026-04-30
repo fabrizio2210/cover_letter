@@ -1,7 +1,7 @@
 # Backend API Specification
 
 This file is the global index and shared contract guidance for the Go REST API service.
-Detailed endpoint, model, queue, and stream contracts now live in domain specifications.
+Detailed endpoint, model, queue, and stream contracts live in domain specifications.
 
 > Source of truth: `main.go`, `facade/`, `domains/`, `models/models.go`, `../../internal/proto/common/common.proto`
 
@@ -22,7 +22,7 @@ Ownership rule:
 
 ---
 
-## 1. Tech Stack And Runtime
+## 1. Runtime Architecture
 
 | Component | Detail |
 |---|---|
@@ -34,20 +34,37 @@ Ownership rule:
 | Server port | `:8080` |
 | Entry point | `main.go` |
 
+Database layout contract:
+- Global database (fixed): `cover_letter_global`
+- Per-user database: `cover_letter_<sub>` where `sub` is the authenticated user JWT claim
+
+Global collections:
+- `jobs`
+- `companies`
+- `fields`
+- `global_settings`
+- `stats`
+
+Per-user collections:
+- `cover-letters`
+- `identities`
+- `job-preference-scores`
+- `recipients`
+- `user_settings`
+- `crawls`
+
 ---
 
 ## 2. Environment Variables
 
-All variables are read at runtime. API domains read `DB_NAME` lazily (inside each handler call, not at startup) so they all share one table.
-
 | Variable | Default | Required | Used by |
 |---|---|---|---|
-| `JWT_SECRET` | `change_this_secret` | Yes (change in prod) | `main.go` JWT signing and verification |
-| `ADMIN_PASSWORD` | *(none)* | Yes | `domains/auth/login.go` login check |
-| `MONGO_HOST` | *(none)* | Yes | `db/mongo.go` full MongoDB URI |
-| `DB_NAME` | `cover_letter` | No | Domain handlers database name |
-| `REDIS_HOST` | `localhost` | No | Redis clients in domain handlers |
-| `REDIS_PORT` | `6379` | No | Redis clients in domain handlers |
+| `JWT_SECRET` | `change_this_secret` | Yes (change in prod) | User JWT signing/verification |
+| `ADMIN_JWT_SECRET` | *(none)* | Yes | Admin JWT signing/verification |
+| `ADMIN_PASSWORD` | *(none)* | Optional (implementation-defined) | Admin login credential check |
+| `MONGO_HOST` | *(none)* | Yes | `db/mongo.go` MongoDB URI |
+| `REDIS_HOST` | `localhost` | No | Redis clients in handlers |
+| `REDIS_PORT` | `6379` | No | Redis clients in handlers |
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | Recipients and cover letters domains |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Crawls domain |
 | `CRAWLER_PROGRESS_CHANNEL_NAME` | `crawler_progress_channel` | No | Crawls domain SSE relay |
@@ -78,14 +95,11 @@ Proto-first implementation rules:
 - Avoid custom DTOs that duplicate proto-defined fields; this causes JSON/BSON drift.
 - If a payload field is missing from proto, update `common.proto` and regenerate before handler-local schema changes.
 
-Allowed custom payload exceptions:
-- Partial update endpoints whose body is intentionally not a full model.
-- `POST /api/login` with `{ "password": "..." }`.
-- `PUT /api/cover-letters/:id` with `{ "content": "..." }`.
-- Queue-producing endpoints that construct transport payload wrappers.
+Queue contract rule:
+- Async queue payloads that are user-scoped must include `user_id` and workers must derive per-user DB name from that field.
+- No user-controlled field may override per-user DB derivation from authenticated identity.
 
 Timestamp format used across domains:
-- Timestamp objects are plain objects, not BSON Date and not ISO strings:
 
 ```json
 { "seconds": 1711234567, "nanos": 0 }
@@ -95,12 +109,15 @@ Timestamp format used across domains:
 
 ## 4. Authentication Summary
 
-- All routes except `POST /api/login` require a valid JWT.
-- Authorization header format: `Authorization: Bearer <token>`.
-- Algorithm: HS256 only.
-- Token lifetime: 24 hours.
-- Claims include `exp` and no user identity claim.
-- Middleware behavior is defined in `middleware/jwt.go`.
+User flow:
+- User login endpoint issues JWT with `sub` and `exp`.
+- Middleware validates HS256 with `JWT_SECRET` and extracts `sub` into request context.
+- Per-user DB name is derived from `sub` as `cover_letter_<sub>`.
+
+Admin flow:
+- Admin login endpoint issues JWT with `sub`, `role = "admin"`, and `exp`.
+- Admin middleware validates HS256 with `ADMIN_JWT_SECRET`.
+- Routes under `/api/admin/*` require `role == "admin"`.
 
 Full login contract lives in `domains/auth/SPEC.md`.
 
@@ -120,7 +137,7 @@ Full login contract lives in `domains/auth/SPEC.md`.
 ### HTTP Endpoints
 
 - Auth endpoints: `domains/auth/SPEC.md`
-- Fields endpoints: `domains/fields/SPEC.md`
+- Admin fields endpoints: `domains/fields/SPEC.md`
 - Companies endpoints: `domains/companies/SPEC.md`
 - Recipients endpoints: `domains/recipients/SPEC.md`
 - Identities endpoints: `domains/identities/SPEC.md`
@@ -128,7 +145,7 @@ Full login contract lives in `domains/auth/SPEC.md`.
 - Cover letter endpoints: `domains/coverletters/SPEC.md`
 - Crawl and progress endpoints: `domains/crawls/SPEC.md`
 
-### Queues And Streams
+### Queues and Streams
 
 - `cover_letter_generation_queue`: `domains/recipients/SPEC.md` and `domains/coverletters/SPEC.md`
 - `emails_to_send`: `domains/coverletters/SPEC.md`

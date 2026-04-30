@@ -37,7 +37,6 @@ Inherited from `CrawlerConfig`. Relevant subset:
 | Variable | Default | Purpose |
 |---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | MongoDB URI for company fan-out query |
-| `DB_NAME` | `cover_letter` | MongoDB database name |
 | `REDIS_HOST` | `localhost` | Redis connection host |
 | `REDIS_PORT` | `6379` | Redis connection port |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | Queue this worker blocks on |
@@ -53,11 +52,11 @@ Inherited from `CrawlerConfig`. Relevant subset:
 ## 4. Responsibilities
 
 - Block on `CRAWLER_TRIGGER_QUEUE_NAME` and consume one `CrawlTrigger` payload at a time.
-- Validate that `run_id` and `identity_id` are both non-empty; drop malformed messages with a warning log.
+- Validate that `user_id`, `run_id`, and `identity_id` are all non-empty; drop malformed messages with a warning log.
 - Publish a single `queued` progress snapshot before dispatching any workflows.
 - Generate one `workflow_run_id` per downstream workflow and push one `WorkflowDispatchMessage` per target queue.
 - Query MongoDB `companies` collection for all companies that need ATS enrichment (no terminal failure, and `ats_provider` or `ats_slug` missing/null) and push one `CompanyDiscoveryEvent(reason="no_ats_slug")` per company to `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME`.
-- Log each dispatched workflow with `run_id`, `workflow_run_id`, and `identity_id`.
+- Log each dispatched workflow with `user_id`, `run_id`, `workflow_run_id`, and `identity_id`.
 - Reconnect to Redis automatically on connection loss and retry after a brief sleep.
 
 **Not responsible for:**
@@ -73,6 +72,7 @@ Payload shape consumed from `CRAWLER_TRIGGER_QUEUE_NAME`:
 
 ```
 CrawlTrigger {
+  user_id:     non-empty string   // JWT sub
   run_id:      non-empty string   // parent run identifier
   identity_id: non-empty string   // MongoDB identity _id (hex)
 }
@@ -90,6 +90,7 @@ One message per target crawler workflow pushed to each queue:
 
 ```
 WorkflowDispatchMessage {
+  user_id:          string  // forwarded from trigger
   run_id:           string  // forwarded from trigger
   workflow_run_id:  string  // new UUID hex per workflow
   workflow_id:      string  // e.g. "crawler_ycombinator"
@@ -106,6 +107,7 @@ One message per unenriched company pushed to `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_
 
 ```
 CompanyDiscoveryEvent {
+  user_id:          string  // forwarded from trigger
   run_id:           string  // forwarded from trigger
   workflow_run_id:  string  // single UUID hex shared across all enrichment fan-out events for this trigger
   workflow_id:      "dispatcher"
@@ -125,7 +127,7 @@ Selection criteria: companies collection documents where `enrichment_ats_enrichm
 | Scenario | Behaviour |
 |---|---|
 | Malformed trigger payload | Drop message, log WARNING, continue |
-| Missing `run_id` or `identity_id` | Drop message, log WARNING, continue |
+| Missing `user_id`, `run_id`, or `identity_id` | Drop message, log WARNING, continue |
 | Redis connection loss | Set `redis_client = None`, sleep 2 s, reconnect on next iteration |
 | Fan-out push failure | Propagates as unhandled exception, caught by outer loop, reconnects |
 

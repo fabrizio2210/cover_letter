@@ -47,12 +47,14 @@ Crawl progress is tracked via SSE. The \`CrawlProgress\` type defines the status
 
 ## 4. Features and Modules
 
-- **Auth**: User login and registration using JWT.
+- **Auth**: User login and admin login using JWT; user and admin tokens are distinct.
 - **Identities**: CRUD for user profiles, including role keywords and scoring preferences.
 - **Job Discovery**: Trigger and monitor crawl runs; browse discovered jobs.
 - **Scoring**: View preference-based scores for jobs; trigger re-scoring.
 - **Cover Letters**: Generate and manage tailored cover letters for specific jobs/recipients.
 - **Recipients**: Manage contact information for hiring managers and companies.
+- **Settings**: User-specific settings only (`user_settings` scope).
+- **Admin Fields**: Global fields CRUD is admin-only (`/api/admin/fields`) and not part of user settings.
 
 ---
 

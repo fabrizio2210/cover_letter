@@ -17,6 +17,11 @@ Owned endpoints:
 - PUT /api/identities/:id/preferences
 - PUT /api/identities/:id/field
 
+Database ownership:
+- `identities` is a per-user collection in `cover_letter_<sub>`.
+- `sub` comes from authenticated JWT claims and is not user-overridable.
+- Identity `field_id` references global `fields` documents in `cover_letter_global`.
+
 ## Model Contract
 
 ### Identity

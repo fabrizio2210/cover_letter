@@ -127,12 +127,13 @@ Payload:
 
 ```json
 {
+	"user_id": "<jwt sub>",
 	"recipient": "<email address>"
 }
 ```
 
 Consumer rules:
-- Missing `recipient` makes the message invalid and it is dropped with an error log.
+- Missing `user_id` or `recipient` makes the message invalid and it is dropped with an error log.
 - Missing `conversation_id` means initial generation.
 
 ## Implementation

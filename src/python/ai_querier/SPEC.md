@@ -59,14 +59,14 @@ High-level flow:
 | `REDIS_PORT` | `6379` | No | Redis connection |
 | `REDIS_QUEUE_GENERATE_COVER_LETTER_NAME` | `cover_letter_generation_queue` | No | Input queue name |
 | `MONGO_HOST` | `mongodb://localhost:27017/` | Yes | MongoDB connection URI |
-| `DB_NAME` | `cover_letter` | No | MongoDB database name |
 | `GEMINI_TOKEN` | none | Yes in normal mode | Gemini API key |
 | `AI_QUERIER_TEST_MODE` | `0` | No | If `1`, disable real Gemini calls and use deterministic fake responses |
 
 Rules:
 - If `AI_QUERIER_TEST_MODE=1`, the worker may run without `GEMINI_TOKEN`.
 - If `AI_QUERIER_TEST_MODE!=1`, missing `GEMINI_TOKEN` is a startup error.
-- `DB_NAME` must match the database used by the Go API.
+- Global reads use `cover_letter_global`.
+- Per-user reads/writes use `cover_letter_<user_id>` where `user_id` comes from queue payload.
 
 ---
 
@@ -108,6 +108,7 @@ Each message is a UTF-8 JSON object.
 
 ```json
 {
+  "user_id": "<jwt sub>",
   "recipient": "recipient@example.com"
 }
 ```
@@ -116,6 +117,7 @@ Each message is a UTF-8 JSON object.
 
 ```json
 {
+  "user_id": "<jwt sub>",
   "recipient": "recipient@example.com",
   "conversation_id": "gemini-conversation-id-or-worker-conversation-token",
   "prompt": "Please make it more concise and more specific to documentary photography."
@@ -125,6 +127,7 @@ Each message is a UTF-8 JSON object.
 ### 5.3 Semantics
 
 - `recipient` is required and is the recipient email address, not the MongoDB `_id`.
+- `user_id` is required and is used to derive the per-user DB name.
 - If `conversation_id` is absent, the worker treats the message as an initial generation request.
 - If `conversation_id` is present, the worker treats the message as a refinement request.
 - For refinement, `prompt` is required.
@@ -132,7 +135,7 @@ Each message is a UTF-8 JSON object.
 ### 5.4 Validation Rules
 
 - Invalid JSON messages are rejected and logged.
-- Messages without `recipient` are rejected and logged.
+- Messages without `user_id` or `recipient` are rejected and logged.
 - If `recipient` does not match a document in `recipients.email`, the message is rejected and logged.
 - If `conversation_id` is present but no cover letter exists for it, the refinement request is rejected and logged.
 
@@ -152,18 +155,18 @@ If this payload changes, the following must be updated together:
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `recipients` | read | Resolve recipient by email |
-| `companies` | read | Resolve company linked to recipient |
-| `identities` | read | Resolve identity linked to company field |
-| `cover-letters` | insert/update/read | Persist cover-letter conversation state |
+| `recipients` (per-user DB) | read | Resolve recipient by email |
+| `identities` (per-user DB) | read | Resolve identity linked to company field |
+| `cover-letters` (per-user DB) | insert/update/read | Persist cover-letter conversation state |
+| `companies` (global DB) | read | Resolve company linked to recipient |
 
 ### 6.2 Required Read Path for Initial Generation
 
 The initial generation flow resolves context in this order:
 1. `recipients.email` equals the Redis payload `recipient`.
 2. The recipient document references a company through BSON field `company`.
-3. The company document references a field through BSON field `field`.
-4. The identity document is resolved through BSON field `field` matching the company field reference.
+3. Resolve the company in global DB and read its `field` reference.
+4. Resolve identity in per-user DB through BSON field `field` matching the company field reference.
 
 Expected BSON keys used by the worker:
 
@@ -293,22 +296,24 @@ The worker does not create a fresh conversation during refinement. It continues 
 ### 9.1 Initial Generation Flow
 
 1. Receive a queue message with `recipient` only.
-2. Resolve the recipient document by email.
-3. Resolve company via `recipients.company`.
-4. Resolve identity via the company's field.
-5. Build the initial prompt from recipient, company, and identity data.
-6. Generate a cover letter through Gemini or the test-mode fake client.
-7. Create a new `conversation_id`.
-8. Persist a new `cover-letters` document with prompt, generated body, history, timestamps, and status.
+2. Derive per-user DB from `user_id`.
+3. Resolve the recipient document by email.
+4. Resolve company via `recipients.company` in global DB.
+5. Resolve identity via the company's field in per-user DB.
+6. Build the initial prompt from recipient, company, and identity data.
+7. Generate a cover letter through Gemini or the test-mode fake client.
+8. Create a new `conversation_id`.
+9. Persist a new `cover-letters` document with prompt, generated body, history, timestamps, and status.
 
 ### 9.2 Refinement Flow
 
-1. Receive a queue message with `recipient`, `conversation_id`, and `prompt`.
-2. Load the existing cover letter by `conversation_id`.
-3. Append the user follow-up prompt to `history`.
-4. Ask Gemini to continue from the stored history.
-5. Append the model response to `history`.
-6. Update the existing `cover-letters` document with the new body, last prompt, updated history, `updated_at`, and status.
+1. Receive a queue message with `user_id`, `recipient`, `conversation_id`, and `prompt`.
+2. Derive per-user DB from `user_id`.
+3. Load the existing cover letter by `conversation_id`.
+4. Append the user follow-up prompt to `history`.
+5. Ask Gemini to continue from the stored history.
+6. Append the model response to `history`.
+7. Update the existing `cover-letters` document with the new body, last prompt, updated history, `updated_at`, and status.
 
 ---
 
@@ -401,6 +406,7 @@ Before changing this worker:
 
 Do not change any of these names without a coordinated cross-service change:
 - `recipient`
+- `user_id`
 - `conversation_id`
 - `prompt`
 - `recipient_id`

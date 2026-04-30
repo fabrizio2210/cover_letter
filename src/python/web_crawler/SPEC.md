@@ -86,7 +86,7 @@ High-level orchestration:
 6. Consume those company-discovery events in `enrichment_ats_enrichment` and emit ATS-job-trigger events when `ats_provider` plus `ats_slug` become available.
 7. Execute ATS-backed crawler workflows, such as `crawler_ats_job_extraction`, from those follow-up triggers, either as part of the same parent run or as singular workflow message executions.
 8. Publish workflow-level progress snapshots to Redis, each carrying parent `run_id` plus `workflow_run_id` and `workflow_id`.
-9. Optionally enqueue `{ "job_id": "..." }` messages for scoring after each successful job insert/update.
+9. Optionally enqueue `{ "user_id": "...", "job_id": "..." }` messages for scoring after each successful job insert/update.
 10. Emit crawl summary logs and counters, including per-workflow success/failure counts and parent-run completion state.
 
 ---
@@ -96,7 +96,6 @@ High-level orchestration:
 | Variable | Default | Required | Used for |
 |---|---|---|---|
 | `MONGO_HOST` | `mongodb://localhost:27017/` | Yes | MongoDB connection URI |
-| `DB_NAME` | `cover_letter` | No | MongoDB database name |
 | `REDIS_HOST` | `localhost` | No | Redis host for scoring queue output |
 | `REDIS_PORT` | `6379` | No | Redis port for scoring queue output |
 | `CRAWLER_TRIGGER_QUEUE_NAME` | `crawler_trigger_queue` | No | Redis queue name for crawl requests consumed by the worker |
@@ -119,7 +118,8 @@ High-level orchestration:
 Platform-specific configuration may include source names, ATS slugs, and source URLs (via config file or environment).
 
 Rules:
-- `DB_NAME` must match the database used by the Go API.
+- Global crawler reads/writes use `cover_letter_global`.
+- Per-user identity and crawl state reads/writes use `cover_letter_<user_id>`.
 - Worker mode requires Redis connectivity for both crawl request consumption and progress publication.
 - If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`, Redis connectivity is required for queue handoff.
 - Missing platform credentials are not fatal when the platform can be scraped from public endpoints.
@@ -162,13 +162,14 @@ The crawler is not responsible for:
 ### 5.1 Discovery Input: Role and Identity Mapping
 
 The crawler discovery input must include:
+- `user_id` (required, JWT `sub` copied from API queue payload).
 - `identity_id` (required, hex MongoDB ObjectId string).
 - `run_id` (required in Redis-driven worker mode; server-generated unique crawl run identifier).
 
 The selected identity must include:
 - `roles` (required for role-first discovery): user-maintained list of role keywords, for example `software engineer`, `platform engineer`.
 
-Runs missing `identity_id` are invalid and must fail fast before discovery starts.
+Runs missing `user_id` or `identity_id` are invalid and must fail fast before discovery starts.
 
 Only one active crawl per `identity_id` is allowed at a time. In worker mode, a second request for the same identity must be rejected and reported through a terminal progress event with `status = "rejected"`.
 
@@ -252,7 +253,7 @@ Dashboard scope rule:
 
 ##### `crawler_ycombinator`
 
-Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles`.
+Input: parent `run_id`, `workflow_run_id`, `user_id`, `identity_id`, `identities.roles`.
 
 DB writes: upsert into `companies` using canonicalized company name; preserve source attribution metadata.
 
@@ -260,7 +261,7 @@ See [`crawler_ycombinator/SPEC.md`](crawler_ycombinator/SPEC.md) for details.
 
 ##### `crawler_hackernews`
 
-Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles`.
+Input: parent `run_id`, `workflow_run_id`, `user_id`, `identity_id`, `identities.roles`.
 
 DB writes: upsert into `companies` using canonicalized company name; preserve source attribution metadata.
 
@@ -268,7 +269,7 @@ See [`crawler_hackernews/SPEC.md`](crawler_hackernews/SPEC.md) for details.
 
 ##### `crawler_ats_job_extraction`
 
-Input: parent `run_id` (optional for singular execution), `workflow_run_id`, `identity_id`, ATS-job-trigger event or singular workflow trigger.
+Input: parent `run_id` (optional for singular execution), `workflow_run_id`, `user_id`, `identity_id`, ATS-job-trigger event or singular workflow trigger.
 
 DB writes: upsert into `jobs` using (`platform`, `external_job_id`) only for jobs that pass role filtering; optionally enqueue scoring payload.
 
@@ -286,7 +287,7 @@ See [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) for URL discovery str
 
 ##### `crawler_levelsfyi`
 
-Input: parent `run_id`, `workflow_run_id`, `identity_id`, `identities.roles` (loaded from identity document).
+Input: parent `run_id`, `workflow_run_id`, `user_id`, `identity_id`, `identities.roles` (loaded from identity document).
 
 DB writes: upsert into `companies`; upsert into `jobs` with `platform=levelsfyi`; stable dedup key: (`platform`, `external_job_id`).
 
@@ -413,9 +414,10 @@ Rules that apply everywhere:
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `jobs` | read/insert/update | Store normalized job records |
-| `companies` | read/insert/update | Resolve, create, and ATS-enrich company documents |
-| `crawls` | optional insert/update | Store crawl run summaries/telemetry if implemented |
+| `jobs` (global DB) | read/insert/update | Store normalized job records |
+| `companies` (global DB) | read/insert/update | Resolve, create, and ATS-enrich company documents |
+| `identities` (per-user DB) | read | Resolve identity roles by `user_id + identity_id` |
+| `crawls` (per-user DB) | optional insert/update | Store crawl run summaries/telemetry if implemented |
 
 ### 9.2 Required Job Fields on Insert
 
@@ -480,6 +482,7 @@ When `CRAWLER_ENABLE_SCORING_ENQUEUE=1`:
 
 ```json
 {
+  "user_id": "<jwt sub>",
   "job_id": "<job description hex object id>"
 }
 ```
@@ -507,6 +510,7 @@ Expected payload:
 
 ```json
 {
+  "user_id": "<jwt sub>",
   "run_id": "<crawl run id>",
   "identity_id": "<identity hex object id>",
   "requested_at": { "seconds": 1711234567, "nanos": 0 }
@@ -514,7 +518,7 @@ Expected payload:
 ```
 
 Rules:
-- Missing `run_id` or `identity_id` is a malformed request and must be rejected.
+- Missing `user_id`, `run_id`, or `identity_id` is a malformed request and must be rejected.
 - The worker must emit an initial parent-run `queued` snapshot or immediate workflow `running` snapshots for accepted work.
 - Only one active crawl may exist for a given `identity_id`.
 - If another crawl is already active for the same `identity_id`, the worker must not start a second run. It must instead publish a terminal progress snapshot with `status = "rejected"` and `reason = "already_running"`.
@@ -546,6 +550,7 @@ Payload shape:
   "run_id": "<parent crawl run id>",
   "workflow_run_id": "<producer workflow attempt id>",
   "workflow_id": "crawler_ycombinator",
+  "user_id": "<jwt sub>",
   "identity_id": "<identity hex object id>",
   "company_id": "<company hex object id>",
   "reason": "new_company_or_newly_actionable"
@@ -567,6 +572,7 @@ Payload shape:
   "run_id": "<parent crawl run id>",
   "workflow_run_id": "<enrichment workflow attempt id>",
   "workflow_id": "enrichment_ats_enrichment",
+  "user_id": "<jwt sub>",
   "identity_id": "<identity hex object id>",
   "company_id": "<company hex object id>",
   "ats_provider": "greenhouse",
