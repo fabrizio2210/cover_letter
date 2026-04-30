@@ -39,7 +39,7 @@ Database layout contract:
 - Per-user database: `cover_letter_<sub>` where `sub` is the authenticated user JWT claim
 
 Global collections:
-- `jobs`
+- `job-descriptions`
 - `companies`
 - `fields`
 - `global_settings`

@@ -54,7 +54,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Load ATS-enriched companies from global `cover_letter_global.companies` (filter: `ats_provider` and `ats_slug` both non-empty).
 - For each company call `fetch_jobs(provider, slug, config, session)` from `sources/ats_job_fetcher.py`.
 - Filter each returned job with `_job_matches_roles(job, identity_roles)` — case-insensitive substring match against `title` and `description`; skip non-matching jobs.
-- Upsert matching jobs into `database["jobs"]` via `upsert_job`; deduplication key is `(platform, external_job_id)`.
+- Upsert matching jobs into `database["job-descriptions"]` via `upsert_job`; deduplication key is `(platform, external_job_id)`.
 - If `CRAWLER_ENABLE_SCORING_ENQUEUE=1` and Redis is available: push `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to the scoring queue.
 - New jobs are inserted without score-bearing fields; identity-scoped score lifecycle belongs to `job-preference-scores`.
 - Report progress via `progress_callback` when supplied.
@@ -113,7 +113,7 @@ ATS fetch logic lives in `../sources/ats_job_fetcher.py`; add new ATS providers 
 
 ## 7. Job Document Shape
 
-Jobs are stored in the `jobs` collection:
+Jobs are stored in the `job-descriptions` collection:
 
 ```
 {

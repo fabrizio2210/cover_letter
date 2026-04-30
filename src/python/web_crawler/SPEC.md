@@ -229,7 +229,7 @@ Stable crawler workflow identifiers:
 - `crawler_levelsfyi`
 
 Common output rules for crawler workflows:
-- Job outputs are normalized and upserted into `jobs`.
+- Job outputs are normalized and upserted into `job-descriptions`.
 - Successful job insert/update may enqueue `{ "job_id": "..." }` for scoring.
 - Company outputs are resolved and upserted into `companies`.
 - Company-discovery events are emitted only when a company is newly inserted or when an existing company is updated such that its metadata becomes newly actionable for ATS enrichment.
@@ -271,7 +271,7 @@ See [`crawler_hackernews/SPEC.md`](crawler_hackernews/SPEC.md) for details.
 
 Input: parent `run_id` (optional for singular execution), `workflow_run_id`, `user_id`, `identity_id`, ATS-job-trigger event or singular workflow trigger.
 
-DB writes: upsert into `jobs` using (`platform`, `external_job_id`) only for jobs that pass role filtering; optionally enqueue scoring payload.
+DB writes: upsert into `job-descriptions` using (`platform`, `external_job_id`) only for jobs that pass role filtering; optionally enqueue scoring payload.
 
 Role filtering: each extracted job is validated against `identity.roles` before insertion. See [`crawler_ats_job_extraction/SPEC.md`](crawler_ats_job_extraction/SPEC.md) sections 5–6 for ATS provider endpoints and filtering rules.
 
@@ -279,7 +279,7 @@ Role filtering: each extracted job is validated against `identity.roles` before 
 
 Input: parent `run_id`, `workflow_run_id`, identity-scoped public crawl request fan-out.
 
-DB writes: resolve/create company in `companies`; upsert job into `jobs` with `platform=4dayweek`.
+DB writes: resolve/create company in `companies`; upsert job into `job-descriptions` with `platform=4dayweek`.
 
 Role filtering: each extracted job must be validated against `identity.roles` before insertion.
 
@@ -289,7 +289,7 @@ See [`crawler_4dayweek/SPEC.md`](crawler_4dayweek/SPEC.md) for URL discovery str
 
 Input: parent `run_id`, `workflow_run_id`, `user_id`, `identity_id`, `identities.roles` (loaded from identity document).
 
-DB writes: upsert into `companies`; upsert into `jobs` with `platform=levelsfyi`; stable dedup key: (`platform`, `external_job_id`).
+DB writes: upsert into `companies`; upsert into `job-descriptions` with `platform=levelsfyi`; stable dedup key: (`platform`, `external_job_id`).
 
 Role filtering: each extracted job is validated against `identity.roles` before insertion. See [`crawler_levelsfyi/SPEC.md`](crawler_levelsfyi/SPEC.md) for discovery strategy and filtering rules.
 
@@ -414,7 +414,7 @@ Rules that apply everywhere:
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `jobs` (global DB) | read/insert/update | Store normalized job records |
+| `job-descriptions` (global DB) | read/insert/update | Store normalized job records |
 | `companies` (global DB) | read/insert/update | Resolve, create, and ATS-enrich company documents |
 | `identities` (per-user DB) | read | Resolve identity roles by `user_id + identity_id` |
 | `crawls` (per-user DB) | optional insert/update | Store crawl run summaries/telemetry if implemented |

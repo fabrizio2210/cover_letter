@@ -88,7 +88,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ## 7. Job Document Shape
 
-Jobs are stored in the `jobs` collection:
+Jobs are stored in the `job-descriptions` collection:
 
 ```
 {

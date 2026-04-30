@@ -91,7 +91,7 @@ Initially the application was developed with a Telegram bot to avoid dealing wit
 The persistence model is split between one global database and one database per user.
 
 Global database (fixed name): `cover_letter_global`
-- `jobs`
+- `job-descriptions`
 - `companies`
 - `fields`
 - `global_settings`

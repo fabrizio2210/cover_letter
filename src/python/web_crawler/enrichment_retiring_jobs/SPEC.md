@@ -137,7 +137,7 @@ Serialization helper: `workflow_messages.job_update_event_to_json`.
 ## 9. Editing Guardrails
 
 - Do **not** add job discovery or scoring logic to this package.
-- The workflow operates exclusively on the `jobs` collection.
+- The workflow operates exclusively on the `job-descriptions` collection.
 - `closed_at` uses the same `{ seconds, nanos }` shape as `created_at` / `updated_at` on job documents.
 - The 60-day threshold is defined by `_CLOSED_AFTER_DAYS = 60` in `workflow.py`; do not duplicate this constant elsewhere.
 - Queue message serialization lives in `workflow_messages.job_retire_event_to_json` / `parse_job_retire_event`.

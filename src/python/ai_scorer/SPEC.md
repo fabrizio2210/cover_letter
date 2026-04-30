@@ -80,7 +80,7 @@ Rules:
 - If `AI_SCORER_TEST_MODE!=1`, missing `OLLAMA_HOST` or `OLLAMA_MODEL` is a startup error.
 - `AI_SCORER_OLLAMA_PARALLELISM` must be an integer greater than zero; invalid values fall back to `1`.
 - Queue-level worker assignment remains per job payload when `AI_SCORER_OLLAMA_PARALLELISM > 1`; parallelism scales by concurrent jobs, not by per-preference fan-out within one job.
-- Global reads use `cover_letter_global` (`jobs`, `companies`).
+- Global reads use `cover_letter_global` (`job-descriptions`, `companies`).
 - Per-user reads/writes use `cover_letter_<user_id>` (`identities`, `job-preference-scores`).
 - In `docker/lib/stack-dev.yml`, `OLLAMA_HOST` is expected to target the internal service DNS name (`http://ollama:11434`).
 
@@ -194,7 +194,7 @@ Progress rules:
 
 | Collection | Access | Purpose |
 |---|---|---|
-| `jobs` (global DB) | read | Load jobs for scoring context |
+| `job-descriptions` (global DB) | read | Load jobs for scoring context |
 | `companies` (global DB) | read | Resolve company linked to the job |
 | `identities` (per-user DB) | read | Resolve identity linked by company field |
 | `job-preference-scores` (per-user DB) | insert/update/read | Persist one score document per `(job_id, identity_id)` with embedded preference scores, aggregate fields, and lifecycle status |
@@ -212,10 +212,10 @@ Expected BSON keys used by the worker:
 
 | Collection | BSON key | Meaning |
 |---|---|---|
-| `jobs` | `title` | job title |
-| `jobs` | `description` | job description body |
-| `jobs` | `location` | location text |
-| `jobs` | `company` | company reference |
+| `job-descriptions` | `title` | job title |
+| `job-descriptions` | `description` | job description body |
+| `job-descriptions` | `location` | location text |
+| `job-descriptions` | `company` | company reference |
 | `companies` | `field` | field reference |
 | `identities` | `preferences` | weighted preference list |
 
@@ -288,8 +288,8 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 
 1. Receive a queue message with `user_id` and `job_id`.
 2. Derive per-user DB from `user_id`.
-3. Load the job description by `_id` from global `jobs`.
-4. Resolve company via `jobs.company` in global DB.
+3. Load the job description by `_id` from global `job-descriptions`.
+4. Resolve company via `job-descriptions.company` in global DB.
 5. Resolve identity via company field in per-user `identities`.
 6. Keep only enabled preferences from `identities.preferences`.
 7. For each enabled preference, request a score from Ollama within the currently assigned job worker.
