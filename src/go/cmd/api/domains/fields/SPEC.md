@@ -7,6 +7,7 @@ This file is the authoritative reference for field handlers under this domain sl
 ## Scope
 
 Owned endpoints:
+- GET /api/fields
 - GET /api/admin/fields
 - POST /api/admin/fields
 - PUT /api/admin/fields/:id
@@ -29,15 +30,29 @@ Proto-first rules:
 ## HTTP Contract
 
 Common rules:
-- Admin auth required for all endpoints in this domain (`role == "admin"`).
-- Endpoints are served from `/api/admin/*` and are not available on user routes.
 - `:id` must be a MongoDB hex ObjectID string.
+
+### GET /api/fields
+
+User JWT required. Read-only. Returns the full list of fields.
+
+Response `200`: array of `Field`.
+
+```json
+[{ "id": "<hex>", "field": "Photography" }]
+```
+
+---
+
+Admin-only routes below require `role == "admin"`.
 
 Database ownership:
 - `fields` collection is global and stored in `cover_letter_global`.
 - User-scoped databases do not own a `fields` collection.
 
 ### GET /api/admin/fields
+
+Admin JWT required.
 
 Response `200`: array of `Field`.
 
@@ -79,6 +94,7 @@ Response `200`:
 
 ## Implementation
 
-- Canonical behavior is implemented in `domains/fields/admin_handlers.go`.
+- `GET /api/fields` and all admin CRUD handlers are implemented in `domains/fields/handlers.go`.
+- `GetFields` is reused for both the user and admin GET endpoints.
 
 

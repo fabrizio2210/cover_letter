@@ -54,6 +54,8 @@ func main() {
 		auth.PUT("/identities/:id/preferences", facade.UpdateIdentityPreferences)
 		auth.PUT("/identities/:id/field", facade.AssociateFieldWithIdentity)
 
+		auth.GET("/fields", facade.GetFields)
+
 		// Company CRUD endpoints
 		auth.GET("/companies", facade.GetCompanies)
 		auth.POST("/companies", facade.CreateCompany)
