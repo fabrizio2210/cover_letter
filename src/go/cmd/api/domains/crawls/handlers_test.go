@@ -1166,9 +1166,9 @@ func TestGetActivitySummary(t *testing.T) {
 
 func TestApplyQueueDefaults(t *testing.T) {
 	queues := map[string]string{
-		queueCrawlerTrigger:        "",
-		queueCrawlerYCombinator:    "custom_queue",
-		queueCrawlerATSExtraction:  "",
+		queueCrawlerTrigger:       "",
+		queueCrawlerYCombinator:   "custom_queue",
+		queueCrawlerATSExtraction: "",
 	}
 
 	result := applyQueueDefaults(queues)
