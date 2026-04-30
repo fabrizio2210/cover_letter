@@ -31,7 +31,8 @@ func Login(jwtSecret []byte) gin.HandlerFunc {
 
 		username := req.Username
 		if username == "" {
-			username = "admin"
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing username in request"})
+			return
 		}
 		// Hash the username so arbitrary input never reaches MongoDB database names.
 		// First 16 bytes (32 hex chars) of SHA-256 gives 128-bit uniqueness.

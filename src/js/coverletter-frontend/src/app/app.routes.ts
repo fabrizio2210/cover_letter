@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './features/auth/login.component';
+import { AdminLoginComponent } from './features/auth/admin-login.component';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { DashboardOverviewComponent } from './features/dashboard/dashboard-overview.component';
 import { JobDiscoveryComponent } from './features/job-discovery/job-discovery.component';
@@ -12,6 +13,7 @@ import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
     { path: 'login', component: LoginComponent },
+    { path: 'admin/login', component: AdminLoginComponent },
     { path: 'settings', redirectTo: '/dashboard/settings', pathMatch: 'full' },
 
     // Dashboard acts as a shell with sidebar nav and router-outlet for child pages

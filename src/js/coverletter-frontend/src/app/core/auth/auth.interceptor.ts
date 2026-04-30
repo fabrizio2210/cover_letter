@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const token = authService.getToken();
-  const isLoginRequest = req.url === '/api/login';
+  const isLoginRequest = req.url === '/api/login' || req.url === '/api/admin/login';
 
   const request = token && !req.headers.has('Authorization') && !isLoginRequest
     ? req.clone({

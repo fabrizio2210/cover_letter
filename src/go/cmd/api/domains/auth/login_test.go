@@ -60,7 +60,7 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			name:          "empty signing key still returns signed jwt",
-			requestBody:   fmt.Sprintf(`{"password":"%s"}`, password),
+			requestBody:   fmt.Sprintf(`{"username":"admin","password":"%s"}`, password),
 			adminPassword: &password,
 			jwtSecret:     []byte{},
 			expectStatus:  http.StatusOK,
@@ -68,7 +68,7 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			name:          "valid credentials return signed jwt",
-			requestBody:   fmt.Sprintf(`{"password":"%s"}`, password),
+			requestBody:   fmt.Sprintf(`{"username":"admin","password":"%s"}`, password),
 			adminPassword: &password,
 			jwtSecret:     []byte("jwt-secret"),
 			expectStatus:  http.StatusOK,
