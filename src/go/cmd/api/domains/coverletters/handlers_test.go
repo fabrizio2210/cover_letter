@@ -603,6 +603,7 @@ func TestRefineCoverLetter_ValidationAndQueue(t *testing.T) {
 
 		req := newJSONRequest(http.MethodPost, "/api/cover-letters/"+id+"/refine", `{"prompt":"Tighten the tone"}`)
 		c, w := newContextWithID(t, http.MethodPost, "/api/cover-letters/"+id+"/refine", id, req)
+		c.Set("userId", "user-123")
 		RefineCoverLetter(c)
 
 		if w.Code != http.StatusOK {
@@ -617,6 +618,9 @@ func TestRefineCoverLetter_ValidationAndQueue(t *testing.T) {
 		}
 		if payload["recipient"] != "target@example.com" {
 			t.Fatalf("unexpected recipient: %#v", payload["recipient"])
+		}
+		if payload["user_id"] != "user-123" {
+			t.Fatalf("unexpected user_id: %#v", payload["user_id"])
 		}
 		if payload["conversation_id"] != "conv-42" {
 			t.Fatalf("unexpected conversation_id: %#v", payload["conversation_id"])
@@ -644,6 +648,7 @@ func TestSendCoverLetter_ValidationAndQueue(t *testing.T) {
 		setProvidersForTest(t, &fakeMongoClient{db: fakeDB}, nil)
 
 		c, w := newContextWithID(t, http.MethodPost, "/api/cover-letters/"+id+"/send", id, nil)
+		c.Set("userId", "user-123")
 		SendCoverLetter(c)
 
 		if w.Code != http.StatusNotFound {
@@ -674,6 +679,7 @@ func TestSendCoverLetter_ValidationAndQueue(t *testing.T) {
 		})
 
 		c, w := newContextWithID(t, http.MethodPost, "/api/cover-letters/"+id+"/send", id, nil)
+		c.Set("userId", "user-123")
 		SendCoverLetter(c)
 
 		if w.Code != http.StatusInternalServerError {
@@ -711,6 +717,7 @@ func TestSendCoverLetter_ValidationAndQueue(t *testing.T) {
 		})
 
 		c, w := newContextWithID(t, http.MethodPost, "/api/cover-letters/"+id+"/send", id, nil)
+		c.Set("userId", "user-123")
 		SendCoverLetter(c)
 
 		if w.Code != http.StatusOK {
@@ -725,6 +732,9 @@ func TestSendCoverLetter_ValidationAndQueue(t *testing.T) {
 		}
 		if payload["recipient"] != "hr@example.com" {
 			t.Fatalf("unexpected recipient: %#v", payload["recipient"])
+		}
+		if payload["user_id"] != "user-123" {
+			t.Fatalf("unexpected user_id: %#v", payload["user_id"])
 		}
 		if payload["cover_letter"] != "Email body" {
 			t.Fatalf("unexpected cover_letter: %#v", payload["cover_letter"])

@@ -238,13 +238,13 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
         config = _make_config()
         redis_client = Mock()
 
-        self.assertTrue(workflow_module._try_enqueue(redis_client, config, "abc"))
+        self.assertTrue(workflow_module._try_enqueue(redis_client, config, "abc", "user-1"))
         queue_name, payload = redis_client.rpush.call_args[0]
         self.assertEqual(queue_name, config.job_scoring_queue_name)
-        self.assertEqual(json.loads(payload), {"job_id": "abc"})
+        self.assertEqual(json.loads(payload), {"job_id": "abc", "user_id": "user-1"})
 
         redis_client.rpush.side_effect = RuntimeError("boom")
-        self.assertFalse(workflow_module._try_enqueue(redis_client, config, "def"))
+        self.assertFalse(workflow_module._try_enqueue(redis_client, config, "def", "user-1"))
 
 
 class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
@@ -489,7 +489,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow._connect_redis", return_value=fake_redis):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, "user-1", identity_database=db)
 
         self.assertEqual(result.enqueued_count, 1)
         self.assertEqual(result.enqueue_failed_count, 0)

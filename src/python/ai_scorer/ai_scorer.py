@@ -1062,7 +1062,7 @@ def main():
     scoring_progress_channel = os.environ.get("SCORING_PROGRESS_CHANNEL_NAME", "scoring_progress_channel")
 
     mongo_uri = os.environ.get("MONGO_HOST", "mongodb://localhost:27017/")
-    mongo_db_name = os.environ.get("DB_NAME", "cover_letter")
+    mongo_db_name = os.environ.get("DB_NAME", "cover_letter_global")
 
     test_mode = os.environ.get("AI_SCORER_TEST_MODE", "0") == "1"
     ollama_host = os.environ.get("OLLAMA_HOST")

@@ -85,9 +85,12 @@ def _upsert_job(
         return job_id, False
 
 
-def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str) -> bool:
+def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str, user_id: str) -> bool:
+    if not user_id:
+        logger.warning("crawler_levelsfyi: missing user_id for scoring enqueue job_id=%s", job_id)
+        return False
     try:
-        payload = json.dumps({"job_id": job_id})
+        payload = json.dumps({"job_id": job_id, "user_id": user_id})
         redis_client.rpush(config.job_scoring_queue_name, payload)
         return True
     except Exception as exc:
@@ -164,6 +167,7 @@ def run_crawler_levelsfyi(
     database,
     config: CrawlerConfig,
     identity_id: str,
+    user_id: str = "",
     progress_callback: Callable[[int, int, str], None] | None = None,
     *,
     identity_database,
@@ -310,7 +314,7 @@ def run_crawler_levelsfyi(
             result.updated_count += 1
 
         if redis_client is not None and config.enable_scoring_enqueue:
-            if _try_enqueue(redis_client, config, job_id):
+            if _try_enqueue(redis_client, config, job_id, user_id):
                 result.enqueued_count += 1
             else:
                 result.enqueue_failed_count += 1

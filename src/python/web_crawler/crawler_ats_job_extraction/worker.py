@@ -76,7 +76,13 @@ def worker_main(config: CrawlerConfig) -> None:
             try:
                 database = get_database(config)
                 user_database = get_user_database(config, user_id)
-                crawl_result = run_crawler_ats_job_extraction(database, config, identity_id=identity_id, identity_database=user_database)
+                crawl_result = run_crawler_ats_job_extraction(
+                    database,
+                    config,
+                    user_id=user_id,
+                    identity_id=identity_id,
+                    identity_database=user_database,
+                )
                 discovered_jobs = crawl_result.inserted_count + crawl_result.updated_count
                 increment_discovered_jobs_counter(
                     config,

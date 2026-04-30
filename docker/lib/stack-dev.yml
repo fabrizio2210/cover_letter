@@ -66,7 +66,6 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
       REDIS_HOST: redis_cover_letter
     volumes:
@@ -80,7 +79,6 @@ services:
     environment:
       GEMINI_TOKEN: ${GEMINI_TOKEN}
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
     volumes:
       - ../../:/app
@@ -95,7 +93,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
@@ -128,7 +125,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
@@ -153,7 +149,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -173,7 +168,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
@@ -192,7 +186,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -213,7 +206,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -234,7 +226,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -256,7 +247,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -278,7 +268,6 @@ services:
     restart: always
     environment:
       MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      DB_NAME: "cover_letter"
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
@@ -327,7 +316,6 @@ services:
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
-      - DB_NAME=cover_letter
       - REDIS_HOST=redis_cover_letter
       - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
       - CRAWLER_YCOMBINATOR_QUEUE_NAME=crawler_ycombinator_queue
@@ -369,7 +357,6 @@ services:
   #   environment:
   #     REDIS_HOST: redis_cover_letter
   #     DB_URL: mongodb://root:develop@mongo:27017/
-  #     DB_NAME: coverletter
   #   volumes:
   #     - ../../src/go:/usr/src/app
   #   networks:
@@ -386,7 +373,6 @@ services:
   #   environment:
   #     REDIS_HOST: redis_cover_letter
   #     DB_URL: mongodb://root:develop@mongo:27017/
-  #     DB_NAME: coverletter
   #     STATIC_FILES_PATH: /static_files
   #     GUEST_API_URL: https://have.been.to.it/api/guest
   #   volumes:

@@ -335,6 +335,7 @@ func RefineCoverLetter(c *gin.Context) {
 	}
 
 	payload := map[string]interface{}{
+		"user_id":         userIDStr,
 		"recipient":       recipientEmail,
 		"conversation_id": conversationID,
 		"prompt":          req.Prompt,
@@ -404,6 +405,7 @@ func SendCoverLetter(c *gin.Context) {
 	}
 
 	payload := map[string]interface{}{
+		"user_id":     userIDStr,
 		"recipient":    recipientEmail,
 		"cover_letter": coverLetterText,
 	}

@@ -25,13 +25,10 @@ def main():
 
     # MongoDB setup
     mongo_uri = os.environ.get("MONGO_HOST", "mongodb://localhost:27017/")
-    mongo_db_name = os.environ.get("DB_NAME", "cover_letter")
+    mongo_db_name = os.environ.get("DB_NAME", "cover_letter_global")
     client = MongoClient(mongo_uri)
-    db = client[mongo_db_name]
-    recipients_col = db["recipients"]
-    identities_col = db["identities"]
-    companies_col = db["companies"]
-    cover_letters_col = db["cover-letters"]
+    global_db = client[mongo_db_name]
+    companies_col = global_db["companies"]
 
     r = redis.Redis(host=redis_host, port=redis_port)
 
@@ -47,12 +44,22 @@ def main():
                 except Exception as e:
                     print(f"error: Invalid JSON in queue message: {e}")
                     continue
+                user_id = str(payload.get("user_id") or "").strip()
                 email = payload.get("recipient")
                 conversation_id = payload.get("conversation_id")
                 followup_prompt = payload.get("prompt")
+                if not user_id:
+                    print("error: Missing user_id in queue message.")
+                    continue
                 if not email:
                     print("error: No recipient specified in message.")
                     continue
+
+                user_db = client[f"cover_letter_{user_id}"]
+                recipients_col = user_db["recipients"]
+                identities_col = user_db["identities"]
+                cover_letters_col = user_db["cover-letters"]
+
                 recipient = recipients_col.find_one({"email": email})
                 if not recipient:
                     print(f"error: Recipient '{email}' not found in database.")

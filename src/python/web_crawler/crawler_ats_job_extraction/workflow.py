@@ -52,9 +52,12 @@ def _build_job_document(job: common_pb2.Job, company_oid: ObjectId) -> dict:
     return doc
 
 
-def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str) -> bool:
+def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str, user_id: str) -> bool:
+    if not user_id:
+        logger.warning("crawler_ats_job_extraction: missing user_id for scoring enqueue job_id=%s", job_id)
+        return False
     try:
-        payload = json.dumps({"job_id": job_id})
+        payload = json.dumps({"job_id": job_id, "user_id": user_id})
         redis_client.rpush(config.job_scoring_queue_name, payload)
         return True
     except Exception as exc:
@@ -126,6 +129,7 @@ def _load_ats_companies(companies_collection, company_ids: Iterable[str] | None)
 def run_crawler_ats_job_extraction(
     database,
     config: CrawlerConfig,
+    user_id: str = "",
     company_ids: list[str] | None = None,
     identity_id: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
@@ -220,7 +224,7 @@ def run_crawler_ats_job_extraction(
                             result.updated_count += 1
 
                         if config.enable_scoring_enqueue and redis_client is not None:
-                            if _try_enqueue(redis_client, config, job_id):
+                            if _try_enqueue(redis_client, config, job_id, user_id):
                                 result.enqueued_count += 1
                             else:
                                 result.enqueue_failed_count += 1

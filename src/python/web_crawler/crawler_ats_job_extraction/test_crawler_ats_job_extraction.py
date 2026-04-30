@@ -308,7 +308,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_ats_job_extraction.workflow.fetch_jobs", side_effect=self._stub_fetch_jobs), \
              patch("src.python.web_crawler.crawler_ats_job_extraction.workflow._connect_redis", return_value=fake_redis):
-            result = run_crawler_ats_job_extraction(db, config, identity_id=str(self.identity_oid), identity_database=db)
+            result = run_crawler_ats_job_extraction(db, config, user_id="user-1", identity_id=str(self.identity_oid), identity_database=db)
 
         fake_redis.rpush.assert_called_once()
         call_args = fake_redis.rpush.call_args

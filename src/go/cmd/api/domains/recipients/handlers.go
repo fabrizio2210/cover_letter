@@ -386,6 +386,7 @@ func GenerateCoverLetterForRecipient(c *gin.Context) {
 	}
 
 	payload := map[string]interface{}{
+		"user_id":   userIDStr,
 		"recipient": recipient.Email,
 	}
 	payloadBytes, err := json.Marshal(payload)

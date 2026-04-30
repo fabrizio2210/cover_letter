@@ -99,6 +99,7 @@ def worker_main(config: CrawlerConfig) -> None:
                     database,
                     config,
                     identity_id,
+                    user_id,
                     progress_callback=_progress_callback,
                     identity_database=user_database,
                 )

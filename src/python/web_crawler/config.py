@@ -81,7 +81,7 @@ class CrawlerConfig:
         yc_max_companies_per_role = os.getenv("CRAWLER_YC_MAX_COMPANIES_PER_ROLE")
         return cls(
             mongo_host=os.getenv("MONGO_HOST", "mongodb://localhost:27017/"),
-            db_name=os.getenv("DB_NAME", "cover_letter"),
+            db_name=os.getenv("DB_NAME", "cover_letter_global"),
             http_timeout_seconds=int(os.getenv("CRAWLER_HTTP_TIMEOUT_SECONDS", "20")),
             max_retries=int(os.getenv("CRAWLER_MAX_RETRIES", "3")),
             base_delay_ms=int(os.getenv("CRAWLER_BASE_DELAY_MS", "1500")),
