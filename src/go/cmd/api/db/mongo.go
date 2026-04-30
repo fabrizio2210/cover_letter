@@ -43,7 +43,20 @@ func SetTestClient(c *mongo.Client) {
 	clientInstance = c
 }
 
+// globalDBName returns the shared database name for global collections.
+func globalDBName() string {
+	if name := os.Getenv("DB_NAME"); name != "" {
+		return name
+	}
+	return "cover_letter_global"
+}
+
 // GetDatabaseName returns the appropriate database name for a given collection and user.
+//
+// Global collections (jobs, companies, fields, stats) are stored in the shared
+// database. All other collections are stored in a per-user database named
+// cover_letter_<userID>, where userID is the JWT sub claim (a SHA-256–derived
+// hex string set at login time — never raw user input).
 func GetDatabaseName(collectionName string, userID string) string {
 	globalCollections := map[string]bool{
 		"jobs":             true,
@@ -54,34 +67,14 @@ func GetDatabaseName(collectionName string, userID string) string {
 	}
 
 	if globalCollections[collectionName] {
-		dbName := os.Getenv("DB_NAME")
-		if dbName == "" {
-			return "cover_letter"
-		}
-		return dbName
+		return globalDBName()
 	}
 
-	if collectionName == "settings" {
-		if userID == "" {
-			dbName := os.Getenv("DB_NAME")
-			if dbName == "" {
-				return "cover_letter"
-			}
-			return dbName
-		}
-		return "user_" + userID
-	}
-
-	// For per-user collections, userID should ideally be present.
+	// Per-user collections require a userID. Fall back to the global DB only when
+	// userID is absent (e.g., unauthenticated dev tooling).
 	if userID == "" {
-		// Log warning or handle strictly in production.
-		// Fallback to default for now to avoid breaking existing dev workflows if any.
-		dbName := os.Getenv("DB_NAME")
-		if dbName == "" {
-			return "cover_letter"
-		}
-		return dbName
+		return globalDBName()
 	}
 
-	return "user_" + userID
+	return "cover_letter_" + userID
 }

@@ -211,10 +211,10 @@ func responseArrayFromRecorder(t *testing.T, body []byte) []map[string]interface
 func TestGetCompanies_AggregateError(t *testing.T) {
 	companiesColl := &fakeMongoCollection{aggregateErr: errors.New("boom")}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
-	t.Setenv("DB_NAME", "")
+	t.Setenv("DB_NAME", "cover_letter_global")
 
 	c, w := apitesting.CreateGinTestContext(http.MethodGet, "/api/companies", nil)
 
@@ -233,7 +233,7 @@ func TestGetCompanies_DecodeError(t *testing.T) {
 	cursor := &fakeMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}, decodeErr: errors.New("decode")}
 	companiesColl := &fakeMongoCollection{aggregateCursor: cursor}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -264,7 +264,7 @@ func TestGetCompanies_SuccessNormalizesObjectIDs(t *testing.T) {
 	}}}
 	companiesColl := &fakeMongoCollection{aggregateCursor: cursor}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -313,7 +313,7 @@ func TestGetCompanies_SuccessStringIDsPassThrough(t *testing.T) {
 	}}}
 	companiesColl := &fakeMongoCollection{aggregateCursor: cursor}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -344,7 +344,7 @@ func TestGetCompanies_SuccessStringIDsPassThrough(t *testing.T) {
 func TestGetCompanies_EmptyReturnsArray(t *testing.T) {
 	companiesColl := &fakeMongoCollection{aggregateCursor: &fakeMongoCursor{docs: []bson.M{}}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -394,7 +394,7 @@ func TestCreateCompany_InvalidFieldID(t *testing.T) {
 func TestCreateCompany_InsertError(t *testing.T) {
 	companiesColl := &fakeMongoCollection{insertErr: errors.New("insert")}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -416,7 +416,7 @@ func TestCreateCompany_SuccessWithoutField(t *testing.T) {
 	insertID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{insertResult: &mongo.InsertOneResult{InsertedID: insertID}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -447,7 +447,7 @@ func TestCreateCompany_SuccessWithFieldInfo(t *testing.T) {
 	companiesColl := &fakeMongoCollection{insertResult: &mongo.InsertOneResult{InsertedID: insertID}}
 	fieldsColl := &fakeMongoCollection{findOneResult: &fakeMongoSingleResult{doc: bson.M{"field": "AI"}}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {
+		"cover_letter_global": {
 			collections: map[string]*fakeMongoCollection{
 				"companies": companiesColl,
 				"fields":    fieldsColl,
@@ -485,7 +485,7 @@ func TestCreateCompany_FieldLookupFallback(t *testing.T) {
 	companiesColl := &fakeMongoCollection{insertResult: &mongo.InsertOneResult{InsertedID: insertID}}
 	fieldsColl := &fakeMongoCollection{findOneResult: &fakeMongoSingleResult{err: mongo.ErrNoDocuments}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {
+		"cover_letter_global": {
 			collections: map[string]*fakeMongoCollection{
 				"companies": companiesColl,
 				"fields":    fieldsColl,
@@ -568,7 +568,7 @@ func TestUpdateCompany_UpdateError(t *testing.T) {
 	fieldID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateErr: errors.New("update")}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -593,7 +593,7 @@ func TestUpdateCompany_NotFound(t *testing.T) {
 	fieldID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateResult: &mongo.UpdateResult{MatchedCount: 0}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -618,7 +618,7 @@ func TestUpdateCompany_SuccessAndUpdatePayload(t *testing.T) {
 	fieldID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -688,7 +688,7 @@ func TestAssociateFieldWithCompany_InvalidFieldID(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -711,7 +711,7 @@ func TestAssociateFieldWithCompany_UpdateError(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateErr: errors.New("update")}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -734,7 +734,7 @@ func TestAssociateFieldWithCompany_UnsetWhenNull(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateResult: &mongo.UpdateResult{ModifiedCount: 2}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -765,7 +765,7 @@ func TestAssociateFieldWithCompany_UnsetWhenEmptyString(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateResult: &mongo.UpdateResult{ModifiedCount: 1}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -789,7 +789,7 @@ func TestAssociateFieldWithCompany_SetWhenValidFieldID(t *testing.T) {
 	fieldID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{updateResult: &mongo.UpdateResult{ModifiedCount: 1}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -828,7 +828,7 @@ func TestDeleteCompany_DeleteError(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{deleteErr: errors.New("delete")}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -850,7 +850,7 @@ func TestDeleteCompany_NotFound(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{deleteResult: &mongo.DeleteResult{DeletedCount: 0}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 
@@ -872,7 +872,7 @@ func TestDeleteCompany_Success(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	companiesColl := &fakeMongoCollection{deleteResult: &mongo.DeleteResult{DeletedCount: 1}}
 	client := &fakeMongoClient{dbs: map[string]*fakeMongoDatabase{
-		"cover_letter": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
+		"cover_letter_global": {collections: map[string]*fakeMongoCollection{"companies": companiesColl}},
 	}}
 	withMongoClient(t, client)
 

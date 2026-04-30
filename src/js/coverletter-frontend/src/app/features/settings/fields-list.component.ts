@@ -69,7 +69,7 @@ export class FieldsListComponent implements OnInit {
   }
 
   getFields(): void {
-    this.http.get<Field[]>('/api/fields').subscribe({
+    this.http.get<Field[]>('/api/admin/fields').subscribe({
       next: (data) => { this.fields = data || []; },
       error: (err) => this.showFeedback('Failed to fetch fields.', true, err)
     });
@@ -100,7 +100,7 @@ export class FieldsListComponent implements OnInit {
       return;
     }
 
-    this.http.put(`/api/fields/${f.id}`, { field: this.editField.trim() }).subscribe({
+    this.http.put(`/api/admin/fields/${f.id}`, { field: this.editField.trim() }).subscribe({
       next: () => {
         this.showFeedback('Field updated successfully.');
         this.getFields();
@@ -116,7 +116,7 @@ export class FieldsListComponent implements OnInit {
       return;
     }
     const payload = { field: this.newField.trim() };
-    this.http.post<Field>('/api/fields', payload).subscribe({
+    this.http.post<Field>('/api/admin/fields', payload).subscribe({
       next: () => {
         this.showFeedback('Field created successfully.');
         this.newField = '';
@@ -133,7 +133,7 @@ export class FieldsListComponent implements OnInit {
   }
 
   deleteField(f: Field): void {
-    this.http.delete(`/api/fields/${f.id}`).subscribe({
+    this.http.delete(`/api/admin/fields/${f.id}`).subscribe({
       next: () => {
         this.showFeedback('Field deleted successfully.');
         this.getFields();

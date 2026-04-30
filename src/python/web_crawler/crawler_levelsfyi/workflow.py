@@ -165,9 +165,11 @@ def run_crawler_levelsfyi(
     config: CrawlerConfig,
     identity_id: str,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    *,
+    identity_database,
 ) -> WorkflowResult:
     """Run the crawler_levelsfyi workflow: discover jobs from Levels.fyi and upsert them."""
-    identities_collection = database["identities"]
+    identities_collection = identity_database["identities"]
     companies_collection = database["companies"]
     jobs_collection = database["jobs"]
 

@@ -14,6 +14,9 @@ import (
 // Login is implemented in the auth domain slice.
 var Login = authdomain.Login
 
+// AdminLogin is the admin-only login endpoint.
+var AdminLogin = authdomain.AdminLogin
+
 // Compatibility exports to keep route wiring centralized while migration is in progress.
 var GetRecipients = recipientsdomain.GetRecipients
 var CreateRecipient = recipientsdomain.CreateRecipient

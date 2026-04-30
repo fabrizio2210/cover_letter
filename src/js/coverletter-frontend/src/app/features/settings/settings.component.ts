@@ -8,9 +8,7 @@ import { FieldsListComponent } from './fields-list.component';
   imports: [CommonModule, FieldsListComponent],
   template: `
     <section class="settings-shell">
-      <h3>Settings</h3>
-      <p class="is-size-6">Manage shared configuration and fields.</p>
-      <app-fields-list></app-fields-list>
+      <app-fields-list />
     </section>
   `
 })

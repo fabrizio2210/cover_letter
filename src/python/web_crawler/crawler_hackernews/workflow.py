@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 _WORKFLOW_ID = "crawler_hackernews"
 
 
-def run_crawler_hackernews(database, config: CrawlerConfig, identity_id: str) -> WorkflowResult:
-    identities_collection = database["identities"]
+def run_crawler_hackernews(database, config: CrawlerConfig, identity_id: str, *, identity_database) -> WorkflowResult:
+    identities_collection = identity_database["identities"]
     companies_collection = database["companies"]
     seed = load_identity_seed(identities_collection, identity_id)
     logger.debug("seed roles: %s", list(seed.roles))

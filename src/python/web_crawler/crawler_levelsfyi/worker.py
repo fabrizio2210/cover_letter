@@ -14,7 +14,7 @@ from src.python.web_crawler.crawler_levelsfyi.workflow import (
     _emit_enrichment_events,
     run_crawler_levelsfyi,
 )
-from src.python.web_crawler.db import get_database
+from src.python.web_crawler.db import get_database, get_user_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
@@ -68,10 +68,11 @@ def worker_main(config: CrawlerConfig) -> None:
             run_id = message.run_id.strip()
             workflow_run_id = message.workflow_run_id.strip()
             identity_id = message.identity_id.strip()
+            user_id = message.user_id.strip()
 
-            if not identity_id:
+            if not identity_id or not user_id:
                 logger.warning(
-                    "crawler_levelsfyi: dispatch message missing identity_id: %s", raw_payload
+                    "crawler_levelsfyi: dispatch message missing identity_id or user_id: %s", raw_payload
                 )
                 continue
 
@@ -108,11 +109,13 @@ def worker_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
+                user_database = get_user_database(config, user_id)
                 crawl_result = run_crawler_levelsfyi(
                     database,
                     config,
                     identity_id,
                     progress_callback=_progress_callback,
+                    identity_database=user_database,
                 )
 
                 increment_discovered_jobs_counter(

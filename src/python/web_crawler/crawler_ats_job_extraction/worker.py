@@ -9,7 +9,7 @@ import redis
 
 from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.crawler_ats_job_extraction.workflow import run_crawler_ats_job_extraction
-from src.python.web_crawler.db import get_database
+from src.python.web_crawler.db import get_database, get_user_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_counters import increment_discovered_jobs_counter
 from src.python.web_crawler.workflow_messages import parse_workflow_dispatch
@@ -52,9 +52,10 @@ def worker_main(config: CrawlerConfig) -> None:
             run_id = message.run_id.strip()
             workflow_run_id = message.workflow_run_id.strip()
             identity_id = message.identity_id.strip()
+            user_id = message.user_id.strip()
 
-            if not run_id or not identity_id:
-                logger.warning("dispatch message missing run_id or identity_id: %s", raw_payload)
+            if not run_id or not identity_id or not user_id:
+                logger.warning("dispatch message missing run_id, identity_id, or user_id: %s", raw_payload)
                 continue
 
             started_at = utc_timestamp()
@@ -74,7 +75,8 @@ def worker_main(config: CrawlerConfig) -> None:
 
             try:
                 database = get_database(config)
-                crawl_result = run_crawler_ats_job_extraction(database, config, identity_id=identity_id)
+                user_database = get_user_database(config, user_id)
+                crawl_result = run_crawler_ats_job_extraction(database, config, identity_id=identity_id, identity_database=user_database)
                 discovered_jobs = crawl_result.inserted_count + crawl_result.updated_count
                 increment_discovered_jobs_counter(
                     config,

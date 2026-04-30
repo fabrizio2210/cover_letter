@@ -129,9 +129,11 @@ def run_crawler_ats_job_extraction(
     company_ids: list[str] | None = None,
     identity_id: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    *,
+    identity_database,
 ) -> WorkflowResult:
     companies_collection = database["companies"]
-    identities_collection = database["identities"]
+    identities_collection = identity_database["identities"]
     jobs_collection = database["jobs"]
     result = WorkflowResult()
 

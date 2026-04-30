@@ -652,18 +652,21 @@ class CrawlTriggerQueuePayload(google.protobuf.message.Message):
     RUN_ID_FIELD_NUMBER: builtins.int
     IDENTITY_ID_FIELD_NUMBER: builtins.int
     REQUESTED_AT_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     run_id: typing.Text
     identity_id: typing.Text
     @property
     def requested_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    user_id: typing.Text
     def __init__(self,
         *,
         run_id: typing.Text = ...,
         identity_id: typing.Text = ...,
         requested_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        user_id: typing.Text = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["requested_at",b"requested_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["identity_id",b"identity_id","requested_at",b"requested_at","run_id",b"run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["identity_id",b"identity_id","requested_at",b"requested_at","run_id",b"run_id","user_id",b"user_id"]) -> None: ...
 global___CrawlTriggerQueuePayload = CrawlTriggerQueuePayload
 
 class WorkflowDispatchMessage(google.protobuf.message.Message):
@@ -678,6 +681,7 @@ class WorkflowDispatchMessage(google.protobuf.message.Message):
     TRIGGER_KIND_FIELD_NUMBER: builtins.int
     ATTEMPT_FIELD_NUMBER: builtins.int
     DISPATCHED_AT_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     run_id: typing.Text
     workflow_run_id: typing.Text
     workflow_id: typing.Text
@@ -689,6 +693,7 @@ class WorkflowDispatchMessage(google.protobuf.message.Message):
     attempt: builtins.int
     @property
     def dispatched_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    user_id: typing.Text
     def __init__(self,
         *,
         run_id: typing.Text = ...,
@@ -701,9 +706,10 @@ class WorkflowDispatchMessage(google.protobuf.message.Message):
         trigger_kind: typing.Text = ...,
         attempt: builtins.int = ...,
         dispatched_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        user_id: typing.Text = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["dispatched_at",b"dispatched_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["ats_provider",b"ats_provider","ats_slug",b"ats_slug","attempt",b"attempt","company_id",b"company_id","dispatched_at",b"dispatched_at","identity_id",b"identity_id","run_id",b"run_id","trigger_kind",b"trigger_kind","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["ats_provider",b"ats_provider","ats_slug",b"ats_slug","attempt",b"attempt","company_id",b"company_id","dispatched_at",b"dispatched_at","identity_id",b"identity_id","run_id",b"run_id","trigger_kind",b"trigger_kind","user_id",b"user_id","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
 global___WorkflowDispatchMessage = WorkflowDispatchMessage
 
 class CompanyDiscoveryEvent(google.protobuf.message.Message):
@@ -715,6 +721,7 @@ class CompanyDiscoveryEvent(google.protobuf.message.Message):
     COMPANY_ID_FIELD_NUMBER: builtins.int
     REASON_FIELD_NUMBER: builtins.int
     EMITTED_AT_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     run_id: typing.Text
     workflow_run_id: typing.Text
     workflow_id: typing.Text
@@ -723,6 +730,7 @@ class CompanyDiscoveryEvent(google.protobuf.message.Message):
     reason: typing.Text
     @property
     def emitted_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    user_id: typing.Text
     def __init__(self,
         *,
         run_id: typing.Text = ...,
@@ -732,9 +740,10 @@ class CompanyDiscoveryEvent(google.protobuf.message.Message):
         company_id: typing.Text = ...,
         reason: typing.Text = ...,
         emitted_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        user_id: typing.Text = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["emitted_at",b"emitted_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","emitted_at",b"emitted_at","identity_id",b"identity_id","reason",b"reason","run_id",b"run_id","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["company_id",b"company_id","emitted_at",b"emitted_at","identity_id",b"identity_id","reason",b"reason","run_id",b"run_id","user_id",b"user_id","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
 global___CompanyDiscoveryEvent = CompanyDiscoveryEvent
 
 class AtsJobTriggerEvent(google.protobuf.message.Message):

@@ -156,6 +156,7 @@ message CrawlTriggerQueuePayload {
     string run_id = 1;
     string identity_id = 2;
     google.protobuf.Timestamp requested_at = 3;
+    string user_id = 4;
 }
 
 message WorkflowDispatchMessage {
@@ -169,6 +170,7 @@ message WorkflowDispatchMessage {
     string trigger_kind = 8;
     int32 attempt = 9;
     google.protobuf.Timestamp dispatched_at = 10;
+    string user_id = 11;
 }
 
 message CompanyDiscoveryEvent {
@@ -179,6 +181,7 @@ message CompanyDiscoveryEvent {
     string company_id = 5;
     string reason = 6;
     google.protobuf.Timestamp emitted_at = 7;
+    string user_id = 8;
 }
 
 message AtsJobTriggerEvent {

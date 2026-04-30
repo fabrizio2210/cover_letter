@@ -12,7 +12,7 @@ from bson import ObjectId
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.db import get_database
+from src.python.web_crawler.db import get_database, get_user_database
 from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.enrichment_ats_enrichment.workflow import run_enrichment_ats_enrichment
@@ -48,6 +48,7 @@ def _dispatch_ats_job_extraction(
     *,
     run_id: str,
     identity_id: str,
+    user_id: str,
     company_id: str,
     ats_provider: str,
     ats_slug: str,
@@ -60,6 +61,7 @@ def _dispatch_ats_job_extraction(
         workflow_run_id=extraction_workflow_run_id,
         workflow_id="crawler_ats_job_extraction",
         identity_id=identity_id,
+        user_id=user_id,
         company_id=company_id,
         ats_provider=ats_provider,
         ats_slug=ats_slug,
@@ -86,6 +88,7 @@ def _run_enrichment_for_event(
     run_id: str,
     workflow_run_id: str,
     identity_id: str,
+    user_id: str,
     company_id: str,
 ) -> WorkflowResult:
     """Run ATS enrichment for a single company and dispatch extraction on success."""
@@ -106,6 +109,7 @@ def _run_enrichment_for_event(
                     config,
                     run_id=run_id,
                     identity_id=identity_id,
+                    user_id=user_id,
                     company_id=company_id,
                     ats_provider=doc["ats_provider"],
                     ats_slug=doc["ats_slug"],
@@ -154,10 +158,11 @@ def worker_main(config: CrawlerConfig) -> None:
             workflow_run_id = event.workflow_run_id.strip()
             identity_id = event.identity_id.strip()
             company_id = event.company_id.strip()
+            user_id = event.user_id.strip()
 
-            if not identity_id or not company_id:
+            if not identity_id or not company_id or not user_id:
                 logger.warning(
-                    "company discovery event missing identity_id or company_id: %s",
+                    "company discovery event missing identity_id, company_id, or user_id: %s",
                     raw_payload,
                 )
                 continue
@@ -187,6 +192,7 @@ def worker_main(config: CrawlerConfig) -> None:
                     run_id=run_id,
                     workflow_run_id=enrichment_workflow_run_id,
                     identity_id=identity_id,
+                    user_id=user_id,
                     company_id=company_id,
                 )
                 finished_at = utc_timestamp()

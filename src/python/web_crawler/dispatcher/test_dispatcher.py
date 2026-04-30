@@ -173,7 +173,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         count = _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="run1", identity_id="ident1"
+            redis_client, self.config, db, run_id="run1", identity_id="ident1", user_id="test_user"
         )
 
         self.assertEqual(count, 3)
@@ -188,7 +188,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="run42", identity_id="id99"
+            redis_client, self.config, db, run_id="run42", identity_id="id99", user_id="test_user"
         )
 
         self.assertEqual(redis_client.rpush.call_count, 1)
@@ -208,7 +208,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="r1", identity_id="i1"
+            redis_client, self.config, db, run_id="r1", identity_id="i1", user_id="test_user"
         )
 
         payloads = [json.loads(c.args[1]) for c in redis_client.rpush.call_args_list]
@@ -221,7 +221,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         count = _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="r1", identity_id="i1"
+            redis_client, self.config, db, run_id="r1", identity_id="i1", user_id="test_user"
         )
 
         self.assertEqual(count, 0)
@@ -235,7 +235,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client.rpush.side_effect = [None, RuntimeError("connection lost"), None]
 
         count = _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="r1", identity_id="i1"
+            redis_client, self.config, db, run_id="r1", identity_id="i1", user_id="test_user"
         )
 
         self.assertEqual(count, 2)
@@ -255,7 +255,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         count = _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="r1", identity_id="i1"
+            redis_client, self.config, db, run_id="r1", identity_id="i1", user_id="test_user"
         )
 
         self.assertEqual(count, 1)
@@ -269,7 +269,7 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         redis_client = self._redis()
 
         _fan_out_enrichment_events(
-            redis_client, self.config, db, run_id="my-run-id", identity_id="my-identity"
+            redis_client, self.config, db, run_id="my-run-id", identity_id="my-identity", user_id="test_user"
         )
 
         _, raw_payload = redis_client.rpush.call_args.args

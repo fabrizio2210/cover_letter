@@ -213,9 +213,10 @@ func TriggerCrawl(c *gin.Context) {
 		return
 	}
 
-	{
-		userID, _ := c.Get("userId")
-		userIDStr, _ := userID.(string)
+userIDRaw, _ := c.Get("userId")
+        userIDStr, _ := userIDRaw.(string)
+
+        {
 		dbName := db.GetDatabaseName("identities", userIDStr)
 		collection := getMongoClient().Database(dbName).Collection("identities")
 		var identity bson.M
@@ -257,7 +258,7 @@ func TriggerCrawl(c *gin.Context) {
 		Reason:         "",
 	}
 
-	payload := &models.CrawlTriggerQueuePayload{RunId: runID, IdentityId: identityID, RequestedAt: timestamppb.New(now)}
+	payload := &models.CrawlTriggerQueuePayload{RunId: runID, IdentityId: identityID, UserId: userIDStr, RequestedAt: timestamppb.New(now)}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

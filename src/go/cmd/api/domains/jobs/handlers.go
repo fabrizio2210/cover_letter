@@ -680,7 +680,10 @@ func ScoreJobDescription(c *gin.Context) {
 		queueName = "job_scoring_queue"
 	}
 
-	payloadBytes, err := json.Marshal(map[string]string{"job_id": id})
+	userIDRaw, _ := c.Get("userId")
+	userIDStr, _ := userIDRaw.(string)
+
+	payloadBytes, err := json.Marshal(map[string]string{"job_id": id, "user_id": userIDStr})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
 		return

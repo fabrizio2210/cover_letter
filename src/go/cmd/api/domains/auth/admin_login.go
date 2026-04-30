@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"os"
 	"time"
@@ -11,11 +9,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Login handles the password-based login request and returns a JWT token.
-func Login(jwtSecret []byte) gin.HandlerFunc {
+// AdminLogin handles admin login and returns a JWT with role: "admin".
+// It uses a separate ADMIN_JWT_SECRET so admin tokens cannot be forged
+// with the regular JWT_SECRET, and vice versa.
+func AdminLogin(adminJWTSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Username string `json:"username"`
 			Password string `json:"password"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,20 +28,12 @@ func Login(jwtSecret []byte) gin.HandlerFunc {
 			return
 		}
 
-		username := req.Username
-		if username == "" {
-			username = "admin"
-		}
-		// Hash the username so arbitrary input never reaches MongoDB database names.
-		// First 16 bytes (32 hex chars) of SHA-256 gives 128-bit uniqueness.
-		h := sha256.Sum256([]byte(username))
-		userID := hex.EncodeToString(h[:16])
-
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"sub": userID,
-			"exp": time.Now().Add(24 * time.Hour).Unix(),
+			"sub":  "admin",
+			"role": "admin",
+			"exp":  time.Now().Add(24 * time.Hour).Unix(),
 		})
-		tokenString, err := token.SignedString(jwtSecret)
+		tokenString, err := token.SignedString(adminJWTSecret)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Token error"})
 			return

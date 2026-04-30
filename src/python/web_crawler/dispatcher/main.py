@@ -62,6 +62,7 @@ def _fan_out_enrichment_events(
     *,
     run_id: str,
     identity_id: str,
+    user_id: str,
 ) -> int:
     """Push one CompanyDiscoveryEvent per unenriched company to the enrichment queue."""
     company_ids = _query_companies_needing_enrichment(database)
@@ -76,6 +77,7 @@ def _fan_out_enrichment_events(
                 identity_id=identity_id,
                 company_id=company_id,
                 reason="no_ats_slug",
+                user_id=user_id,
             )
             event.emitted_at.CopyFrom(utc_timestamp())
             redis_client.rpush(
@@ -100,6 +102,7 @@ def _dispatch_workflow(
     *,
     run_id: str,
     identity_id: str,
+    user_id: str,
     workflow_id: str,
     queue_name: str,
 ) -> str:
@@ -109,6 +112,7 @@ def _dispatch_workflow(
         workflow_run_id=workflow_run_id,
         workflow_id=workflow_id,
         identity_id=identity_id,
+        user_id=user_id,
         trigger_kind="public_crawl",
         attempt=1,
     )
@@ -142,7 +146,8 @@ def worker_main(config: CrawlerConfig) -> None:
 
             identity_id = payload.identity_id.strip()
             run_id = payload.run_id.strip()
-            if not identity_id or not run_id:
+            user_id = payload.user_id.strip()
+            if not identity_id or not run_id or not user_id:
                 logger.warning(
                     "crawler trigger payload missing required keys: %s",
                     crawl_trigger_to_dict(payload),
@@ -167,6 +172,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
                 workflow_id="crawler_ycombinator",
                 queue_name=config.crawler_ycombinator_queue_name,
             )
@@ -182,6 +188,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
                 workflow_id="crawler_hackernews",
                 queue_name=config.crawler_hackernews_queue_name,
             )
@@ -197,6 +204,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
                 workflow_id="crawler_ats_job_extraction",
                 queue_name=config.crawler_ats_job_extraction_queue_name,
             )
@@ -212,6 +220,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
                 workflow_id="crawler_levelsfyi",
                 queue_name=config.crawler_levelsfyi_queue_name,
             )
@@ -227,6 +236,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 config,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
                 workflow_id="crawler_4dayweek",
                 queue_name=config.crawler_4dayweek_queue_name,
             )
@@ -244,6 +254,7 @@ def worker_main(config: CrawlerConfig) -> None:
                 database,
                 run_id=run_id,
                 identity_id=identity_id,
+                user_id=user_id,
             )
 
         except Exception as exc:

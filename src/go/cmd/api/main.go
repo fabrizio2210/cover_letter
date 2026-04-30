@@ -15,9 +15,23 @@ func main() {
 	if envSecret := os.Getenv("JWT_SECRET"); envSecret != "" {
 		jwtSecret = []byte(envSecret)
 	}
+
+	adminJWTSecret := []byte(os.Getenv("ADMIN_JWT_SECRET"))
+
 	r := gin.Default()
 
 	r.POST("/api/login", facade.Login(jwtSecret))
+	r.POST("/api/admin/login", facade.AdminLogin(adminJWTSecret))
+
+	// Admin-only routes — require a JWT signed with ADMIN_JWT_SECRET and role == "admin".
+	admin := r.Group("/api/admin")
+	admin.Use(middleware.Admin(adminJWTSecret))
+	{
+		admin.GET("/fields", facade.GetFields)
+		admin.POST("/fields", facade.CreateField)
+		admin.PUT("/fields/:id", facade.UpdateField)
+		admin.DELETE("/fields/:id", facade.DeleteField)
+	}
 
 	auth := r.Group("/api")
 	auth.Use(middleware.JWT(jwtSecret))
@@ -39,11 +53,6 @@ func main() {
 		auth.PUT("/identities/:id/roles", facade.UpdateIdentityRoles)
 		auth.PUT("/identities/:id/preferences", facade.UpdateIdentityPreferences)
 		auth.PUT("/identities/:id/field", facade.AssociateFieldWithIdentity)
-
-		auth.GET("/fields", facade.GetFields)
-		auth.POST("/fields", facade.CreateField)
-		auth.PUT("/fields/:id", facade.UpdateField)
-		auth.DELETE("/fields/:id", facade.DeleteField)
 
 		// Company CRUD endpoints
 		auth.GET("/companies", facade.GetCompanies)

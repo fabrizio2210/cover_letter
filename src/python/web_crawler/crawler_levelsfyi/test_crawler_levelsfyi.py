@@ -265,6 +265,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             config,
             identity_id,
             progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+            identity_database=db,
         )
 
         self.assertEqual(result.discovered_count, 0)
@@ -291,6 +292,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
                 config,
                 identity_id,
                 progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+                identity_database=db,
             )
 
         self.assertEqual(result.discovered_count, 0)
@@ -325,6 +327,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
                 config,
                 identity_id,
                 progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+                identity_database=db,
             )
 
         mock_connect_redis.assert_not_called()
@@ -354,7 +357,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", side_effect=[(1, 0, [str(company_oid)]), (1, 0, [str(company_oid)])]):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
@@ -377,7 +380,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", side_effect=[(0, 0, []), (0, 0, [])]):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.inserted_count, 0)
         self.assertEqual(result.skipped_count, 1)
@@ -401,7 +404,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow._upsert_job", side_effect=[RuntimeError("db down"), ("abc", True)]):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(len(result.failed_urls), 1)
@@ -426,7 +429,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow._upsert_job") as mock_upsert:
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         mock_upsert.assert_not_called()
         self.assertEqual(result.discovered_count, 1)
@@ -459,7 +462,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.discovered_count, 1)
         self.assertEqual(result.inserted_count, 1)
@@ -486,7 +489,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow._connect_redis", return_value=fake_redis):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.enqueued_count, 1)
         self.assertEqual(result.enqueue_failed_count, 0)
@@ -511,7 +514,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         with patch("src.python.web_crawler.crawler_levelsfyi.workflow.LevelsFyiAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow.upsert_companies", return_value=(0, 0, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_levelsfyi.workflow._connect_redis", return_value=fake_redis):
-            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id)
+            result = workflow_module.run_crawler_levelsfyi(db, config, identity_id, identity_database=db)
 
         self.assertEqual(result.enqueued_count, 0)
         self.assertEqual(result.enqueue_failed_count, 1)
@@ -575,12 +578,14 @@ class CrawlerLevelsFyiWorkerTests(unittest.TestCase):
             run_id="run-1",
             workflow_run_id="wf-1",
             identity_id=str(ObjectId()),
+            user_id="test_user",
         )
         result = WorkflowResult(discovered_count=2, inserted_count=1, updated_count=1, skipped_count=0, new_company_ids=[str(ObjectId())])
 
         with patch("src.python.web_crawler.crawler_levelsfyi.worker._connect_redis", return_value=fake_redis), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.parse_workflow_dispatch", return_value=message), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.get_database", return_value=FakeDatabase()), \
+            patch("src.python.web_crawler.crawler_levelsfyi.worker.get_user_database", return_value=FakeDatabase()), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.run_crawler_levelsfyi", return_value=result) as mock_run, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.increment_discovered_jobs_counter") as mock_increment, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker._emit_enrichment_events") as mock_emit, \
@@ -607,11 +612,13 @@ class CrawlerLevelsFyiWorkerTests(unittest.TestCase):
             run_id="run-1",
             workflow_run_id="wf-1",
             identity_id=str(ObjectId()),
+            user_id="test_user",
         )
 
         with patch("src.python.web_crawler.crawler_levelsfyi.worker._connect_redis", return_value=fake_redis), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.parse_workflow_dispatch", return_value=message), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.get_database", return_value=FakeDatabase()), \
+            patch("src.python.web_crawler.crawler_levelsfyi.worker.get_user_database", return_value=FakeDatabase()), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.run_crawler_levelsfyi", side_effect=RuntimeError("boom")), \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.publish_progress") as mock_publish, \
             patch("src.python.web_crawler.crawler_levelsfyi.worker.time.sleep", side_effect=StopIteration):

@@ -175,8 +175,10 @@ def run_crawler_4dayweek(
     config: CrawlerConfig,
     identity_id: str,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    *,
+    identity_database,
 ) -> WorkflowResult:
-    identities_collection = database["identities"]
+    identities_collection = identity_database["identities"]
     companies_collection = database["companies"]
     jobs_collection = database["jobs"]
 

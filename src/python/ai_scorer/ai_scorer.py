@@ -995,13 +995,12 @@ def ensure_score_collection_indexes(job_preference_scores_col):
 def scoring_worker_loop(
     worker_id,
     work_queue,
-    job_descriptions_col,
-    companies_col,
-    identities_col,
-    job_preference_scores_col,
+    global_db,
+    mongo_client,
     redis_client,
     scoring_progress_channel,
-    scoring_run_manager,
+    user_managers,
+    user_managers_lock,
     ollama_host,
     model_name,
     test_mode,
@@ -1010,18 +1009,37 @@ def scoring_worker_loop(
     print(f"info: Worker {worker_id} started")
 
     while True:
-        job_id = work_queue.get()
-        if job_id is None:
+        item = work_queue.get()
+        if item is None:
             work_queue.task_done()
             print(f"info: Worker {worker_id} stopping")
             return
 
-        print(f"info: Worker {worker_id} processing job '{job_id}'")
+        job_id = item["job_id"]
+        user_id = item["user_id"]
+
+        # Derive the per-user database from user_id (which is the JWT sub claim,
+        # already a SHA-256-derived hex string set at login time).
+        user_db = mongo_client[f"cover_letter_{user_id}"]
+        identities_col = user_db["identities"]
+        job_preference_scores_col = user_db["job-preference-scores"]
+
+        # Lazily create a ScoringRunManager for this user.
+        with user_managers_lock:
+            if user_id not in user_managers:
+                user_managers[user_id] = ScoringRunManager(
+                    global_db["jobs"],
+                    global_db["companies"],
+                    job_preference_scores_col,
+                )
+            scoring_run_manager = user_managers[user_id]
+
+        print(f"info: Worker {worker_id} processing job '{job_id}' for user '{user_id}'")
         try:
             process_scoring_job(
                 str(job_id),
-                job_descriptions_col,
-                companies_col,
+                global_db["jobs"],
+                global_db["companies"],
                 identities_col,
                 job_preference_scores_col,
                 redis_client,
@@ -1061,17 +1079,17 @@ def main():
         ollama_model = "test-mode-model"
 
     client = MongoClient(mongo_uri)
-    db = client[mongo_db_name]
-    job_descriptions_col = db["jobs"]
-    companies_col = db["companies"]
-    identities_col = db["identities"]
-    job_preference_scores_col = db["job-preference-scores"]
-    ensure_score_collection_indexes(job_preference_scores_col)
+    global_db = client[mongo_db_name]
+    job_descriptions_col = global_db["jobs"]
+    companies_col = global_db["companies"]
 
     redis_client = redis.Redis(host=redis_host, port=redis_port)
-    scoring_run_manager = ScoringRunManager(job_descriptions_col, companies_col, job_preference_scores_col)
 
-    work_queue: queue.Queue[str | None] = queue.Queue(maxsize=max(1, worker_pool_size * 4))
+    # user_managers maps user_id → ScoringRunManager (created lazily per user).
+    user_managers: dict[str, ScoringRunManager] = {}
+    user_managers_lock = threading.Lock()
+
+    work_queue: queue.Queue[dict | None] = queue.Queue(maxsize=max(1, worker_pool_size * 4))
     worker_threads = []
     for worker_id in range(worker_pool_size):
         worker_thread = threading.Thread(
@@ -1079,13 +1097,12 @@ def main():
             args=(
                 worker_id,
                 work_queue,
-                job_descriptions_col,
-                companies_col,
-                identities_col,
-                job_preference_scores_col,
+                global_db,
+                client,
                 redis_client,
                 scoring_progress_channel,
-                scoring_run_manager,
+                user_managers,
+                user_managers_lock,
                 ollama_host,
                 ollama_model,
                 test_mode,
@@ -1097,7 +1114,7 @@ def main():
 
     print(f"info: Listening for messages on Redis queue '{queue_name}'...")
     print(f"info: Publishing progress on Redis channel '{scoring_progress_channel}'...")
-    print(f"info: Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
+    print(f"info: Global Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
     print(f"info: Test mode = {test_mode}")
     print(f"info: AI_SCORER_OLLAMA_PARALLELISM (worker pool size) = {worker_pool_size}")
 
@@ -1116,11 +1133,15 @@ def main():
                     continue
 
                 job_id = payload.get("job_id")
+                user_id = str(payload.get("user_id") or "").strip()
                 if not job_id:
                     print("error: Missing required field 'job_id'.")
                     continue
+                if not user_id:
+                    print("error: Missing required field 'user_id'.")
+                    continue
 
-                work_queue.put(str(job_id))
+                work_queue.put({"job_id": str(job_id), "user_id": user_id})
 
             except Exception as exc:
                 print(f"error: Error while consuming queue: {exc}")

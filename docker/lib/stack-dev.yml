@@ -170,14 +170,15 @@ services:
     build:
       context: ../../
       dockerfile: docker/x86_64/Dockerfile-crawler-hackernews-dev
+    restart: always
     environment:
-      MONGO_HOST: "mongodb://mongodb:27017/"
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
       DB_NAME: "cover_letter"
-      REDIS_HOST: "redis_cover_letter"
-      REDIS_PORT: "6379"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
       CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
-      SERPER_API_KEY: \${SERPER_API_KEY}
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
     volumes:
       - ../../:/app
     networks:
@@ -323,6 +324,7 @@ services:
       dockerfile: docker/x86_64/Dockerfile-api-dev
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - MONGO_HOST=mongodb://root:develop@mongo:27017/
       - DB_NAME=cover_letter

@@ -40,6 +40,7 @@ def parse_crawl_trigger(raw_payload: str) -> common_pb2.CrawlTriggerQueuePayload
     payload = common_pb2.CrawlTriggerQueuePayload(
         run_id=str(parsed.get("run_id") or "").strip(),
         identity_id=str(parsed.get("identity_id") or "").strip(),
+        user_id=str(parsed.get("user_id") or "").strip(),
     )
 
     requested_at = _timestamp_from_wire_value(parsed.get("requested_at"))
@@ -53,6 +54,7 @@ def crawl_trigger_to_dict(payload: common_pb2.CrawlTriggerQueuePayload) -> dict[
     return {
         "run_id": payload.run_id,
         "identity_id": payload.identity_id,
+        "user_id": payload.user_id,
         "requested_at": _timestamp_to_wire_dict(payload.requested_at if payload.HasField("requested_at") else None),
     }
 
