@@ -53,13 +53,12 @@ func globalDBName() string {
 
 // GetDatabaseName returns the appropriate database name for a given collection and user.
 //
-// Global collections (jobs, companies, fields, stats) are stored in the shared
+// Global collections (job-descriptions, companies, fields, stats) are stored in the shared
 // database. All other collections are stored in a per-user database named
 // cover_letter_<userID>, where userID is the JWT sub claim (a SHA-256–derived
 // hex string set at login time — never raw user input).
 func GetDatabaseName(collectionName string, userID string) string {
 	globalCollections := map[string]bool{
-		"jobs":             true,
 		"job-descriptions": true,
 		"companies":        true,
 		"fields":           true,

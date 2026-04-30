@@ -337,18 +337,16 @@ func TestCollectionHasDocuments(t *testing.T) {
 	}
 }
 
-func TestJobDescriptionsCollection_FallbackOrder(t *testing.T) {
-	jobsCollection := &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}}
-	jobDescriptions := &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}}
+func TestJobDescriptionsCollection_ReturnsPrimary(t *testing.T) {
+	jobDescriptions := &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             jobsCollection,
 	})
 	defer cleanup()
 
 	col, _, _ := jobDescriptionsCollection()
-	if col != jobsCollection {
-		t.Fatal("expected legacy jobs collection when job-descriptions is empty")
+	if col != jobDescriptions {
+		t.Fatal("expected job-descriptions collection to be returned")
 	}
 }
 
@@ -460,7 +458,6 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 	companyID := primitive.NewObjectID()
 	jobDescriptions := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
-			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": jobID}}}},
 			{cursor: &mockMongoCursor{docs: []bson.M{{
 				"_id":        jobID,
 				"company_id": companyID,
@@ -470,7 +467,6 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -500,13 +496,11 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 func TestGetJobDescriptions_AggregateAndDecodeErrors(t *testing.T) {
 	jobDescriptionsAggErr := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
-			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}},
 			{err: errors.New("aggregate failed")},
 		},
 	}
 	cleanupAgg := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptionsAggErr,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanupAgg()
 
@@ -520,13 +514,11 @@ func TestGetJobDescriptions_AggregateAndDecodeErrors(t *testing.T) {
 
 	jobDescriptionsDecodeErr := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
-			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}},
 			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}, decodeErr: errors.New("decode failed")}},
 		},
 	}
 	cleanupDecode := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptionsDecodeErr,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanupDecode()
 
@@ -540,13 +532,11 @@ func TestGetJobDescriptions_AggregateAndDecodeErrors(t *testing.T) {
 func TestGetJobDescription_NotFound(t *testing.T) {
 	jobDescriptions := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
-			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}},
 			{cursor: &mockMongoCursor{docs: []bson.M{}}},
 		},
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -575,7 +565,6 @@ func TestCreateJobDescription_SuccessWithExistingCompany(t *testing.T) {
 	jobDescriptions := &mockMongoCollection{
 		insertResult: &mongo.InsertOneResult{InsertedID: insertedID},
 		aggregateResults: []aggregateResult{
-			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}},
 			{cursor: &mockMongoCursor{docs: []bson.M{{
 				"_id":        insertedID,
 				"company_id": companyID,
@@ -589,7 +578,6 @@ func TestCreateJobDescription_SuccessWithExistingCompany(t *testing.T) {
 
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 		"companies":        companies,
 	})
 	defer cleanup()
@@ -629,7 +617,6 @@ func TestCreateJobDescription_ValidationAndErrors(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 		"companies":        &mockMongoCollection{},
 	})
 	defer cleanup()
@@ -669,7 +656,6 @@ func TestCreateJobDescription_ValidationAndErrors(t *testing.T) {
 	}
 	cleanupInsertErr := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptionsInsertErr,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 		"companies":        &mockMongoCollection{},
 	})
 	defer cleanupInsertErr()
@@ -691,7 +677,6 @@ func TestUpdateJobDescription_Success(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -738,12 +723,11 @@ func TestUpdateJobDescription_ValidationAndNotFound(t *testing.T) {
 	}
 
 	jobDescriptions := &mockMongoCollection{
-		updateResult: &mongo.UpdateResult{MatchedCount: 0},
+		updateResult:    &mongo.UpdateResult{MatchedCount: 0},
 		aggregateCursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}},
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -782,7 +766,6 @@ func TestDeleteJobDescription_NotFound(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -811,7 +794,6 @@ func TestDeleteJobDescription_InvalidIDAndSuccess(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -833,7 +815,6 @@ func TestCheckJobDescription_Success_DefaultQueueAndPayload(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -884,7 +865,6 @@ func TestCheckJobDescription_InvalidIDAndQueueFailure(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -911,7 +891,6 @@ func TestScoreJobDescription_QueueOverrideAndFailure(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 
@@ -952,7 +931,6 @@ func TestScoreJobDescription_InvalidIDAndNotFound(t *testing.T) {
 	}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
-		"jobs":             &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}},
 	})
 	defer cleanup()
 

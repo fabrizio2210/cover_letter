@@ -31,7 +31,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
     def setUp(self):
         try:
             self.database["companies"].delete_many({})
-            self.database["jobs"].delete_many({})
+            self.database["job-descriptions"].delete_many({})
             self.database["identities"].delete_many({})
         except OperationFailure as exc:
             if exc.code == 13:
@@ -82,7 +82,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(len(result.job_ids), 1)
 
-        doc = self.database["jobs"].find_one({"platform": "greenhouse", "external_job_id": "int-test-1"})
+        doc = self.database["job-descriptions"].find_one({"platform": "greenhouse", "external_job_id": "int-test-1"})
         self.assertIsNotNone(doc)
         if doc is None:
             self.fail("expected job document to be inserted")
@@ -101,7 +101,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         self.assertEqual(first.inserted_count, 1)
         self.assertEqual(second.inserted_count, 0)
         self.assertEqual(second.updated_count, 1)
-        self.assertEqual(self.database["jobs"].count_documents({}), 1)
+        self.assertEqual(self.database["job-descriptions"].count_documents({}), 1)
 
     def test_run_crawler_ats_job_extraction_filters_by_company_ids(self):
         other_id = ObjectId()
@@ -141,7 +141,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 0)
         self.assertEqual(result.skipped_count, 1)
-        self.assertEqual(self.database["jobs"].count_documents({}), 0)
+        self.assertEqual(self.database["job-descriptions"].count_documents({}), 0)
 
 
 if __name__ == "__main__":

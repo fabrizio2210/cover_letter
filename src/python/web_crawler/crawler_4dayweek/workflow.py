@@ -184,7 +184,7 @@ def run_crawler_4dayweek(
 ) -> WorkflowResult:
     identities_collection = identity_database["identities"]
     companies_collection = database["companies"]
-    jobs_collection = database["jobs"]
+    jobs_collection = database["job-descriptions"]
 
     result = WorkflowResult()
     roles = load_identity_roles(

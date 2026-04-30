@@ -53,7 +53,7 @@ def run_enrichment_retiring_jobs(
         result.failed_count += 1
         return result
 
-    jobs_collection = database["jobs"]
+    jobs_collection = database["job-descriptions"]
     job = jobs_collection.find_one({"_id": job_oid})
     if job is None:
         logger.debug("enrichment_retiring_jobs: job %s not found, skipping", job_id)

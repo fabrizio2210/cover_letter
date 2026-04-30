@@ -166,7 +166,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
     def _make_fake_database(self, companies=None, jobs=None, identities=None):
         db = FakeDatabase()
         db["companies"] = FakeCollection(docs=companies or [])
-        db["jobs"] = FakeCollection(docs=jobs or [])
+        db["job-descriptions"] = FakeCollection(docs=jobs or [])
         db["identities"] = FakeCollection(docs=identities or [])
         return db
 
@@ -365,7 +365,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertEqual(result.inserted_count, 0)
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(result.skipped_count, 1)
-        self.assertEqual(len(db["jobs"].docs), 0)
+        self.assertEqual(len(db["job-descriptions"].docs), 0)
 
     def test_run_crawler_ats_job_extraction_inserts_job_when_title_matches_identity_role(self):
         db = self._make_fake_database(
@@ -382,7 +382,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
-        self.assertEqual(len(db["jobs"].docs), 1)
+        self.assertEqual(len(db["job-descriptions"].docs), 1)
 
     def test_run_crawler_ats_job_extraction_inserts_job_when_description_matches_identity_role(self):
         db = self._make_fake_database(
@@ -399,7 +399,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertEqual(result.fetched_count, 1)
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.skipped_count, 0)
-        self.assertEqual(db["jobs"].docs[0]["external_job_id"], "role-description")
+        self.assertEqual(db["job-descriptions"].docs[0]["external_job_id"], "role-description")
 
     def test_run_crawler_ats_job_extraction_emits_no_jobs_when_identity_roles_are_empty(self):
         db = self._make_fake_database(
@@ -418,7 +418,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
         self.assertEqual(result.inserted_count, 0)
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(result.skipped_count, 0)
-        self.assertEqual(len(db["jobs"].docs), 0)
+        self.assertEqual(len(db["job-descriptions"].docs), 0)
 
     def test_run_crawler_ats_job_extraction_progress_uses_stable_company_based_units(self):
         other_oid = ObjectId()

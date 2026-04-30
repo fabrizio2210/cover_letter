@@ -254,7 +254,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": []}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -277,7 +277,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -306,7 +306,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config(enable_scoring_enqueue=False)
@@ -346,7 +346,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -369,7 +369,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -392,7 +392,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -417,7 +417,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config()
@@ -444,7 +444,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["platform engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config(enable_scoring_enqueue=False)
@@ -468,7 +468,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.updated_count, 0)
         self.assertEqual(result.skipped_count, 0)
-        self.assertEqual(len(db["jobs"].docs), 1)
+        self.assertEqual(len(db["job-descriptions"].docs), 1)
 
     def test_run_crawler_levelsfyi_enqueue_success_tracks_queue_handoff(self):
         identity_id = str(ObjectId())
@@ -477,7 +477,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config(enable_scoring_enqueue=True)
@@ -501,7 +501,7 @@ class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         config = _make_config(enable_scoring_enqueue=True)

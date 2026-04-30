@@ -68,13 +68,13 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_returns_failed_count_for_invalid_job_id(self):
-        database = FakeDatabase({"jobs": FakeCollection()})
+        database = FakeDatabase({"job-descriptions": FakeCollection()})
         result = run_enrichment_retiring_jobs(database, self.config, "not-a-valid-objectid")
         self.assertEqual(result.failed_count, 1)
 
     def test_returns_skipped_count_when_job_not_found(self):
         jobs = FakeCollection([])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
         result = run_enrichment_retiring_jobs(database, self.config, str(ObjectId()))
         self.assertEqual(result.skipped_count, 1)
 
@@ -85,7 +85,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
     def test_marks_job_closed_when_source_url_returns_404(self):
         job = self._make_job()
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()
@@ -101,7 +101,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
     def test_does_not_mark_job_closed_when_source_url_returns_200(self):
         job = self._make_job()
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()
@@ -116,7 +116,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
     def test_skips_http_probe_for_already_closed_job(self):
         job = self._make_job(is_open=False, closed_at={"seconds": int(time.time()), "nanos": 0})
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()
@@ -130,7 +130,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
     def test_increments_failed_count_on_network_error(self):
         job = self._make_job()
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()
@@ -150,7 +150,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
         # Overwrite is_open to simulate an open job that fails network check
         job["is_open"] = None  # not False, so Phase A runs
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()
@@ -171,7 +171,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
         cutoff = int(time.time()) - (_CLOSED_AFTER_DAYS * 24 * 3600) - 1
         job = self._make_job(is_open=False, closed_at={"seconds": cutoff, "nanos": 0})
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         result = run_enrichment_retiring_jobs(database, self.config, str(job["_id"]))
 
@@ -182,7 +182,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
         recently = int(time.time()) - 3600  # 1 hour ago
         job = self._make_job(is_open=False, closed_at={"seconds": recently, "nanos": 0})
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         result = run_enrichment_retiring_jobs(database, self.config, str(job["_id"]))
 
@@ -193,7 +193,7 @@ class EnrichmentRetiringJobsTests(unittest.TestCase):
         """A job just marked 404-closed should NOT be deleted in the same run."""
         job = self._make_job()
         jobs = FakeCollection([job])
-        database = FakeDatabase({"jobs": jobs})
+        database = FakeDatabase({"job-descriptions": jobs})
 
         with patch("requests.Session") as mock_session_cls:
             mock_session = MagicMock()

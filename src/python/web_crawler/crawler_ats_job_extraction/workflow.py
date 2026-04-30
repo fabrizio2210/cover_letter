@@ -138,7 +138,7 @@ def run_crawler_ats_job_extraction(
 ) -> WorkflowResult:
     companies_collection = database["companies"]
     identities_collection = identity_database["identities"]
-    jobs_collection = database["jobs"]
+    jobs_collection = database["job-descriptions"]
     result = WorkflowResult()
 
     # Load identity roles for filtering

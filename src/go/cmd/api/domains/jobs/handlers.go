@@ -342,15 +342,6 @@ func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string
 	client := getMongoClient()
 	dbName := db.GetDatabaseName("job-descriptions", "")
 	jobDescriptions := client.Database(dbName).Collection("job-descriptions")
-	legacyJobs := client.Database(dbName).Collection("jobs")
-
-	if collectionHasDocuments(jobDescriptions) {
-		return jobDescriptions, client, dbName
-	}
-	if collectionHasDocuments(legacyJobs) {
-		return legacyJobs, client, dbName
-	}
-
 	return jobDescriptions, client, dbName
 }
 

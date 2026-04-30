@@ -175,7 +175,7 @@ def run_crawler_levelsfyi(
     """Run the crawler_levelsfyi workflow: discover jobs from Levels.fyi and upsert them."""
     identities_collection = identity_database["identities"]
     companies_collection = database["companies"]
-    jobs_collection = database["jobs"]
+    jobs_collection = database["job-descriptions"]
 
     result = WorkflowResult()
 

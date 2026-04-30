@@ -1028,7 +1028,7 @@ def scoring_worker_loop(
         with user_managers_lock:
             if user_id not in user_managers:
                 user_managers[user_id] = ScoringRunManager(
-                    global_db["jobs"],
+                    global_db["job-descriptions"],
                     global_db["companies"],
                     job_preference_scores_col,
                 )
@@ -1038,7 +1038,7 @@ def scoring_worker_loop(
         try:
             process_scoring_job(
                 str(job_id),
-                global_db["jobs"],
+                global_db["job-descriptions"],
                 global_db["companies"],
                 identities_col,
                 job_preference_scores_col,
@@ -1080,7 +1080,7 @@ def main():
 
     client = MongoClient(mongo_uri)
     global_db = client[mongo_db_name]
-    job_descriptions_col = global_db["jobs"]
+    job_descriptions_col = global_db["job-descriptions"]
     companies_col = global_db["companies"]
 
     redis_client = redis.Redis(host=redis_host, port=redis_port)
