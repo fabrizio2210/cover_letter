@@ -49,6 +49,7 @@ services:
     command: bash -lc "cd /workspace/src/go/cmd/api && /usr/local/go/bin/go mod download >/dev/null 2>&1 || true && /usr/local/go/bin/go run ."
     environment:
       - ADMIN_PASSWORD=testpassword
+      - AUTH_USERS_JSON={"e2e-test-user":"testpassword","e2e-crawl-user":"testpassword"}
       - JWT_SECRET=testsecret
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -138,3 +139,68 @@ services:
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer_crawler.py"]
     depends_on:
       - mongo
+
+  # --- Start-Crawl journey E2E test services ---
+  # Verifies the full: POST /api/crawls → dispatcher fan-out → workflow queues
+
+  crawl_trigger_seeder:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_crawl_trigger_e2e.py"]
+    depends_on:
+      - mongo
+
+  dispatcher:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    command: >
+      bash -lc "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 &&
+        PYTHONPATH=/workspace python -u -m src.python.web_crawler.dispatcher.main --worker"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_HOST=mongodb://mongo:27017/
+      - DB_NAME=cover_letter
+      - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
+      - CRAWLER_YCOMBINATOR_QUEUE_NAME=crawler_ycombinator_queue
+      - CRAWLER_HACKERNEWS_QUEUE_NAME=crawler_hackernews_queue
+      - CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME=crawler_ats_job_extraction_queue
+      - CRAWLER_4DAYWEEK_QUEUE_NAME=crawler_4dayweek_queue
+      - CRAWLER_LEVELSFYI_QUEUE_NAME=crawler_levelsfyi_queue
+      - CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME=enrichment_ats_enrichment_queue
+      - CRAWLER_PROGRESS_CHANNEL_NAME=crawler_progress_channel
+      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
+    depends_on:
+      - mongo
+      - redis
+
+  crawl_trigger_pusher:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+      - crawl_run_id:/tmp
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_crawl_trigger_via_api.py"]
+    environment:
+      - MONGO_HOST=mongodb://mongo:27017/
+    depends_on:
+      - mongo
+      - redis
+      - api
+
+  crawl_trigger_checker:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+      - crawl_run_id:/tmp
+    entrypoint: ["bash", "-lc", "pip install redis==5.0.8 >/dev/null 2>&1 && python /workspace/tests/e2e/check_crawl_trigger.py"]
+    depends_on:
+      - redis
+
+volumes:
+  crawl_run_id:

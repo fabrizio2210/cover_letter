@@ -10,7 +10,7 @@ import threading
 RECIPIENT_ID = '0000000000000000000000aa'
 RECIPIENT_FOR_REFINE_ID = '0000000000000000000000bb'
 COVER_LETTER_ID_FOR_REFINE = '0000000000000000000000cc'
-ADMIN_PASSWORD = 'testpassword'
+USER_PASSWORD = 'testpassword'
 
 # ... (rest of the login logic remains the same)
 
@@ -21,7 +21,7 @@ token = None
 login_deadline = time.time() + 30
 while time.time() < login_deadline:
     try:
-        with urllib.request.urlopen(req, data=json.dumps({'password': ADMIN_PASSWORD, 'username': 'e2e-test-user'}).encode('utf-8'), timeout=5) as resp:
+        with urllib.request.urlopen(req, data=json.dumps({'password': USER_PASSWORD, 'username': 'e2e-test-user'}).encode('utf-8'), timeout=5) as resp:
             body = resp.read()
             parsed = json.loads(body)
             token = parsed.get('token')

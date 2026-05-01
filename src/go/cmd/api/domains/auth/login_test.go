@@ -2,6 +2,8 @@ package auth
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,14 +19,15 @@ func TestLogin(t *testing.T) {
 	type testCase struct {
 		name          string
 		requestBody   string
-		adminPassword *string
+		authUsersJSON *string
 		jwtSecret     []byte
 		expectStatus  int
 		expectError   string
 		expectToken   bool
+		expectSub     string
 	}
 
-	password := "correct-password"
+	authUsersJSON := `{"admin":"correct-password","another-user":"another-password"}`
 	wrongPassword := "wrong-password"
 
 	tests := []testCase{
@@ -36,49 +39,75 @@ func TestLogin(t *testing.T) {
 			expectError:  "Invalid request",
 		},
 		{
-			name:         "missing admin password env returns unauthorized",
-			requestBody:  fmt.Sprintf(`{"password":"%s"}`, password),
+			name:         "missing auth users env returns configuration error",
+			requestBody:  `{"username":"admin","password":"correct-password"}`,
 			jwtSecret:    []byte("jwt-secret"),
-			expectStatus: http.StatusUnauthorized,
-			expectError:  "Unauthorized",
+			expectStatus: http.StatusInternalServerError,
+			expectError:  "Configuration error",
 		},
 		{
-			name:          "wrong password returns unauthorized",
-			requestBody:   fmt.Sprintf(`{"password":"%s"}`, wrongPassword),
-			adminPassword: &password,
+			name:          "invalid auth users env returns configuration error",
+			requestBody:   `{"username":"admin","password":"correct-password"}`,
+			authUsersJSON: ptrString("{"),
+			jwtSecret:     []byte("jwt-secret"),
+			expectStatus:  http.StatusInternalServerError,
+			expectError:   "Configuration error",
+		},
+		{
+			name:          "missing username returns bad request",
+			requestBody:   `{"password":"correct-password"}`,
+			authUsersJSON: &authUsersJSON,
+			jwtSecret:     []byte("jwt-secret"),
+			expectStatus:  http.StatusBadRequest,
+			expectError:   "Missing username in request",
+		},
+		{
+			name:          "unknown username returns unauthorized",
+			requestBody:   `{"username":"missing-user","password":"correct-password"}`,
+			authUsersJSON: &authUsersJSON,
 			jwtSecret:     []byte("jwt-secret"),
 			expectStatus:  http.StatusUnauthorized,
 			expectError:   "Unauthorized",
 		},
 		{
 			name:          "empty password returns unauthorized",
-			requestBody:   `{"password":""}`,
-			adminPassword: &password,
+			requestBody:   `{"username":"admin","password":""}`,
+			authUsersJSON: &authUsersJSON,
+			jwtSecret:     []byte("jwt-secret"),
+			expectStatus:  http.StatusUnauthorized,
+			expectError:   "Unauthorized",
+		},
+		{
+			name:          "wrong password returns unauthorized",
+			requestBody:   fmt.Sprintf(`{"username":"admin","password":"%s"}`, wrongPassword),
+			authUsersJSON: &authUsersJSON,
 			jwtSecret:     []byte("jwt-secret"),
 			expectStatus:  http.StatusUnauthorized,
 			expectError:   "Unauthorized",
 		},
 		{
 			name:          "empty signing key still returns signed jwt",
-			requestBody:   fmt.Sprintf(`{"username":"admin","password":"%s"}`, password),
-			adminPassword: &password,
+			requestBody:   `{"username":"admin","password":"correct-password"}`,
+			authUsersJSON: &authUsersJSON,
 			jwtSecret:     []byte{},
 			expectStatus:  http.StatusOK,
 			expectToken:   true,
+			expectSub:     expectedSubForUsername("admin"),
 		},
 		{
 			name:          "valid credentials return signed jwt",
-			requestBody:   fmt.Sprintf(`{"username":"admin","password":"%s"}`, password),
-			adminPassword: &password,
+			requestBody:   `{"username":"admin","password":"correct-password"}`,
+			authUsersJSON: &authUsersJSON,
 			jwtSecret:     []byte("jwt-secret"),
 			expectStatus:  http.StatusOK,
 			expectToken:   true,
+			expectSub:     expectedSubForUsername("admin"),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			setAdminPasswordForTest(t, tc.adminPassword)
+			setAuthUsersJSONForTest(t, tc.authUsersJSON)
 
 			req, err := http.NewRequest(http.MethodPost, "/api/login", bytes.NewBufferString(tc.requestBody))
 			if err != nil {
@@ -119,9 +148,42 @@ func TestLogin(t *testing.T) {
 				t.Fatalf("token field missing or empty: %#v", payload["token"])
 			}
 
-			validateJWTToken(t, tokenString, tc.jwtSecret)
+			validateJWTToken(t, tokenString, tc.jwtSecret, tc.expectSub)
 		})
 	}
+}
+
+func ptrString(v string) *string {
+	return &v
+}
+
+func setAuthUsersJSONForTest(t *testing.T, authUsersJSON *string) {
+	t.Helper()
+
+	originalValue, wasSet := os.LookupEnv("AUTH_USERS_JSON")
+	t.Cleanup(func() {
+		if wasSet {
+			_ = os.Setenv("AUTH_USERS_JSON", originalValue)
+			return
+		}
+		_ = os.Unsetenv("AUTH_USERS_JSON")
+	})
+
+	if authUsersJSON == nil {
+		if err := os.Unsetenv("AUTH_USERS_JSON"); err != nil {
+			t.Fatalf("failed to unset AUTH_USERS_JSON: %v", err)
+		}
+		return
+	}
+
+	if err := os.Setenv("AUTH_USERS_JSON", *authUsersJSON); err != nil {
+		t.Fatalf("failed to set AUTH_USERS_JSON: %v", err)
+	}
+}
+
+func expectedSubForUsername(username string) string {
+	h := sha256.Sum256([]byte(username))
+	return hex.EncodeToString(h[:16])
 }
 
 func setAdminPasswordForTest(t *testing.T, adminPassword *string) {
@@ -148,7 +210,7 @@ func setAdminPasswordForTest(t *testing.T, adminPassword *string) {
 	}
 }
 
-func validateJWTToken(t *testing.T, tokenString string, jwtSecret []byte) {
+func validateJWTToken(t *testing.T, tokenString string, jwtSecret []byte, expectedSub string) {
 	t.Helper()
 
 	parsedToken, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -167,6 +229,14 @@ func validateJWTToken(t *testing.T, tokenString string, jwtSecret []byte) {
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	if !ok {
 		t.Fatalf("unexpected token claims type: %T", parsedToken.Claims)
+	}
+
+	subClaim, ok := claims["sub"].(string)
+	if !ok {
+		t.Fatalf("sub claim missing or not string: %#v", claims["sub"])
+	}
+	if subClaim != expectedSub {
+		t.Fatalf("unexpected sub claim: got %q, want %q", subClaim, expectedSub)
 	}
 
 	expClaim, ok := claims["exp"].(float64)

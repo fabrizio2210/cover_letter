@@ -203,7 +203,7 @@ If vetted by the user, the cover letter will be sent via email.
 ## Authentication
 
 Current state:
-- password-based login for user sessions;
+- password-based login for user sessions using a pre-established username/password allow-list from `AUTH_USERS_JSON`;
 - admin login flow for admin-only routes;
 - JWT-based authenticated API access for both flows.
 
@@ -212,7 +212,10 @@ JWT contract:
 - admin JWT includes `sub`, `role: "admin"`, and `exp` and is verified with `ADMIN_JWT_SECRET`;
 - per-user DB scope derives from `sub`.
 
-AI implementation testing can be performed from http://localhost/dashboard; use password "password" at login.
+User login contract (current):
+- request payload is `{ "username": "...", "password": "..." }`;
+- unknown username and wrong password both return `401 Unauthorized`;
+- missing or malformed `AUTH_USERS_JSON` returns `500`.
 
 Future state:
 - OTP login via email for allowed addresses;

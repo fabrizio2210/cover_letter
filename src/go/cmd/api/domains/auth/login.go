@@ -2,7 +2,9 @@ package auth
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"os"
 	"time"
@@ -23,9 +25,15 @@ func Login(jwtSecret []byte) gin.HandlerFunc {
 			return
 		}
 
-		adminPass := os.Getenv("ADMIN_PASSWORD")
-		if adminPass == "" || req.Password != adminPass {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		usersJSON := os.Getenv("AUTH_USERS_JSON")
+		if usersJSON == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Configuration error"})
+			return
+		}
+
+		var users map[string]string
+		if err := json.Unmarshal([]byte(usersJSON), &users); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Configuration error"})
 			return
 		}
 
@@ -34,6 +42,13 @@ func Login(jwtSecret []byte) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing username in request"})
 			return
 		}
+
+		expectedPassword, ok := users[username]
+		if !ok || subtle.ConstantTimeCompare([]byte(expectedPassword), []byte(req.Password)) != 1 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
 		// Hash the username so arbitrary input never reaches MongoDB database names.
 		// First 16 bytes (32 hex chars) of SHA-256 gives 128-bit uniqueness.
 		h := sha256.Sum256([]byte(username))

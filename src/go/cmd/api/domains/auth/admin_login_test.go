@@ -117,7 +117,7 @@ func TestAdminLogin(t *testing.T) {
 				t.Fatalf("token field missing or empty: %#v", payload["token"])
 			}
 
-			validateJWTToken(t, tokenString, tc.jwtSecret)
+			validateJWTToken(t, tokenString, tc.jwtSecret, "admin")
 			validateAdminJWTClaims(t, tokenString, tc.jwtSecret)
 		})
 	}

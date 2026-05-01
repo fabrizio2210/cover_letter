@@ -6,7 +6,7 @@ import urllib.request
 API_HOST = 'http://api:8080'
 LOGIN_PATH = '/api/login'
 JOB_ID = '0000000000000000000000dd'
-ADMIN_PASSWORD = 'testpassword'
+USER_PASSWORD = 'testpassword'
 
 req = urllib.request.Request(API_HOST + LOGIN_PATH, method='POST')
 req.add_header('Content-Type', 'application/json')
@@ -15,7 +15,7 @@ token = None
 login_deadline = time.time() + 30
 while time.time() < login_deadline:
     try:
-        with urllib.request.urlopen(req, data=json.dumps({'password': ADMIN_PASSWORD, 'username': 'e2e-test-user'}).encode('utf-8'), timeout=5) as resp:
+        with urllib.request.urlopen(req, data=json.dumps({'password': USER_PASSWORD, 'username': 'e2e-test-user'}).encode('utf-8'), timeout=5) as resp:
             body = resp.read()
             parsed = json.loads(body)
             token = parsed.get('token')

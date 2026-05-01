@@ -313,6 +313,7 @@ services:
       dockerfile: docker/x86_64/Dockerfile-api-dev
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - AUTH_USERS_JSON=${AUTH_USERS_JSON}
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - MONGO_HOST=mongodb://root:develop@mongo:27017/

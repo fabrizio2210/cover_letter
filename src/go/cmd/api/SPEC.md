@@ -60,8 +60,9 @@ Per-user collections:
 | Variable | Default | Required | Used by |
 |---|---|---|---|
 | `JWT_SECRET` | `change_this_secret` | Yes (change in prod) | User JWT signing/verification |
+| `AUTH_USERS_JSON` | *(none)* | Yes | User login credential map (`/api/login`) |
 | `ADMIN_JWT_SECRET` | *(none)* | Yes | Admin JWT signing/verification |
-| `ADMIN_PASSWORD` | *(none)* | Optional (implementation-defined) | Admin login credential check |
+| `ADMIN_PASSWORD` | *(none)* | Yes (for admin login) | Admin login credential check |
 | `MONGO_HOST` | *(none)* | Yes | `db/mongo.go` MongoDB URI |
 | `REDIS_HOST` | `localhost` | No | Redis clients in handlers |
 | `REDIS_PORT` | `6379` | No | Redis clients in handlers |
@@ -111,7 +112,10 @@ Timestamp format used across domains:
 ## 4. Authentication Summary
 
 User flow:
-- User login endpoint issues JWT with `sub` and `exp`.
+- User login endpoint authenticates `{ username, password }` against the preconfigured `AUTH_USERS_JSON` map and issues JWT with `sub` and `exp`.
+- Unknown username and wrong password both return `401 Unauthorized`.
+- Missing or invalid `AUTH_USERS_JSON` returns `500 Configuration error`.
+- User `sub` is derived as deterministic username hash (SHA-256 first 16 bytes, lowercase hex).
 - Middleware validates HS256 with `JWT_SECRET` and extracts `sub` into request context.
 - Per-user DB name is derived from `sub` as `cover_letter_<sub>`.
 

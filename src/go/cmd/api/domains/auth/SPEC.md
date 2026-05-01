@@ -28,6 +28,11 @@ Signing secrets:
 - User token signing and verification use `JWT_SECRET`.
 - Admin token signing and verification use `ADMIN_JWT_SECRET`.
 
+Credential sources:
+- User login credentials come from `AUTH_USERS_JSON`.
+- `AUTH_USERS_JSON` must be a JSON object mapping usernames to passwords.
+- Example: `{ "alice": "pw1", "bob": "pw2" }`
+
 ## Request/Response
 
 ### POST /api/login (user)
@@ -44,8 +49,14 @@ Success response (200):
 
 Validation failures:
 - 400 with `{ "error": "Invalid request" }` when body cannot be parsed.
-- 401 with `{ "error": "Unauthorized" }` when password is missing or wrong.
+- 400 with `{ "error": "Missing username in request" }` when `username` is empty.
+- 401 with `{ "error": "Unauthorized" }` when username is unknown or password is wrong.
+- 500 with `{ "error": "Configuration error" }` when `AUTH_USERS_JSON` is missing or invalid JSON.
 - 500 with `{ "error": "Token error" }` if signing fails.
+
+User `sub` contract:
+- `sub` is a deterministic hash of the username (first 16 bytes of SHA-256 encoded as lowercase hex).
+- This preserves the per-user DB derivation contract without exposing raw usernames in database names.
 
 ### POST /api/admin/login (admin)
 
