@@ -77,6 +77,7 @@ run_e2e_tests() {
     cd "$repo_root"
     bash tests/e2e.sh
     bash tests/e2e/test_ai_scorer_e2e.sh
+    bash tests/e2e/test_ai_scorer_crawler_e2e.sh
     bash tests/e2e/test_workflow1_integration.sh
   )
 }

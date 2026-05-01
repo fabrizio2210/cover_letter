@@ -105,3 +105,36 @@ services:
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer.py"]
     depends_on:
       - mongo
+
+  # --- Crawler scoring regression test services ---
+  # Verifies that the scorer resolves identity by identity_id directly when
+  # the global company document has no field_id (the real production data state
+  # after the mono-user → multi-user migration).
+
+  crawler_scoring_seeder:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo_crawler_scoring.py"]
+    depends_on:
+      - mongo
+
+  crawler_scoring_pusher:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 redis==4.6.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_score_crawler_via_redis.py"]
+    depends_on:
+      - mongo
+      - redis
+
+  crawler_scoring_checker:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace:delegated
+    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer_crawler.py"]
+    depends_on:
+      - mongo
