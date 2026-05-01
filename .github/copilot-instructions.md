@@ -5,19 +5,20 @@
 After making any code change (Go, Python, TypeScript, proto), run:
 
 ```bash
-make test-fast
+make test-full
 ```
 
 Do not commit, do not present the result as done, and do not proceed to the next step if this command fails.
-Fix the failure first, then re-run `make test-fast` until it passes.
+Fix the failure first, then re-run `make test-full` until it passes.
 
-## What `make test-fast` checks
+## What `make test-full` checks
 
 - `go vet ./...` — Go static analysis
 - `go test ./...` — Go unit tests
 - Python `unittest discover` — Python unit tests in `src/python` and `tests`
 - `tsc --noEmit` — Angular TypeScript type-check
 - `npm run test` via Karma/ChromeHeadless — Angular unit tests
+- e2e tests in `tests/e2e`
 
 ## Specification files
 
