@@ -1142,12 +1142,15 @@ def main():
 
                 job_id = payload.get("job_id")
                 user_id = str(payload.get("user_id") or "").strip()
-                identity_id = str(payload.get("identity_id") or "").strip() or None
+                identity_id = str(payload.get("identity_id") or "").strip()
                 if not job_id:
                     print("error: Missing required field 'job_id'.")
                     continue
                 if not user_id:
                     print("error: Missing required field 'user_id'.")
+                    continue
+                if not identity_id:
+                    print("error: Missing required field 'identity_id'.")
                     continue
 
                 work_queue.put({"job_id": str(job_id), "user_id": user_id, "identity_id": identity_id})

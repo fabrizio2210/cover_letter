@@ -369,6 +369,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   rerankVisibleJobs(): void {
+    if (!this.selectedIdentityId) {
+      this.feedbackService.showFeedback('Select an identity before queueing scoring.', true);
+      return;
+    }
+
     const jobsToScore = this.filteredJobs.slice(0, 20);
     if (jobsToScore.length === 0) {
       this.feedbackService.showFeedback('No visible jobs to rerank.', true);
@@ -380,7 +385,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     let failed = 0;
 
     jobsToScore.forEach((job) => {
-      this.api.scoreJobDescription(job.id).subscribe({
+      this.api.scoreJobDescription(job.id, this.selectedIdentityId).subscribe({
         next: () => {
           completed += 1;
           if (completed + failed === jobsToScore.length) {
@@ -398,7 +403,12 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   rerankSingleJob(job: ScoredJobDescription): void {
-    this.api.scoreJobDescription(job.id).subscribe({
+    if (!this.selectedIdentityId) {
+      this.feedbackService.showFeedback('Select an identity before queueing scoring.', true);
+      return;
+    }
+
+    this.api.scoreJobDescription(job.id, this.selectedIdentityId).subscribe({
       next: () => this.feedbackService.showFeedback(`Scoring queued for ${job.title}.`),
       error: () => this.feedbackService.showFeedback(`Failed to queue scoring for ${job.title}.`, true)
     });

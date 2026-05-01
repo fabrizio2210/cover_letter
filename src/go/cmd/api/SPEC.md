@@ -98,6 +98,7 @@ Proto-first implementation rules:
 Queue contract rule:
 - Async queue payloads that are user-scoped must include `user_id` and workers must derive per-user DB name from that field.
 - No user-controlled field may override per-user DB derivation from authenticated identity.
+- Scoring payloads for `job_scoring_queue` must include `identity_id`.
 
 Timestamp format used across domains:
 

@@ -914,7 +914,8 @@ func TestScoreJobDescription_QueueOverrideAndFailure(t *testing.T) {
 	})
 	defer restoreQueue()
 
-	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", nil)
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/score", map[string]string{"identity_id": primitive.NewObjectID().Hex()})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", req)
 	c.Params = gin.Params{{Key: "id", Value: primitive.NewObjectID().Hex()}}
 	ScoreJobDescription(c)
 
@@ -923,6 +924,99 @@ func TestScoreJobDescription_QueueOverrideAndFailure(t *testing.T) {
 	}
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500 on queue error, got %d", w.Code)
+	}
+}
+
+func TestScoreJobDescription_IncludesIdentityIDInQueuedPayload(t *testing.T) {
+	jobDescriptions := &mockMongoCollection{
+		findOneResult: &mockMongoSingleResult{doc: bson.M{"_id": primitive.NewObjectID()}},
+		aggregateResults: []aggregateResult{
+			{cursor: &mockMongoCursor{docs: []bson.M{{"_id": primitive.NewObjectID()}}}},
+		},
+	}
+	cleanup := setMockClient(map[string]*mockMongoCollection{
+		"job-descriptions": jobDescriptions,
+	})
+	defer cleanup()
+
+	var gotQueue string
+	var gotPayload []byte
+	restoreQueue := setQueuePushProviderForTest(func(_ context.Context, queueName string, payload []byte) error {
+		gotQueue = queueName
+		gotPayload = payload
+		return nil
+	})
+	defer restoreQueue()
+
+	jobID := primitive.NewObjectID().Hex()
+	identityID := primitive.NewObjectID().Hex()
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/score", map[string]string{"identity_id": identityID})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", req)
+	c.Params = gin.Params{{Key: "id", Value: jobID}}
+	c.Set("userId", "user-1")
+	ScoreJobDescription(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotQueue != "job_scoring_queue" {
+		t.Fatalf("expected default queue name, got %q", gotQueue)
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(gotPayload, &payload); err != nil {
+		t.Fatalf("decode queued payload: %v", err)
+	}
+	if payload["job_id"] != jobID {
+		t.Fatalf("expected queued payload to contain job_id=%s, got %#v", jobID, payload)
+	}
+	if payload["user_id"] != "user-1" {
+		t.Fatalf("expected queued payload to contain user_id=user-1, got %#v", payload)
+	}
+	if payload["identity_id"] != identityID {
+		t.Fatalf("expected queued payload to contain identity_id=%s, got %#v", identityID, payload)
+	}
+}
+
+func TestScoreJobDescription_RequiresIdentityID(t *testing.T) {
+	queueCalled := false
+	restoreQueue := setQueuePushProviderForTest(func(_ context.Context, _ string, _ []byte) error {
+		queueCalled = true
+		return nil
+	})
+	defer restoreQueue()
+
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/score", map[string]string{})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", req)
+	c.Params = gin.Params{{Key: "id", Value: primitive.NewObjectID().Hex()}}
+	ScoreJobDescription(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing identity_id, got %d", w.Code)
+	}
+	if queueCalled {
+		t.Fatal("expected queue not to be called for missing identity_id")
+	}
+}
+
+func TestScoreJobDescription_InvalidIdentityID(t *testing.T) {
+	queueCalled := false
+	restoreQueue := setQueuePushProviderForTest(func(_ context.Context, _ string, _ []byte) error {
+		queueCalled = true
+		return nil
+	})
+	defer restoreQueue()
+
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/score", map[string]string{"identity_id": "bad-id"})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", req)
+	c.Params = gin.Params{{Key: "id", Value: primitive.NewObjectID().Hex()}}
+	ScoreJobDescription(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid identity_id, got %d", w.Code)
+	}
+	if queueCalled {
+		t.Fatal("expected queue not to be called for invalid identity_id")
 	}
 }
 
@@ -945,7 +1039,8 @@ func TestScoreJobDescription_InvalidIDAndNotFound(t *testing.T) {
 	})
 	defer cleanup()
 
-	cNotFound, wNotFound := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", nil)
+	reqNotFound := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/score", map[string]string{"identity_id": primitive.NewObjectID().Hex()})
+	cNotFound, wNotFound := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/score", reqNotFound)
 	cNotFound.Params = gin.Params{{Key: "id", Value: primitive.NewObjectID().Hex()}}
 	ScoreJobDescription(cNotFound)
 

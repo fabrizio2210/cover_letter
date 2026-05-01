@@ -12,9 +12,11 @@ import { JobDiscoveryComponent } from './job-discovery.component';
 
 describe('JobDiscoveryComponent identity filtering', () => {
   let component: JobDiscoveryComponent;
+  let apiServiceSpy: jasmine.SpyObj<ApiService>;
+  let feedbackServiceSpy: jasmine.SpyObj<FeedbackService>;
 
   beforeEach(() => {
-    const apiServiceStub = jasmine.createSpyObj('ApiService', [
+    apiServiceSpy = jasmine.createSpyObj('ApiService', [
       'getJobDescriptions',
       'getJobPreferenceScores',
       'getIdentities',
@@ -24,11 +26,12 @@ describe('JobDiscoveryComponent identity filtering', () => {
       'subscribeToCrawlProgress',
       'subscribeToScoringProgress',
       'subscribeToJobUpdates',
+      'scoreJobDescription',
       'checkJobDescription',
       'getJobDescription',
     ]);
 
-    const feedbackServiceStub = jasmine.createSpyObj('FeedbackService', ['showFeedback']);
+    feedbackServiceSpy = jasmine.createSpyObj('FeedbackService', ['showFeedback']);
 
     const identityContextStub = jasmine.createSpyObj('IdentityContextService', [
       'getSelectedIdentityId',
@@ -41,8 +44,8 @@ describe('JobDiscoveryComponent identity filtering', () => {
     TestBed.configureTestingModule({
       imports: [JobDiscoveryComponent],
       providers: [
-        { provide: ApiService, useValue: apiServiceStub },
-        { provide: FeedbackService, useValue: feedbackServiceStub },
+        { provide: ApiService, useValue: apiServiceSpy },
+        { provide: FeedbackService, useValue: feedbackServiceSpy },
         { provide: IdentityContextService, useValue: identityContextStub },
         { provide: Router, useValue: routerStub },
         {
@@ -142,5 +145,90 @@ describe('JobDiscoveryComponent identity filtering', () => {
 
     const matches = (component as any).matchesIdentity(scoredJob);
     expect(matches).toBeTrue();
+  });
+
+  it('rerankVisibleJobs sends selected identity_id in scoring requests', () => {
+    const selectedIdentityId = 'identity-1';
+    component.selectedIdentityId = selectedIdentityId;
+    component.jobs = [
+      {
+        id: 'job-1',
+        title: 'Platform Engineer',
+        description: 'Role description',
+        location: 'Remote',
+        platform: 'ashby',
+        external_job_id: 'ext-1',
+        source_url: 'https://example.com/job-1',
+        score: {
+          id: 'score-1',
+          job_id: 'job-1',
+          identity_id: selectedIdentityId,
+          preference_scores: [],
+          weighted_score: 4,
+        },
+      } as ScoredJobDescription,
+    ];
+    apiServiceSpy.scoreJobDescription.and.returnValue(of({ message: 'queued' }));
+
+    component.rerankVisibleJobs();
+
+    expect(apiServiceSpy.scoreJobDescription).toHaveBeenCalledWith('job-1', selectedIdentityId);
+  });
+
+  it('rerankVisibleJobs requires selected identity before queueing', () => {
+    component.selectedIdentityId = '';
+    component.jobs = [
+      {
+        id: 'job-2',
+        title: 'Backend Engineer',
+        description: 'Role description',
+        location: 'Remote',
+        platform: 'ashby',
+        external_job_id: 'ext-2',
+        source_url: 'https://example.com/job-2',
+      } as ScoredJobDescription,
+    ];
+
+    component.rerankVisibleJobs();
+
+    expect(apiServiceSpy.scoreJobDescription).not.toHaveBeenCalled();
+    expect(feedbackServiceSpy.showFeedback).toHaveBeenCalledWith('Select an identity before queueing scoring.', true);
+  });
+
+  it('rerankSingleJob sends selected identity_id in scoring requests', () => {
+    const selectedIdentityId = 'identity-2';
+    component.selectedIdentityId = selectedIdentityId;
+    apiServiceSpy.scoreJobDescription.and.returnValue(of({ message: 'queued' }));
+    const job = {
+      id: 'job-3',
+      title: 'SRE',
+      description: 'Role description',
+      location: 'Remote',
+      platform: 'greenhouse',
+      external_job_id: 'ext-3',
+      source_url: 'https://example.com/job-3',
+    } as ScoredJobDescription;
+
+    component.rerankSingleJob(job);
+
+    expect(apiServiceSpy.scoreJobDescription).toHaveBeenCalledWith('job-3', selectedIdentityId);
+  });
+
+  it('rerankSingleJob requires selected identity before queueing', () => {
+    component.selectedIdentityId = '';
+    const job = {
+      id: 'job-4',
+      title: 'Data Engineer',
+      description: 'Role description',
+      location: 'Remote',
+      platform: 'lever',
+      external_job_id: 'ext-4',
+      source_url: 'https://example.com/job-4',
+    } as ScoredJobDescription;
+
+    component.rerankSingleJob(job);
+
+    expect(apiServiceSpy.scoreJobDescription).not.toHaveBeenCalled();
+    expect(feedbackServiceSpy.showFeedback).toHaveBeenCalledWith('Select an identity before queueing scoring.', true);
   });
 });

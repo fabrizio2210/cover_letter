@@ -153,10 +153,11 @@ describe('ApiService', () => {
   });
 
   // Job scoring
-  it('scoreJobDescription calls POST /api/job-descriptions/:id/score', () => {
-    service.scoreJobDescription('job-1').subscribe();
+  it('scoreJobDescription calls POST /api/job-descriptions/:id/score with required identity_id', () => {
+    service.scoreJobDescription('job-1', 'identity-1').subscribe();
     const req = httpMock.expectOne('/api/job-descriptions/job-1/score');
     expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ identity_id: 'identity-1' });
     req.flush({ message: 'queued' });
   });
 

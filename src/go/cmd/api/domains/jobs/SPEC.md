@@ -140,7 +140,17 @@ Response `200`:
 
 ### POST /api/job-descriptions/:id/score
 
-No request body.
+Request body (required):
+
+```json
+{
+	"identity_id": "<hex ObjectID>"
+}
+```
+
+Behavior:
+- `identity_id` is mandatory and must be a valid MongoDB hex ObjectID string.
+- The validated `identity_id` is always forwarded in the `job_scoring_queue` payload.
 
 Response `200`:
 
@@ -204,13 +214,13 @@ Payload:
 {
 	"user_id": "<jwt sub>",
 	"job_id": "<job description hex object id>",
-	"identity_id": "<identity hex object id>"  // optional for API-triggered scoring; included by crawlers
+	"identity_id": "<identity hex object id>"
 }
 ```
 
 Rules:
-- Missing `user_id` or `job_id` makes the message invalid and it is dropped with an error log.
-- `identity_id` is optional when produced by the Go API; crawlers must always include it.
+- Missing `user_id`, `job_id`, or `identity_id` makes the message invalid and it is dropped with an error log.
+- `identity_id` is mandatory for API-triggered and crawler-triggered scoring messages.
 - Re-crawl updates should enqueue a new `job_id` for rescoring.
 - Jobs missing scoring prerequisites may be marked `skipped` and not enqueued.
 - Scoring worker derives per-user DB name from `user_id` and reads global job/company data from `cover_letter_global`.

@@ -3,6 +3,8 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -652,10 +654,33 @@ func CheckJobDescription(c *gin.Context) {
 
 // ScoreJobDescription enqueues a job for scoring.
 func ScoreJobDescription(c *gin.Context) {
+	type scoreJobRequest struct {
+		IdentityID string `json:"identity_id"`
+	}
+
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req scoreJobRequest
+	if c.Request != nil && c.Request.Body != nil {
+		decodeErr := json.NewDecoder(c.Request.Body).Decode(&req)
+		if decodeErr != nil && !errors.Is(decodeErr, io.EOF) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+	}
+
+	identityID := strings.TrimSpace(req.IdentityID)
+	if identityID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required field 'identity_id'"})
+		return
+	}
+	if _, parseErr := primitive.ObjectIDFromHex(identityID); parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identity_id"})
 		return
 	}
 
@@ -674,7 +699,9 @@ func ScoreJobDescription(c *gin.Context) {
 	userIDRaw, _ := c.Get("userId")
 	userIDStr, _ := userIDRaw.(string)
 
-	payloadBytes, err := json.Marshal(map[string]string{"job_id": id, "user_id": userIDStr})
+	payload := map[string]string{"job_id": id, "user_id": userIDStr, "identity_id": identityID}
+
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
 		return

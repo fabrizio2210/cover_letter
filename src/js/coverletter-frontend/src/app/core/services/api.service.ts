@@ -126,8 +126,8 @@ export class ApiService {
       .pipe(catchError(() => of([])));
   }
 
-  scoreJobDescription(id: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, {});
+  scoreJobDescription(id: string, identityId: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, { identity_id: identityId });
   }
 
   checkJobDescription(id: string): Observable<{ message: string }> {
