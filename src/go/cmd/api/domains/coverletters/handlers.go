@@ -130,9 +130,9 @@ func GetCoverLetters(c *gin.Context) {
 	collection := client.Database(dbName).Collection("cover-letters")
 
 	pipeline := mongo.Pipeline{
-		{{"$addFields", bson.D{{"recipientObjId", bson.D{{"$toObjectId", "$recipient_id"}}}}}},
-		{{"$lookup", bson.D{{"from", "recipients"}, {"localField", "recipientObjId"}, {"foreignField", "_id"}, {"as", "recipientInfo"}}}},
-		{{"$unwind", bson.D{{"path", "$recipientInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+		{{Key: "$addFields", Value: bson.D{{Key: "recipientObjId", Value: bson.D{{Key: "$toObjectId", Value: "$recipient_id"}}}}}},
+		{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "recipients"}, {Key: "localField", Value: "recipientObjId"}, {Key: "foreignField", Value: "_id"}, {Key: "as", Value: "recipientInfo"}}}},
+		{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recipientInfo"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -174,9 +174,9 @@ func GetCoverLetter(c *gin.Context) {
 
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.D{{Key: "_id", Value: objID}}}},
-		{{"$addFields", bson.D{{"recipientObjId", bson.D{{"$toObjectId", "$recipient_id"}}}}}},
-		{{"$lookup", bson.D{{"from", "recipients"}, {"localField", "recipientObjId"}, {"foreignField", "_id"}, {"as", "recipientInfo"}}}},
-		{{"$unwind", bson.D{{"path", "$recipientInfo"}, {"preserveNullAndEmptyArrays", true}}}},
+		{{Key: "$addFields", Value: bson.D{{Key: "recipientObjId", Value: bson.D{{Key: "$toObjectId", Value: "$recipient_id"}}}}}},
+		{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "recipients"}, {Key: "localField", Value: "recipientObjId"}, {Key: "foreignField", Value: "_id"}, {Key: "as", Value: "recipientInfo"}}}},
+		{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recipientInfo"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -203,7 +203,7 @@ func GetCoverLetter(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, coverLetter)
+	c.JSON(http.StatusOK, &coverLetter)
 }
 
 // DeleteCoverLetter deletes a cover letter by its ID.

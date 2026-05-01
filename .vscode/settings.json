@@ -12,6 +12,18 @@
         "/^bash scripts/test-gate\\.sh --mode fast 2>&1 \\| tail -20$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^make test-fast$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^make test-full$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^bash scripts\\/test-gate\\.sh/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     },
     "makefile.configureOnOpen": false

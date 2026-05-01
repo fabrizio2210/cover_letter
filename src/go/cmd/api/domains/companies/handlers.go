@@ -101,15 +101,15 @@ func GetCompanies(c *gin.Context) {
 	collection := client.Database(dbName).Collection("companies")
 
 	pipeline := mongo.Pipeline{
-		{{"$lookup", bson.D{
-			{"from", "fields"},
-			{"localField", "field_id"},
-			{"foreignField", "_id"},
-			{"as", "fieldInfo"},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "fields"},
+			{Key: "localField", Value: "field_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "fieldInfo"},
 		}}},
-		{{"$unwind", bson.D{
-			{"path", "$fieldInfo"},
-			{"preserveNullAndEmptyArrays", true},
+		{{Key: "$unwind", Value: bson.D{
+			{Key: "path", Value: "$fieldInfo"},
+			{Key: "preserveNullAndEmptyArrays", Value: true},
 		}}},
 	}
 

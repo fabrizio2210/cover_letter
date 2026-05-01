@@ -107,7 +107,7 @@ func CreateField(c *gin.Context) {
 	dbName := db.GetDatabaseName("fields", "")
 	collection := client.Database(dbName).Collection("fields")
 
-	result, err := collection.InsertOne(context.Background(), field)
+	result, err := collection.InsertOne(context.Background(), &field)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create field"})
 		return

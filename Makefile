@@ -18,4 +18,4 @@ test-full:
 
 install-hooks:
 	git config core.hooksPath .githooks
-	chmod +x .githooks/pre-commit scripts/test-gate.sh
+	chmod +x .githooks/pre-commit .githooks/pre-push scripts/test-gate.sh

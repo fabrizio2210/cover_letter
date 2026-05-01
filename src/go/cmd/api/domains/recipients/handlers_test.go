@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
+	"google.golang.org/protobuf/proto"
 	apptest "github.com/fabrizio2210/cover_letter/src/go/cmd/api/testing"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -90,7 +91,7 @@ func (m *mockMongoCursor) Decode(v interface{}) error {
 		return errors.New("no more items")
 	}
 	if r, ok := v.(*models.Recipient); ok {
-		*r = m.recipients[m.index]
+		proto.Merge(r, &m.recipients[m.index])
 		m.index++
 		return nil
 	}
@@ -109,7 +110,7 @@ func (m *mockMongoSingleResult) Decode(v interface{}) error {
 		return m.err
 	}
 	if r, ok := v.(*models.Recipient); ok {
-		*r = *m.recipient
+		proto.Merge(r, m.recipient)
 	}
 	return nil
 }
@@ -187,10 +188,9 @@ func TestGetRecipients_Empty(t *testing.T) {
 
 func TestCreateRecipient_Valid(t *testing.T) {
 	insertedID := primitive.NewObjectID()
-	created := models.Recipient{Email: "test@test.com", Name: "Test"}
 	col := &mockMongoCollection{
 		insertResult:    &mongo.InsertOneResult{InsertedID: insertedID},
-		aggregateCursor: &mockMongoCursor{recipients: []models.Recipient{created}},
+		aggregateCursor: &mockMongoCursor{recipients: []models.Recipient{{Email: "test@test.com", Name: "Test"}}},
 	}
 	defer setMockClient(col)()
 

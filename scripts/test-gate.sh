@@ -31,8 +31,8 @@ run_go_tests() {
   echo "[gate] Running Go tests"
   (
     cd "$repo_root/src/go/cmd/api"
-    # Temporary skip for known failing unrelated test in handlers package.
-    go test ./... -skip '^TestRefineCoverLetter_QueuesPayload$'
+    go vet ./...
+    go test ./...
   )
 }
 
@@ -65,6 +65,8 @@ run_frontend_tests() {
 
   (
     cd "$repo_root/src/js/coverletter-frontend"
+    echo "[gate] Type-checking frontend"
+    npx tsc --noEmit
     CHROME_BIN="$chrome_bin" npm run test -- --watch=false --browsers=ChromeHeadless
   )
 }
