@@ -528,10 +528,15 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
     const identityFieldId = selectedIdentity.field_id || selectedIdentity.field_info?.id || '';
     if (!identityFieldId) {
-      return false;
+      return true;
     }
 
     const companyFieldId = job.company_info?.field_id || job.company_info?.field_info?.id || '';
+    // Avoid hiding unscored jobs while enrichment is still filling company metadata.
+    if (!companyFieldId) {
+      return true;
+    }
+
     return companyFieldId === identityFieldId;
   }
 

@@ -46,7 +46,7 @@ def _build_job_document(job: common_pb2.Job, company_oid: ObjectId) -> dict:
     doc = MessageToDict(job, preserving_proto_field_name=True)
     doc.pop("id", None)
     doc.pop("company_info", None)
-    doc["company_id"] = company_oid
+    doc["company"] = company_oid
     doc["created_at"] = _now_timestamp()
     doc["updated_at"] = _now_timestamp()
     return doc

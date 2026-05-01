@@ -249,7 +249,7 @@ func normalizeJobDoc(doc bson.M) bson.M {
 		delete(doc, "_id")
 	}
 
-	if companyID, ok := normalizeObjectIDValue(doc["company_id"]); ok {
+	if companyID, ok := normalizeObjectIDValue(doc["company"]); ok {
 		doc["company_id"] = companyID
 	}
 
@@ -350,7 +350,7 @@ func GetJobDescriptions(c *gin.Context) {
 	collection, _, _ := jobDescriptionsCollection()
 
 	pipeline := bson.A{
-		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company_id", "foreignField": "_id", "as": "companyInfo"}},
+		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company", "foreignField": "_id", "as": "companyInfo"}},
 		bson.M{"$unwind": bson.M{"path": "$companyInfo", "preserveNullAndEmptyArrays": true}},
 	}
 
@@ -390,7 +390,7 @@ func GetJobDescription(c *gin.Context) {
 	collection, _, _ := jobDescriptionsCollection()
 	pipeline := bson.A{
 		bson.M{"$match": bson.M{"_id": objID}},
-		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company_id", "foreignField": "_id", "as": "companyInfo"}},
+		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company", "foreignField": "_id", "as": "companyInfo"}},
 		bson.M{"$unwind": bson.M{"path": "$companyInfo", "preserveNullAndEmptyArrays": true}},
 	}
 
@@ -493,7 +493,7 @@ func CreateJobDescription(c *gin.Context) {
 		"updated_at":      now,
 	}
 	if companyObjID != nil {
-		insertDoc["company_id"] = *companyObjID
+		insertDoc["company"] = *companyObjID
 	}
 
 	result, err := collection.InsertOne(context.Background(), insertDoc)
@@ -510,7 +510,7 @@ func CreateJobDescription(c *gin.Context) {
 
 	pipeline := bson.A{
 		bson.M{"$match": bson.M{"_id": insertedID}},
-		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company_id", "foreignField": "_id", "as": "companyInfo"}},
+		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company", "foreignField": "_id", "as": "companyInfo"}},
 		bson.M{"$unwind": bson.M{"path": "$companyInfo", "preserveNullAndEmptyArrays": true}},
 	}
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
@@ -576,7 +576,7 @@ func UpdateJobDescription(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid company_id"})
 			return
 		}
-		updateSet["company_id"] = companyObjID
+		updateSet["company"] = companyObjID
 	}
 
 	result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": updateSet})

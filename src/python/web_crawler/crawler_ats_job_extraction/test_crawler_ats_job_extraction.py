@@ -122,7 +122,7 @@ class UpsertJobTests(unittest.TestCase):
         self.assertEqual(doc["title"], "Engineer")
         self.assertEqual(doc["platform"], "greenhouse")
         self.assertEqual(doc["external_job_id"], "ext-1")
-        self.assertEqual(doc["company_id"], self.company_oid)
+        self.assertEqual(doc["company"], self.company_oid)
         self.assertIn("seconds", doc["created_at"])
         self.assertIn("seconds", doc["updated_at"])
         self.assertEqual(str(doc["_id"]), job_id)
@@ -139,7 +139,7 @@ class UpsertJobTests(unittest.TestCase):
                     "description": "Old desc",
                     "location": "Old place",
                     "source_url": "https://old.com",
-                    "company_id": self.company_oid,
+                    "company": self.company_oid,
                     "created_at": {"seconds": 1000, "nanos": 0},
                     "updated_at": {"seconds": 1000, "nanos": 0},
                 }
@@ -234,7 +234,7 @@ class CrawlerAtsJobExtractionTests(unittest.TestCase):
                     "description": "Old",
                     "location": "Old",
                     "source_url": "https://old.com",
-                    "company_id": self.company_oid,
+                    "company": self.company_oid,
                     "created_at": {"seconds": 1000, "nanos": 0},
                     "updated_at": {"seconds": 1000, "nanos": 0},
                 }

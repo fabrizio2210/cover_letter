@@ -87,7 +87,7 @@ class CrawlerAtsJobExtractionIntegrationTests(unittest.TestCase):
         if doc is None:
             self.fail("expected job document to be inserted")
         self.assertEqual(doc["title"], "Integration Test Role")
-        self.assertEqual(doc["company_id"], self.company_id)
+        self.assertEqual(doc["company"], self.company_id)
         self.assertIn("seconds", doc["created_at"])
         self.assertIn("seconds", doc["updated_at"])
 

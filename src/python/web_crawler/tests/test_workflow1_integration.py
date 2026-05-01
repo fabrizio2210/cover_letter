@@ -95,7 +95,7 @@ class Workflow1IntegrationTests(unittest.TestCase):
         if doc is None:
             self.fail("expected job document to be inserted into job-descriptions collection")
         self.assertEqual(doc["title"], "Workflow1 Engineer Role")
-        self.assertEqual(doc["company_id"], self.company_id)
+        self.assertEqual(doc["company"], self.company_id)
 
     def test_crawler_is_idempotent_on_recrawl(self):
         with patch(

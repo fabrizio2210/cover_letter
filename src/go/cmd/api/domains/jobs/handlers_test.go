@@ -296,8 +296,8 @@ func TestNormalizeJobDoc(t *testing.T) {
 	jobID := primitive.NewObjectID()
 	companyID := primitive.NewObjectID()
 	doc := bson.M{
-		"_id":        jobID,
-		"company_id": companyID,
+		"_id":     jobID,
+		"company": companyID,
 		"companyInfo": bson.M{
 			"_id": primitive.NewObjectID(),
 		},
@@ -459,9 +459,9 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 	jobDescriptions := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
 			{cursor: &mockMongoCursor{docs: []bson.M{{
-				"_id":        jobID,
-				"company_id": companyID,
-				"title":      "Backend Engineer",
+				"_id":     jobID,
+				"company": companyID,
+				"title":   "Backend Engineer",
 			}}}},
 		},
 	}
@@ -490,6 +490,17 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 	pipeline, ok := jobDescriptions.lastAggregatePipeline.(bson.A)
 	if !ok || len(pipeline) != 2 {
 		t.Fatalf("expected lookup+unwind pipeline, got %#v", jobDescriptions.lastAggregatePipeline)
+	}
+	lookupStage, ok := pipeline[0].(bson.M)
+	if !ok {
+		t.Fatalf("expected bson.M lookup stage, got %T", pipeline[0])
+	}
+	lookupDoc, ok := lookupStage["$lookup"].(bson.M)
+	if !ok {
+		t.Fatalf("expected $lookup document, got %#v", lookupStage)
+	}
+	if lookupDoc["localField"] != "company" {
+		t.Fatalf("expected lookup localField=company, got %#v", lookupDoc["localField"])
 	}
 }
 
@@ -566,9 +577,9 @@ func TestCreateJobDescription_SuccessWithExistingCompany(t *testing.T) {
 		insertResult: &mongo.InsertOneResult{InsertedID: insertedID},
 		aggregateResults: []aggregateResult{
 			{cursor: &mockMongoCursor{docs: []bson.M{{
-				"_id":        insertedID,
-				"company_id": companyID,
-				"title":      "Platform Engineer",
+				"_id":     insertedID,
+				"company": companyID,
+				"title":   "Platform Engineer",
 			}}}},
 		},
 	}
@@ -601,8 +612,8 @@ func TestCreateJobDescription_SuccessWithExistingCompany(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected bson.M insert doc, got %T", jobDescriptions.lastInsertDoc)
 	}
-	if insertDoc["company_id"] != companyID {
-		t.Fatalf("expected objectid company_id in insert doc, got %#v", insertDoc["company_id"])
+	if insertDoc["company"] != companyID {
+		t.Fatalf("expected objectid company in insert doc, got %#v", insertDoc["company"])
 	}
 	if _, ok := insertDoc["created_at"].(timestampObject); !ok {
 		t.Fatalf("expected created_at timestampObject, got %T", insertDoc["created_at"])
@@ -706,8 +717,8 @@ func TestUpdateJobDescription_Success(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected $set doc, got %#v", updateDoc)
 	}
-	if setDoc["company_id"] != companyID {
-		t.Fatalf("expected company_id objectid in update set, got %#v", setDoc["company_id"])
+	if setDoc["company"] != companyID {
+		t.Fatalf("expected company objectid in update set, got %#v", setDoc["company"])
 	}
 	if _, ok := setDoc["updated_at"].(timestampObject); !ok {
 		t.Fatalf("expected updated_at timestampObject, got %T", setDoc["updated_at"])
