@@ -11,12 +11,12 @@ This file owns frontend behavior for authentication screens and auth entry routi
 
 ## Responsibilities
 - Render user-password login form for user, while password-only login form for admin flow.
-- Call `POST /api/login` with `{ password }` for user login.
+- Call `POST /api/login` with `{ username, password }` for user login.
 - Call `POST /api/admin/login` with `{ password }` for admin login.
 - Persist user/admin JWTs through `AuthService` with separate scopes.
 - Redirect successful user login to `/dashboard`.
 - Redirect successful admin login to admin-only UI surface.
-- Render login errors inline on the page.
+- Render login errors inline on the page using generic invalid-credentials messaging (no username enumeration).
 
 ## Dependencies
 - `src/js/coverletter-frontend/src/app/core/auth/auth.service.ts`

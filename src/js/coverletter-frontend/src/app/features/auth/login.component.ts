@@ -26,7 +26,7 @@ export class LoginComponent {
           this.router.navigate(['/dashboard']);
         },
         error: () => {
-          this.error = 'Invalid password';
+          this.error = 'Invalid credentials';
         }
       });
   }
