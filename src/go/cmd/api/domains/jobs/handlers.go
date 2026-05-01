@@ -619,10 +619,33 @@ func DeleteJobDescription(c *gin.Context) {
 
 // CheckJobDescription enqueues a job for the enrichment_retiring_jobs workflow.
 func CheckJobDescription(c *gin.Context) {
+	type checkJobRequest struct {
+		IdentityID string `json:"identity_id"`
+	}
+
 	id := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req checkJobRequest
+	if c.Request != nil && c.Request.Body != nil {
+		decodeErr := json.NewDecoder(c.Request.Body).Decode(&req)
+		if decodeErr != nil && !errors.Is(decodeErr, io.EOF) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+	}
+
+	identityID := strings.TrimSpace(req.IdentityID)
+	if identityID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required field 'identity_id'"})
+		return
+	}
+	if _, parseErr := primitive.ObjectIDFromHex(identityID); parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identity_id"})
 		return
 	}
 
@@ -638,7 +661,10 @@ func CheckJobDescription(c *gin.Context) {
 		queueName = "enrichment_retiring_jobs_queue"
 	}
 
-	payloadBytes, err := json.Marshal(map[string]string{"job_id": id})
+	userIDRaw, _ := c.Get("userId")
+	userIDStr, _ := userIDRaw.(string)
+
+	payloadBytes, err := json.Marshal(map[string]string{"job_id": id, "user_id": userIDStr, "identity_id": identityID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payload"})
 		return

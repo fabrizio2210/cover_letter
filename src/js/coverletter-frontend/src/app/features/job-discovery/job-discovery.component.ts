@@ -688,7 +688,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
           this.feedbackService.showFeedback(progress.message || `Crawl ${progress.status} for ${this.activeIdentityName}.`, true);
         }
 
-        this.refreshJobsOnTerminalProgress('crawl', progress.identity_id, progress.run_id, progress.status);
+        this.refreshJobsOnTerminalProgress(
+          'crawl',
+          progress.identity_id,
+          progress.run_id,
+          progress.status,
+          progress.workflow_id || progress.workflow,
+        );
       },
       error: () => {
         this.feedbackService.showFeedback('Lost crawl progress stream connection.', true);
@@ -787,7 +793,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return prioritized[0] || null;
   }
 
-  private refreshJobsOnTerminalProgress(source: ProgressSource, identityId: string, runId: string, status: string): void {
+  private refreshJobsOnTerminalProgress(
+    source: ProgressSource,
+    identityId: string,
+    runId: string,
+    status: string,
+    workflowId?: string,
+  ): void {
     if (!identityId || !runId) {
       return;
     }
@@ -806,7 +818,27 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     }
 
     this.completedProgressEvents.add(completionKey);
-    this.loadData();
+
+    if (source === 'crawl' && workflowId === 'enrichment_retiring_jobs') {
+      return;
+    }
+
+    if (source === 'scoring') {
+      this.reloadScoresOnly();
+    } else {
+      this.loadData();
+    }
+  }
+
+  private reloadScoresOnly(): void {
+    this.api.getJobPreferenceScores().subscribe({
+      next: (scores) => {
+        this.jobScores = scores || [];
+        this.applyScoresToJobs();
+        this.loadActivitySummary(true);
+      },
+      error: () => {},
+    });
   }
 
   private getTimestampSeconds(value?: string | { seconds: number; nanos: number } | null): number {
@@ -820,12 +852,15 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   private checkDisplayedJobs(): void {
+    if (!this.selectedIdentityId) {
+      return;
+    }
     this.filteredJobs.forEach((job) => {
       if (!job.id || this.checkedJobIds.has(job.id)) {
         return;
       }
       this.checkedJobIds.add(job.id);
-      this.api.checkJobDescription(job.id).subscribe({ error: () => {} });
+      this.api.checkJobDescription(job.id, this.selectedIdentityId).subscribe({ error: () => {} });
     });
   }
 

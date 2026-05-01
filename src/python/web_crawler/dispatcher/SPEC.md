@@ -13,7 +13,7 @@ Agents editing files in this folder MUST consult this file before making changes
 The `dispatcher` package is the public entry point for the web-crawler system.
 It consumes raw crawl-trigger requests from a Redis queue, validates their payload, bootstraps a progress record, and fans out `WorkflowDispatchMessage` messages to every parallel crawler workflow queue.
 
-The dispatcher has **no knowledge of business extraction logic**. It does not touch MongoDB, does not load identities, and does not inspect job or company data.
+The dispatcher has **no knowledge of business extraction logic**. It does not load identities and does not inspect extraction payload content. It may host shared queue-enqueue helpers reused by other workers.
 
 ---
 
@@ -56,13 +56,14 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Publish a single `queued` progress snapshot before dispatching any workflows.
 - Generate one `workflow_run_id` per downstream workflow and push one `WorkflowDispatchMessage` per target queue.
 - Query MongoDB `companies` collection for all companies that need ATS enrichment (no terminal failure, and `ats_provider` or `ats_slug` missing/null) and push one `CompanyDiscoveryEvent(reason="no_ats_slug")` per company to `CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME`.
+- Provide the shared `enqueue_scoring_if_needed` helper used by other workers to enqueue `job_scoring_queue` messages only when `(job_id, identity_id)` has no terminal score (`failed`/`skipped` are re-queueable).
 - Log each dispatched workflow with `user_id`, `run_id`, `workflow_run_id`, and `identity_id`.
 - Reconnect to Redis automatically on connection loss and retry after a brief sleep.
 
 **Not responsible for:**
 - Loading or validating identity documents from MongoDB.
 - Deduplicating active runs for the same identity.
-- Any crawl, enrichment, or scoring business logic.
+- Any crawl, enrichment, or scoring execution logic.
 
 ---
 

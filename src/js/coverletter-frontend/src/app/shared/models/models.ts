@@ -114,7 +114,8 @@ export interface CrawlProgress {
     | 'enrichment_ats_enrichment'
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
-    | 'crawler_levelsfyi';
+    | 'crawler_levelsfyi'
+    | 'enrichment_retiring_jobs';
   identity_id: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'rejected';
   workflow:
@@ -125,6 +126,7 @@ export interface CrawlProgress {
     | 'crawler_ats_job_extraction'
     | 'crawler_4dayweek'
     | 'crawler_levelsfyi'
+    | 'enrichment_retiring_jobs'
     | 'finalizing';
   message?: string;
   estimated_total: number;

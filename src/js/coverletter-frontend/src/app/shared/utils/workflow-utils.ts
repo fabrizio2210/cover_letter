@@ -13,6 +13,7 @@ type WorkflowKey = NonNullable<CrawlProgress['workflow']> | NonNullable<CrawlPro
 const workflowLabels: Record<WorkflowKey, string> = {
   queued: 'Queued',
   enrichment_ats_enrichment: 'ATS enrichment',
+  enrichment_retiring_jobs: 'Retirement check',
   crawler_ats_job_extraction: 'ATS extraction',
   crawler_ycombinator: 'YC discovery',
   crawler_hackernews: 'HN discovery',

@@ -841,8 +841,11 @@ func TestCheckJobDescription_Success_DefaultQueueAndPayload(t *testing.T) {
 	defer restoreQueue()
 
 	jobID := primitive.NewObjectID().Hex()
-	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", nil)
+	identityID := primitive.NewObjectID().Hex()
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/check", map[string]string{"identity_id": identityID})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", req)
 	c.Params = gin.Params{{Key: "id", Value: jobID}}
+	c.Set("userId", "user-42")
 	CheckJobDescription(c)
 
 	if w.Code != http.StatusAccepted {
@@ -857,6 +860,55 @@ func TestCheckJobDescription_Success_DefaultQueueAndPayload(t *testing.T) {
 	}
 	if payload["job_id"] != jobID {
 		t.Fatalf("expected queued payload to contain job_id=%s, got %#v", jobID, payload)
+	}
+	if payload["user_id"] != "user-42" {
+		t.Fatalf("expected queued payload to contain user_id=user-42, got %#v", payload)
+	}
+	if payload["identity_id"] != identityID {
+		t.Fatalf("expected queued payload to contain identity_id=%s, got %#v", identityID, payload)
+	}
+}
+
+func TestCheckJobDescription_RequiresIdentityID(t *testing.T) {
+	jobDescriptions := &mockMongoCollection{
+		findOneResult: &mockMongoSingleResult{doc: bson.M{"_id": primitive.NewObjectID()}},
+	}
+	cleanup := setMockClient(map[string]*mockMongoCollection{
+		"job-descriptions": jobDescriptions,
+	})
+	defer cleanup()
+
+	jobID := primitive.NewObjectID().Hex()
+
+	// Missing identity_id
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/check", map[string]string{})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", req)
+	c.Params = gin.Params{{Key: "id", Value: jobID}}
+	CheckJobDescription(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing identity_id, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCheckJobDescription_InvalidIdentityID(t *testing.T) {
+	jobDescriptions := &mockMongoCollection{
+		findOneResult: &mockMongoSingleResult{doc: bson.M{"_id": primitive.NewObjectID()}},
+	}
+	cleanup := setMockClient(map[string]*mockMongoCollection{
+		"job-descriptions": jobDescriptions,
+	})
+	defer cleanup()
+
+	jobID := primitive.NewObjectID().Hex()
+
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/check", map[string]string{"identity_id": "not-a-valid-hex"})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", req)
+	c.Params = gin.Params{{Key: "id", Value: jobID}}
+	CheckJobDescription(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid identity_id, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -884,7 +936,9 @@ func TestCheckJobDescription_InvalidIDAndQueueFailure(t *testing.T) {
 	})
 	defer restoreQueue()
 
-	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", nil)
+	identityID := primitive.NewObjectID().Hex()
+	req := newJSONRequest(t, http.MethodPost, "/api/job-descriptions/id/check", map[string]string{"identity_id": identityID})
+	c, w := apptest.CreateGinTestContext(http.MethodPost, "/api/job-descriptions/id/check", req)
 	c.Params = gin.Params{{Key: "id", Value: primitive.NewObjectID().Hex()}}
 	CheckJobDescription(c)
 

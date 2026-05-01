@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import time
 from typing import cast
@@ -10,7 +11,7 @@ import redis
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
-from src.python.web_crawler.db import get_database
+from src.python.web_crawler.db import get_database, get_user_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
 from src.python.web_crawler.workflow_messages import (
     company_discovery_event_to_json,
@@ -21,6 +22,8 @@ from src.python.web_crawler.workflow_messages import (
 
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+_SCORE_ELIGIBLE_STATUSES = {"failed", "skipped"}
 
 
 def _new_workflow_run_id() -> str:
@@ -53,6 +56,44 @@ def _query_companies_needing_enrichment(database) -> list[str]:
         {"_id": 1},
     )
     return [str(doc["_id"]) for doc in cursor]
+
+
+def enqueue_scoring_if_needed(
+    redis_client: redis.Redis,
+    config: CrawlerConfig,
+    *,
+    job_id: str,
+    user_id: str,
+    identity_id: str,
+) -> None:
+    """Enqueue job scoring if no terminal score exists for this (job_id, identity_id) pair."""
+    if not user_id or not identity_id:
+        logger.debug(
+            "dispatcher: skipping scoring enqueue for %s (missing user_id or identity_id)",
+            job_id,
+        )
+        return
+
+    try:
+        user_db = get_user_database(config, user_id)
+        score_doc = user_db["job-preference-scores"].find_one(
+            {"job_id": job_id, "identity_id": identity_id},
+            {"scoring_status": 1},
+        )
+        if score_doc is not None and score_doc.get("scoring_status") not in _SCORE_ELIGIBLE_STATUSES:
+            logger.debug(
+                "dispatcher: scoring already exists for job %s identity %s (status=%s), skipping enqueue",
+                job_id,
+                identity_id,
+                score_doc.get("scoring_status"),
+            )
+            return
+
+        payload = json.dumps({"job_id": job_id, "user_id": user_id, "identity_id": identity_id})
+        redis_client.rpush(config.job_scoring_queue_name, payload)
+        logger.info("dispatcher: enqueued scoring for job %s identity %s", job_id, identity_id)
+    except Exception as exc:
+        logger.warning("dispatcher: failed to enqueue scoring for job %s: %s", job_id, exc)
 
 
 def _fan_out_enrichment_events(

@@ -160,7 +160,13 @@ Response `200`:
 
 ### POST /api/job-descriptions/:id/check
 
-No request body.
+Request body (JSON):
+
+```json
+{ "identity_id": "<hex ObjectID>" }
+```
+
+Required fields: `identity_id` (valid hex ObjectID). Returns `400` if missing or invalid.
 
 Response `202`:
 
@@ -238,14 +244,16 @@ Payload:
 ```json
 {
 	"user_id": "<jwt sub>",
-	"job_id": "<job description hex object id>"
+	"job_id": "<job description hex object id>",
+	"identity_id": "<hex ObjectID>"
 }
 ```
 
 Worker rules:
-- Missing `user_id` or `job_id` makes the message invalid and it is dropped with a warning log.
+- Missing `user_id`, `job_id`, or `identity_id` makes the message invalid and it is dropped with a warning log.
 - Worker probes `source_url`; on HTTP 404 the job is marked closed (`is_open=false`).
 - If job remains closed for more than 60 days, it is deleted.
+- After probing, the worker checks `job-preference-scores` in the per-user DB for a score with `(job_id, identity_id)`. If no doc exists, or `scoring_status` is `failed` or `skipped`, the job is enqueued to `job_scoring_queue`.
 
 ### Channel: `job_update_channel`
 

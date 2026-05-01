@@ -10,6 +10,7 @@ from src.python.web_crawler.config import CrawlerConfig
 from src.python.web_crawler.dispatcher.main import (
     _fan_out_enrichment_events,
     _query_companies_needing_enrichment,
+    enqueue_scoring_if_needed,
 )
 
 
@@ -59,6 +60,18 @@ class FakeCollection:
 
 
 class FakeDatabase(dict):
+    pass
+
+
+class FakeScoreCollection:
+    def __init__(self, doc=None):
+        self._doc = doc
+
+    def find_one(self, filter_doc, projection=None):
+        return self._doc
+
+
+class FakeUserDatabase(dict):
     pass
 
 
@@ -276,6 +289,36 @@ class FanOutEnrichmentEventsTests(unittest.TestCase):
         payload = json.loads(raw_payload)
         self.assertEqual(payload["run_id"], "my-run-id")
         self.assertEqual(payload["identity_id"], "my-identity")
+
+
+class EnqueueScoringIfNeededTests(unittest.TestCase):
+    def setUp(self):
+        self.config = CrawlerConfig(
+            mongo_host="mongodb://localhost:27017/",
+            db_name="cover_letter",
+            job_scoring_queue_name="job_scoring_queue",
+        )
+
+    def test_enqueues_when_no_score_doc_exists(self):
+        redis_client = MagicMock()
+        user_db = FakeUserDatabase({"job-preference-scores": FakeScoreCollection(None)})
+
+        with patch("src.python.web_crawler.dispatcher.main.get_user_database", return_value=user_db):
+            enqueue_scoring_if_needed(
+                redis_client,
+                self.config,
+                job_id=str(ObjectId()),
+                user_id="user-1",
+                identity_id=str(ObjectId()),
+            )
+
+        redis_client.rpush.assert_called_once()
+        queue_name, payload_raw = redis_client.rpush.call_args.args
+        payload = json.loads(payload_raw)
+        self.assertEqual(queue_name, "job_scoring_queue")
+        self.assertEqual(payload["user_id"], "user-1")
+        self.assertIn("job_id", payload)
+        self.assertIn("identity_id", payload)
 
 
 if __name__ == "__main__":

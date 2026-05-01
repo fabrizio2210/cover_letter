@@ -201,6 +201,7 @@ message JobRetireEvent {
     string identity_id = 4;
     string job_id = 5;
     google.protobuf.Timestamp emitted_at = 6;
+    string user_id = 7;
 }
 
 message CrawlProgress {

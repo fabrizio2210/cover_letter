@@ -232,3 +232,111 @@ describe('JobDiscoveryComponent identity filtering', () => {
     expect(feedbackServiceSpy.showFeedback).toHaveBeenCalledWith('Select an identity before queueing scoring.', true);
   });
 });
+
+describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
+  let component: JobDiscoveryComponent;
+  let apiServiceSpy: jasmine.SpyObj<ApiService>;
+  let feedbackServiceSpy: jasmine.SpyObj<FeedbackService>;
+
+  beforeEach(() => {
+    apiServiceSpy = jasmine.createSpyObj('ApiService', [
+      'getJobDescriptions',
+      'getJobPreferenceScores',
+      'getIdentities',
+      'getActiveCrawls',
+      'getActiveScoring',
+      'getActivitySummary',
+      'subscribeToCrawlProgress',
+      'subscribeToScoringProgress',
+      'subscribeToJobUpdates',
+      'scoreJobDescription',
+      'checkJobDescription',
+      'getJobDescription',
+    ]);
+
+    feedbackServiceSpy = jasmine.createSpyObj('FeedbackService', ['showFeedback']);
+
+    const identityContextStub = jasmine.createSpyObj('IdentityContextService', [
+      'getSelectedIdentityId',
+      'setSelectedIdentityId',
+      'ensureValidIdentityId',
+    ]);
+
+    const routerStub = jasmine.createSpyObj('Router', ['navigate']);
+
+    apiServiceSpy.getJobDescriptions.and.returnValue(of([]));
+    apiServiceSpy.getJobPreferenceScores.and.returnValue(of([]));
+    apiServiceSpy.getIdentities.and.returnValue(of([]));
+    apiServiceSpy.getActiveCrawls.and.returnValue(of([]));
+    apiServiceSpy.getActiveScoring.and.returnValue(of([]));
+    apiServiceSpy.getActivitySummary.and.returnValue(of({ queue_depth: {}, crawl_progress: [], scoring_progress: [] } as any));
+    apiServiceSpy.subscribeToCrawlProgress.and.returnValue(of());
+    apiServiceSpy.subscribeToScoringProgress.and.returnValue(of());
+    apiServiceSpy.subscribeToJobUpdates.and.returnValue(of());
+    identityContextStub.ensureValidIdentityId.and.returnValue('identity-1');
+
+    TestBed.configureTestingModule({
+      imports: [JobDiscoveryComponent],
+      providers: [
+        { provide: ApiService, useValue: apiServiceSpy },
+        { provide: FeedbackService, useValue: feedbackServiceSpy },
+        { provide: IdentityContextService, useValue: identityContextStub },
+        { provide: Router, useValue: routerStub },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({})),
+          },
+        },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(JobDiscoveryComponent);
+    component = fixture.componentInstance;
+    component.selectedIdentityId = 'identity-1';
+  });
+
+  it('scoring completion reloads scores only without triggering full loadData', () => {
+    apiServiceSpy.getJobPreferenceScores.calls.reset();
+    apiServiceSpy.getJobDescriptions.calls.reset();
+
+    (component as any).refreshJobsOnTerminalProgress('scoring', 'identity-1', 'run-1', 'completed');
+
+    expect(apiServiceSpy.getJobPreferenceScores).toHaveBeenCalledTimes(1);
+    expect(apiServiceSpy.getJobDescriptions).not.toHaveBeenCalled();
+  });
+
+  it('crawl completion triggers full loadData', () => {
+    apiServiceSpy.getJobDescriptions.calls.reset();
+    apiServiceSpy.getJobPreferenceScores.calls.reset();
+
+    (component as any).refreshJobsOnTerminalProgress('crawl', 'identity-1', 'run-2', 'completed');
+
+    expect(apiServiceSpy.getJobDescriptions).toHaveBeenCalled();
+  });
+
+  it('retirement-check crawl completion does not trigger full loadData', () => {
+    apiServiceSpy.getJobDescriptions.calls.reset();
+    apiServiceSpy.getJobPreferenceScores.calls.reset();
+
+    (component as any).refreshJobsOnTerminalProgress(
+      'crawl',
+      'identity-1',
+      'run-2',
+      'completed',
+      'enrichment_retiring_jobs',
+    );
+
+    expect(apiServiceSpy.getJobDescriptions).not.toHaveBeenCalled();
+    expect(apiServiceSpy.getJobPreferenceScores).not.toHaveBeenCalled();
+  });
+
+  it('scoring completion is deduplicated for the same run_id', () => {
+    apiServiceSpy.getJobPreferenceScores.calls.reset();
+
+    (component as any).refreshJobsOnTerminalProgress('scoring', 'identity-1', 'run-3', 'completed');
+    (component as any).refreshJobsOnTerminalProgress('scoring', 'identity-1', 'run-3', 'completed');
+
+    expect(apiServiceSpy.getJobPreferenceScores).toHaveBeenCalledTimes(1);
+  });
+});

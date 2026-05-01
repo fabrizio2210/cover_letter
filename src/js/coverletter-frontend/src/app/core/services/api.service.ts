@@ -130,8 +130,8 @@ export class ApiService {
     return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/score`, { identity_id: identityId });
   }
 
-  checkJobDescription(id: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/check`, {});
+  checkJobDescription(id: string, identityId: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiBase}/job-descriptions/${id}/check`, { identity_id: identityId });
   }
 
   triggerCrawl(identityId: string): Observable<{ message: string; run_id: string; identity_id: string; status: string }> {

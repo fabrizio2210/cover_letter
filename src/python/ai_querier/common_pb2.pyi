@@ -783,6 +783,7 @@ class JobRetireEvent(google.protobuf.message.Message):
     IDENTITY_ID_FIELD_NUMBER: builtins.int
     JOB_ID_FIELD_NUMBER: builtins.int
     EMITTED_AT_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     run_id: typing.Text
     workflow_run_id: typing.Text
     workflow_id: typing.Text
@@ -790,6 +791,7 @@ class JobRetireEvent(google.protobuf.message.Message):
     job_id: typing.Text
     @property
     def emitted_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    user_id: typing.Text
     def __init__(self,
         *,
         run_id: typing.Text = ...,
@@ -798,9 +800,10 @@ class JobRetireEvent(google.protobuf.message.Message):
         identity_id: typing.Text = ...,
         job_id: typing.Text = ...,
         emitted_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        user_id: typing.Text = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["emitted_at",b"emitted_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["emitted_at",b"emitted_at","identity_id",b"identity_id","job_id",b"job_id","run_id",b"run_id","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["emitted_at",b"emitted_at","identity_id",b"identity_id","job_id",b"job_id","run_id",b"run_id","user_id",b"user_id","workflow_id",b"workflow_id","workflow_run_id",b"workflow_run_id"]) -> None: ...
 global___JobRetireEvent = JobRetireEvent
 
 class CrawlProgress(google.protobuf.message.Message):
