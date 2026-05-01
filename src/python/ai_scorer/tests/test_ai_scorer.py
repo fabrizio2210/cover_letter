@@ -302,7 +302,7 @@ class AiScorerUnitTests(unittest.TestCase):
         if updated is None:
             self.fail("Expected updated score document")
         self.assertEqual(updated.get("scoring_status"), "scored")
-        self.assertAlmostEqual(updated.get("weighted_score"), (5 * (2 / 10)) + (3 * (1 / 10)))
+        self.assertAlmostEqual(updated.get("weighted_score"), (5 * 2.0 + 3 * 1.0) / (2.0 + 1.0))
         self.assertEqual(updated.get("max_score"), 10)
 
     def test_process_scoring_job_success_path(self):

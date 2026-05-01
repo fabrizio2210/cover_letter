@@ -15,7 +15,7 @@ services:
       [
         "bash",
         "-lc",
-        "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 && pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 && python -m unittest -v /workspace/src/python/web_crawler/tests/test_workflow1_integration.py",
+        "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 && pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 && PYTHONPATH=/workspace python -m unittest discover -v -s /workspace/src/python/web_crawler/tests -p 'test_workflow1_integration.py'",
       ]
     depends_on:
       - mongo

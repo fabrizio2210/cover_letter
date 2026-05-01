@@ -8,6 +8,10 @@
         "/^make generate-proto 2>&1$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^bash scripts/test-gate\\.sh --mode fast 2>&1 \\| tail -20$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     },
     "makefile.configureOnOpen": false

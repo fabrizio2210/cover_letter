@@ -1,9 +1,13 @@
 from bson.objectid import ObjectId
 from pymongo import MongoClient
+import hashlib
 import sys
 import time
 
 MONGO_URI = 'mongodb://mongo:27017/'
+ADMIN_USERNAME = 'e2e-test-user'
+_h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
+USER_ID = _h[:16].hex()
 JOB_ID = '0000000000000000000000dd'
 IDENTITY_NAME = 'Test Identity'
 PREFERENCE_WEIGHTS = {
@@ -36,10 +40,11 @@ if not client:
     print('NOT_FOUND')
     sys.exit(2)
 
-db = client['cover_letter']
-jobs_col = db['jobs']
-identities_col = db['identities']
-scores_col = db['job-preference-scores']
+global_db = client['cover_letter']
+user_db = client[f'cover_letter_{USER_ID}']
+jobs_col = global_db['job-descriptions']
+identities_col = user_db['identities']
+scores_col = user_db['job-preference-scores']
 
 identity = identities_col.find_one({'name': IDENTITY_NAME})
 if not identity:

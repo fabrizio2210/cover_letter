@@ -783,16 +783,18 @@ def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_d
         raise ValueError("No preference scores found to aggregate")
 
     weighted_sum = 0.0
+    total_weight = 0.0
     max_score = len(preference_scores) * 5
 
     for doc in preference_scores:
         score = int(doc.get("score", 0))
         weight = float(doc.get("preference_weight", 0))
-        weighted_sum += score * (weight / max_score)
+        weighted_sum += score * weight
+        total_weight += weight
 
     weighted_score = 0.0
-    if max_score > 0:
-        weighted_score = weighted_sum
+    if total_weight > 0:
+        weighted_score = weighted_sum / total_weight
 
     upsert_identity_score_doc(
         job_preference_scores_col,

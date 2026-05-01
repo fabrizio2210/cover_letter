@@ -1,8 +1,13 @@
 from pymongo import MongoClient
+import hashlib
 import sys
 import time
 
 mongo_uri = 'mongodb://mongo:27017/'
+
+ADMIN_USERNAME = 'e2e-test-user'
+_h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
+USER_ID = _h[:16].hex()
 
 # Wait for mongo and poll for cover-letter doc
 end = time.time() + 30
@@ -19,7 +24,7 @@ if not client:
     print('NOT_FOUND')
     sys.exit(2)
 
-db = client['cover_letter']
+db = client[f'cover_letter_{USER_ID}']
 col = db['cover-letters']
 
 found_generate = False

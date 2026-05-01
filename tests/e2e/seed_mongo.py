@@ -1,10 +1,16 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+import hashlib
 import time
 
 mongo_uri = 'mongodb://mongo:27017/'
 
 SCORER_JOB_ID = ObjectId('0000000000000000000000dd')
+
+# Must match the username used in push_via_api.py
+ADMIN_USERNAME = 'e2e-test-user'
+_h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
+USER_ID = _h[:16].hex()
 
 # Wait until Mongo is available
 end = time.time() + 30
@@ -20,20 +26,29 @@ while time.time() < end:
 if not client:
     raise SystemExit('MongoDB not reachable')
 
-db = client['cover_letter']
+# Global collections (job-descriptions, companies, fields) live in DB_NAME
+global_db = client['cover_letter']
+# Per-user collections (identities, recipients, cover-letters, job-preference-scores)
+# live in cover_letter_<userID>, mirroring the Go API's GetDatabaseName logic
+user_db = client[f'cover_letter_{USER_ID}']
 
 # Clean old data
-for c in ['fields', 'companies', 'identities', 'recipients', 'cover-letters', 'job-descriptions', 'jobs', 'job-preference-scores']:
+for c in ['fields', 'companies', 'job-descriptions', 'jobs']:
     try:
-        db.drop_collection(c)
+        global_db.drop_collection(c)
+    except Exception:
+        pass
+for c in ['identities', 'recipients', 'cover-letters', 'job-preference-scores']:
+    try:
+        user_db.drop_collection(c)
     except Exception:
         pass
 
 field = {'field': 'Engineering'}
-field_id = db['fields'].insert_one(field).inserted_id
+field_id = global_db['fields'].insert_one(field).inserted_id
 
 company = {'name': 'TestCorp', 'description': 'Testing company', 'field': field_id, 'field_id': field_id}
-company_id = db['companies'].insert_one(company).inserted_id
+company_id = global_db['companies'].insert_one(company).inserted_id
 
 identity = {
     'identity': 'id-1',
@@ -57,7 +72,7 @@ identity = {
         },
     ],
 }
-identity_id = db['identities'].insert_one(identity).inserted_id
+identity_id = user_db['identities'].insert_one(identity).inserted_id
 
 recipient = {
     '_id': ObjectId('0000000000000000000000aa'),
@@ -67,7 +82,7 @@ recipient = {
     'company': company_id,
     'company_id': company_id,
 }
-recipient_id = db['recipients'].insert_one(recipient).inserted_id
+recipient_id = user_db['recipients'].insert_one(recipient).inserted_id
 
 
 recipient_for_refine = {
@@ -78,7 +93,7 @@ recipient_for_refine = {
     'company': company_id,
     'company_id': company_id,
 }
-recipient_for_refine_id = db['recipients'].insert_one(recipient_for_refine).inserted_id
+recipient_for_refine_id = user_db['recipients'].insert_one(recipient_for_refine).inserted_id
 cover_letter_for_refine = {
     '_id': ObjectId('0000000000000000000000cc'),
     'recipient_id': str(recipient_for_refine_id),
@@ -91,7 +106,7 @@ cover_letter_for_refine = {
     ],
     'created_at': {'seconds': 1704067200, 'nanos': 0},
 }
-db['cover-letters'].insert_one(cover_letter_for_refine)
+user_db['cover-letters'].insert_one(cover_letter_for_refine)
 
 job_description = {
     '_id': SCORER_JOB_ID,
@@ -104,6 +119,6 @@ job_description = {
     'created_at': {'seconds': 1704067200, 'nanos': 0},
     'updated_at': {'seconds': 1704067200, 'nanos': 0},
 }
-db['jobs'].insert_one(job_description)
+global_db['job-descriptions'].insert_one(job_description)
 
 print('SEEDED', str(recipient_id), str(recipient_for_refine_id), str(SCORER_JOB_ID))
