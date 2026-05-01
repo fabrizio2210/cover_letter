@@ -487,6 +487,123 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertEqual(stored_score.get("scoring_status"), "skipped")
         self.assertEqual(stored_score.get("preference_scores"), [])
 
+    def test_resolve_scoring_context_with_identity_id_bypasses_field_lookup(self):
+        """Direct identity_id lookup succeeds even when company has no field."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[{"_id": job_id, "company": company_id, "title": "SRE", "description": "Ops"}]
+        )
+        # Company has no field — field-based inference would fail
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[
+                {
+                    "_id": identity_id,
+                    "name": "Fab",
+                    "preferences": [
+                        {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                    ],
+                }
+            ]
+        )
+
+        context, error = resolve_scoring_context(
+            jobs, companies, identities, str(job_id), identity_id=str(identity_id)
+        )
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(context)
+        if context is None:
+            self.fail("Expected scoring context")
+        _, _, identity_doc, enabled = context
+        self.assertIsNotNone(identity_doc)
+        self.assertIsNotNone(enabled)
+        self.assertEqual(len(enabled), 1)
+
+    def test_resolve_scoring_context_invalid_identity_id_fails_without_fallback(self):
+        """When identity_id is provided but not found, fail explicitly without field inference."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        field_id = ObjectId()
+        real_identity_id = ObjectId()
+        wrong_identity_id = ObjectId()  # does not exist in identities collection
+
+        jobs = FakeCollection(docs=[{"_id": job_id, "company": company_id}])
+        # Company has a valid field that would resolve the real identity via field inference
+        companies = FakeCollection(docs=[{"_id": company_id, "field": field_id}])
+        identities = FakeCollection(
+            docs=[
+                {
+                    "_id": real_identity_id,
+                    "field": field_id,
+                    "preferences": [{"key": "remote", "guidance": "Remote", "weight": 1, "enabled": True}],
+                }
+            ]
+        )
+
+        context, error = resolve_scoring_context(
+            jobs, companies, identities, str(job_id), identity_id=str(wrong_identity_id)
+        )
+
+        self.assertEqual(error, "identity_not_found")
+
+    def test_process_scoring_job_succeeds_with_identity_id_no_company_field(self):
+        """process_scoring_job scores correctly when identity_id is provided and company has no field."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[
+                {
+                    "_id": job_id,
+                    "company": company_id,
+                    "title": "Platform Engineer",
+                    "description": "infra work",
+                    "location": "Remote",
+                    "platform": "greenhouse",
+                }
+            ]
+        )
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[
+                {
+                    "_id": identity_id,
+                    "name": "Fab",
+                    "preferences": [
+                        {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                    ],
+                }
+            ]
+        )
+        score_docs = FakeCollection()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="scoring_progress_channel",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=None,
+            model_name="unused",
+            test_mode=True,
+            identity_id=str(identity_id),
+        )
+
+        stored_score = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored_score)
+        if stored_score is None:
+            self.fail("Expected identity score document")
+        self.assertEqual(stored_score.get("scoring_status"), "scored")
+
 
 class TimestampTests(unittest.TestCase):
     def test_now_timestamp_dict_shape(self):

@@ -86,7 +86,7 @@ High-level orchestration:
 6. Consume those company-discovery events in `enrichment_ats_enrichment` and emit ATS-job-trigger events when `ats_provider` plus `ats_slug` become available.
 7. Execute ATS-backed crawler workflows, such as `crawler_ats_job_extraction`, from those follow-up triggers, either as part of the same parent run or as singular workflow message executions.
 8. Publish workflow-level progress snapshots to Redis, each carrying parent `run_id` plus `workflow_run_id` and `workflow_id`.
-9. Optionally enqueue `{ "user_id": "...", "job_id": "..." }` messages for scoring after each successful job insert/update.
+9. Optionally enqueue `{ "user_id": "...", "job_id": "...", "identity_id": "..." }` messages for scoring after each successful job insert/update.
 10. Emit crawl summary logs and counters, including per-workflow success/failure counts and parent-run completion state.
 
 ---

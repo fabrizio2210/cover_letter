@@ -203,12 +203,14 @@ Payload:
 ```json
 {
 	"user_id": "<jwt sub>",
-	"job_id": "<job description hex object id>"
+	"job_id": "<job description hex object id>",
+	"identity_id": "<identity hex object id>"  // optional for API-triggered scoring; included by crawlers
 }
 ```
 
 Rules:
 - Missing `user_id` or `job_id` makes the message invalid and it is dropped with an error log.
+- `identity_id` is optional when produced by the Go API; crawlers must always include it.
 - Re-crawl updates should enqueue a new `job_id` for rescoring.
 - Jobs missing scoring prerequisites may be marked `skipped` and not enqueued.
 - Scoring worker derives per-user DB name from `user_id` and reads global job/company data from `cover_letter_global`.

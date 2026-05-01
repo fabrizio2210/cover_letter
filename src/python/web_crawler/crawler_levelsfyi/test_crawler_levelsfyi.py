@@ -246,6 +246,15 @@ class CrawlerLevelsFyiHelperTests(unittest.TestCase):
         redis_client.rpush.side_effect = RuntimeError("boom")
         self.assertFalse(workflow_module._try_enqueue(redis_client, config, "def", "user-1"))
 
+    def test_try_enqueue_includes_identity_id_when_provided(self):
+        config = _make_config()
+        redis_client = Mock()
+
+        self.assertTrue(workflow_module._try_enqueue(redis_client, config, "abc", "user-1", identity_id="id-123"))
+        queue_name, payload = redis_client.rpush.call_args[0]
+        self.assertEqual(queue_name, config.job_scoring_queue_name)
+        self.assertEqual(json.loads(payload), {"job_id": "abc", "user_id": "user-1", "identity_id": "id-123"})
+
 
 class CrawlerLevelsFyiWorkflowTests(unittest.TestCase):
     def test_run_crawler_levelsfyi_returns_early_when_no_roles(self):

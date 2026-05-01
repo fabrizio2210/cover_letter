@@ -55,7 +55,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - For each company call `fetch_jobs(provider, slug, config, session)` from `sources/ats_job_fetcher.py`.
 - Filter each returned job with `_job_matches_roles(job, identity_roles)` — case-insensitive substring match against `title` and `description`; skip non-matching jobs.
 - Upsert matching jobs into `database["job-descriptions"]` via `upsert_job`; deduplication key is `(platform, external_job_id)`.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1` and Redis is available: push `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to the scoring queue.
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1` and Redis is available: push `{"user_id": "<jwt sub>", "job_id": "<hex>", "identity_id": "<identity hex>"}` to the scoring queue.
 - New jobs are inserted without score-bearing fields; identity-scoped score lifecycle belongs to `job-preference-scores`.
 - Report progress via `progress_callback` when supplied.
 - Publish `running` → `completed` / `failed` progress snapshots per dispatch message.
@@ -136,7 +136,7 @@ Upsert on `{platform, external_job_id}`: inserts on first sight, updates `title`
 ## 8. Scoring Queue Handoff
 
 Enabled via `config.enable_scoring_enqueue`. When active:
-1. After a successful job upsert, push `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
+1. After a successful job upsert, push `{"user_id": "<jwt sub>", "job_id": "<hex>", "identity_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 2. On Redis push failure: log WARNING and continue.
 
 ---

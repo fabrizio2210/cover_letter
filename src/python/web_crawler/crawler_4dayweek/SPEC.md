@@ -62,7 +62,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Resolve or create company in `companies` using canonicalized company name.
 - Validate extracted jobs against per-user `identity.roles` before persistence; skip non-matching jobs.
 - Upsert matching jobs into `job-descriptions` with `platform = "4dayweek"` and dedup key `(platform, external_job_id)`.
-- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"user_id": "<jwt sub>", "job_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
+- If `CRAWLER_ENABLE_SCORING_ENQUEUE=1`: enqueue `{"user_id": "<jwt sub>", "job_id": "<hex>", "identity_id": "<hex>"}` to `JOB_SCORING_QUEUE_NAME`.
 - Publish `running` → `completed` / `failed` progress snapshots.
 - Role filtering is required before any job upsert.
 

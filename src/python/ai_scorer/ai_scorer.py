@@ -583,7 +583,7 @@ def upsert_identity_score_doc(
     )
 
 
-def resolve_scoring_context(job_descriptions_col, companies_col, identities_col, job_id):
+def resolve_scoring_context(job_descriptions_col, companies_col, identities_col, job_id, identity_id=None):
     job_object_id = parse_object_id(job_id)
     if not job_object_id:
         return None, "invalid_job_id"
@@ -605,23 +605,35 @@ def resolve_scoring_context(job_descriptions_col, companies_col, identities_col,
     if not company_doc:
         return (job_doc, None, None, None), "company_not_found"
 
-    field_ref = company_doc.get("field")
-    if field_ref is None:
-        field_ref = company_doc.get("field_id")
-    field_object_id = parse_object_id(field_ref)
-
+    # Resolve identity: prefer direct lookup by identity_id when provided (post-multi-user
+    # migration path). Fall back to field-based inference for legacy payloads that predate
+    # the explicit identity_id field in queue messages.
     identity_doc = None
-    if field_object_id:
-        identity_doc = identities_col.find_one({"field": field_object_id})
+    if identity_id:
+        identity_object_id = parse_object_id(identity_id)
+        if identity_object_id:
+            identity_doc = identities_col.find_one({"_id": identity_object_id})
         if not identity_doc:
-            identity_doc = identities_col.find_one({"field_id": field_object_id})
-    if not identity_doc and isinstance(field_ref, str):
-        identity_doc = identities_col.find_one({"field": field_ref})
-        if not identity_doc:
-            identity_doc = identities_col.find_one({"field_id": field_ref})
+            # identity_id provided but not found — fail explicitly, do not fall back.
+            return (job_doc, company_doc, None, None), "identity_not_found"
+    else:
+        # Legacy fallback: infer identity via company → field linkage.
+        field_ref = company_doc.get("field")
+        if field_ref is None:
+            field_ref = company_doc.get("field_id")
+        field_object_id = parse_object_id(field_ref)
 
-    if not identity_doc:
-        return (job_doc, company_doc, None, None), "identity_not_found"
+        if field_object_id:
+            identity_doc = identities_col.find_one({"field": field_object_id})
+            if not identity_doc:
+                identity_doc = identities_col.find_one({"field_id": field_object_id})
+        if not identity_doc and isinstance(field_ref, str):
+            identity_doc = identities_col.find_one({"field": field_ref})
+            if not identity_doc:
+                identity_doc = identities_col.find_one({"field_id": field_ref})
+
+        if not identity_doc:
+            return (job_doc, company_doc, None, None), "identity_not_found"
 
     preferences = identity_doc.get("preferences", [])
     enabled_preferences = [pref for pref in preferences if isinstance(pref, dict) and pref.get("enabled", False)]
@@ -810,8 +822,9 @@ def process_scoring_job(
     ollama_client,
     model_name,
     test_mode,
+    identity_id=None,
 ):
-    context, error = resolve_scoring_context(job_descriptions_col, companies_col, identities_col, job_id)
+    context, error = resolve_scoring_context(job_descriptions_col, companies_col, identities_col, job_id, identity_id=identity_id)
 
     if error == "invalid_job_id":
         print(f"error: Invalid job_id '{job_id}'.")
@@ -1010,6 +1023,7 @@ def scoring_worker_loop(
 
         job_id = item["job_id"]
         user_id = item["user_id"]
+        identity_id = item.get("identity_id") or None
 
         # Derive the per-user database from user_id (which is the JWT sub claim,
         # already a SHA-256-derived hex string set at login time).
@@ -1041,6 +1055,7 @@ def scoring_worker_loop(
                 ollama_client,
                 model_name,
                 test_mode,
+                identity_id=identity_id,
             )
         except Exception as exc:
             print(f"error: Worker {worker_id} failed while processing job '{job_id}': {exc}")
@@ -1127,6 +1142,7 @@ def main():
 
                 job_id = payload.get("job_id")
                 user_id = str(payload.get("user_id") or "").strip()
+                identity_id = str(payload.get("identity_id") or "").strip() or None
                 if not job_id:
                     print("error: Missing required field 'job_id'.")
                     continue
@@ -1134,7 +1150,7 @@ def main():
                     print("error: Missing required field 'user_id'.")
                     continue
 
-                work_queue.put({"job_id": str(job_id), "user_id": user_id})
+                work_queue.put({"job_id": str(job_id), "user_id": user_id, "identity_id": identity_id})
 
             except Exception as exc:
                 print(f"error: Error while consuming queue: {exc}")
