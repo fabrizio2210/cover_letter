@@ -24,7 +24,6 @@ def stable_test_score(job_id, preference_key):
 
 expected_scores = {key: stable_test_score(JOB_ID, key) for key in PREFERENCE_WEIGHTS}
 expected_weighted_score = sum(expected_scores[key] * weight for key, weight in PREFERENCE_WEIGHTS.items()) / sum(PREFERENCE_WEIGHTS.values())
-expected_max_score = len(PREFERENCE_WEIGHTS) * 5
 
 end = time.time() + 30
 client = None
@@ -61,10 +60,6 @@ while time.time() < end:
 
     if job and score_doc and score_doc.get('scoring_status') == 'scored':
         if abs(float(score_doc.get('weighted_score', 0.0)) - expected_weighted_score) > 1e-9:
-            print('NOT_FOUND')
-            sys.exit(2)
-
-        if int(score_doc.get('max_score', 0)) != expected_max_score:
             print('NOT_FOUND')
             sys.exit(2)
 

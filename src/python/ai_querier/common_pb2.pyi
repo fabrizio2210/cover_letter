@@ -533,7 +533,6 @@ class JobPreferenceScore(google.protobuf.message.Message):
     PREFERENCE_SCORES_FIELD_NUMBER: builtins.int
     SCORING_STATUS_FIELD_NUMBER: builtins.int
     WEIGHTED_SCORE_FIELD_NUMBER: builtins.int
-    MAX_SCORE_FIELD_NUMBER: builtins.int
     id: typing.Text
     """@gotags: bson:"_id,omitempty" """
 
@@ -553,9 +552,6 @@ class JobPreferenceScore(google.protobuf.message.Message):
     weighted_score: builtins.float
     """@gotags: bson:"weighted_score" """
 
-    max_score: builtins.int
-    """@gotags: bson:"max_score,omitempty" """
-
     def __init__(self,
         *,
         id: typing.Text = ...,
@@ -564,9 +560,8 @@ class JobPreferenceScore(google.protobuf.message.Message):
         preference_scores: typing.Optional[typing.Iterable[global___PreferenceScore]] = ...,
         scoring_status: global___ScoringStatus.ValueType = ...,
         weighted_score: builtins.float = ...,
-        max_score: builtins.int = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["id",b"id","identity_id",b"identity_id","job_id",b"job_id","max_score",b"max_score","preference_scores",b"preference_scores","scoring_status",b"scoring_status","weighted_score",b"weighted_score"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["id",b"id","identity_id",b"identity_id","job_id",b"job_id","preference_scores",b"preference_scores","scoring_status",b"scoring_status","weighted_score",b"weighted_score"]) -> None: ...
 global___JobPreferenceScore = JobPreferenceScore
 
 class Job(google.protobuf.message.Message):

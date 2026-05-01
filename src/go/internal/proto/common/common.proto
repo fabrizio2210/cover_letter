@@ -131,7 +131,6 @@ message JobPreferenceScore {
     repeated PreferenceScore preference_scores = 4; // @gotags: bson:"preference_scores,omitempty"
     ScoringStatus scoring_status = 5; // @gotags: bson:"scoring_status"
     double weighted_score = 6; // @gotags: bson:"weighted_score"
-    int32 max_score = 7; // @gotags: bson:"max_score,omitempty"
 }
 
 message Job {

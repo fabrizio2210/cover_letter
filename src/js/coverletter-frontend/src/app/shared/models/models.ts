@@ -62,7 +62,6 @@ export interface JobPreferenceScore {
   preference_scores: PreferenceScore[];
   scoring_status?: string;
   weighted_score?: number;
-  max_score?: number;
 }
 
 export interface PreferenceScore {

@@ -550,14 +550,12 @@ def upsert_identity_score_doc(
     status,
     preference_scores=None,
     weighted_score=0.0,
-    max_score=0,
 ):
     score_proto = common_pb2.JobPreferenceScore(
         job_id=job_id_str,
         identity_id=identity_id_str,
         scoring_status=status,
         weighted_score=float(weighted_score),
-        max_score=int(max_score),
     )
 
     for pref_score in preference_scores or []:
@@ -577,10 +575,6 @@ def upsert_identity_score_doc(
     score_doc["scoring_status"] = scoring_status_to_bson(status)
     score_doc["weighted_score"] = float(weighted_score)
     score_doc["preference_scores"] = preference_scores or []
-    if max_score > 0:
-        score_doc["max_score"] = int(max_score)
-    else:
-        score_doc.pop("max_score", None)
 
     job_preference_scores_col.update_one(
         {"job_id": job_id_str, "identity_id": identity_id_str},
@@ -784,8 +778,6 @@ def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_d
 
     weighted_sum = 0.0
     total_weight = 0.0
-    max_score = len(preference_scores) * 5
-
     for doc in preference_scores:
         score = int(doc.get("score", 0))
         weight = float(doc.get("preference_weight", 0))
@@ -803,7 +795,6 @@ def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_d
         status=common_pb2.SCORING_STATUS_SCORED,
         preference_scores=preference_scores,
         weighted_score=weighted_score,
-        max_score=max_score,
     )
 
 

@@ -245,7 +245,6 @@ At minimum this applies to:
 | `preference_scores` | array | Embedded per-preference scores for this job/identity pair |
 | `scoring_status` | string | One of `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | number | Deterministic weighted aggregate for this job/identity pair |
-| `max_score` | integer | Score span for this job/identity pair |
 
 Each entry in `preference_scores` must include:
 
@@ -361,7 +360,6 @@ Do not change these names without coordinated cross-service updates:
 - `score`
 - `preference_weight`
 - `weighted_score`
-- `max_score`
 - `scoring_status`
 
 ---

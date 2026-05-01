@@ -303,7 +303,6 @@ class AiScorerUnitTests(unittest.TestCase):
             self.fail("Expected updated score document")
         self.assertEqual(updated.get("scoring_status"), "scored")
         self.assertAlmostEqual(updated.get("weighted_score"), (5 * 2.0 + 3 * 1.0) / (2.0 + 1.0))
-        self.assertEqual(updated.get("max_score"), 10)
 
     def test_process_scoring_job_success_path(self):
         field_id = ObjectId()
@@ -369,7 +368,6 @@ class AiScorerUnitTests(unittest.TestCase):
         if stored_score is None:
             self.fail("Expected identity score document")
         self.assertEqual(stored_score.get("scoring_status"), "scored")
-        self.assertEqual(stored_score.get("max_score"), 10)
         preference_scores = stored_score.get("preference_scores")
         self.assertIsInstance(preference_scores, list)
         if not isinstance(preference_scores, list):

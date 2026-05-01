@@ -49,7 +49,6 @@ Storage note:
 | `preference_scores` | `preference_scores` | `[]PreferenceScore` | Embedded per-preference score results |
 | `scoring_status` | `scoring_status` | `string` | One of `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | `weighted_score` | `number` | Deterministic aggregate for one `(job_id, identity_id)` pair |
-| `max_score` | `max_score` | `integer` | Maximum attainable score span |
 
 One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
 
