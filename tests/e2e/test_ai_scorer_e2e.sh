@@ -14,7 +14,7 @@ cleanup() {
   echo "****** AI Scorer logs ******"
   docker compose -f "$COMPOSE_FILE" logs ai_scorer || true
   echo "****************************"
-  docker compose -f "$COMPOSE_FILE" down --remove-orphans
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 }
 trap cleanup EXIT
 

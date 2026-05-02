@@ -24,7 +24,7 @@ teardown() {
   $COMPOSE logs api || true
   echo "**********************"
   if [[ "$KEEP" != "--keep" ]]; then
-    $COMPOSE down --remove-orphans --volumes
+    $COMPOSE down --remove-orphans --volumes 2>/dev/null || true
   fi
 }
 trap teardown EXIT

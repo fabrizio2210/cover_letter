@@ -16,7 +16,7 @@ set -euo pipefail
 COMPOSE_FILE="tests/e2e/docker-compose.test.yml"
 
 cleanup() {
-  docker compose -f "$COMPOSE_FILE" down --remove-orphans
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 }
 trap cleanup EXIT
 

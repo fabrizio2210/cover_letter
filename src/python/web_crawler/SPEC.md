@@ -483,14 +483,16 @@ When `CRAWLER_ENABLE_SCORING_ENQUEUE=1`:
 ```json
 {
   "user_id": "<jwt sub>",
-  "job_id": "<job description hex object id>"
+  "job_id": "<job description hex object id>",
+  "identity_id": "<identity hex object id>"
 }
 ```
 
 Rules:
 - Enqueue only after successful insert or update with a valid document id.
 - On job updates from recrawls, always re-enqueue when enqueue is enabled.
-- Enqueue payload must use key name `job_id` exactly.
+- Enqueue payload must use key names `job_id` and `identity_id` exactly.
+- `identity_id` is required by `ai_scorer`; messages without it are dropped by the scorer.
 - If enqueue fails, persistence remains committed, the error is logged, and crawler continues.
 
 Ownership boundary:

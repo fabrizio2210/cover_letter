@@ -7,11 +7,12 @@
 #   bash tests/e2e/run_e2e_suites.sh --list       # print available suites
 #
 # Suite names (execution order):
-#   coverletter      – tests/e2e/test_coverletter_e2e.sh
-#   ai_scorer        – tests/e2e/test_ai_scorer_e2e.sh
-#   start_crawl      – tests/e2e/test_start_crawl_e2e.sh
-#   ai_scorer_crawler – tests/e2e/test_ai_scorer_crawler_e2e.sh
-#   workflow1        – tests/e2e/test_workflow1_integration.sh
+#   coverletter        – tests/e2e/test_coverletter_e2e.sh
+#   ai_scorer          – tests/e2e/test_ai_scorer_e2e.sh
+#   start_crawl        – tests/e2e/test_start_crawl_e2e.sh
+#   ai_scorer_crawler  – tests/e2e/test_ai_scorer_crawler_e2e.sh
+#   workflow1          – tests/e2e/test_workflow1_integration.sh
+#   post_crawl_scoring – tests/e2e/test_post_crawl_scoring_e2e.sh
 
 set -euo pipefail
 
@@ -27,6 +28,7 @@ SUITES=(
   "start_crawl:tests/e2e/test_start_crawl_e2e.sh"
   "ai_scorer_crawler:tests/e2e/test_ai_scorer_crawler_e2e.sh"
   "workflow1:tests/e2e/test_workflow1_integration.sh"
+  "post_crawl_scoring:tests/e2e/test_post_crawl_scoring_e2e.sh"
 )
 
 # ---------------------------------------------------------------------------
