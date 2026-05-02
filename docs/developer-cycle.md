@@ -51,10 +51,24 @@ bash scripts/test-gate.sh --mode full
   - Frontend tests (`npm run test -- --watch=false --browsers=ChromeHeadless` in `src/js/coverletter-frontend`)
 - `full`
   - Everything in `fast`
-  - Docker E2E and integration scripts:
-    - `tests/e2e.sh`
-    - `tests/e2e/test_ai_scorer_e2e.sh`
-    - `tests/e2e/test_workflow1_integration.sh`
+  - E2E suites via `tests/e2e/run_e2e_suites.sh` (in order):
+    - `coverletter` — `tests/e2e/test_coverletter_e2e.sh` (cover-letter generation / ai_querier flow)
+    - `ai_scorer` — `tests/e2e/test_ai_scorer_e2e.sh`
+    - `start_crawl` — `tests/e2e/test_start_crawl_e2e.sh`
+    - `ai_scorer_crawler` — `tests/e2e/test_ai_scorer_crawler_e2e.sh`
+    - `workflow1` — `tests/e2e/test_workflow1_integration.sh`
+
+To run a single suite locally:
+
+```bash
+bash tests/e2e/run_e2e_suites.sh start_crawl
+```
+
+To list all available suites:
+
+```bash
+bash tests/e2e/run_e2e_suites.sh --list
+```
 
 ## VS Code
 

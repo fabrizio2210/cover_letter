@@ -16,9 +16,7 @@ set -euo pipefail
 COMPOSE_FILE="tests/e2e/docker-compose.test.yml"
 
 cleanup() {
-  docker compose -f "$COMPOSE_FILE" rm -fsv \
-    crawler_scoring_seeder crawler_scoring_pusher crawler_scoring_checker \
-    >/dev/null 2>&1 || true
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans
 }
 trap cleanup EXIT
 
@@ -52,4 +50,4 @@ if docker compose -f "$COMPOSE_FILE" logs ai_scorer \
   exit 1
 fi
 
-echo "=== [crawler scoring e2e] PASSED ==="
+echo "[e2e] Suite ai_scorer_crawler PASSED"

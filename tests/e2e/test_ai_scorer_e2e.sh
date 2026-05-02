@@ -1,26 +1,33 @@
-set -eux
+#!/usr/bin/env bash
+# E2E suite: AI scorer flow
+#
+# Usage:
+#   bash tests/e2e/test_ai_scorer_e2e.sh
+set -euo pipefail
 
-docker compose -f tests/e2e/docker-compose.test.yml up -d mongo redis api
-docker compose -f tests/e2e/docker-compose.test.yml run --rm seeder
-docker compose -f tests/e2e/docker-compose.test.yml up -d ai_scorer
+COMPOSE_FILE="tests/e2e/docker-compose.test.yml"
+
+cleanup() {
+  echo "****** API logs ******"
+  docker compose -f "$COMPOSE_FILE" logs api || true
+  echo "**********************"
+  echo "****** AI Scorer logs ******"
+  docker compose -f "$COMPOSE_FILE" logs ai_scorer || true
+  echo "****************************"
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans
+}
+trap cleanup EXIT
+
+docker compose -f "$COMPOSE_FILE" up -d mongo redis api
+docker compose -f "$COMPOSE_FILE" run --rm seeder
+docker compose -f "$COMPOSE_FILE" up -d ai_scorer
 sleep 2
-docker compose -f tests/e2e/docker-compose.test.yml run --rm scorer_pusher
-docker compose -f tests/e2e/docker-compose.test.yml run --rm scorer_checker
+docker compose -f "$COMPOSE_FILE" run --rm scorer_pusher
+docker compose -f "$COMPOSE_FILE" run --rm scorer_checker
 
-echo "****** API logs ******"
-docker compose -f tests/e2e/docker-compose.test.yml logs api
-echo "**********************"
-
-echo "****** AI Scorer logs ******"
-docker compose -f tests/e2e/docker-compose.test.yml logs ai_scorer
-echo "****************************"
-
-if docker compose -f tests/e2e/docker-compose.test.yml logs ai_scorer | grep "error"; then
+if docker compose -f "$COMPOSE_FILE" logs ai_scorer | grep "error"; then
   echo "BUG DETECTED: ai_scorer failed to process message"
-  docker compose -f tests/e2e/docker-compose.test.yml down --remove-orphans
   exit 1
-else
-  echo "No bug detected."
 fi
 
-docker compose -f tests/e2e/docker-compose.test.yml down --remove-orphans
+echo "[e2e] Suite ai_scorer PASSED"

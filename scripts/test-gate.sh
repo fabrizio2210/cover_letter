@@ -75,11 +75,7 @@ run_e2e_tests() {
   echo "[gate] Running Docker E2E tests"
   (
     cd "$repo_root"
-    bash tests/e2e.sh
-    bash tests/e2e/test_ai_scorer_e2e.sh
-    bash tests/e2e/test_start_crawl_e2e.sh
-    bash tests/e2e/test_ai_scorer_crawler_e2e.sh
-    bash tests/e2e/test_workflow1_integration.sh
+    bash tests/e2e/run_e2e_suites.sh
   )
 }
 

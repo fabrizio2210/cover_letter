@@ -48,4 +48,4 @@ $COMPOSE run --rm crawl_trigger_pusher
 # Wait for dispatcher to consume trigger and fan out, then verify
 $COMPOSE run --rm crawl_trigger_checker
 
-echo "****** test_start_crawl_e2e PASSED ******"
+echo "[e2e] Suite start_crawl PASSED"
