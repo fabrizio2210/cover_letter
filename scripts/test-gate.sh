@@ -65,6 +65,10 @@ run_frontend_tests() {
 
   (
     cd "$repo_root/src/js/coverletter-frontend"
+    if [[ ! -x "./node_modules/.bin/tsc" ]]; then
+      echo "[gate] Frontend dependencies missing; running npm ci"
+      npm ci
+    fi
     echo "[gate] Type-checking frontend"
     ./node_modules/.bin/tsc --noEmit
     CHROME_BIN="$chrome_bin" npm run test -- --watch=false --browsers=ChromeHeadless
