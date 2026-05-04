@@ -51,6 +51,12 @@ suite_path() {
   return 1
 }
 
+cleanup_compose_state() {
+  # Ensure stale containers from prior suites/runs cannot clash by name.
+  docker compose -f "$repo_root/tests/e2e/docker-compose.test.yml" down --remove-orphans 2>/dev/null || true
+  docker compose -f "$repo_root/tests/e2e/docker-compose.workflow1.yml" down --remove-orphans 2>/dev/null || true
+}
+
 print_list() {
   echo "Available E2E suites (in execution order):"
   for entry in "${SUITES[@]}"; do
@@ -73,6 +79,7 @@ run_suite() {
   echo "========================================================"
   echo "[e2e] Running suite: $name  ($path)"
   echo "========================================================"
+  cleanup_compose_state
   (cd "$repo_root" && bash "$abs_path")
   echo "[e2e] Suite PASSED: $name"
 }

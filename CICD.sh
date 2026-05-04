@@ -46,10 +46,23 @@ fi
 
 ########################
 # PYTHON DEPENDENCY SAFE NET
-python3 -m pip install --upgrade pip
-python3 -m pip install -r src/python/ai_querier/requirements.txt
-python3 -m pip install -r src/python/ai_scorer/requirements.txt
-python3 -m pip install -r src/python/web_crawler/requirements.txt
+pip_cmd=""
+if [ -x "/opt/venv/bin/pip" ] ; then
+  pip_cmd="/opt/venv/bin/pip"
+elif [ -x "$PWD/.venv/bin/pip" ] ; then
+  pip_cmd="$PWD/.venv/bin/pip"
+elif [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/pip" ] ; then
+  pip_cmd="$VIRTUAL_ENV/bin/pip"
+fi
+
+if [ -n "$pip_cmd" ] ; then
+  "$pip_cmd" install --upgrade pip
+  "$pip_cmd" install -r src/python/ai_querier/requirements.txt
+  "$pip_cmd" install -r src/python/ai_scorer/requirements.txt
+  "$pip_cmd" install -r src/python/web_crawler/requirements.txt
+else
+  echo "Skipping Python dependency bootstrap: no virtualenv pip found"
+fi
 
 #######
 # TESTS
