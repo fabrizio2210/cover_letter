@@ -66,7 +66,7 @@ run_frontend_tests() {
   (
     cd "$repo_root/src/js/coverletter-frontend"
     echo "[gate] Type-checking frontend"
-    npx tsc --noEmit
+    ./node_modules/.bin/tsc --noEmit
     CHROME_BIN="$chrome_bin" npm run test -- --watch=false --browsers=ChromeHeadless
   )
 }
