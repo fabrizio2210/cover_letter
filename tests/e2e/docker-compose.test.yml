@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   mongo:
     image: mongo:6.0
@@ -10,7 +9,7 @@ services:
     image: python:3.11-slim
     working_dir: /app
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_querier/ai_querier.py"
     environment:
       - AI_QUERIER_TEST_MODE=1
@@ -27,7 +26,7 @@ services:
     image: python:3.11-slim
     working_dir: /app
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     command: bash -c "pip install -r /workspace/src/python/ai_scorer/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_scorer/ai_scorer.py"
     environment:
       - AI_SCORER_TEST_MODE=1
@@ -45,7 +44,7 @@ services:
     image: golang:1.25
     working_dir: /workspace/src/go/cmd/api
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     command: bash -lc "cd /workspace/src/go/cmd/api && /usr/local/go/bin/go mod download >/dev/null 2>&1 || true && /usr/local/go/bin/go run ."
     environment:
       - ADMIN_PASSWORD=testpassword
@@ -66,7 +65,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo.py"]
     depends_on:
       - mongo
@@ -75,7 +74,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/push_via_api.py"]
     depends_on:
       - redis
@@ -84,7 +83,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_coverletter.py"]
     depends_on:
       - mongo
@@ -93,7 +92,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "python /workspace/tests/e2e/push_score_via_api.py"]
     depends_on:
       - redis
@@ -102,7 +101,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer.py"]
     depends_on:
       - mongo
@@ -116,7 +115,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo_crawler_scoring.py"]
     depends_on:
       - mongo
@@ -125,7 +124,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 redis==4.6.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_score_crawler_via_redis.py"]
     depends_on:
       - mongo
@@ -135,7 +134,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer_crawler.py"]
     depends_on:
       - mongo
@@ -147,7 +146,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_crawl_trigger_e2e.py"]
     depends_on:
       - mongo
@@ -156,7 +155,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     command: >
       bash -lc "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 &&
         PYTHONPATH=/workspace python -u -m src.python.web_crawler.dispatcher.main --worker"
@@ -182,7 +181,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
       - crawl_run_id:/tmp
     entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_crawl_trigger_via_api.py"]
     environment:
@@ -196,7 +195,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
       - crawl_run_id:/tmp
     entrypoint: ["bash", "-lc", "pip install redis==5.0.8 >/dev/null 2>&1 && python /workspace/tests/e2e/check_crawl_trigger.py"]
     depends_on:

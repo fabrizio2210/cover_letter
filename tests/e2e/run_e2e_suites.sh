@@ -17,6 +17,13 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export E2E_WORKSPACE_ROOT="${E2E_WORKSPACE_ROOT:-$repo_root}"
+
+if [[ ! -f "$E2E_WORKSPACE_ROOT/tests/e2e/seed_mongo.py" ]]; then
+  echo "[e2e] ERROR: expected file not found in E2E_WORKSPACE_ROOT: $E2E_WORKSPACE_ROOT/tests/e2e/seed_mongo.py"
+  echo "[e2e] Set E2E_WORKSPACE_ROOT to the host path containing the full repository checkout."
+  exit 2
+fi
 
 # ---------------------------------------------------------------------------
 # Authoritative suite registry – order matters, names must be unique.
@@ -53,8 +60,8 @@ suite_path() {
 
 cleanup_compose_state() {
   # Ensure stale containers from prior suites/runs cannot clash by name.
-  docker compose -f "$repo_root/tests/e2e/docker-compose.test.yml" down --remove-orphans 2>/dev/null || true
-  docker compose -f "$repo_root/tests/e2e/docker-compose.workflow1.yml" down --remove-orphans 2>/dev/null || true
+  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$repo_root/tests/e2e/docker-compose.test.yml" down --remove-orphans 2>/dev/null || true
+  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$repo_root/tests/e2e/docker-compose.workflow1.yml" down --remove-orphans 2>/dev/null || true
 }
 
 print_list() {
