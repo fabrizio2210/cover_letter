@@ -19,9 +19,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export E2E_WORKSPACE_ROOT="${E2E_WORKSPACE_ROOT:-$repo_root}"
 
-if [[ ! -f "$E2E_WORKSPACE_ROOT/tests/e2e/seed_mongo.py" ]]; then
-  echo "[e2e] ERROR: expected file not found in E2E_WORKSPACE_ROOT: $E2E_WORKSPACE_ROOT/tests/e2e/seed_mongo.py"
-  echo "[e2e] Set E2E_WORKSPACE_ROOT to the host path containing the full repository checkout."
+if [[ ! -f "$repo_root/tests/e2e/seed_mongo.py" ]]; then
+  echo "[e2e] ERROR: expected file not found: $repo_root/tests/e2e/seed_mongo.py"
   exit 2
 fi
 

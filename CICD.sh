@@ -64,6 +64,39 @@ else
   echo "Skipping Python dependency bootstrap: no virtualenv pip found"
 fi
 
+############################
+# E2E DOCKER-IN-DOCKER SETUP
+# When CICD runs inside a Docker container that shares the host Docker socket,
+# compose bind mounts must reference HOST-SIDE paths — the in-container path is
+# invisible to the host daemon.  We detect this via /.dockerenv, parse
+# PROJECTS_VOLUME_STRING to learn which named volume is mounted and where, then
+# copy the workspace into a subdir of that volume.  docker inspect gives us the
+# host-side source path for the volume so we can expose it as E2E_WORKSPACE_ROOT.
+if [ -f /.dockerenv ] && [ -n "${PROJECTS_VOLUME_STRING:-}" ]; then
+  _vol_mount="${PROJECTS_VOLUME_STRING#*:}"   # e.g. /opt/data
+  _cid=$(grep -oE '[0-9a-f]{64}' /proc/self/cgroup 2>/dev/null | head -1 || true)
+  [ -z "$_cid" ] && _cid=$(hostname)
+  _host_vol_src=$(VOL_MOUNT="$_vol_mount" docker inspect "$_cid" 2>/dev/null \
+    | python3 -c "
+import sys, json, os
+d = json.load(sys.stdin)
+for m in d[0].get('Mounts', []):
+    if m.get('Destination') == os.environ['VOL_MOUNT']:
+        print(m.get('Source', ''))
+        break
+" 2>/dev/null | head -1 || true)
+  if [ -n "$_host_vol_src" ]; then
+    _e2e_subdir="e2e_workspace_$$"
+    cp -r "$PWD/." "$_vol_mount/$_e2e_subdir/"
+    export E2E_WORKSPACE_ROOT="$_host_vol_src/$_e2e_subdir"
+    echo "[ci] DinD mode: E2E_WORKSPACE_ROOT=$E2E_WORKSPACE_ROOT"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${_vol_mount}/${_e2e_subdir}'" EXIT
+  else
+    echo "[ci] WARNING: could not resolve host path for volume mount '$_vol_mount'; E2E bind mounts may fail"
+  fi
+fi
+
 #######
 # TESTS
 bash scripts/test-gate.sh --mode full
