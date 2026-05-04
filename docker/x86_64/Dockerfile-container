@@ -45,10 +45,17 @@ COPY src/js/coverletter-frontend/package.json src/js/coverletter-frontend/packag
      /build/frontend/
 RUN cd /build/frontend && npm ci
 
-# Create a virtual environment and install required Python libraries
+# Pre-cache Python requirements used by CI test gate
+COPY src/python/ai_querier/requirements.txt /build/python-requirements/ai_querier-requirements.txt
+COPY src/python/ai_scorer/requirements.txt /build/python-requirements/ai_scorer-requirements.txt
+COPY src/python/web_crawler/requirements.txt /build/python-requirements/web_crawler-requirements.txt
+
+# Create a virtual environment and install Python dependencies for test execution
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install pymongo argparse
+    /opt/venv/bin/pip install -r /build/python-requirements/ai_querier-requirements.txt && \
+    /opt/venv/bin/pip install -r /build/python-requirements/ai_scorer-requirements.txt && \
+    /opt/venv/bin/pip install -r /build/python-requirements/web_crawler-requirements.txt
 
 # Set the virtual environment as the default Python environment
 ENV PATH="/opt/venv/bin:$PATH"
