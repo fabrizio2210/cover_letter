@@ -28,8 +28,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Set the working directory
 WORKDIR /app
 
-# Copy the application code
-COPY . /app
+# Copy only the bot service source
+COPY src/python/telegram_bot /app/src/python/telegram_bot
 
 # Command to run the bot directly
 CMD ["python", "src/python/telegram_bot/telegram_bot.py"]

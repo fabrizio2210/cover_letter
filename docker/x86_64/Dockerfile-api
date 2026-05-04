@@ -1,27 +1,30 @@
 # Stage 1: Build the Go binary
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src/go/cmd/api
 
-# Copy go.mod and go.sum to leverage Docker layer caching
+# Copy go.mod and go.sum first to leverage Docker layer caching.
 COPY src/go/cmd/api/go.mod src/go/cmd/api/go.sum ./
+COPY src/go/go.mod /src/go/go.mod
 
 # Download dependencies
 RUN go mod download
 
-# Copy the rest of the source code
-COPY src/go/cmd/api ./
+# Copy the Go source tree needed by local module imports
+COPY src/go /src/go
 
-# Build the Go application as a static binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /app/api ./cmd/api
+# Build a static binary for Linux
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /out/api .
 
-# Stage 2: Create the final, minimal image
-FROM alpine:latest
+# Stage 2: Minimal runtime image
+FROM alpine:3.21
 
-WORKDIR /root/
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
 
 # Copy the built binary from the builder stage
-COPY --from=builder /app/api .
+COPY --from=builder /out/api ./api
 
 EXPOSE 8080
 

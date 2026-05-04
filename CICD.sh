@@ -60,3 +60,30 @@ fi
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-api|src/go/cmd/api" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/coverletter-api:$arch --push -f docker/x86_64/Dockerfile-api .
 fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-ai-scorer|ai_scorer" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-ai-scorer:$arch --push -f docker/x86_64/Dockerfile-ai-scorer .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-web-crawler|web_crawler" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-web-crawler:$arch --push -f docker/x86_64/Dockerfile-web-crawler .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-crawler-4dayweek|crawler_4dayweek" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-crawler-4dayweek:$arch --push -f docker/x86_64/Dockerfile-crawler-4dayweek .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-crawler-ats-job-extraction|crawler_ats_job_extraction" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-crawler-ats-job-extraction:$arch --push -f docker/x86_64/Dockerfile-crawler-ats-job-extraction .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-crawler-hackernews|crawler_hackernews" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-crawler-hackernews:$arch --push -f docker/x86_64/Dockerfile-crawler-hackernews .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-crawler-levelsfyi|crawler_levelsfyi" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-crawler-levelsfyi:$arch --push -f docker/x86_64/Dockerfile-crawler-levelsfyi .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-crawler-ycombinator|crawler_ycombinator" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-crawler-ycombinator:$arch --push -f docker/x86_64/Dockerfile-crawler-ycombinator .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-enrichment-ats-enrichment|enrichment_ats_enrichment" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-enrichment-ats-enrichment:$arch --push -f docker/x86_64/Dockerfile-enrichment-ats-enrichment .
+fi
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-enrichment-retiring-jobs|enrichment_retiring_jobs" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/coverletter-enrichment-retiring-jobs:$arch --push -f docker/x86_64/Dockerfile-enrichment-retiring-jobs .
+fi
