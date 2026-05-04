@@ -44,6 +44,13 @@ if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-container" <<< "$changedF
   docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
 fi
 
+########################
+# PYTHON DEPENDENCY SAFE NET
+python3 -m pip install --upgrade pip
+python3 -m pip install -r src/python/ai_querier/requirements.txt
+python3 -m pip install -r src/python/ai_scorer/requirements.txt
+python3 -m pip install -r src/python/web_crawler/requirements.txt
+
 #######
 # TESTS
 bash scripts/test-gate.sh --mode full
