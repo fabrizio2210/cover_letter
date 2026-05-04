@@ -49,19 +49,37 @@ run_frontend_tests() {
   echo "[gate] Running frontend tests"
 
   local chrome_bin=""
-  for candidate in google-chrome chromium chromium-browser; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-      chrome_bin="$(command -v "$candidate")"
-      break
+  if [[ -n "${CHROME_BIN:-}" ]]; then
+    if [[ -x "$CHROME_BIN" ]]; then
+      chrome_bin="$CHROME_BIN"
+    else
+      echo "[gate] CHROME_BIN is set but not executable: $CHROME_BIN"
+      exit 1
     fi
-  done
+  else
+    for candidate in chromium-no-sandbox google-chrome chromium chromium-browser; do
+      if command -v "$candidate" >/dev/null 2>&1; then
+        chrome_bin="$(command -v "$candidate")"
+        break
+      fi
+    done
+  fi
 
   if [[ -z "$chrome_bin" ]]; then
     echo "[gate] Frontend tests require Chrome/Chromium."
-    echo "[gate] Install one of: google-chrome, chromium, chromium-browser"
+    echo "[gate] Install one of: chromium-no-sandbox, google-chrome, chromium, chromium-browser"
     echo "[gate] Or set CHROME_BIN to a valid browser executable path."
     exit 1
   fi
+
+  if [[ "$(id -u)" -eq 0 ]] && [[ "$chrome_bin" != *"no-sandbox"* ]]; then
+    local chrome_wrapper="/tmp/chromium-no-sandbox"
+    printf '#!/bin/sh\nexec "%s" --no-sandbox "$@"\n' "$chrome_bin" > "$chrome_wrapper"
+    chmod +x "$chrome_wrapper"
+    chrome_bin="$chrome_wrapper"
+  fi
+
+  echo "[gate] Using CHROME_BIN=$chrome_bin"
 
   (
     cd "$repo_root/src/js/coverletter-frontend"
