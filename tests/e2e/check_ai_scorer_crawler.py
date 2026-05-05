@@ -14,13 +14,15 @@ Asserts two outcomes after the scorer processes both queue messages:
     instead of silently looping as identity_not_found forever.
 """
 
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 import hashlib
+import os
 import sys
 import time
 
-MONGO_URI = 'mongodb://mongo:27017/'
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
+GLOBAL_DB_NAME = os.environ.get('DB_NAME', 'cover_letter')
 
 ADMIN_USERNAME = 'e2e-crawler-scoring-user'
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
@@ -55,14 +57,14 @@ if not client:
     sys.exit(2)
 
 # Resolve identity_id from the user DB (seeded by seed_mongo_crawler_scoring.py)
-user_db_early = client[f'cover_letter_{USER_ID}']
+user_db_early = client[f'{GLOBAL_DB_NAME}_{USER_ID}']
 identity_doc = user_db_early['identities'].find_one({'name': 'Crawler Scorer E2E Identity'})
 if not identity_doc:
-    print(f'NOT_FOUND: seeded identity missing from cover_letter_{USER_ID}.identities')
+    print(f'NOT_FOUND: seeded identity missing from {GLOBAL_DB_NAME}_{USER_ID}.identities')
     sys.exit(2)
 identity_id = str(identity_doc['_id'])
 
-user_db = client[f'cover_letter_{USER_ID}']
+user_db = client[f'{GLOBAL_DB_NAME}_{USER_ID}']
 scores_col = user_db['job-preference-scores']
 
 expected_weighted_score = sum(

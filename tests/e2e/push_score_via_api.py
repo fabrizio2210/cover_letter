@@ -1,9 +1,10 @@
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 
-API_HOST = 'http://api:8080'
+API_HOST = os.environ.get('API_HOST', 'http://api:8080')
 LOGIN_PATH = '/api/login'
 JOB_ID = '0000000000000000000000dd'
 USER_PASSWORD = 'testpassword'
@@ -23,7 +24,7 @@ while time.time() < login_deadline:
                 break
     except urllib.error.HTTPError as exc:
         raise SystemExit(f'Login failed: {exc.code} {exc.reason}')
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError):
         time.sleep(0.5)
 
 if not token:

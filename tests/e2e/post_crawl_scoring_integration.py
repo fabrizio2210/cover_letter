@@ -13,8 +13,8 @@ This test catches regressions where:
   - the crawler fails to pass identity_id to the scoring queue
   - the scorer fails to find the identity from the queue payload
 
-Usage (run inside Docker via the post_crawl_scoring_integration service):
-  python /workspace/tests/e2e/post_crawl_scoring_integration.py
+Usage:
+  python tests/e2e/post_crawl_scoring_integration.py
 """
 
 from __future__ import annotations

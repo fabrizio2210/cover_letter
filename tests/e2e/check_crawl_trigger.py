@@ -1,8 +1,8 @@
 """Verify that the dispatcher fanned out workflow dispatch messages to Redis.
 
-Reads run_id from /tmp/crawl_run_id (written by the pusher container via
-shared volume), then polls the expected workflow queues until all 4 queues
-contain at least one message whose identity_id matches our test identity.
+Reads run_id from the shared E2E artifact file, then polls the expected
+workflow queues until all 4 queues contain at least one message whose run_id
+matches the triggered crawl.
 
 Expected workflows dispatched by dispatcher/main.py:
   - crawler_ycombinator
@@ -16,14 +16,15 @@ workflow additions.
 """
 
 import json
+import os
 import sys
 import time
 
 import redis
 
-REDIS_HOST = "redis"
-REDIS_PORT = 6379
-RUN_ID_FILE = "/tmp/crawl_run_id"
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+RUN_ID_FILE = os.environ.get("E2E_RUN_ID_FILE", "/tmp/crawl_run_id")
 
 EXPECTED_QUEUES = [
     "crawler_ycombinator_queue",

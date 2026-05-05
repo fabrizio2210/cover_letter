@@ -15,13 +15,14 @@ Two job descriptions are seeded:
                             (fail-fast path; should end up as skipped/failed).
 """
 
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 import hashlib
 import os
 import time
 
-MONGO_URI = 'mongodb://mongo:27017/'
+from bson.objectid import ObjectId
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
 
 ADMIN_USERNAME = 'e2e-crawler-scoring-user'
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
@@ -49,7 +50,7 @@ if not client:
 # Keep seeding aligned with that runtime value.
 global_db_name = os.environ.get('DB_NAME', 'cover_letter')
 global_db = client[global_db_name]
-user_db = client[f'cover_letter_{USER_ID}']
+user_db = client[f'{global_db_name}_{USER_ID}']
 
 # Clean up any leftover data from previous runs
 for col in ['job-descriptions', 'companies']:

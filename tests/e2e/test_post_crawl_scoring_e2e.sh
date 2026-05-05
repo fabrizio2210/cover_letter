@@ -3,7 +3,7 @@
 #
 # Flow:
 #   1. Start mongo + redis + ai_scorer
-#   2. Run post_crawl_scoring_integration container which:
+#   2. Run the local post_crawl_scoring_integration helper which:
 #      a. Seeds a company (global DB) and an identity (per-user DB)
 #      b. Runs run_crawler_ats_job_extraction with patched HTTP + real Redis
 #      c. Verifies the crawler called _try_enqueue with identity_id
@@ -21,6 +21,7 @@ set -euo pipefail
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 COMPOSE="docker compose -f $COMPOSE_FILE"
 KEEP=${1:-}
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 teardown() {
   echo ""
@@ -35,12 +36,14 @@ trap teardown EXIT
 
 echo "=== [post-crawl scoring e2e] Bringing up mongo + redis + ai_scorer ==="
 $COMPOSE up -d mongo redis ai_scorer
+e2e_prepare_artifacts
+e2e_export_stack_env
 
 echo "=== [post-crawl scoring e2e] Waiting for ai_scorer to be ready ==="
 sleep 3
 
 echo "=== [post-crawl scoring e2e] Running crawler integration + scoring check ==="
-$COMPOSE run --rm post_crawl_scoring_integration
+e2e_run_python tests/e2e/post_crawl_scoring_integration.py
 
 echo ""
 echo "=== [post-crawl scoring e2e] Suite PASSED ==="

@@ -14,6 +14,7 @@
 set -euo pipefail
 
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
@@ -22,21 +23,23 @@ trap cleanup EXIT
 
 echo "=== [crawler scoring e2e] Bringing up mongo + redis + ai_scorer ==="
 docker compose -f "$COMPOSE_FILE" up -d mongo redis ai_scorer
+e2e_prepare_artifacts
+e2e_export_stack_env
 
 echo "=== [crawler scoring e2e] Seeding MongoDB ==="
-docker compose -f "$COMPOSE_FILE" run --rm crawler_scoring_seeder
+e2e_run_python tests/e2e/seed_mongo_crawler_scoring.py
 
 echo "=== [crawler scoring e2e] Waiting for ai_scorer to be ready ==="
 sleep 3
 
 echo "=== [crawler scoring e2e] Pushing scoring queue messages ==="
-docker compose -f "$COMPOSE_FILE" run --rm crawler_scoring_pusher
+e2e_run_python tests/e2e/push_score_crawler_via_redis.py
 
 echo "=== [crawler scoring e2e] Waiting for scorer to process messages ==="
 sleep 2
 
 echo "=== [crawler scoring e2e] Checking results ==="
-docker compose -f "$COMPOSE_FILE" run --rm crawler_scoring_checker
+e2e_run_python tests/e2e/check_ai_scorer_crawler.py
 
 echo ""
 echo "=== [crawler scoring e2e] ai_scorer logs ==="

@@ -6,6 +6,7 @@
 set -euo pipefail
 
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {
   echo "****** API logs ******"
@@ -19,13 +20,15 @@ cleanup() {
 trap cleanup EXIT
 
 docker compose -f "$COMPOSE_FILE" up -d mongo redis api
-docker compose -f "$COMPOSE_FILE" run --rm seeder
+e2e_prepare_artifacts
+e2e_export_stack_env
+e2e_run_python tests/e2e/seed_mongo.py
 docker compose -f "$COMPOSE_FILE" up -d ai_querier
 sleep 2 # wait for ai_querier to start listening
-docker compose -f "$COMPOSE_FILE" run --rm pusher
+e2e_run_python tests/e2e/push_via_api.py
 sleep 2 # wait for ai_querier to process the message
 # poll checker until FOUND
-docker compose -f "$COMPOSE_FILE" run --rm checker
+e2e_run_python tests/e2e/check_coverletter.py
 
 if docker compose -f "$COMPOSE_FILE" logs ai_querier | grep "error"; then
   echo "BUG DETECTED: ai_querier failed to process message"

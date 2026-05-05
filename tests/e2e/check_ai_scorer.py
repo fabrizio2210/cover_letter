@@ -1,10 +1,12 @@
-from bson.objectid import ObjectId
-from pymongo import MongoClient
 import hashlib
+import os
 import sys
 import time
 
-MONGO_URI = 'mongodb://mongo:27017/'
+from bson.objectid import ObjectId
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
 ADMIN_USERNAME = 'e2e-test-user'
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
 USER_ID = _h[:16].hex()

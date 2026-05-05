@@ -1,9 +1,12 @@
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 import hashlib
+import os
 import time
 
-mongo_uri = 'mongodb://mongo:27017/'
+from bson.objectid import ObjectId
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
+GLOBAL_DB_NAME = os.environ.get('DB_NAME', 'cover_letter')
 
 SCORER_JOB_ID = ObjectId('0000000000000000000000dd')
 
@@ -17,7 +20,7 @@ end = time.time() + 30
 client = None
 while time.time() < end:
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
         client.server_info()
         break
     except Exception:
@@ -27,10 +30,10 @@ if not client:
     raise SystemExit('MongoDB not reachable')
 
 # Global collections (job-descriptions, companies, fields) live in DB_NAME
-global_db = client['cover_letter']
+global_db = client[GLOBAL_DB_NAME]
 # Per-user collections (identities, recipients, cover-letters, job-preference-scores)
-# live in cover_letter_<userID>, mirroring the Go API's GetDatabaseName logic
-user_db = client[f'cover_letter_{USER_ID}']
+# live in <DB_NAME>_<userID>, mirroring the Go API's GetDatabaseName logic
+user_db = client[f'{GLOBAL_DB_NAME}_{USER_ID}']
 
 # Clean old data
 for c in ['fields', 'companies', 'job-descriptions', 'jobs']:

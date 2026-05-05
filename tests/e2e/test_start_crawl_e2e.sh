@@ -4,7 +4,7 @@
 # Flow:
 #   1. Seed MongoDB with an identity that has roles configured
 #   2. Start API + Redis + dispatcher
-#   3. POST /api/crawls via the crawl_trigger_pusher container
+#   3. POST /api/crawls via the local helper script
 #   4. Verify the dispatcher fanned out workflow dispatch messages to Redis
 #
 # Usage:
@@ -16,6 +16,7 @@ set -eux
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 COMPOSE="docker compose -f $COMPOSE_FILE"
 KEEP=${1:-}
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 teardown() {
   echo "****** Dispatcher logs ******"
@@ -33,9 +34,11 @@ trap teardown EXIT
 # Spin up infrastructure + API + dispatcher
 $COMPOSE up -d mongo redis
 $COMPOSE up -d api
+e2e_prepare_artifacts
+e2e_export_stack_env
 
 # Seed identity data
-$COMPOSE run --rm crawl_trigger_seeder
+e2e_run_python tests/e2e/seed_crawl_trigger_e2e.py
 
 # Start dispatcher (background, long-lived)
 $COMPOSE up -d dispatcher
@@ -44,9 +47,9 @@ $COMPOSE up -d dispatcher
 sleep 3
 
 # Trigger the crawl via the API
-$COMPOSE run --rm crawl_trigger_pusher
+e2e_run_python tests/e2e/push_crawl_trigger_via_api.py
 
 # Wait for dispatcher to consume trigger and fan out, then verify
-$COMPOSE run --rm crawl_trigger_checker
+e2e_run_python tests/e2e/check_crawl_trigger.py
 
 echo "[e2e] Suite start_crawl PASSED"

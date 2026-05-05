@@ -1,9 +1,11 @@
-from pymongo import MongoClient
 import hashlib
+import os
 import sys
 import time
 
-mongo_uri = 'mongodb://mongo:27017/'
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
 
 ADMIN_USERNAME = 'e2e-test-user'
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
@@ -14,7 +16,7 @@ end = time.time() + 30
 client = None
 while time.time() < end:
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
         client.server_info()
         break
     except Exception:

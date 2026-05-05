@@ -1,19 +1,22 @@
 """POST /api/crawls to trigger a crawl for the E2E test identity.
 
-Outputs the run_id to stdout and writes it to /tmp/crawl_run_id so the
-checker container can pick it up from the shared volume.
+Outputs the run_id to stdout and writes it to the shared E2E artifact file so
+subsequent checks can verify the dispatched workflow messages.
 """
 
 import hashlib
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 
 from pymongo import MongoClient
 
-MONGO_URI = "mongodb://mongo:27017/"
-API_HOST = "http://api:8080"
+MONGO_URI = os.environ.get("MONGO_HOST", "mongodb://mongo:27017/")
+API_HOST = os.environ.get("API_HOST", "http://api:8080")
+RUN_ID_FILE = os.environ.get("E2E_RUN_ID_FILE", "/tmp/crawl_run_id")
+GLOBAL_DB_NAME = os.environ.get("DB_NAME", "cover_letter")
 USER_USERNAME = "e2e-crawl-user"
 USER_PASSWORD = "testpassword"
 IDENTITY_NAME = "Crawl Test Identity"
@@ -35,7 +38,7 @@ while time.time() < end:
 if not client:
     raise SystemExit("MongoDB not reachable")
 
-user_db = client[f"cover_letter_{USER_ID}"]
+user_db = client[f"{GLOBAL_DB_NAME}_{USER_ID}"]
 identity = user_db["identities"].find_one({"name": IDENTITY_NAME})
 if not identity:
     raise SystemExit(f"Identity '{IDENTITY_NAME}' not found in MongoDB")
@@ -58,7 +61,7 @@ while time.time() < login_deadline:
                 break
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"Login failed: {exc.code} {exc.reason}")
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError):
         time.sleep(0.5)
 
 if not token:
@@ -84,7 +87,7 @@ except urllib.error.HTTPError as exc:
     raise SystemExit(f"POST /api/crawls failed: {exc.code} {exc.reason} {body.decode('utf-8', errors='replace')}")
 
 # Write run_id to shared file for the checker
-with open("/tmp/crawl_run_id", "w") as f:
+with open(RUN_ID_FILE, "w") as f:
     f.write(run_id)
 
 print(f"PUSHED run_id={run_id} identity_id={identity_id}")

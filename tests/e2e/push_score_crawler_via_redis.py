@@ -15,14 +15,17 @@ regression test.
 
 import hashlib
 import json
+import os
 import time
+
 import redis
 from pymongo import MongoClient
 
-REDIS_HOST = 'redis'
-REDIS_PORT = 6379
-QUEUE_NAME = 'job_scoring_queue'
-MONGO_URI = 'mongodb://mongo:27017/'
+REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
+QUEUE_NAME = os.environ.get('JOB_SCORING_QUEUE_NAME', 'job_scoring_queue')
+MONGO_URI = os.environ.get('MONGO_HOST', 'mongodb://mongo:27017/')
+GLOBAL_DB_NAME = os.environ.get('DB_NAME', 'cover_letter')
 
 ADMIN_USERNAME = 'e2e-crawler-scoring-user'
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
@@ -45,10 +48,10 @@ while time.time() < mongo_end:
 if not mongo_client:
     raise SystemExit('MongoDB not reachable')
 
-user_db = mongo_client[f'cover_letter_{USER_ID}']
+user_db = mongo_client[f'{GLOBAL_DB_NAME}_{USER_ID}']
 identity_doc = user_db['identities'].find_one({'name': 'Crawler Scorer E2E Identity'})
 if not identity_doc:
-    raise SystemExit(f'Seeded identity not found in cover_letter_{USER_ID}.identities')
+    raise SystemExit(f'Seeded identity not found in {GLOBAL_DB_NAME}_{USER_ID}.identities')
 identity_id = str(identity_doc['_id'])
 
 # Connect to Redis with retry

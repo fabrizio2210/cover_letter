@@ -1,9 +1,13 @@
 services:
   mongo:
     image: mongo:6.0
-    
+    ports:
+      - "27017"
+
   redis:
     image: redis:7
+    ports:
+      - "6379"
 
   ai_querier:
     image: python:3.11-slim
@@ -59,97 +63,7 @@ services:
       - mongo
       - redis
     ports:
-      - "8080:8080"
-
-  seeder:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo.py"]
-    depends_on:
-      - mongo
-
-  pusher:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python /workspace/tests/e2e/push_via_api.py"]
-    depends_on:
-      - redis
-
-  checker:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_coverletter.py"]
-    depends_on:
-      - mongo
-
-  scorer_pusher:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "python /workspace/tests/e2e/push_score_via_api.py"]
-    depends_on:
-      - redis
-
-  scorer_checker:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer.py"]
-    depends_on:
-      - mongo
-
-  # --- Crawler scoring regression test services ---
-  # Verifies that the scorer resolves identity by identity_id directly when
-  # the global company document has no field_id (the real production data state
-  # after the mono-user → multi-user migration).
-
-  crawler_scoring_seeder:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_mongo_crawler_scoring.py"]
-    depends_on:
-      - mongo
-
-  crawler_scoring_pusher:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 redis==4.6.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_score_crawler_via_redis.py"]
-    depends_on:
-      - mongo
-      - redis
-
-  crawler_scoring_checker:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/check_ai_scorer_crawler.py"]
-    depends_on:
-      - mongo
-
-  # --- Start-Crawl journey E2E test services ---
-  # Verifies the full: POST /api/crawls → dispatcher fan-out → workflow queues
-
-  crawl_trigger_seeder:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/seed_crawl_trigger_e2e.py"]
-    depends_on:
-      - mongo
+      - "8080"
 
   dispatcher:
     image: python:3.11-slim
@@ -176,55 +90,3 @@ services:
     depends_on:
       - mongo
       - redis
-
-  crawl_trigger_pusher:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-      - crawl_run_id:/tmp
-    entrypoint: ["bash", "-lc", "pip install pymongo==4.5.0 >/dev/null 2>&1 && python /workspace/tests/e2e/push_crawl_trigger_via_api.py"]
-    environment:
-      - MONGO_HOST=mongodb://mongo:27017/
-    depends_on:
-      - mongo
-      - redis
-      - api
-
-  crawl_trigger_checker:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-      - crawl_run_id:/tmp
-    entrypoint: ["bash", "-lc", "pip install redis==5.0.8 >/dev/null 2>&1 && python /workspace/tests/e2e/check_crawl_trigger.py"]
-    depends_on:
-      - redis
-
-  # --- Post-crawl auto-scoring E2E test services ---
-  # Verifies the full chain: crawler workflow → _try_enqueue(identity_id) →
-  # Redis job_scoring_queue → ai_scorer → job-preference-scores in per-user DB.
-
-  post_crawl_scoring_integration:
-    image: python:3.11-slim
-    working_dir: /workspace
-    volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
-    entrypoint:
-      [
-        "bash",
-        "-lc",
-        "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 && pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 && PYTHONPATH=/workspace python /workspace/tests/e2e/post_crawl_scoring_integration.py",
-      ]
-    environment:
-      - MONGO_HOST=mongodb://mongo:27017/
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - DB_NAME=cover_letter
-      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
-    depends_on:
-      - mongo
-      - redis
-
-volumes:
-  crawl_run_id:

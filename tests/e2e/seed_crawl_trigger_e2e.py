@@ -1,15 +1,18 @@
 """Seed MongoDB for the start-crawl E2E test.
 
 Creates:
-  - A field and company in the global DB (cover_letter)
-  - An identity with roles in the per-user DB (cover_letter_<user_hash>)
+  - A field and company in the global DB
+  - An identity with roles in the per-user DB
 """
 
-from pymongo import MongoClient
 import hashlib
+import os
 import time
 
-MONGO_URI = "mongodb://mongo:27017/"
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get("MONGO_HOST", "mongodb://mongo:27017/")
+GLOBAL_DB_NAME = os.environ.get("DB_NAME", "cover_letter")
 ADMIN_USERNAME = "e2e-crawl-user"
 _h = hashlib.sha256(ADMIN_USERNAME.encode()).digest()
 USER_ID = _h[:16].hex()
@@ -29,8 +32,8 @@ while time.time() < end:
 if not client:
     raise SystemExit("MongoDB not reachable")
 
-global_db = client["cover_letter"]
-user_db = client[f"cover_letter_{USER_ID}"]
+global_db = client[GLOBAL_DB_NAME]
+user_db = client[f"{GLOBAL_DB_NAME}_{USER_ID}"]
 
 # Clean up any leftover data from previous runs
 for c in ["fields", "companies"]:

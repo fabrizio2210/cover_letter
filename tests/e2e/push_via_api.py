@@ -1,11 +1,12 @@
-import time
 import json
-import urllib.request
-import urllib.error
-
-API_HOST = 'http://api:8080'
-LOGIN_PATH = '/api/login'
+import os
 import threading
+import time
+import urllib.error
+import urllib.request
+
+API_HOST = os.environ.get('API_HOST', 'http://api:8080')
+LOGIN_PATH = '/api/login'
 
 RECIPIENT_ID = '0000000000000000000000aa'
 RECIPIENT_FOR_REFINE_ID = '0000000000000000000000bb'
@@ -29,7 +30,7 @@ while time.time() < login_deadline:
                 break
     except urllib.error.HTTPError as e:
         raise SystemExit(f'Login failed: {e.code} {e.reason}')
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError):
         time.sleep(0.5)
 
 if not token:
