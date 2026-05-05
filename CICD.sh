@@ -21,6 +21,9 @@ PROMOTE_TAGS="${PROMOTE_TAGS:-$arch}"
 
 declare -A CANDIDATE_DIGESTS
 
+######################
+# Supporting functions
+
 build_candidate_image() {
   local image="$1"
   local dockerfile="$2"
@@ -49,6 +52,32 @@ promote_candidate_image() {
     echo "[ci] promoted $DOCKER_ORG/$image@$digest -> $DOCKER_ORG/$image:$promote_tag"
   done
 }
+
+################
+# Login creation
+
+if [ ! -f ~/.docker/config.json ] ; then 
+  mkdir -p ~/.docker/
+
+  if [ -z "$DOCKER_LOGIN" ] ; then
+	  echo "Docker login not found in the environment, set DOCKER_LOGIN"
+  else
+    cat << EOF > ~/.docker/config.json
+{
+  "experimental": "enabled",
+        "auths": {
+                "https://index.docker.io/v1/": {
+                        "auth": "$DOCKER_LOGIN"
+                }
+        },
+        "HttpHeaders": {
+                "User-Agent": "Docker-Client/17.12.1-ce (linux)"
+        }
+}
+EOF
+  fi
+fi
+
 
 # E2E execution mode:
 # - source (default): existing source-mounted compose flow
@@ -89,32 +118,7 @@ case "$E2E_MODE" in
     ;;
 esac
 
-################
-# Login creation
-
-if [ ! -f ~/.docker/config.json ] ; then 
-  mkdir -p ~/.docker/
-
-  if [ -z "$DOCKER_LOGIN" ] ; then
-	  echo "Docker login not found in the environment, set DOCKER_LOGIN"
-  else
-    cat << EOF > ~/.docker/config.json
-{
-  "experimental": "enabled",
-        "auths": {
-                "https://index.docker.io/v1/": {
-                        "auth": "$DOCKER_LOGIN"
-                }
-        },
-        "HttpHeaders": {
-                "User-Agent": "Docker-Client/17.12.1-ce (linux)"
-        }
-}
-EOF
-  fi
-fi
-
-########
+##################
 # BUILD BASE IMAGE
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-container" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
