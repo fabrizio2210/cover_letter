@@ -13,7 +13,7 @@
 #   bash tests/e2e/test_ai_scorer_crawler_e2e.sh
 set -euo pipefail
 
-COMPOSE_FILE="tests/e2e/docker-compose.test.yml"
+COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true

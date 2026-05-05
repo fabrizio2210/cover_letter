@@ -5,7 +5,7 @@
 #   bash tests/e2e/test_coverletter_e2e.sh
 set -euo pipefail
 
-COMPOSE_FILE="tests/e2e/docker-compose.test.yml"
+COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 
 cleanup() {
   echo "****** API logs ******"

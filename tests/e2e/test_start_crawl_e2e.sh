@@ -13,7 +13,8 @@
 
 set -eux
 
-COMPOSE="docker compose -f tests/e2e/docker-compose.test.yml"
+COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
+COMPOSE="docker compose -f $COMPOSE_FILE"
 KEEP=${1:-}
 
 teardown() {

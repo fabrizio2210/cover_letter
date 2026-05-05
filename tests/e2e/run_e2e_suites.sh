@@ -18,6 +18,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export E2E_WORKSPACE_ROOT="${E2E_WORKSPACE_ROOT:-$repo_root}"
+E2E_COMPOSE_FILE="${E2E_COMPOSE_FILE:-$repo_root/tests/e2e/docker-compose.test.yml}"
+E2E_WORKFLOW1_COMPOSE_FILE="${E2E_WORKFLOW1_COMPOSE_FILE:-$repo_root/tests/e2e/docker-compose.workflow1.yml}"
 
 if [[ ! -f "$repo_root/tests/e2e/seed_mongo.py" ]]; then
   echo "[e2e] ERROR: expected file not found: $repo_root/tests/e2e/seed_mongo.py"
@@ -59,8 +61,8 @@ suite_path() {
 
 cleanup_compose_state() {
   # Ensure stale containers from prior suites/runs cannot clash by name.
-  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$repo_root/tests/e2e/docker-compose.test.yml" down --remove-orphans 2>/dev/null || true
-  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$repo_root/tests/e2e/docker-compose.workflow1.yml" down --remove-orphans 2>/dev/null || true
+  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$E2E_COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+  E2E_WORKSPACE_ROOT="$E2E_WORKSPACE_ROOT" docker compose -f "$E2E_WORKFLOW1_COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 }
 
 print_list() {

@@ -13,6 +13,82 @@ fi
 
 changedFiles="$(git diff --name-only HEAD^1 HEAD)"
 
+DOCKER_ORG="${DOCKER_ORG:-fabrizio2210}"
+CANDIDATE_TAG="${CANDIDATE_TAG:-candidate-${CI_COMMIT_SHA:-$(git rev-parse --short HEAD)}}"
+ENABLE_CANDIDATE_BUILD="${ENABLE_CANDIDATE_BUILD:-0}"
+PROMOTE_CANDIDATE="${PROMOTE_CANDIDATE:-0}"
+PROMOTE_TAGS="${PROMOTE_TAGS:-$arch}"
+
+declare -A CANDIDATE_DIGESTS
+
+build_candidate_image() {
+  local image="$1"
+  local dockerfile="$2"
+  local tag="$DOCKER_ORG/$image:$CANDIDATE_TAG-$arch"
+  docker buildx build --push -t "$tag" -f "$dockerfile" .
+
+  local digest
+  digest="$(docker buildx imagetools inspect "$tag" | awk '/^Digest:/ {print $2; exit}')"
+
+  if [ -z "$digest" ]; then
+    echo "Failed to resolve digest for candidate image: $tag"
+    exit 2
+  fi
+
+  CANDIDATE_DIGESTS["$image"]="$digest"
+  echo "[ci] candidate image built: $tag@$digest"
+}
+
+promote_candidate_image() {
+  local image="$1"
+  local digest="$2"
+  local promote_tag
+
+  for promote_tag in $PROMOTE_TAGS; do
+    docker buildx imagetools create -t "$DOCKER_ORG/$image:$promote_tag" "$DOCKER_ORG/$image@$digest"
+    echo "[ci] promoted $DOCKER_ORG/$image@$digest -> $DOCKER_ORG/$image:$promote_tag"
+  done
+}
+
+# E2E execution mode:
+# - source (default): existing source-mounted compose flow
+# - candidate: runtime services come from candidate images via compose overrides
+E2E_MODE="${E2E_MODE:-source}"
+
+case "$E2E_MODE" in
+  source)
+    ;;
+  candidate)
+    export E2E_COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.candidate.yml}"
+    export E2E_WORKFLOW1_COMPOSE_FILE="${E2E_WORKFLOW1_COMPOSE_FILE:-tests/e2e/docker-compose.workflow1.yml}"
+
+    if [ "$ENABLE_CANDIDATE_BUILD" = "1" ]; then
+      build_candidate_image "coverletter-api" "docker/x86_64/Dockerfile-api"
+      build_candidate_image "coverletter-ai" "docker/x86_64/Dockerfile-ai"
+      build_candidate_image "coverletter-ai-scorer" "docker/x86_64/Dockerfile-ai-scorer"
+      build_candidate_image "coverletter-web-crawler" "docker/x86_64/Dockerfile-web-crawler"
+
+      export E2E_IMAGE_API="$DOCKER_ORG/coverletter-api@${CANDIDATE_DIGESTS[coverletter-api]}"
+      export E2E_IMAGE_AI_QUERIER="$DOCKER_ORG/coverletter-ai@${CANDIDATE_DIGESTS[coverletter-ai]}"
+      export E2E_IMAGE_AI_SCORER="$DOCKER_ORG/coverletter-ai-scorer@${CANDIDATE_DIGESTS[coverletter-ai-scorer]}"
+      export E2E_IMAGE_WEB_CRAWLER="$DOCKER_ORG/coverletter-web-crawler@${CANDIDATE_DIGESTS[coverletter-web-crawler]}"
+    fi
+
+    for required_var in E2E_IMAGE_API E2E_IMAGE_AI_QUERIER E2E_IMAGE_AI_SCORER E2E_IMAGE_WEB_CRAWLER; do
+      if [ -z "${!required_var:-}" ]; then
+        echo "Missing required candidate image variable: $required_var"
+        echo "Set ENABLE_CANDIDATE_BUILD=1 or provide explicit E2E_IMAGE_* values"
+        exit 2
+      fi
+    done
+    ;;
+  *)
+    echo "Unsupported E2E_MODE: $E2E_MODE"
+    echo "Supported values: source, candidate"
+    exit 2
+    ;;
+esac
+
 ################
 # Login creation
 
@@ -63,39 +139,6 @@ if [ -n "$pip_cmd" ] ; then
 else
   echo "Skipping Python dependency bootstrap: no virtualenv pip found"
 fi
-  
-############################
-# E2E DOCKER-IN-DOCKER SETUP
-# When CICD runs inside a Docker container that shares the host Docker socket,
-# compose bind mounts must reference HOST-SIDE paths — the in-container path is
-# invisible to the host daemon.  We detect this via /.dockerenv, parse
-# PROJECTS_VOLUME_STRING to learn which named volume is mounted and where, then
-# copy the workspace into a subdir of that volume.  docker inspect gives us the
-# host-side source path for the volume so we can expose it as E2E_WORKSPACE_ROOT.
-if [ -f /.dockerenv ] && [ -n "${PROJECTS_VOLUME_STRING:-}" ]; then
-  _vol_mount="${PROJECTS_VOLUME_STRING#*:}"   # e.g. /opt/data
-  _cid=$(grep -oE '[0-9a-f]{64}' /proc/self/cgroup 2>/dev/null | head -1 || true)
-  [ -z "$_cid" ] && _cid=$(hostname)
-  _host_vol_src=$(VOL_MOUNT="$_vol_mount" docker inspect "$_cid" 2>/dev/null \
-    | python3 -c "
-import sys, json, os
-d = json.load(sys.stdin)
-for m in d[0].get('Mounts', []):
-    if m.get('Destination') == os.environ['VOL_MOUNT']:
-        print(m.get('Source', ''))
-        break
-" 2>/dev/null | head -1 || true)
-  if [ -n "$_host_vol_src" ]; then
-    _e2e_subdir="e2e_workspace_$$"
-    cp -r "$PWD/." "$_vol_mount/$_e2e_subdir/"
-    export E2E_WORKSPACE_ROOT="$_host_vol_src/$_e2e_subdir"
-    echo "[ci] DinD mode: E2E_WORKSPACE_ROOT=$E2E_WORKSPACE_ROOT"
-    # shellcheck disable=SC2064
-    trap "rm -rf '${_vol_mount}/${_e2e_subdir}'" EXIT
-  else
-    echo "[ci] WARNING: could not resolve host path for volume mount '$_vol_mount'; E2E bind mounts may fail"
-  fi
-fi
 
 #######
 # TESTS
@@ -142,4 +185,11 @@ if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-enrichment-ats-enrichmen
 fi
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -qE "Dockerfile-enrichment-retiring-jobs|enrichment_retiring_jobs" <<< "$changedFiles"; then
   docker buildx build -t fabrizio2210/coverletter-enrichment-retiring-jobs:$arch --push -f docker/x86_64/Dockerfile-enrichment-retiring-jobs .
+fi
+
+if [ "$E2E_MODE" = "candidate" ] && [ "$ENABLE_CANDIDATE_BUILD" = "1" ] && [ "$PROMOTE_CANDIDATE" = "1" ]; then
+  promote_candidate_image "coverletter-api" "${CANDIDATE_DIGESTS[coverletter-api]}"
+  promote_candidate_image "coverletter-ai" "${CANDIDATE_DIGESTS[coverletter-ai]}"
+  promote_candidate_image "coverletter-ai-scorer" "${CANDIDATE_DIGESTS[coverletter-ai-scorer]}"
+  promote_candidate_image "coverletter-web-crawler" "${CANDIDATE_DIGESTS[coverletter-web-crawler]}"
 fi
