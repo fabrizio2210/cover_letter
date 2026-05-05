@@ -209,7 +209,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ../..:/workspace:delegated
+      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
     entrypoint:
       [
         "bash",

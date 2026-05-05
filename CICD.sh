@@ -63,7 +63,7 @@ if [ -n "$pip_cmd" ] ; then
 else
   echo "Skipping Python dependency bootstrap: no virtualenv pip found"
 fi
-
+  
 ############################
 # E2E DOCKER-IN-DOCKER SETUP
 # When CICD runs inside a Docker container that shares the host Docker socket,
