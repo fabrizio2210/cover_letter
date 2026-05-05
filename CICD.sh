@@ -78,6 +78,12 @@ EOF
   fi
 fi
 
+##################
+# BUILD BASE IMAGE
+if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-container" <<< "$changedFiles"; then
+  docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
+fi
+
 
 # E2E execution mode:
 # - source (default): existing source-mounted compose flow
@@ -118,11 +124,6 @@ case "$E2E_MODE" in
     ;;
 esac
 
-##################
-# BUILD BASE IMAGE
-if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-container" <<< "$changedFiles"; then
-  docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
-fi
 
 ########################
 # PYTHON DEPENDENCY SAFE NET
