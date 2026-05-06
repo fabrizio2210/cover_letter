@@ -107,16 +107,60 @@ e2e_wait_api_ready() {
   e2e_wait_tcp "$host" "$port" 30
 }
 
+e2e_dump_failure_context() {
+  local service="$1"
+  local timestamp
+  local compose_ps_file
+  local service_logs_file
+  local events_file
+
+  mkdir -p "$E2E_ARTIFACT_DIR"
+
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  compose_ps_file="$E2E_ARTIFACT_DIR/compose-ps-$timestamp.txt"
+  service_logs_file="$E2E_ARTIFACT_DIR/${service}-logs-$timestamp.txt"
+  events_file="$E2E_ARTIFACT_DIR/compose-events-$timestamp.txt"
+
+  echo "[e2e] diagnostic dump for service '$service' (compose: $COMPOSE_FILE)"
+  echo "[e2e] writing artifacts: $compose_ps_file $service_logs_file $events_file"
+
+  {
+    echo "[e2e] docker compose ps -a"
+    docker compose -f "$COMPOSE_FILE" ps -a
+  } 2>&1 | tee "$compose_ps_file" || true
+
+  {
+    echo "[e2e] docker compose logs --tail=200 $service"
+    docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$service"
+  } 2>&1 | tee "$service_logs_file" || true
+
+  {
+    echo "[e2e] docker compose events --since 2m"
+    docker compose -f "$COMPOSE_FILE" events --since 2m --until "$(date -Iseconds)"
+  } 2>&1 | tee "$events_file" || true
+}
+
 e2e_attach_service_to_network() {
   local service="$1"
   local container_id
+  local timeout_seconds="${E2E_ATTACH_WAIT_SECONDS:-20}"
+  local elapsed=0
 
   if [[ -z "${LIGHTCICD_ATTACHABLE_NETWORK:-}" ]]; then
     return 0
   fi
 
-  container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" | head -n1)"
+  while (( elapsed < timeout_seconds )); do
+    container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null | head -n1)"
+    if [[ -n "$container_id" ]]; then
+      break
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
   if [[ -z "$container_id" ]]; then
+    e2e_dump_failure_context "$service"
     echo "[e2e] ERROR: unable to find running container for service '$service' in $COMPOSE_FILE" >&2
     return 1
   fi
@@ -207,7 +251,7 @@ e2e_dump_compose_logs() {
   for service in "${services[@]}"; do
     if container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null | head -n1)" && [[ -n "$container_id" ]]; then
       echo "****** $service logs ******"
-      docker compose -f "$COMPOSE_FILE" logs "$service" || true
+      docker compose -f "$COMPOSE_FILE" logs --no-color "$service" || true
       echo "****************************"
     fi
   done
