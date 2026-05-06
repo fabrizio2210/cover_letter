@@ -2,12 +2,12 @@ services:
   mongo:
     image: mongo:6.0
     ports:
-      - "27017"
+      - "${E2E_MONGO_HOST_PORT:-47017}:27017"
 
   redis:
     image: redis:7
     ports:
-      - "6379"
+      - "${E2E_REDIS_HOST_PORT:-46379}:6379"
 
   # Runtime services under test use candidate images built in CI.
   ai_querier:
@@ -52,7 +52,7 @@ services:
       - mongo
       - redis
     ports:
-      - "8080"
+      - "${E2E_API_HOST_PORT:-48080}:8080"
 
   dispatcher:
     image: ${E2E_IMAGE_WEB_CRAWLER:?set E2E_IMAGE_WEB_CRAWLER}
