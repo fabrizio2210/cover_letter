@@ -166,7 +166,17 @@ e2e_attach_service_to_network() {
   fi
 
   # Idempotent attach: no-op if container is already connected.
-  docker network connect --alias "$service" "$LIGHTCICD_ATTACHABLE_NETWORK" "$container_id" >/dev/null 2>&1 || true
+  if docker network connect --alias "$service" "$LIGHTCICD_ATTACHABLE_NETWORK" "$container_id" >/dev/null 2>&1; then
+    if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
+      echo "[e2e] attached service '$service' ($container_id) to network '$LIGHTCICD_ATTACHABLE_NETWORK'"
+    fi
+    return 0
+  fi
+
+  if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
+    echo "[e2e] WARN: docker network connect failed for '$service' ($container_id) on '$LIGHTCICD_ATTACHABLE_NETWORK' (possibly already connected)" >&2
+    docker inspect -f "[e2e] networks for $service ($container_id): {{json .NetworkSettings.Networks}}" "$container_id" 2>/dev/null || true
+  fi
 }
 
 e2e_prepare_artifacts() {
@@ -249,18 +259,71 @@ e2e_dump_compose_logs() {
   fi
 
   for service in "${services[@]}"; do
-    if container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null | head -n1)" && [[ -n "$container_id" ]]; then
-      echo "****** $service logs ******"
-      docker compose -f "$COMPOSE_FILE" logs --no-color "$service" || true
-      echo "****************************"
+    if ! e2e_compose_has_service "$service"; then
+      continue
     fi
+
+    echo "****** $service state ******"
+    docker compose -f "$COMPOSE_FILE" ps -a "$service" || true
+    echo "****** $service logs ******"
+    docker compose -f "$COMPOSE_FILE" logs --no-color --tail=300 "$service" || true
+    echo "****************************"
+  done
+}
+
+e2e_dump_network_state() {
+  local default_services=(mongo redis api ai_querier ai_scorer dispatcher)
+  local services=("$@")
+  local service
+  local container_id
+
+  if [[ "${#services[@]}" -eq 0 ]]; then
+    services=("${default_services[@]}")
+  fi
+
+  echo "****** docker network ls ******"
+  docker network ls || true
+  echo "*******************************"
+
+  if [[ -n "${LIGHTCICD_ATTACHABLE_NETWORK:-}" ]]; then
+    echo "****** attachable network state: $LIGHTCICD_ATTACHABLE_NETWORK ******"
+    docker network inspect "$LIGHTCICD_ATTACHABLE_NETWORK" || true
+    echo "**************************************************************"
+  fi
+
+  for service in "${services[@]}"; do
+    if ! e2e_compose_has_service "$service"; then
+      continue
+    fi
+
+    container_id="$(docker compose -f "$COMPOSE_FILE" ps -a -q "$service" 2>/dev/null | head -n1)"
+    if [[ -z "$container_id" ]]; then
+      echo "****** network state $service ******"
+      echo "[e2e] no container id found with 'docker compose ps -a -q $service'"
+      echo "************************************"
+      continue
+    fi
+
+    echo "****** network state $service ($container_id) ******"
+    docker inspect -f "{{json .NetworkSettings.Networks}}" "$container_id" || true
+    echo "****************************************************"
   done
 }
 
 e2e_cleanup_compose() {
   local with_volumes="${1:-0}"
+  local services=("${@:2}")
 
-  e2e_dump_compose_logs "${@:2}"
+  if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
+    # Ensure core dependency services are always dumped in debug mode.
+    services+=(mongo redis)
+  fi
+
+  e2e_dump_compose_logs "${services[@]}"
+
+  if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
+    e2e_dump_network_state "${services[@]}"
+  fi
 
   if [[ "$with_volumes" == "1" ]]; then
     docker compose -f "$COMPOSE_FILE" down --remove-orphans --volumes 2>/dev/null || true
