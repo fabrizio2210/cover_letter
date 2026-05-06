@@ -24,12 +24,10 @@ KEEP=${1:-}
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 teardown() {
-  echo ""
-  echo "****** ai_scorer logs ******"
-  $COMPOSE logs ai_scorer || true
-  echo "****************************"
   if [[ "$KEEP" != "--keep" ]]; then
-    $COMPOSE down --remove-orphans 2>/dev/null || true
+    e2e_cleanup_compose 0 mongo ai_scorer
+  else
+    e2e_dump_compose_logs mongo ai_scorer
   fi
 }
 trap teardown EXIT

@@ -19,14 +19,10 @@ KEEP=${1:-}
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 teardown() {
-  echo "****** Dispatcher logs ******"
-  $COMPOSE logs dispatcher || true
-  echo "****************************"
-  echo "****** API logs ******"
-  $COMPOSE logs api || true
-  echo "**********************"
   if [[ "$KEEP" != "--keep" ]]; then
-    $COMPOSE down --remove-orphans --volumes 2>/dev/null || true
+    e2e_cleanup_compose 1 mongo api dispatcher
+  else
+    e2e_dump_compose_logs mongo api dispatcher
   fi
 }
 trap teardown EXIT

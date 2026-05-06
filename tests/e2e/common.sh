@@ -195,3 +195,33 @@ e2e_run_python() {
     python3 "$script_path" "$@"
   )
 }
+
+e2e_dump_compose_logs() {
+  local default_services=(mongo redis api ai_querier ai_scorer dispatcher)
+  local services=("$@")
+
+  if [[ "${#services[@]}" -eq 0 ]]; then
+    services=("${default_services[@]}")
+  fi
+
+  for service in "${services[@]}"; do
+    if container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null | head -n1)" && [[ -n "$container_id" ]]; then
+      echo "****** $service logs ******"
+      docker compose -f "$COMPOSE_FILE" logs "$service" || true
+      echo "****************************"
+    fi
+  done
+}
+
+e2e_cleanup_compose() {
+  local with_volumes="${1:-0}"
+
+  e2e_dump_compose_logs "${@:2}"
+
+  if [[ "$with_volumes" == "1" ]]; then
+    docker compose -f "$COMPOSE_FILE" down --remove-orphans --volumes 2>/dev/null || true
+    return 0
+  fi
+
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+}

@@ -9,13 +9,7 @@ COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {
-  echo "****** API logs ******"
-  docker compose -f "$COMPOSE_FILE" logs api || true
-  echo "**********************"
-  echo "****** AI Scorer logs ******"
-  docker compose -f "$COMPOSE_FILE" logs ai_scorer || true
-  echo "****************************"
-  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+  e2e_cleanup_compose 0 mongo api ai_scorer
 }
 trap cleanup EXIT
 

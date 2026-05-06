@@ -5,7 +5,7 @@ COMPOSE_FILE="${E2E_WORKFLOW1_COMPOSE_FILE:-tests/e2e/docker-compose.workflow1.y
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {
-  docker compose -f "$COMPOSE_FILE" down --remove-orphans >/dev/null 2>&1 || true
+  e2e_cleanup_compose 0 mongo
 }
 
 trap cleanup EXIT
