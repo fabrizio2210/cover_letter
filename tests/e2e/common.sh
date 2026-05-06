@@ -129,10 +129,14 @@ e2e_dump_failure_context() {
     docker compose -f "$COMPOSE_FILE" ps -a
   } 2>&1 | tee "$compose_ps_file" || true
 
-  {
-    echo "[e2e] docker compose logs --tail=200 $service"
-    docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$service"
-  } 2>&1 | tee "$service_logs_file" || true
+  if e2e_compose_has_service "$service"; then
+    {
+      echo "[e2e] docker compose logs --tail=200 $service"
+      docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$service"
+    } 2>&1 | tee "$service_logs_file" || true
+  else
+    echo "[e2e] service '$service' not defined in $COMPOSE_FILE, skipping logs"
+  fi
 
   {
     echo "[e2e] docker compose events --since 2m"
