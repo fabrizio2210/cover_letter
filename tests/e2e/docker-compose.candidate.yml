@@ -5,7 +5,7 @@ services:
       - "27017"
 
   redis:
-    image: redis:7
+    image: redis:7.4-bookworm
     ports:
       - "6379"
 
