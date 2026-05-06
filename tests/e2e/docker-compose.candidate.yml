@@ -1,6 +1,6 @@
 services:
   mongo:
-    image: mongo:latest
+    image: arm64v8/mongo:4.4.3
     ports:
       - "27017"
 
