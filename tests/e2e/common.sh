@@ -71,6 +71,60 @@ e2e_compose_has_service() {
   docker compose -f "$COMPOSE_FILE" config --services | grep -qx "$service"
 }
 
+e2e_wait_tcp() {
+  local host="$1"
+  local port="$2"
+  local timeout_seconds="${3:-30}"
+  local elapsed=0
+
+  while (( elapsed < timeout_seconds )); do
+    if (echo >"/dev/tcp/$host/$port") >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  echo "[e2e] ERROR: TCP endpoint $host:$port not reachable after ${timeout_seconds}s" >&2
+  return 1
+}
+
+e2e_wait_api_ready() {
+  local api_host="$1"
+  local host_port
+  local host
+  local port
+
+  host_port="${api_host#http://}"
+  host_port="${host_port#https://}"
+  host="${host_port%%:*}"
+  if [[ "$host_port" == *:* ]]; then
+    port="${host_port##*:}"
+  else
+    port="80"
+  fi
+
+  e2e_wait_tcp "$host" "$port" 30
+}
+
+e2e_attach_service_to_network() {
+  local service="$1"
+  local container_id
+
+  if [[ -z "${LIGHTCICD_ATTACHABLE_NETWORK:-}" ]]; then
+    return 0
+  fi
+
+  container_id="$(docker compose -f "$COMPOSE_FILE" ps -q "$service" | head -n1)"
+  if [[ -z "$container_id" ]]; then
+    echo "[e2e] ERROR: unable to find running container for service '$service' in $COMPOSE_FILE" >&2
+    return 1
+  fi
+
+  # Idempotent attach: no-op if container is already connected.
+  docker network connect --alias "$service" "$LIGHTCICD_ATTACHABLE_NETWORK" "$container_id" >/dev/null 2>&1 || true
+}
+
 e2e_prepare_artifacts() {
   mkdir -p "$E2E_ARTIFACT_DIR"
   rm -f "$E2E_RUN_ID_FILE"
@@ -81,12 +135,34 @@ e2e_export_stack_env() {
   local mongo_port
   local redis_port
   local api_port
+  export PYTHONPATH="$E2E_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+  export E2E_RUN_ID_FILE
+
+  if [[ -n "${LIGHTCICD_ATTACHABLE_NETWORK:-}" ]]; then
+    e2e_attach_service_to_network mongo
+    export MONGO_HOST="mongodb://mongo:27017/"
+
+    if e2e_compose_has_service redis; then
+      e2e_attach_service_to_network redis
+      export REDIS_HOST="redis"
+      export REDIS_PORT="6379"
+    fi
+
+    if e2e_compose_has_service api; then
+      e2e_attach_service_to_network api
+      export API_HOST="http://api:8080"
+      e2e_wait_api_ready "$API_HOST"
+    fi
+
+    if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
+      echo "[e2e] endpoints MONGO_HOST=$MONGO_HOST REDIS_HOST=${REDIS_HOST:-unset} REDIS_PORT=${REDIS_PORT:-unset} API_HOST=${API_HOST:-unset}"
+    fi
+    return 0
+  fi
 
   docker_host="$(e2e_docker_host)"
 
   export E2E_DOCKER_HOST="$docker_host"
-  export PYTHONPATH="$E2E_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-  export E2E_RUN_ID_FILE
 
   mongo_port="$(e2e_wait_compose_port mongo 27017 30)"
 
@@ -101,11 +177,12 @@ e2e_export_stack_env() {
   if e2e_compose_has_service api; then
     if api_port="$(e2e_wait_compose_port api 8080 10 2>/dev/null)"; then
       export API_HOST="http://$docker_host:$api_port"
+      e2e_wait_api_ready "$API_HOST"
     fi
   fi
 
   if [[ "${E2E_DEBUG:-0}" = "1" ]]; then
-    echo "[e2e] endpoints MONGO_HOST=$MONGO_HOST REDIS_HOST=$REDIS_HOST REDIS_PORT=$REDIS_PORT API_HOST=${API_HOST:-unset}"
+    echo "[e2e] endpoints MONGO_HOST=$MONGO_HOST REDIS_HOST=${REDIS_HOST:-unset} REDIS_PORT=${REDIS_PORT:-unset} API_HOST=${API_HOST:-unset}"
   fi
 }
 
