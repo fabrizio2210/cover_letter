@@ -287,7 +287,7 @@ services:
       - MONGO_PASSWORD
     labels:
       traefik.enable: "true"
-      traefik.http.routers.api.rule: "PathPrefix(`/api`)"
+      traefik.http.routers.api.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/api`)"
       traefik.http.services.api-service.loadbalancer.server.port: 8080
     restart: unless-stopped
     networks:
@@ -297,7 +297,7 @@ services:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-frontend:${DEPLOY_TAG:-x86_64}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.frontend.rule: "PathPrefix(`/`)"
+      traefik.http.routers.frontend.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/`)"
       traefik.http.services.frontend-service.loadbalancer.server.port: 80
     restart: unless-stopped
     networks:
