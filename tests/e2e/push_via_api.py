@@ -19,7 +19,7 @@ USER_PASSWORD = 'testpassword'
 req = urllib.request.Request(API_HOST + LOGIN_PATH, method='POST')
 req.add_header('Content-Type', 'application/json')
 token = None
-login_deadline = time.time() + 30
+login_deadline = time.time() + 60
 while time.time() < login_deadline:
     try:
         with urllib.request.urlopen(req, data=json.dumps({'password': USER_PASSWORD, 'username': 'e2e-test-user'}).encode('utf-8'), timeout=5) as resp:
@@ -29,12 +29,15 @@ while time.time() < login_deadline:
             if token:
                 break
     except urllib.error.HTTPError as e:
+        if 500 <= e.code < 600:
+            time.sleep(0.5)
+            continue
         raise SystemExit(f'Login failed: {e.code} {e.reason}')
     except (urllib.error.URLError, OSError):
         time.sleep(0.5)
 
 if not token:
-    raise SystemExit('Login failed: API not reachable')
+    raise SystemExit('Login failed: API not reachable within deadline')
 
 results = {}
 

@@ -1,0 +1,301 @@
+version: '3.4'
+
+services:
+  redis_cover_letter:
+    image: redis
+    networks:
+      - backends
+
+  telegram-bot:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-telegram-bot:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export BOT_TOKEN="$$(cat /run/secrets/BOT_TOKEN)" && exec python src/python/telegram_bot/telegram_bot.py
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
+      REDIS_HOST: redis_cover_letter
+    secrets:
+      - BOT_TOKEN
+    networks:
+      - backends
+
+  ai-querier:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export GEMINI_TOKEN="$$(cat /run/secrets/GEMINI_TOKEN)" && exec python src/python/ai_querier/ai_querier.py
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+    secrets:
+      - GEMINI_TOKEN
+    networks:
+      - backends
+
+  ai-scorer:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai-scorer:${DEPLOY_TAG:-x86_64}
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      OLLAMA_HOST: "http://ollama:11434"
+      OLLAMA_MODEL: qwen2.5:1.5b
+      AI_SCORER_TEST_MODE: 0
+      AI_SCORER_OLLAMA_PARALLELISM: 2
+    networks:
+      - backends
+
+  ollama:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=0.0.0.0:11434 ollama serve & sleep 10 && ollama pull qwen2.5:1.5b && wait"]
+    restart: always
+    deploy:
+      replicas: 2
+    networks:
+      - backends
+
+  web-crawler:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-web-crawler:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && exec python -m src.python.web_crawler.dispatcher.main --worker
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
+      CRAWLER_LEVELSFYI_QUEUE_NAME: "crawler_levelsfyi_queue"
+      CRAWLER_4DAYWEEK_QUEUE_NAME: "crawler_4dayweek_queue"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
+    secrets:
+      - SERPER_API_KEY
+    networks:
+      - backends
+
+  crawler-ycombinator:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ycombinator:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && exec python -m src.python.web_crawler.crawler_ycombinator.worker --worker
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+    secrets:
+      - SERPER_API_KEY
+    networks:
+      - backends
+
+  crawler-hackernews:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-hackernews:${DEPLOY_TAG:-x86_64}
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+    networks:
+      - backends
+
+  crawler-ats-job-extraction:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ats-job-extraction:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && exec python -m src.python.web_crawler.crawler_ats_job_extraction.worker --worker
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
+    secrets:
+      - SERPER_API_KEY
+    networks:
+      - backends
+
+  crawler-levelsfyi:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-levelsfyi:${DEPLOY_TAG:-x86_64}
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_LEVELSFYI_QUEUE_NAME: "crawler_levelsfyi_queue"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
+    networks:
+      - backends
+
+  crawler-4dayweek:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-4dayweek:${DEPLOY_TAG:-x86_64}
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_4DAYWEEK_QUEUE_NAME: "crawler_4dayweek_queue"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+      JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
+      CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
+      CRAWLER_REFERER: "https://4dayweek.io/jobs"
+    networks:
+      - backends
+
+  enrichment-ats-enrichment:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-enrichment-ats-enrichment:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && exec python -m src.python.web_crawler.enrichment_ats_enrichment.worker --worker
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
+    secrets:
+      - SERPER_API_KEY
+    networks:
+      - backends
+    deploy:
+      replicas: 4
+
+  enrichment-retiring-jobs:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-enrichment-retiring-jobs:${DEPLOY_TAG:-x86_64}
+    restart: always
+    environment:
+      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
+      REDIS_HOST: redis_cover_letter
+      REDIS_PORT: 6379
+      CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
+      JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
+    networks:
+      - backends
+
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: develop
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - backends
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    labels: 
+      traefik.port: 80
+      traefik.enable: "true"
+      traefik.mongoexpress.rule: "Host(`mongo-express`)  && PathPrefix(`/`)"
+      traefik.http.services.mongoexpress-service.loadbalancer.server.port: 8081
+      traefik.http.routers.mongoexpress.rule: "Host(`mongo-express`) && PathPrefix(`/`)"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: develop
+      ME_CONFIG_MONGODB_URL: mongodb://root:develop@mongo:27017/
+    networks:
+      - backends
+
+  coverletter-api:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-api:${DEPLOY_TAG:-x86_64}
+    command:
+      - /bin/sh
+      - -c
+      - export ADMIN_PASSWORD="$$(cat /run/secrets/ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/JWT_SECRET)" && exec ./api
+    environment:
+      - MONGO_HOST=mongodb://root:develop@mongo:27017/
+      - REDIS_HOST=redis_cover_letter
+      - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
+      - CRAWLER_YCOMBINATOR_QUEUE_NAME=crawler_ycombinator_queue
+      - CRAWLER_HACKERNEWS_QUEUE_NAME=crawler_hackernews_queue
+      - CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME=crawler_ats_job_extraction_queue
+      - CRAWLER_LEVELSFYI_QUEUE_NAME=crawler_levelsfyi_queue
+      - CRAWLER_4DAYWEEK_QUEUE_NAME=crawler_4dayweek_queue
+      - CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME=enrichment_ats_enrichment_queue
+      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
+      - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
+      - JOB_UPDATE_CHANNEL_NAME=job_update_channel
+    secrets:
+      - ADMIN_PASSWORD
+      - AUTH_USERS_JSON
+      - ADMIN_JWT_SECRET
+      - JWT_SECRET
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: "PathPrefix(`/api`)"
+      traefik.http.services.api-service.loadbalancer.server.port: 8080
+    restart: unless-stopped
+    networks:
+      - backends
+
+  coverletter-frontend:
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-frontend:${DEPLOY_TAG:-x86_64}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: "PathPrefix(`/`)"
+      traefik.http.services.frontend-service.loadbalancer.server.port: 80
+    restart: unless-stopped
+    networks:
+      - backends
+
+volumes:
+  mongo_data:
+    driver_opts:
+      type: "nfs"
+      o: "addr=192.168.100.1,nolock,soft,rw"
+      device: ":/mnt/HDD/docker/coverletter/mongo_data"
+
+secrets:
+  BOT_TOKEN:
+    external: true
+  GEMINI_TOKEN:
+    external: true
+  ADMIN_PASSWORD:
+    external: true
+  AUTH_USERS_JSON:
+    external: true
+  ADMIN_JWT_SECRET:
+    external: true
+  JWT_SECRET:
+    external: true
+  SERPER_API_KEY:
+    external: true
+
+networks:
+  backends:
+    external: true
+    name: traefik_backends

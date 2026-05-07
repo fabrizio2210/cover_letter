@@ -16,6 +16,13 @@ CANDIDATE_TAG="${CANDIDATE_TAG:-candidate-${CI_COMMIT_SHA:-$(git rev-parse --sho
 ENABLE_CANDIDATE_BUILD="${ENABLE_CANDIDATE_BUILD:-0}"
 PROMOTE_CANDIDATE="${PROMOTE_CANDIDATE:-0}"
 PROMOTE_TAGS="${PROMOTE_TAGS:-$arch}"
+STACK_NAME="${STACK_NAME:-coverletter}"
+STACK_FILE="${STACK_FILE:-docker/prod/stack.yml}"
+DEPLOY_TAG="${DEPLOY_TAG:-${PROMOTE_TAGS%% *}}"
+
+if [ -z "$DEPLOY_TAG" ] ; then
+  DEPLOY_TAG="$arch"
+fi
 
 declare -A CANDIDATE_DIGESTS
 
@@ -49,6 +56,15 @@ promote_candidate_image() {
     docker buildx imagetools create -t "$DOCKER_ORG/$image:$promote_tag" "$DOCKER_ORG/$image@$digest"
     echo "[ci] promoted $DOCKER_ORG/$image@$digest -> $DOCKER_ORG/$image:$promote_tag"
   done
+}
+
+assert_swarm_secret_exists() {
+  local secret_name="$1"
+
+  if ! docker secret inspect "$secret_name" >/dev/null 2>&1; then
+    echo "Missing required Docker Swarm secret: $secret_name"
+    exit 2
+  fi
 }
 
 ################
@@ -198,3 +214,26 @@ if [ "$E2E_MODE" = "candidate" ] && [ "$ENABLE_CANDIDATE_BUILD" = "1" ] && [ "$P
   promote_candidate_image "coverletter-ai-scorer" "${CANDIDATE_DIGESTS[coverletter-ai-scorer]}"
   promote_candidate_image "coverletter-web-crawler" "${CANDIDATE_DIGESTS[coverletter-web-crawler]}"
 fi
+
+######################
+# SWARM STACK DEPLOY
+
+if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" != "active" ]; then
+  echo "Docker Swarm is not active on this node"
+  exit 2
+fi
+
+if [ "$(docker info --format '{{.Swarm.ControlAvailable}}')" != "true" ]; then
+  echo "Current node is not a Swarm manager"
+  exit 2
+fi
+
+for required_secret in BOT_TOKEN GEMINI_TOKEN ADMIN_PASSWORD AUTH_USERS_JSON ADMIN_JWT_SECRET JWT_SECRET SERPER_API_KEY; do
+  assert_swarm_secret_exists "$required_secret"
+done
+
+export DOCKER_ORG
+export DEPLOY_TAG
+
+docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+docker stack services "$STACK_NAME"
