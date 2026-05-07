@@ -13,7 +13,6 @@
 #   bash tests/e2e/test_ai_scorer_crawler_e2e.sh
 set -xeuo pipefail
 
-COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 cleanup() {

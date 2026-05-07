@@ -95,10 +95,6 @@ run_frontend_tests() {
 
 run_e2e_tests() {
   echo "[gate] Running Docker E2E tests"
-  local e2e_compose_file="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
-  local e2e_workflow1_compose_file="${E2E_WORKFLOW1_COMPOSE_FILE:-tests/e2e/docker-compose.workflow1.yml}"
-  echo "[gate] E2E compose: $e2e_compose_file"
-  echo "[gate] E2E workflow1 compose: $e2e_workflow1_compose_file"
   (
     cd "$repo_root"
     bash tests/e2e/run_e2e_suites.sh

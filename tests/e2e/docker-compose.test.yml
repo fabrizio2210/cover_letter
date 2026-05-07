@@ -13,7 +13,7 @@ services:
     image: python:3.11-slim
     working_dir: /app
     volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
+      - ../..:/workspace:delegated
     command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_querier/ai_querier.py"
     environment:
       - AI_QUERIER_TEST_MODE=1
@@ -30,7 +30,7 @@ services:
     image: python:3.11-slim
     working_dir: /app
     volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
+      - ../..:/workspace:delegated
     command: bash -c "pip install -r /workspace/src/python/ai_scorer/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_scorer/ai_scorer.py"
     environment:
       - AI_SCORER_TEST_MODE=1
@@ -48,7 +48,7 @@ services:
     image: golang:1.25
     working_dir: /workspace/src/go/cmd/api
     volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
+      - ../..:/workspace:delegated
     command: bash -lc "cd /workspace/src/go/cmd/api && /usr/local/go/bin/go mod download >/dev/null 2>&1 || true && /usr/local/go/bin/go run ."
     environment:
       - ADMIN_PASSWORD=testpassword
@@ -69,7 +69,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - ${E2E_WORKSPACE_ROOT:-../..}:/workspace:delegated
+      - ../..:/workspace:delegated
     command: >
       bash -lc "pip install -r /workspace/src/python/web_crawler/requirements.txt >/dev/null 2>&1 &&
         PYTHONPATH=/workspace python -u -m src.python.web_crawler.dispatcher.main --worker"

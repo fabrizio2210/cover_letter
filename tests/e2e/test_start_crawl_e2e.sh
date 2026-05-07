@@ -13,10 +13,9 @@
 
 set -eux
 
-COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
-COMPOSE="docker compose -f $COMPOSE_FILE"
 KEEP=${1:-}
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+COMPOSE="docker compose -f $COMPOSE_FILE"
 
 teardown() {
   if [[ "$KEEP" != "--keep" ]]; then

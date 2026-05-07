@@ -5,6 +5,11 @@ E2E_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E_ARTIFACT_DIR="${E2E_ARTIFACT_DIR:-$E2E_REPO_ROOT/tests/e2e/.artifacts}"
 E2E_RUN_ID_FILE="${E2E_RUN_ID_FILE:-$E2E_ARTIFACT_DIR/crawl_run_id}"
 
+# Canonical compose-file resolution.
+# E2E_COMPOSE_FILE (set by CICD.sh or run_e2e_suites.sh) takes precedence;
+# individual suites may override by setting COMPOSE_FILE before sourcing this file.
+COMPOSE_FILE="${COMPOSE_FILE:-${E2E_COMPOSE_FILE:-$E2E_REPO_ROOT/tests/e2e/docker-compose.test.yml}}"
+
 e2e_docker_host() {
   if [[ -n "${E2E_DOCKER_HOST:-}" ]]; then
     printf '%s\n' "$E2E_DOCKER_HOST"
