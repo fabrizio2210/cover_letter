@@ -114,9 +114,9 @@ case "$mode" in
     ;;
   full)
     echo "[gate] Mode: full"
-    # run_go_tests
-    # run_python_tests
-    # run_frontend_tests
+    run_go_tests
+    run_python_tests
+    run_frontend_tests
     run_e2e_tests
     ;;
   *)
