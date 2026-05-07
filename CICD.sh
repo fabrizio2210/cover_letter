@@ -228,7 +228,7 @@ if [ "$(docker info --format '{{.Swarm.ControlAvailable}}')" != "true" ]; then
   exit 2
 fi
 
-for required_secret in BOT_TOKEN GEMINI_TOKEN ADMIN_PASSWORD AUTH_USERS_JSON ADMIN_JWT_SECRET JWT_SECRET SERPER_API_KEY; do
+for required_secret in BOT_TOKEN GEMINI_TOKEN ADMIN_PASSWORD AUTH_USERS_JSON ADMIN_JWT_SECRET JWT_SECRET SERPER_API_KEY MONGO_PASSWORD; do
   assert_swarm_secret_exists "$required_secret"
 done
 
