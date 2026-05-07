@@ -71,6 +71,14 @@ e2e_compose_has_service() {
   docker compose -f "$COMPOSE_FILE" config --services | grep -qx "$service"
 }
 
+e2e_compose_has_container() {
+  local service="$1"
+  local container_id
+
+  container_id="$(docker compose -f "$COMPOSE_FILE" ps -a -q "$service" 2>/dev/null | head -n1)"
+  [[ -n "$container_id" ]]
+}
+
 e2e_wait_tcp() {
   local host="$1"
   local port="$2"
@@ -206,7 +214,7 @@ e2e_export_stack_env() {
       export REDIS_PORT="6379"
     fi
 
-    if e2e_compose_has_service api; then
+    if e2e_compose_has_service api && e2e_compose_has_container api; then
       e2e_attach_service_to_network api
       export API_HOST="http://api:8080"
       e2e_wait_api_ready "$API_HOST"
@@ -232,7 +240,7 @@ e2e_export_stack_env() {
     export REDIS_PORT="$redis_port"
   fi
 
-  if e2e_compose_has_service api; then
+  if e2e_compose_has_service api && e2e_compose_has_container api; then
     if api_port="$(e2e_wait_compose_port api 8080 10 2>/dev/null)"; then
       export API_HOST="http://$docker_host:$api_port"
       e2e_wait_api_ready "$API_HOST"
