@@ -14,7 +14,7 @@
 #   workflow1          – tests/e2e/test_workflow1_integration.sh
 #   post_crawl_scoring – tests/e2e/test_post_crawl_scoring_e2e.sh
 
-set -euo pipefail
+set -xeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export E2E_WORKSPACE_ROOT="${E2E_WORKSPACE_ROOT:-$repo_root}"

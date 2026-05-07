@@ -81,7 +81,8 @@ fi
 ##################
 # BUILD BASE IMAGE
 if [ "$MANUAL_TRIGGER" == "1" ] || grep -q "Dockerfile-container" <<< "$changedFiles"; then
-  docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
+  # docker buildx build -t fabrizio2210/docker_light-cover_letter:$arch --push -f docker/x86_64/Dockerfile-container .
+  echo "Skipping base image build: currently not used in E2E suites, and buildx caching is effective for rebuilds"
 fi
 
 

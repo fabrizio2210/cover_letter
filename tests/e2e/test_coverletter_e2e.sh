@@ -3,7 +3,7 @@
 #
 # Usage:
 #   bash tests/e2e/test_coverletter_e2e.sh
-set -euo pipefail
+set -xeuo pipefail
 
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"

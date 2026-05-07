@@ -16,7 +16,7 @@
 #   bash tests/e2e/test_post_crawl_scoring_e2e.sh
 #   bash tests/e2e/test_post_crawl_scoring_e2e.sh --keep   # keep containers on success
 
-set -euo pipefail
+set -xeuo pipefail
 
 COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.test.yml}"
 COMPOSE="docker compose -f $COMPOSE_FILE"
