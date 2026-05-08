@@ -11,14 +11,14 @@ services:
     command:
       - /bin/sh
       - -c
-      - export BOT_TOKEN="$$(cat /run/secrets/BOT_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/telegram_bot/telegram_bot.py
+      - export BOT_TOKEN="$$(cat /run/secrets/COVERLETTER_BOT_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/telegram_bot/telegram_bot.py
     restart: always
     environment:
       TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
       REDIS_HOST: redis_cover_letter
     secrets:
-      - BOT_TOKEN
-      - MONGO_PASSWORD
+      - COVERLETTER_BOT_TOKEN
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -27,13 +27,13 @@ services:
     command:
       - /bin/sh
       - -c
-      - export GEMINI_TOKEN="$$(cat /run/secrets/GEMINI_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_querier/ai_querier.py
+      - export GEMINI_TOKEN="$$(cat /run/secrets/COVERLETTER_GEMINI_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_querier/ai_querier.py
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
     secrets:
-      - GEMINI_TOKEN
-      - MONGO_PASSWORD
+      - COVERLETTER_GEMINI_TOKEN
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -42,7 +42,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_scorer/ai_scorer.py
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_scorer/ai_scorer.py
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -53,7 +53,7 @@ services:
       AI_SCORER_TEST_MODE: 0
       AI_SCORER_OLLAMA_PARALLELISM: 2
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -71,7 +71,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.dispatcher.main --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.dispatcher.main --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -85,8 +85,8 @@ services:
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
-      - SERPER_API_KEY
-      - MONGO_PASSWORD
+      - COVERLETTER_SERPER_API_KEY
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -95,7 +95,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ycombinator.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ycombinator.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -104,8 +104,8 @@ services:
       CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
     secrets:
-      - SERPER_API_KEY
-      - MONGO_PASSWORD
+      - COVERLETTER_SERPER_API_KEY
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -114,7 +114,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_hackernews.worker --worker
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_hackernews.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -123,7 +123,7 @@ services:
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -132,7 +132,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ats_job_extraction.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ats_job_extraction.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -142,8 +142,8 @@ services:
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
-      - SERPER_API_KEY
-      - MONGO_PASSWORD
+      - COVERLETTER_SERPER_API_KEY
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -152,7 +152,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_levelsfyi.worker --worker
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_levelsfyi.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -163,7 +163,7 @@ services:
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -172,7 +172,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_4dayweek.worker --worker
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_4dayweek.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -184,7 +184,7 @@ services:
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
       CRAWLER_REFERER: "https://4dayweek.io/jobs"
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -193,7 +193,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_ats_enrichment.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_ats_enrichment.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -202,8 +202,8 @@ services:
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
     secrets:
-      - SERPER_API_KEY
-      - MONGO_PASSWORD
+      - COVERLETTER_SERPER_API_KEY
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
     deploy:
@@ -214,7 +214,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_retiring_jobs.worker --worker
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_retiring_jobs.worker --worker
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -222,20 +222,20 @@ services:
       CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
       JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
   mongo:
-    image: mongo
+    image: mongo:4.4.18
     restart: always
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGO_PASSWORD
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/COVERLETTER_MONGO_PASSWORD
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     volumes:
       - mongo_data:/data/db
     networks:
@@ -246,7 +246,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export ME_CONFIG_MONGODB_ADMINPASSWORD="$$MONGO_PASSWORD" && export ME_CONFIG_MONGODB_URL="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec node app
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export ME_CONFIG_MONGODB_ADMINPASSWORD="$$MONGO_PASSWORD" && export ME_CONFIG_MONGODB_URL="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec node app
     restart: always
     labels: 
       traefik.port: 80
@@ -257,7 +257,7 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
     secrets:
-      - MONGO_PASSWORD
+      - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
@@ -266,7 +266,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export ADMIN_PASSWORD="$$(cat /run/secrets/ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/JWT_SECRET)" && export MONGO_PASSWORD="$$(cat /run/secrets/MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec ./api
+      - export ADMIN_PASSWORD="$$(cat /run/secrets/COVERLETTER_ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/COVERLETTER_AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/COVERLETTER_ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/COVERLETTER_JWT_SECRET)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec ./api
     environment:
       - REDIS_HOST=redis_cover_letter
       - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
@@ -280,11 +280,11 @@ services:
       - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
       - JOB_UPDATE_CHANNEL_NAME=job_update_channel
     secrets:
-      - ADMIN_PASSWORD
-      - AUTH_USERS_JSON
-      - ADMIN_JWT_SECRET
-      - JWT_SECRET
-      - MONGO_PASSWORD
+      - COVERLETTER_ADMIN_PASSWORD
+      - COVERLETTER_AUTH_USERS_JSON
+      - COVERLETTER_ADMIN_JWT_SECRET
+      - COVERLETTER_JWT_SECRET
+      - COVERLETTER_MONGO_PASSWORD
     labels:
       traefik.enable: "true"
       traefik.http.routers.api.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/api`)"
@@ -311,21 +311,21 @@ volumes:
       device: ":/mnt/HDD/docker/coverletter/mongo_data"
 
 secrets:
-  BOT_TOKEN:
+  COVERLETTER_BOT_TOKEN:
     external: true
-  GEMINI_TOKEN:
+  COVERLETTER_GEMINI_TOKEN:
     external: true
-  ADMIN_PASSWORD:
+  COVERLETTER_ADMIN_PASSWORD:
     external: true
-  AUTH_USERS_JSON:
+  COVERLETTER_AUTH_USERS_JSON:
     external: true
-  ADMIN_JWT_SECRET:
+  COVERLETTER_ADMIN_JWT_SECRET:
     external: true
-  JWT_SECRET:
+  COVERLETTER_JWT_SECRET:
     external: true
-  SERPER_API_KEY:
+  COVERLETTER_SERPER_API_KEY:
     external: true
-  MONGO_PASSWORD:
+  COVERLETTER_MONGO_PASSWORD:
     external: true
 
 networks:
