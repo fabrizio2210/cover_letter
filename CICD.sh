@@ -218,22 +218,26 @@ fi
 ######################
 # SWARM STACK DEPLOY
 
-if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" != "active" ]; then
-  echo "Docker Swarm is not active on this node"
-  exit 2
+if [ "${DEPLOY:-0}" == "1" ]; then
+  if [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" != "active" ]; then
+    echo "Docker Swarm is not active on this node"
+    exit 2
+  fi
+
+  if [ "$(docker info --format '{{.Swarm.ControlAvailable}}')" != "true" ]; then
+    echo "Current node is not a Swarm manager"
+    exit 2
+  fi
+
+  for required_secret in BOT_TOKEN GEMINI_TOKEN ADMIN_PASSWORD AUTH_USERS_JSON ADMIN_JWT_SECRET JWT_SECRET SERPER_API_KEY MONGO_PASSWORD; do
+    assert_swarm_secret_exists "$required_secret"
+  done
+
+  export DOCKER_ORG
+  export DEPLOY_TAG
+
+  docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+  docker stack services "$STACK_NAME"
+else
+  echo "Skipping stack deployment: DEPLOY is not set to 1"
 fi
-
-if [ "$(docker info --format '{{.Swarm.ControlAvailable}}')" != "true" ]; then
-  echo "Current node is not a Swarm manager"
-  exit 2
-fi
-
-for required_secret in BOT_TOKEN GEMINI_TOKEN ADMIN_PASSWORD AUTH_USERS_JSON ADMIN_JWT_SECRET JWT_SECRET SERPER_API_KEY MONGO_PASSWORD; do
-  assert_swarm_secret_exists "$required_secret"
-done
-
-export DOCKER_ORG
-export DEPLOY_TAG
-
-docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
-docker stack services "$STACK_NAME"
