@@ -56,7 +56,7 @@ services:
   #     - backends
 
   redis_cover_letter:
-    image: redis
+    image: redis:7.4-bookworm
     networks:
       - backends
 
