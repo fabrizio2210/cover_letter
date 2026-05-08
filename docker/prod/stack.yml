@@ -4,7 +4,7 @@ services:
   redis_cover_letter:
     image: redis
     networks:
-      - backends
+      - traefik_backends
 
   telegram-bot:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-telegram-bot:${DEPLOY_TAG:-x86_64}
@@ -20,7 +20,7 @@ services:
       - BOT_TOKEN
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   ai-querier:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai:${DEPLOY_TAG:-x86_64}
@@ -35,7 +35,7 @@ services:
       - GEMINI_TOKEN
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   ai-scorer:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai-scorer:${DEPLOY_TAG:-x86_64}
@@ -55,7 +55,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   ollama:
     image: ollama/ollama:latest
@@ -64,7 +64,7 @@ services:
     deploy:
       replicas: 2
     networks:
-      - backends
+      - traefik_backends
 
   web-crawler:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-web-crawler:${DEPLOY_TAG:-x86_64}
@@ -88,7 +88,7 @@ services:
       - SERPER_API_KEY
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   crawler-ycombinator:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ycombinator:${DEPLOY_TAG:-x86_64}
@@ -107,7 +107,7 @@ services:
       - SERPER_API_KEY
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   crawler-hackernews:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-hackernews:${DEPLOY_TAG:-x86_64}
@@ -125,7 +125,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   crawler-ats-job-extraction:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ats-job-extraction:${DEPLOY_TAG:-x86_64}
@@ -145,7 +145,7 @@ services:
       - SERPER_API_KEY
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   crawler-levelsfyi:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-levelsfyi:${DEPLOY_TAG:-x86_64}
@@ -165,7 +165,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   crawler-4dayweek:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-4dayweek:${DEPLOY_TAG:-x86_64}
@@ -186,7 +186,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   enrichment-ats-enrichment:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-enrichment-ats-enrichment:${DEPLOY_TAG:-x86_64}
@@ -205,7 +205,7 @@ services:
       - SERPER_API_KEY
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
     deploy:
       replicas: 4
 
@@ -224,7 +224,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   mongo:
     image: mongo
@@ -239,7 +239,7 @@ services:
     volumes:
       - mongo_data:/data/db
     networks:
-      - backends
+      - traefik_backends
 
   mongo-express:
     image: mongo-express
@@ -259,7 +259,7 @@ services:
     secrets:
       - MONGO_PASSWORD
     networks:
-      - backends
+      - traefik_backends
 
   coverletter-api:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-api:${DEPLOY_TAG:-x86_64}
@@ -291,7 +291,7 @@ services:
       traefik.http.services.api-service.loadbalancer.server.port: 8080
     restart: unless-stopped
     networks:
-      - backends
+      - traefik_backends
 
   coverletter-frontend:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-frontend:${DEPLOY_TAG:-x86_64}
@@ -301,7 +301,7 @@ services:
       traefik.http.services.frontend-service.loadbalancer.server.port: 80
     restart: unless-stopped
     networks:
-      - backends
+      - traefik_backends
 
 volumes:
   mongo_data:
@@ -329,6 +329,5 @@ secrets:
     external: true
 
 networks:
-  backends:
+  traefik_backends:
     external: true
-    name: traefik_backends
