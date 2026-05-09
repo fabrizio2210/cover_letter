@@ -128,7 +128,9 @@ Env var: `CRAWLER_TRIGGER_QUEUE_NAME` (default `crawler_trigger_queue`)
 
 Consumer: Python `web_crawler` service.
 
-Produced by: `POST /api/crawls`
+Produced by:
+- `POST /api/crawls`
+- `web_crawler/scheduler` periodic trigger service
 
 Payload:
 
@@ -145,6 +147,7 @@ Rules:
 - Missing `user_id`, `run_id`, or `identity_id` causes rejection.
 - Active duplicate run for same identity should emit terminal `rejected` progress with reason `already_running`.
 - Worker must derive per-user DB access from `user_id` and must not accept alternate user-controlled DB names.
+- All producers must publish the same payload shape; scheduler-triggered messages are contract-equivalent to API-triggered messages.
 
 ### Channel: `crawler_progress_channel`
 

@@ -34,6 +34,7 @@ Database ownership:
 | `description` | `description` | `string` | |
 | `field_id` | `field` | `string` | Hex ObjectID ref to `fields`. BSON key is `field`, not `field_id` |
 | `roles` | `roles` | `[]string` | Optional manual role list for crawler discovery scope |
+| `scheduled_crawl_enabled` | `scheduled_crawl_enabled` | `bool` | Optional scheduler override. If omitted, global scheduler default applies. |
 | `html_signature` | `html_signature` | `string` | HTML email signature; max 64 KiB; omitted if empty |
 | `field_info` | `fieldInfo` | `Field` | Populated by `$lookup` aggregation; omitted on insert |
 
@@ -42,6 +43,11 @@ One identity per field is enforced at the application level. Duplicate `field_id
 Roles and preferences boundary:
 - `roles` define crawler discovery scope.
 - `preferences` define scoring behavior.
+
+Scheduled crawl override boundary:
+- Global scheduler enablement and cron timing are configured via environment variables.
+- `scheduled_crawl_enabled` is identity-local override only.
+- If `scheduled_crawl_enabled` is absent, the scheduler falls back to global default behavior.
 
 ### IdentityPreference
 

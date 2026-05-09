@@ -13,6 +13,8 @@ Agents editing files in this folder MUST consult this file before making changes
 The `dispatcher` package is the public entry point for the web-crawler system.
 It consumes raw crawl-trigger requests from a Redis queue, validates their payload, bootstraps a progress record, and fans out `WorkflowDispatchMessage` messages to every parallel crawler workflow queue.
 
+Trigger payloads can be produced by manual API calls and by the scheduler service. Dispatcher behavior is identical regardless of producer.
+
 The dispatcher has **no knowledge of business extraction logic**. It does not load identities and does not inspect extraction payload content. It may host shared queue-enqueue helpers reused by other workers.
 
 ---

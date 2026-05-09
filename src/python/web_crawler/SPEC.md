@@ -37,7 +37,7 @@ This document does **not** define:
 |---|---|
 | Language | Python |
 | Service folder | `src/python/web_crawler` |
-| Execution style | On-demand run, Redis-driven worker mode, or scheduled batch run |
+| Execution style | On-demand run or Redis-driven worker mode |
 | Data store | MongoDB |
 | Queue integration | Redis consumer for parent crawl requests, Redis publisher for crawl progress, internal workflow trigger messages, optional Redis producer for job scoring |
 | Source types | ATS APIs (Greenhouse, Lever, Ashby), role-query job boards and search sources (LinkedIn, Indeed, SimplyHired, Built In, Otta), curated startup and job communities (Y Combinator, Wellfound, Work at a Startup), portfolio and investor directories (Crunchbase, Techstars, 500 Global, a16z, Sequoia), community hiring threads (Hacker News Who Is Hiring), and aggregator HTML pages (4dayweek.io) |
@@ -45,6 +45,8 @@ This document does **not** define:
 The crawler supports two runtime modes:
 1. bounded execution for one explicit `identity_id`;
 2. long-lived worker mode that listens on Redis for crawl requests and runs the same identity-scoped execution flow on demand.
+
+Periodic scheduling is owned by the separate `scheduler` service in this folder, which only enqueues standard crawl-trigger messages. The crawler service itself does not evaluate cron schedules.
 
 Each accepted crawl request generates a parent `run_id`. The crawler fans out modular workflow executions under that parent run. Each workflow execution attempt also gets its own `workflow_run_id`, allowing retries and singular workflow triggers to remain unambiguous while still belonging to the same parent run.
 

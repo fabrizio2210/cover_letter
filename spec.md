@@ -30,9 +30,13 @@ The primary acquisition flow is now job discovery rather than recipient-email di
 
 The Job Discovery tab can trigger a crawl for an arbitrary selected identity. The frontend sends the trigger to the Go API, the API enqueues a crawl request on Redis, and the `web_crawler` worker consumes that request asynchronously.
 
+In addition to manual triggers, a dedicated scheduler worker can enqueue crawl requests automatically. The scheduler reads identities periodically, evaluates scheduling eligibility, and pushes the same crawl-trigger payload contract to Redis for identities that should run.
+
 Each crawl execution is scoped by an explicit `identity_id`. Runs without `identity_id` are invalid.
 
 Only one active crawl per identity is allowed at a time. A second trigger for the same identity is rejected until the active crawl reaches a terminal state.
+
+Scheduled triggering is controlled by a cron expression provided through environment configuration and interpreted in UTC. When a scheduled tick selects an identity that already has an active crawl, the scheduler skips enqueue for that identity and logs a warning.
 
 Crawler internals, including discovery inputs, source adapters, and workflow design, are intentionally specified only in [Web Crawler Specification](src/python/web_crawler/SPEC.md).
 
