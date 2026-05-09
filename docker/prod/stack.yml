@@ -296,7 +296,7 @@ services:
         traefik.http.services.coverletter_api-service.loadbalancer.server.port: 8080
         # 3. Router for Login (With Throttling)
         traefik.http.routers.coverletter-login.rule: Host(`coverletter.no-ip.dynu.net`) && (Path(`/api/login`) || Path(`/api/admin/login`))
-        traefik.http.routers.coverletter-login.middlewares: coverlettter-limit-login
+        traefik.http.routers.coverletter-login.middlewares: coverletter-limit-login
         # Set higher priority to ensure this router catches the traffictack
         traefik.http.routers.coverletter-login.priority: 100
     restart: unless-stopped
