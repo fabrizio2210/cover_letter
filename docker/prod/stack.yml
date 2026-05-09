@@ -63,6 +63,9 @@ services:
     restart: always
     deploy:
       replicas: 2
+      resources:
+        limits:
+          cpus: '0.75'
     networks:
       - traefik_backends
 
