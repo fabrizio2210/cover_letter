@@ -288,8 +288,17 @@ services:
     deploy:
       labels:
         traefik.enable: "true"
+        # 1. Define the Rate Limit Middleware
+        traefik.http.middlewares.coverletter-limit-login.ratelimit.average: 1
+        traefik.http.middlewares.coverletter-limit-login.ratelimit.burst: 3
+        # 2. Router normal routes
         traefik.http.routers.coverletter_api.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/api`)"
         traefik.http.services.coverletter_api-service.loadbalancer.server.port: 8080
+        # 3. Router for Login (With Throttling)
+        traefik.http.routers.coverletter-login.rule: Host(`coverletter.no-ip.dynu.net`) && (Path(`/api/login`) || Path(`/api/admin/login`))
+        traefik.http.routers.coverletter-login.middlewares: coverlettter-limit-login
+        # Set higher priority to ensure this router catches the traffictack
+        traefik.http.routers.coverletter-login.priority: 100
     restart: unless-stopped
     networks:
       - traefik_backends
