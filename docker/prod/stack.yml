@@ -290,6 +290,7 @@ services:
         traefik.enable: "true"
         # 1. Define the Rate Limit Middleware
         traefik.http.middlewares.coverletter-limit-login.ratelimit.average: 1
+        traefik.http.middlewares.coverletter-limit-login.ratelimit.sourcecriterion.ipstrategy.depth: 1
         # 2. Router normal routes
         traefik.http.routers.coverletter_api.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/api`)"
         traefik.http.services.coverletter_api-service.loadbalancer.server.port: 8080
