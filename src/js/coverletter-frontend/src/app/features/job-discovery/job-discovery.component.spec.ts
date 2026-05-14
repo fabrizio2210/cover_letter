@@ -1,6 +1,6 @@
 /// <reference types="jasmine" />
 
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 
@@ -440,6 +440,131 @@ describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
     expect(component.rawJobs[0].title).toBe('Updated title');
     expect(component.rawJobs[1].id).toBe('job-2');
     expect(component.rawJobs[1].title).toBe('Second job');
+  });
+});
+
+describe('JobDiscoveryComponent source URL display', () => {
+  let fixture: ComponentFixture<JobDiscoveryComponent>;
+  let component: JobDiscoveryComponent;
+  let apiServiceSpy: jasmine.SpyObj<ApiService>;
+  let feedbackServiceSpy: jasmine.SpyObj<FeedbackService>;
+
+  function renderSelectedJobWithSource(sourceUrl: string): void {
+    fixture.detectChanges();
+
+    component.loading = false;
+    component.jobs = [
+      {
+        id: 'job-source-1',
+        title: 'Platform Engineer',
+        description: 'Build platform services',
+        location: 'Remote',
+        platform: 'ashby',
+        external_job_id: 'ext-source-1',
+        source_url: sourceUrl,
+      } as ScoredJobDescription,
+    ];
+    component.selectedJobId = 'job-source-1';
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => {
+    apiServiceSpy = jasmine.createSpyObj('ApiService', [
+      'getJobDescriptions',
+      'getJobPreferenceScores',
+      'getIdentities',
+      'getActiveCrawls',
+      'getActiveScoring',
+      'getActivitySummary',
+      'subscribeToCrawlProgress',
+      'subscribeToScoringProgress',
+      'subscribeToJobUpdates',
+      'scoreJobDescription',
+      'checkJobDescription',
+      'getJobDescription',
+    ]);
+
+    feedbackServiceSpy = jasmine.createSpyObj('FeedbackService', ['showFeedback']);
+
+    const identityContextStub = jasmine.createSpyObj('IdentityContextService', [
+      'getSelectedIdentityId',
+      'setSelectedIdentityId',
+      'ensureValidIdentityId',
+    ]);
+    identityContextStub.getSelectedIdentityId.and.returnValue('');
+    identityContextStub.ensureValidIdentityId.and.returnValue('');
+
+    apiServiceSpy.getJobDescriptions.and.returnValue(of({
+      items: [],
+      page: 1,
+      page_size: 25,
+      total_count: 0,
+      total_pages: 0,
+      has_next_page: false,
+      has_prev_page: false,
+    }));
+    apiServiceSpy.getJobPreferenceScores.and.returnValue(of([]));
+    apiServiceSpy.getIdentities.and.returnValue(of([] as Identity[]));
+    apiServiceSpy.getActiveCrawls.and.returnValue(of([]));
+    apiServiceSpy.getActiveScoring.and.returnValue(of([]));
+    apiServiceSpy.getActivitySummary.and.returnValue(of({
+      active_workflows: [],
+      global_queue_depth: {
+        crawler_trigger: 0,
+        crawler_ycombinator: 0,
+        crawler_hackernews: 0,
+        crawler_ats_job_extraction: 0,
+        crawler_levelsfyi: 0,
+        crawler_4dayweek: 0,
+        crawler_enrichment_ats: 0,
+        job_scoring: 0,
+      },
+    } as any));
+    apiServiceSpy.subscribeToCrawlProgress.and.returnValue(of());
+    apiServiceSpy.subscribeToScoringProgress.and.returnValue(of());
+    apiServiceSpy.subscribeToJobUpdates.and.returnValue(of());
+    apiServiceSpy.checkJobDescription.and.returnValue(of({} as any));
+
+    const routerStub = jasmine.createSpyObj('Router', ['navigate']);
+
+    TestBed.configureTestingModule({
+      imports: [JobDiscoveryComponent],
+      providers: [
+        { provide: ApiService, useValue: apiServiceSpy },
+        { provide: FeedbackService, useValue: feedbackServiceSpy },
+        { provide: IdentityContextService, useValue: identityContextStub },
+        { provide: Router, useValue: routerStub },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({})),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(JobDiscoveryComponent);
+    component = fixture.componentInstance;
+  });
+
+  it('renders an external source link when source_url is valid', () => {
+    renderSelectedJobWithSource('https://example.com/jobs/123');
+
+    const sourceLink = fixture.nativeElement.querySelector('.details-source-link') as HTMLAnchorElement | null;
+    expect(sourceLink).not.toBeNull();
+    expect(sourceLink?.getAttribute('href')).toBe('https://example.com/jobs/123');
+    expect(sourceLink?.getAttribute('target')).toBe('_blank');
+    expect(sourceLink?.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('shows fallback text when source_url is missing', () => {
+    renderSelectedJobWithSource('');
+
+    const sourceLink = fixture.nativeElement.querySelector('.details-source-link');
+    const fallback = fixture.nativeElement.querySelector('.details-source-empty') as HTMLElement | null;
+
+    expect(sourceLink).toBeNull();
+    expect(fallback?.textContent || '').toContain('Source URL not available for this job.');
   });
 });
 

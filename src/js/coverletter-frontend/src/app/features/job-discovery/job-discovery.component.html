@@ -256,6 +256,15 @@
         <h4>Selected Opportunity</h4>
         <p class="details-title">{{ job.title }}</p>
         <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
+        <div class="details-source-row" *ngIf="getExternalSourceUrl(job) as sourceUrl; else sourceUrlUnavailable">
+          <a class="details-source-link" [href]="sourceUrl" target="_blank" rel="noopener noreferrer">
+            <span class="material-symbols-outlined">open_in_new</span>
+            Open Original Job Posting
+          </a>
+        </div>
+        <ng-template #sourceUrlUnavailable>
+          <p class="details-source-empty">Source URL not available for this job.</p>
+        </ng-template>
         <div class="details-description" [innerHTML]="renderJobDescription(job.description)"></div>
       </div>
     </aside>

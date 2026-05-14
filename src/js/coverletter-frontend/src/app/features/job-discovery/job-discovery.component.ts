@@ -534,6 +534,23 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return this.escapeHtml(decoded).replace(/\n/g, '<br>');
   }
 
+  getExternalSourceUrl(job?: ScoredJobDescription | null): string | null {
+    const candidate = (job?.source_url || '').trim();
+    if (!candidate) {
+      return null;
+    }
+
+    try {
+      const parsedUrl = new URL(candidate);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        return null;
+      }
+      return parsedUrl.toString();
+    } catch {
+      return null;
+    }
+  }
+
   formatScore(score?: number): string {
     return (score ?? 0).toFixed(1);
   }
