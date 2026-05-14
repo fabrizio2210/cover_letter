@@ -109,7 +109,7 @@ services:
     image: ollama/ollama:latest
     entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=0.0.0.0:11434 ollama serve & sleep 10 && ollama pull qwen2.5:1.5b && wait"]
     restart: always
-    cpus: '6.0'
+    cpus: 6.0
     deploy:
       replicas: 2
     volumes:
