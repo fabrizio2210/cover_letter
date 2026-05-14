@@ -82,6 +82,59 @@
   gap: 0.9rem;
 }
 
+.pagination-wrap {
+  border: 1px solid #dfe8fa;
+  background: #f8fbff;
+  border-radius: 0.9rem;
+  padding: 0.8rem;
+}
+
+.pagination-summary {
+  color: #3f5477;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.page-number-btn {
+  border: 1px solid #d5dff5;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.65rem;
+  font-weight: 700;
+  color: #2c3d5b;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.page-number-btn-active {
+  border-color: #4f82ff;
+  background: #e8f0ff;
+  color: #1648b3;
+}
+
+.page-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+  color: #53698d;
+  font-size: 0.8rem;
+}
+
+.page-size-control select {
+  border: 1px solid #d4def1;
+  border-radius: 0.6rem;
+  background: #ffffff;
+  padding: 0.35rem 0.45rem;
+}
+
 .job-card {
   background: #ffffff;
   border-radius: 1rem;

@@ -264,7 +264,15 @@ describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
 
     const routerStub = jasmine.createSpyObj('Router', ['navigate']);
 
-    apiServiceSpy.getJobDescriptions.and.returnValue(of([]));
+    apiServiceSpy.getJobDescriptions.and.returnValue(of({
+      items: [],
+      page: 1,
+      page_size: 25,
+      total_count: 0,
+      total_pages: 0,
+      has_next_page: false,
+      has_prev_page: false,
+    }));
     apiServiceSpy.getJobPreferenceScores.and.returnValue(of([]));
     apiServiceSpy.getIdentities.and.returnValue(of([]));
     apiServiceSpy.getActiveCrawls.and.returnValue(of([]));

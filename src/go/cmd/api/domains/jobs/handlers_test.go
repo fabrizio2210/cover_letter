@@ -208,6 +208,15 @@ func decodeBodySliceMap(t *testing.T, payload []byte) []map[string]interface{} {
 	return out
 }
 
+func decodeBodyPaginatedMap(t *testing.T, payload []byte) map[string]interface{} {
+	t.Helper()
+	var out map[string]interface{}
+	if err := json.Unmarshal(payload, &out); err != nil {
+		t.Fatalf("decode paginated body: %v", err)
+	}
+	return out
+}
+
 func waitUntil(timeout time.Duration, fn func() bool) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -456,35 +465,54 @@ func TestGetJobPreferenceScores_AggregateError(t *testing.T) {
 func TestGetJobDescriptions_Success(t *testing.T) {
 	jobID := primitive.NewObjectID()
 	companyID := primitive.NewObjectID()
+	identityID := primitive.NewObjectID()
+	userID := "user-42"
 	jobDescriptions := &mockMongoCollection{
 		aggregateResults: []aggregateResult{
 			{cursor: &mockMongoCursor{docs: []bson.M{{
 				"_id":     jobID,
 				"company": companyID,
 				"title":   "Backend Engineer",
+				"location": "Remote",
 			}}}},
 		},
 	}
+	jobScores := &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}}
+	identities := &mockMongoCollection{findOneResult: &mockMongoSingleResult{doc: bson.M{"_id": identityID}}}
 	cleanup := setMockClient(map[string]*mockMongoCollection{
 		"job-descriptions": jobDescriptions,
+		"job-preference-scores": jobScores,
+		"identities": identities,
 	})
 	defer cleanup()
 
-	c, w := apptest.CreateGinTestContext(http.MethodGet, "/api/job-descriptions", nil)
+	c, w := apptest.CreateGinTestContext(http.MethodGet, "/api/job-descriptions?identity_id="+identityID.Hex(), nil)
+	c.Set("userId", userID)
 	GetJobDescriptions(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	out := decodeBodySliceMap(t, w.Body.Bytes())
-	if len(out) != 1 {
-		t.Fatalf("expected one job, got %d", len(out))
+	body := decodeBodyPaginatedMap(t, w.Body.Bytes())
+	itemsRaw, ok := body["items"].([]interface{})
+	if !ok {
+		t.Fatalf("expected items array, got %#v", body["items"])
 	}
-	if out[0]["id"] != jobID.Hex() {
-		t.Fatalf("expected normalized id, got %v", out[0]["id"])
+	if len(itemsRaw) != 1 {
+		t.Fatalf("expected one job, got %d", len(itemsRaw))
 	}
-	if out[0]["company_id"] != companyID.Hex() {
-		t.Fatalf("expected normalized company_id, got %v", out[0]["company_id"])
+	item, ok := itemsRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first item object, got %T", itemsRaw[0])
+	}
+	if item["id"] != jobID.Hex() {
+		t.Fatalf("expected normalized id, got %v", item["id"])
+	}
+	if item["company_id"] != companyID.Hex() {
+		t.Fatalf("expected normalized company_id, got %v", item["company_id"])
+	}
+	if body["page"] != float64(1) || body["page_size"] != float64(25) {
+		t.Fatalf("expected default pagination metadata, got %#v", body)
 	}
 
 	pipeline, ok := jobDescriptions.lastAggregatePipeline.(bson.A)
@@ -501,6 +529,29 @@ func TestGetJobDescriptions_Success(t *testing.T) {
 	}
 	if lookupDoc["localField"] != "company" {
 		t.Fatalf("expected lookup localField=company, got %#v", lookupDoc["localField"])
+	}
+}
+
+func TestGetJobDescriptions_InvalidQueryParams(t *testing.T) {
+	cases := []string{
+		"/api/job-descriptions?page=0",
+		"/api/job-descriptions?page_size=0",
+		"/api/job-descriptions?page_size=101",
+		"/api/job-descriptions?identity_id=bad",
+		"/api/job-descriptions?company_id=bad",
+		"/api/job-descriptions?score_filter_mode=bad",
+		"/api/job-descriptions?score_threshold=not-a-number",
+		"/api/job-descriptions?remote_only=not-a-bool",
+		"/api/job-descriptions?sort_by=bad",
+		"/api/job-descriptions?sort_dir=bad",
+	}
+
+	for _, url := range cases {
+		c, w := apptest.CreateGinTestContext(http.MethodGet, url, nil)
+		GetJobDescriptions(c)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %s, got %d", url, w.Code)
+		}
 	}
 }
 

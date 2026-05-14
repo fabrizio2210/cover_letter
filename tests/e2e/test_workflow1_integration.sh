@@ -14,6 +14,13 @@ trap cleanup EXIT
 docker compose -f "$COMPOSE_FILE" up -d mongo
 e2e_prepare_artifacts
 e2e_export_stack_env
+
+mongo_host_port="${MONGO_HOST#mongodb://}"
+mongo_host_port="${mongo_host_port%/}"
+mongo_host="${mongo_host_port%%:*}"
+mongo_port="${mongo_host_port##*:}"
+e2e_wait_tcp "$mongo_host" "$mongo_port" 30
+
 export DB_NAME="cover_letter_workflow1_it"
 
 (

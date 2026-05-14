@@ -15,7 +15,7 @@
 
       <label>
         Score Filter Mode
-        <select [(ngModel)]="scoreFilterMode">
+        <select [ngModel]="scoreFilterMode" (ngModelChange)="onScoreFilterModeChange($event)">
           <option value="atLeast">At least</option>
           <option value="exactly">Exactly</option>
           <option value="atMost">At most</option>
@@ -48,7 +48,7 @@
 
       <label class="toggle-row">
         <span>Remote Jobs First</span>
-        <input type="checkbox" [(ngModel)]="remoteOnly" />
+        <input type="checkbox" [ngModel]="remoteOnly" (ngModelChange)="onRemoteOnlyChange($event)" />
       </label>
 
       <label class="toggle-row">
@@ -133,7 +133,8 @@
       <span class="material-symbols-outlined">search</span>
       <input
         type="text"
-        [(ngModel)]="searchQuery"
+        [ngModel]="searchQuery"
+        (ngModelChange)="onSearchQueryChange($event)"
         placeholder="Search by title, company, or keywords..."
       />
     </div>
@@ -201,6 +202,39 @@
 
       <div class="empty-state" *ngIf="filteredJobs.length === 0">
         No jobs match the current filters.
+      </div>
+
+      <div class="pagination-wrap" *ngIf="totalCount > 0">
+        <div class="pagination-summary">
+          Showing {{ pageRangeStart }}-{{ pageRangeEnd }} of {{ totalCount }} jobs
+        </div>
+
+        <div class="pagination-controls">
+          <button type="button" class="ghost-btn" [disabled]="!hasPrevPage" (click)="goToPage(1)">First</button>
+          <button type="button" class="ghost-btn" [disabled]="!hasPrevPage" (click)="goToPage(page - 1)">Previous</button>
+
+          <button
+            type="button"
+            class="page-number-btn"
+            *ngFor="let pageNumber of pageNumbers"
+            [class.page-number-btn-active]="pageNumber === page"
+            (click)="goToPage(pageNumber)"
+          >
+            {{ pageNumber }}
+          </button>
+
+          <button type="button" class="ghost-btn" [disabled]="!hasNextPage" (click)="goToPage(page + 1)">Next</button>
+          <button type="button" class="ghost-btn" [disabled]="!hasNextPage" (click)="goToPage(totalPages)">Last</button>
+
+          <label class="page-size-control">
+            <span>Per page</span>
+            <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="25">25</option>
+              <option [ngValue]="50">50</option>
+            </select>
+          </label>
+        </div>
       </div>
     </div>
 

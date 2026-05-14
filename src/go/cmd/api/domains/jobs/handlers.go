@@ -6,8 +6,11 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +26,15 @@ import (
 )
 
 const defaultJobUpdateChannel = "job_update_channel"
+
+const (
+	defaultJobsPage        = 1
+	defaultJobsPageSize    = 25
+	maxJobsPageSize        = 100
+	defaultJobsSortBy      = "score"
+	defaultJobsSortDir     = "desc"
+	defaultScoreFilterMode = "atLeast"
+)
 
 type MongoClientIface interface {
 	Database(name string) MongoDatabaseIface
@@ -347,9 +359,429 @@ func jobDescriptionsCollection() (MongoCollectionIface, MongoClientIface, string
 	return jobDescriptions, client, dbName
 }
 
-// GetJobDescriptions fetches all job descriptions and enriches them with company info.
+type jobDescriptionsQueryParams struct {
+	Page            int
+	PageSize        int
+	IdentityID      string
+	CompanyID       string
+	Search          string
+	ScoreFilterMode string
+	ScoreThreshold  float64
+	RemoteOnly      bool
+	SortBy          string
+	SortDir         string
+}
+
+type paginatedJobDescriptionsResponse struct {
+	Items       []bson.M `json:"items"`
+	Page        int      `json:"page"`
+	PageSize    int      `json:"page_size"`
+	TotalCount  int      `json:"total_count"`
+	TotalPages  int      `json:"total_pages"`
+	HasNextPage bool     `json:"has_next_page"`
+	HasPrevPage bool     `json:"has_prev_page"`
+}
+
+func parseJobDescriptionsQuery(c *gin.Context) (jobDescriptionsQueryParams, error) {
+	query := jobDescriptionsQueryParams{
+		Page:            defaultJobsPage,
+		PageSize:        defaultJobsPageSize,
+		ScoreFilterMode: defaultScoreFilterMode,
+		SortBy:          defaultJobsSortBy,
+		SortDir:         defaultJobsSortDir,
+		IdentityID:      strings.TrimSpace(c.Query("identity_id")),
+		CompanyID:       strings.TrimSpace(c.Query("company_id")),
+		Search:          strings.TrimSpace(c.Query("search")),
+	}
+
+	if rawPage := strings.TrimSpace(c.Query("page")); rawPage != "" {
+		parsedPage, err := strconv.Atoi(rawPage)
+		if err != nil || parsedPage < 1 {
+			return query, errors.New("Invalid page")
+		}
+		query.Page = parsedPage
+	}
+
+	if rawPageSize := strings.TrimSpace(c.Query("page_size")); rawPageSize != "" {
+		parsedPageSize, err := strconv.Atoi(rawPageSize)
+		if err != nil || parsedPageSize < 1 || parsedPageSize > maxJobsPageSize {
+			return query, errors.New("Invalid page_size")
+		}
+		query.PageSize = parsedPageSize
+	}
+
+	if query.IdentityID != "" {
+		if _, err := primitive.ObjectIDFromHex(query.IdentityID); err != nil {
+			return query, errors.New("Invalid identity_id")
+		}
+	}
+
+	if query.CompanyID != "" {
+		if _, err := primitive.ObjectIDFromHex(query.CompanyID); err != nil {
+			return query, errors.New("Invalid company_id")
+		}
+	}
+
+	if rawScoreFilterMode := strings.TrimSpace(c.Query("score_filter_mode")); rawScoreFilterMode != "" {
+		switch rawScoreFilterMode {
+		case "atLeast", "exactly", "atMost":
+			query.ScoreFilterMode = rawScoreFilterMode
+		default:
+			return query, errors.New("Invalid score_filter_mode")
+		}
+	}
+
+	if rawThreshold := strings.TrimSpace(c.Query("score_threshold")); rawThreshold != "" {
+		parsedThreshold, err := strconv.ParseFloat(rawThreshold, 64)
+		if err != nil {
+			return query, errors.New("Invalid score_threshold")
+		}
+		query.ScoreThreshold = parsedThreshold
+	}
+
+	if rawRemoteOnly := strings.TrimSpace(c.Query("remote_only")); rawRemoteOnly != "" {
+		parsedRemoteOnly, err := strconv.ParseBool(rawRemoteOnly)
+		if err != nil {
+			return query, errors.New("Invalid remote_only")
+		}
+		query.RemoteOnly = parsedRemoteOnly
+	}
+
+	if rawSortBy := strings.TrimSpace(c.Query("sort_by")); rawSortBy != "" {
+		switch rawSortBy {
+		case "score", "created_at", "updated_at", "title", "company":
+			query.SortBy = rawSortBy
+		default:
+			return query, errors.New("Invalid sort_by")
+		}
+	}
+
+	if rawSortDir := strings.TrimSpace(c.Query("sort_dir")); rawSortDir != "" {
+		switch rawSortDir {
+		case "asc", "desc":
+			query.SortDir = rawSortDir
+		default:
+			return query, errors.New("Invalid sort_dir")
+		}
+	}
+
+	return query, nil
+}
+
+func loadIdentityFieldID(client MongoClientIface, c *gin.Context, identityID string) (string, error) {
+	if identityID == "" {
+		return "", nil
+	}
+
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
+	if strings.TrimSpace(userIDStr) == "" {
+		return "", nil
+	}
+
+	dbName := db.GetDatabaseName("identities", userIDStr)
+	identitiesCollection := client.Database(dbName).Collection("identities")
+
+	identityObjID, _ := primitive.ObjectIDFromHex(identityID)
+	var identityDoc bson.M
+	err := identitiesCollection.FindOne(context.Background(), bson.M{"_id": identityObjID}).Decode(&identityDoc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	if fieldID, ok := normalizeObjectIDValue(identityDoc["field_id"]); ok {
+		return fieldID, nil
+	}
+	if fieldID, ok := normalizeObjectIDValue(identityDoc["field"]); ok {
+		return fieldID, nil
+	}
+
+	if fieldInfo, ok := identityDoc["field_info"].(bson.M); ok {
+		if fieldID, ok := normalizeObjectIDValue(fieldInfo["id"]); ok {
+			return fieldID, nil
+		}
+	}
+
+	return "", nil
+}
+
+func loadScoreByJobID(client MongoClientIface, c *gin.Context, identityID string) (map[string]bson.M, error) {
+	userID, _ := c.Get("userId")
+	userIDStr, _ := userID.(string)
+	if strings.TrimSpace(userIDStr) == "" {
+		return map[string]bson.M{}, nil
+	}
+
+	dbName := db.GetDatabaseName("job-preference-scores", userIDStr)
+	scoreCollection := client.Database(dbName).Collection("job-preference-scores")
+
+	pipeline := bson.A{}
+	if identityID != "" {
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"identity_id": identityID}})
+	}
+
+	cursor, err := scoreCollection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	scoreByJobID := make(map[string]bson.M)
+	for cursor.Next(context.Background()) {
+		var scoreDoc bson.M
+		if err := cursor.Decode(&scoreDoc); err != nil {
+			return nil, err
+		}
+		normalizeScoreDoc(scoreDoc)
+
+		jobID, _ := scoreDoc["job_id"].(string)
+		if jobID == "" {
+			continue
+		}
+
+		if identityID != "" {
+			scoreByJobID[jobID] = scoreDoc
+			continue
+		}
+
+		existing, hasExisting := scoreByJobID[jobID]
+		if !hasExisting || scoreWeightedValue(scoreDoc) > scoreWeightedValue(existing) {
+			scoreByJobID[jobID] = scoreDoc
+		}
+	}
+
+	return scoreByJobID, nil
+}
+
+func scoreWeightedValue(scoreDoc bson.M) float64 {
+	if scoreDoc == nil {
+		return 0
+	}
+	return numericValue(scoreDoc["weighted_score"])
+}
+
+func scorePassesFilter(score float64, mode string, threshold float64) bool {
+	switch mode {
+	case "exactly":
+		return math.Abs(score-threshold) < 0.05
+	case "atMost":
+		return score <= threshold
+	default:
+		return score >= threshold
+	}
+}
+
+func jobPassesSearch(job bson.M, searchLower string) bool {
+	if strings.TrimSpace(searchLower) == "" {
+		return true
+	}
+
+	title := strings.ToLower(strings.TrimSpace(stringValue(job["title"])))
+	description := strings.ToLower(strings.TrimSpace(stringValue(job["description"])))
+	company := strings.ToLower(strings.TrimSpace(jobCompanyName(job)))
+
+	return strings.Contains(title, searchLower) || strings.Contains(description, searchLower) || strings.Contains(company, searchLower)
+}
+
+func locationIsRemote(location string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(location))
+	if normalized == "" {
+		return false
+	}
+
+	return strings.Contains(normalized, "remote") || strings.Contains(normalized, "worldwide") || strings.Contains(normalized, "anywhere")
+}
+
+func stringValue(value interface{}) string {
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
+}
+
+func numericValue(value interface{}) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	default:
+		return 0
+	}
+}
+
+func timestampSeconds(value interface{}) int64 {
+	switch v := value.(type) {
+	case timestampObject:
+		return v.Seconds
+	case bson.M:
+		if seconds, ok := v["seconds"]; ok {
+			return int64(numericValue(seconds))
+		}
+	case map[string]interface{}:
+		if seconds, ok := v["seconds"]; ok {
+			return int64(numericValue(seconds))
+		}
+	}
+
+	return 0
+}
+
+func jobCompanyName(job bson.M) string {
+	if companyInfo, ok := job["company_info"].(bson.M); ok {
+		if name, ok := companyInfo["name"].(string); ok {
+			return name
+		}
+	}
+
+	if companyName, ok := job["company_name"].(string); ok {
+		return companyName
+	}
+
+	return ""
+}
+
+func jobCompanyFieldID(job bson.M) string {
+	companyInfo, ok := job["company_info"].(bson.M)
+	if !ok {
+		return ""
+	}
+
+	if fieldID, ok := normalizeObjectIDValue(companyInfo["field_id"]); ok {
+		return fieldID
+	}
+
+	if fieldInfo, ok := companyInfo["field_info"].(bson.M); ok {
+		if fieldID, ok := normalizeObjectIDValue(fieldInfo["id"]); ok {
+			return fieldID
+		}
+	}
+
+	return ""
+}
+
+func jobMatchesIdentity(job bson.M, identityID string, identityFieldID string, scoreByJobID map[string]bson.M) bool {
+	if identityID == "" {
+		return true
+	}
+
+	jobID := stringValue(job["id"])
+	if jobID == "" {
+		return false
+	}
+
+	if _, ok := scoreByJobID[jobID]; ok {
+		return true
+	}
+
+	if identityFieldID == "" {
+		return true
+	}
+
+	companyFieldID := jobCompanyFieldID(job)
+	if companyFieldID == "" {
+		return true
+	}
+
+	return companyFieldID == identityFieldID
+}
+
+func jobsSortLess(left, right bson.M, scoreByJobID map[string]bson.M, sortBy string, sortDir string) bool {
+	directionAsc := sortDir == "asc"
+
+	compareNumbers := func(a float64, b float64) bool {
+		if directionAsc {
+			return a < b
+		}
+		return a > b
+	}
+
+	compareStrings := func(a string, b string) bool {
+		aNorm := strings.ToLower(strings.TrimSpace(a))
+		bNorm := strings.ToLower(strings.TrimSpace(b))
+		if directionAsc {
+			return aNorm < bNorm
+		}
+		return aNorm > bNorm
+	}
+
+	leftID := stringValue(left["id"])
+	rightID := stringValue(right["id"])
+	leftScore := scoreWeightedValue(scoreByJobID[leftID])
+	rightScore := scoreWeightedValue(scoreByJobID[rightID])
+
+	switch sortBy {
+	case "created_at":
+		leftVal := timestampSeconds(left["created_at"])
+		rightVal := timestampSeconds(right["created_at"])
+		if leftVal == rightVal {
+			return compareNumbers(leftScore, rightScore)
+		}
+		return compareNumbers(float64(leftVal), float64(rightVal))
+	case "updated_at":
+		leftVal := timestampSeconds(left["updated_at"])
+		rightVal := timestampSeconds(right["updated_at"])
+		if leftVal == rightVal {
+			return compareNumbers(leftScore, rightScore)
+		}
+		return compareNumbers(float64(leftVal), float64(rightVal))
+	case "title":
+		leftVal := stringValue(left["title"])
+		rightVal := stringValue(right["title"])
+		if strings.EqualFold(leftVal, rightVal) {
+			return compareNumbers(leftScore, rightScore)
+		}
+		return compareStrings(leftVal, rightVal)
+	case "company":
+		leftVal := jobCompanyName(left)
+		rightVal := jobCompanyName(right)
+		if strings.EqualFold(leftVal, rightVal) {
+			return compareNumbers(leftScore, rightScore)
+		}
+		return compareStrings(leftVal, rightVal)
+	default:
+		if leftScore == rightScore {
+			leftUpdated := timestampSeconds(left["updated_at"])
+			rightUpdated := timestampSeconds(right["updated_at"])
+			if leftUpdated == rightUpdated {
+				return compareStrings(leftID, rightID)
+			}
+			return compareNumbers(float64(leftUpdated), float64(rightUpdated))
+		}
+		return compareNumbers(leftScore, rightScore)
+	}
+}
+
+// GetJobDescriptions fetches paginated job descriptions and enriches them with company info.
 func GetJobDescriptions(c *gin.Context) {
-	collection, _, _ := jobDescriptionsCollection()
+	query, err := parseJobDescriptionsQuery(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	collection, client, _ := jobDescriptionsCollection()
+
+	identityFieldID, err := loadIdentityFieldID(client, c, query.IdentityID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch identity context"})
+		return
+	}
+
+	scoreByJobID, err := loadScoreByJobID(client, c, query.IdentityID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job scores"})
+		return
+	}
 
 	pipeline := bson.A{
 		bson.M{"$lookup": bson.M{"from": "companies", "localField": "company", "foreignField": "_id", "as": "companyInfo"}},
@@ -364,20 +796,72 @@ func GetJobDescriptions(c *gin.Context) {
 	defer cursor.Close(context.Background())
 
 	jobs := []bson.M{}
+	searchLower := strings.ToLower(strings.TrimSpace(query.Search))
 	for cursor.Next(context.Background()) {
 		var doc bson.M
 		if err := cursor.Decode(&doc); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode job descriptions"})
 			return
 		}
-		jobs = append(jobs, normalizeJobDoc(doc))
+
+		normalized := normalizeJobDoc(doc)
+
+		if query.CompanyID != "" && stringValue(normalized["company_id"]) != query.CompanyID {
+			continue
+		}
+		if !jobMatchesIdentity(normalized, query.IdentityID, identityFieldID, scoreByJobID) {
+			continue
+		}
+		if query.RemoteOnly && !locationIsRemote(stringValue(normalized["location"])) {
+			continue
+		}
+		if !jobPassesSearch(normalized, searchLower) {
+			continue
+		}
+
+		score := scoreWeightedValue(scoreByJobID[stringValue(normalized["id"])])
+		if !scorePassesFilter(score, query.ScoreFilterMode, query.ScoreThreshold) {
+			continue
+		}
+
+		jobs = append(jobs, normalized)
 	}
 
-	if jobs == nil {
-		jobs = []bson.M{}
+	sort.SliceStable(jobs, func(i int, j int) bool {
+		return jobsSortLess(jobs[i], jobs[j], scoreByJobID, query.SortBy, query.SortDir)
+	})
+
+	totalCount := len(jobs)
+	totalPages := 0
+	if totalCount > 0 {
+		totalPages = int(math.Ceil(float64(totalCount) / float64(query.PageSize)))
 	}
 
-	c.JSON(http.StatusOK, jobs)
+	start := (query.Page - 1) * query.PageSize
+	if start > totalCount {
+		start = totalCount
+	}
+	end := start + query.PageSize
+	if end > totalCount {
+		end = totalCount
+	}
+
+	items := []bson.M{}
+	if start < end {
+		items = jobs[start:end]
+	}
+
+	response := paginatedJobDescriptionsResponse{
+		Items:       items,
+		Page:        query.Page,
+		PageSize:    query.PageSize,
+		TotalCount:  totalCount,
+		TotalPages:  totalPages,
+		HasNextPage: totalPages > 0 && query.Page < totalPages,
+		HasPrevPage: totalPages > 0 && query.Page > 1,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetJobDescription fetches one job description by ID.

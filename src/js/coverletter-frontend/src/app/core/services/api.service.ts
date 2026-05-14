@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse, ActivitySummaryResponse } from '../../shared/models/models';
+import { Field, Company, Recipient, Identity, JobDescription, JobPreferenceScore, ScoredJobDescription, CoverLetter, CrawlProgress, ScoringProgress, LastRunWorkflowStatsResponse, JobUpdateEvent, WorkflowCumulativeJobsResponse, ActivitySummaryResponse, JobDescriptionsQuery, PaginatedJobDescriptionsResponse } from '../../shared/models/models';
 import { AuthService } from '../auth/auth.service';
 
 @Injectable({
@@ -94,13 +94,55 @@ export class ApiService {
   }
 
   // Job Descriptions
-  listJobDescriptions(): Observable<JobDescription[]> {
-    return this.http.get<JobDescription[]>(`${this.apiBase}/job-descriptions`);
+  listJobDescriptions(query?: JobDescriptionsQuery): Observable<PaginatedJobDescriptionsResponse> {
+    const params = new URLSearchParams();
+    if (query?.page) {
+      params.set('page', String(query.page));
+    }
+    if (query?.pageSize) {
+      params.set('page_size', String(query.pageSize));
+    }
+    if (query?.identityId) {
+      params.set('identity_id', query.identityId);
+    }
+    if (query?.companyId) {
+      params.set('company_id', query.companyId);
+    }
+    if (query?.search) {
+      params.set('search', query.search);
+    }
+    if (query?.scoreFilterMode) {
+      params.set('score_filter_mode', query.scoreFilterMode);
+    }
+    if (typeof query?.scoreThreshold === 'number') {
+      params.set('score_threshold', String(query.scoreThreshold));
+    }
+    if (typeof query?.remoteOnly === 'boolean') {
+      params.set('remote_only', String(query.remoteOnly));
+    }
+    if (query?.sortBy) {
+      params.set('sort_by', query.sortBy);
+    }
+    if (query?.sortDir) {
+      params.set('sort_dir', query.sortDir);
+    }
+
+    const rawQuery = params.toString();
+    const url = rawQuery ? `${this.apiBase}/job-descriptions?${rawQuery}` : `${this.apiBase}/job-descriptions`;
+    return this.http.get<PaginatedJobDescriptionsResponse>(url);
   }
 
-  getJobDescriptions(): Observable<JobDescription[]> {
-    return this.listJobDescriptions()
-      .pipe(catchError(() => of([])));
+  getJobDescriptions(query?: JobDescriptionsQuery): Observable<PaginatedJobDescriptionsResponse> {
+    return this.listJobDescriptions(query)
+      .pipe(catchError(() => of({
+        items: [],
+        page: query?.page || 1,
+        page_size: query?.pageSize || 25,
+        total_count: 0,
+        total_pages: 0,
+        has_next_page: false,
+        has_prev_page: false,
+      })));
   }
 
   getJobDescription(id: string): Observable<JobDescription> {
@@ -441,8 +483,8 @@ export class ApiService {
 
   async getTotalJobsScrapedCount(): Promise<number> {
     try {
-      const jobs = await this.getJobDescriptions().toPromise();
-      return jobs?.length || 0;
+      const jobsResponse = await this.getJobDescriptions({ page: 1, pageSize: 1 }).toPromise();
+      return jobsResponse?.total_count || 0;
     } catch {
       return 0;
     }
@@ -474,7 +516,7 @@ export class ApiService {
   async getTopScoredJobs(limit: number = 5): Promise<ScoredJobDescription[]> {
     try {
       const [jobs, scores] = await Promise.all([
-        this.getJobDescriptions().toPromise(),
+        this.getAllJobDescriptions(),
         this.getJobPreferenceScores().toPromise(),
       ]);
       if (!jobs || !scores) return [];
@@ -491,6 +533,32 @@ export class ApiService {
         .slice(0, limit);
     } catch {
       return [];
+    }
+  }
+
+  private async getAllJobDescriptions(): Promise<JobDescription[]> {
+    const pageSize = 100;
+    let page = 1;
+    const jobs: JobDescription[] = [];
+
+    while (true) {
+      const response = await this.getJobDescriptions({
+        page,
+        pageSize,
+        sortBy: 'updated_at',
+        sortDir: 'desc',
+      }).toPromise();
+
+      if (!response) {
+        return jobs;
+      }
+
+      jobs.push(...(response.items || []));
+      if (!response.has_next_page) {
+        return jobs;
+      }
+
+      page += 1;
     }
   }
 

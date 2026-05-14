@@ -89,6 +89,31 @@ export interface JobDescription {
   company_info?: Company;
 }
 
+export type JobScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
+
+export interface JobDescriptionsQuery {
+  page?: number;
+  pageSize?: number;
+  identityId?: string;
+  companyId?: string;
+  search?: string;
+  scoreFilterMode?: JobScoreFilterMode;
+  scoreThreshold?: number;
+  remoteOnly?: boolean;
+  sortBy?: 'score' | 'created_at' | 'updated_at' | 'title' | 'company';
+  sortDir?: 'asc' | 'desc';
+}
+
+export interface PaginatedJobDescriptionsResponse {
+  items: JobDescription[];
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  has_next_page: boolean;
+  has_prev_page: boolean;
+}
+
 export interface ScoredJobDescription extends JobDescription {
   score?: JobPreferenceScore | null;
 }

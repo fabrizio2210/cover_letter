@@ -153,6 +153,51 @@ describe('ApiService', () => {
   });
 
   // Job scoring
+  it('getJobDescriptions calls GET /api/job-descriptions and expects paginated payload', () => {
+    service.getJobDescriptions().subscribe((result) => {
+      expect(result.items).toEqual([]);
+      expect(result.page).toBe(1);
+    });
+    const req = httpMock.expectOne('/api/job-descriptions');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      items: [],
+      page: 1,
+      page_size: 25,
+      total_count: 0,
+      total_pages: 0,
+      has_next_page: false,
+      has_prev_page: false,
+    });
+  });
+
+  it('getJobDescriptions appends pagination and filtering query params', () => {
+    service.getJobDescriptions({
+      page: 2,
+      pageSize: 10,
+      identityId: 'id-1',
+      companyId: 'company-1',
+      search: 'golang',
+      scoreFilterMode: 'atLeast',
+      scoreThreshold: 3.5,
+      remoteOnly: true,
+      sortBy: 'score',
+      sortDir: 'desc',
+    }).subscribe();
+
+    const req = httpMock.expectOne('/api/job-descriptions?page=2&page_size=10&identity_id=id-1&company_id=company-1&search=golang&score_filter_mode=atLeast&score_threshold=3.5&remote_only=true&sort_by=score&sort_dir=desc');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      items: [],
+      page: 2,
+      page_size: 10,
+      total_count: 0,
+      total_pages: 0,
+      has_next_page: false,
+      has_prev_page: true,
+    });
+  });
+
   it('scoreJobDescription calls POST /api/job-descriptions/:id/score with required identity_id', () => {
     service.scoreJobDescription('job-1', 'identity-1').subscribe();
     const req = httpMock.expectOne('/api/job-descriptions/job-1/score');

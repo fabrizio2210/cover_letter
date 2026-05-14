@@ -74,8 +74,47 @@ Common rules:
 - `:id` must be a MongoDB hex ObjectID string.
 
 ### GET /api/job-descriptions
+Query params:
+- `page` optional positive integer, default `1`
+- `page_size` optional integer in `[1,100]`, default `25`
+- `identity_id` optional hex ObjectID string; when set, identity-scoped filtering rules apply
+- `company_id` optional hex ObjectID string
+- `search` optional free-text query applied to job title, company name, and description
+- `score_filter_mode` optional enum: `atLeast`, `exactly`, `atMost` (default `atLeast`)
+- `score_threshold` optional number, default `0`
+- `remote_only` optional boolean, default `false`
+- `sort_by` optional enum: `score`, `created_at`, `updated_at`, `title`, `company` (default `score`)
+- `sort_dir` optional enum: `asc`, `desc` (default `desc`)
 
-Response `200`: array of score-neutral `JobDescription` with `company_info` embedded.
+Response `200`: paginated score-neutral jobs payload.
+
+```json
+{
+	"items": [
+		{
+			"id": "<hex>",
+			"company_id": "<hex>",
+			"company_info": { "id": "<hex>", "name": "Acme" },
+			"title": "Backend Engineer",
+			"description": "...",
+			"location": "Remote",
+			"platform": "ashby",
+			"external_job_id": "123",
+			"source_url": "https://example.com/jobs/123",
+			"created_at": { "seconds": 1711234567, "nanos": 0 },
+			"updated_at": { "seconds": 1711234567, "nanos": 0 }
+		}
+	],
+	"page": 1,
+	"page_size": 25,
+	"total_count": 240,
+	"total_pages": 10,
+	"has_next_page": true,
+	"has_prev_page": false
+}
+```
+
+Response `400` for invalid query params.
 
 ### GET /api/job-descriptions/:id
 

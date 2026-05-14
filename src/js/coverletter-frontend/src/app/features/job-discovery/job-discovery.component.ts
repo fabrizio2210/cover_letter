@@ -2,7 +2,8 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@an
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, forkJoin } from 'rxjs';
+import { Subscription, Subject, forkJoin } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { ApiService } from '../../core/services/api.service';
 import { FeedbackService } from '../../core/services/feedback.service';
@@ -45,6 +46,13 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   hiddenJobIds = new Set<string>();
   selectedJobId = '';
 
+  page = 1;
+  pageSize = 25;
+  totalCount = 0;
+  totalPages = 0;
+  hasNextPage = false;
+  hasPrevPage = false;
+
   loading = false;
   reranking = false;
   triggeringCrawl = false;
@@ -59,9 +67,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   readonly scorePresetValues = [0, 1, 2, 3, 4, 5];
   remoteOnly = false;
   aiSkillGapAnalysis = false;
+  private searchQueryInput$ = new Subject<string>();
   private crawlStreamSubscription?: Subscription;
   private scoringStreamSubscription?: Subscription;
   private jobUpdateStreamSubscription?: Subscription;
+  private searchDebounceSubscription?: Subscription;
   private activitySummaryRefreshTimeout?: ReturnType<typeof setTimeout>;
   private crawlSnapshotsByKey = new Map<string, CrawlProgress>();
   private scoringSnapshotsByIdentity = new Map<string, ScoringProgress>();
@@ -80,9 +90,30 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
 
   ngOnInit(): void {
+    this.searchDebounceSubscription = this.searchQueryInput$
+      .pipe(debounceTime(250), distinctUntilChanged())
+      .subscribe(() => {
+        this.updateRouteQuery({ page: 1, search: this.searchQuery || null });
+      });
+
     this.route.queryParamMap.subscribe((params) => {
       this.selectedCompanyId = params.get('companyId') || '';
       this.selectedCompanyName = params.get('companyName') || '';
+      this.searchQuery = params.get('search') || '';
+
+      const page = Number.parseInt(params.get('page') || '', 10);
+      this.page = Number.isFinite(page) && page > 0 ? page : 1;
+
+      const pageSize = Number.parseInt(params.get('page_size') || '', 10);
+      this.pageSize = [10, 25, 50].includes(pageSize) ? pageSize : 25;
+
+      const scoreThreshold = Number.parseFloat(params.get('score_threshold') || '0');
+      this.scoreThreshold = Number.isFinite(scoreThreshold) ? Math.max(0, Math.min(5, scoreThreshold)) : 0;
+
+      const scoreFilterMode = params.get('score_filter_mode') || 'atLeast';
+      this.scoreFilterMode = scoreFilterMode === 'exactly' || scoreFilterMode === 'atMost' ? scoreFilterMode : 'atLeast';
+
+      this.remoteOnly = params.get('remote_only') === 'true';
 
       this.routeIdentityId = (params.get('identityId') || '').trim();
       const sharedIdentityId = this.identityContext.getSelectedIdentityId();
@@ -91,9 +122,10 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       if (this.routeIdentityId && this.routeIdentityId !== sharedIdentityId) {
         this.identityContext.setSelectedIdentityId(this.routeIdentityId);
       }
+
+      this.loadData();
     });
 
-    this.loadData();
     this.subscribeToCrawlProgress();
     this.subscribeToScoringProgress();
     this.subscribeToJobUpdates();
@@ -103,6 +135,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     this.crawlStreamSubscription?.unsubscribe();
     this.scoringStreamSubscription?.unsubscribe();
     this.jobUpdateStreamSubscription?.unsubscribe();
+    this.searchDebounceSubscription?.unsubscribe();
     if (this.activitySummaryRefreshTimeout) {
       clearTimeout(this.activitySummaryRefreshTimeout);
       this.activitySummaryRefreshTimeout = undefined;
@@ -112,15 +145,34 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   loadData(): void {
     this.loading = true;
 
+    const jobsQuery = {
+      page: this.page,
+      pageSize: this.pageSize,
+      identityId: this.selectedIdentityId || undefined,
+      companyId: this.selectedCompanyId || undefined,
+      search: this.searchQuery.trim() || undefined,
+      scoreFilterMode: this.scoreFilterMode,
+      scoreThreshold: this.scoreThreshold,
+      remoteOnly: this.remoteOnly,
+      sortBy: 'score' as const,
+      sortDir: 'desc' as const,
+    };
+
     forkJoin({
-      jobs: this.api.getJobDescriptions(),
-      scores: this.api.getJobPreferenceScores(),
+      jobs: this.api.getJobDescriptions(jobsQuery),
+      scores: this.api.getJobPreferenceScores(this.selectedIdentityId ? { identityId: this.selectedIdentityId } : undefined),
       identities: this.api.getIdentities(),
       activeCrawls: this.api.getActiveCrawls(),
       activeScoring: this.api.getActiveScoring(),
     }).subscribe({
       next: ({ jobs, scores, identities, activeCrawls, activeScoring }) => {
-        this.rawJobs = jobs || [];
+        this.rawJobs = jobs?.items || [];
+        this.totalCount = jobs?.total_count || 0;
+        this.totalPages = jobs?.total_pages || 0;
+        this.hasNextPage = !!jobs?.has_next_page;
+        this.hasPrevPage = !!jobs?.has_prev_page;
+        this.page = jobs?.page || this.page;
+        this.pageSize = jobs?.page_size || this.pageSize;
         this.jobScores = scores || [];
         this.identities = identities || [];
         this.setCrawlSnapshots(activeCrawls || []);
@@ -167,14 +219,34 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   get filteredJobs(): ScoredJobDescription[] {
-    return this.jobs
-      .filter((job) => !this.hiddenJobIds.has(job.id))
-      .filter((job) => this.matchesIdentity(job))
-      .filter((job) => this.matchesCompany(job))
-      .filter((job) => this.passesScoreFilter(job))
-      .filter((job) => this.matchesSearch(job))
-      .filter((job) => !this.remoteOnly || this.isRemote(job.location))
-      .sort((a, b) => this.getScoreValue(b) - this.getScoreValue(a));
+    return this.jobs.filter((job) => !this.hiddenJobIds.has(job.id));
+  }
+
+  get pageNumbers(): number[] {
+    if (this.totalPages <= 1) {
+      return this.totalPages === 1 ? [1] : [];
+    }
+
+    const windowSize = 5;
+    const start = Math.max(1, this.page - Math.floor(windowSize / 2));
+    const end = Math.min(this.totalPages, start + windowSize - 1);
+    const normalizedStart = Math.max(1, end-windowSize+1);
+    const pages: number[] = [];
+    for (let i = normalizedStart; i <= end; i += 1) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  get pageRangeStart(): number {
+    if (this.totalCount === 0) {
+      return 0;
+    }
+    return (this.page - 1) * this.pageSize + 1;
+  }
+
+  get pageRangeEnd(): number {
+    return Math.min(this.totalCount, this.page * this.pageSize);
   }
 
   get activeCompanyLabel(): string {
@@ -484,6 +556,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
   setScorePreset(value: number): void {
     this.scoreThreshold = value;
+    this.updateRouteQuery({ page: 1, score_threshold: this.scoreThreshold || null });
   }
 
   updateScoreThreshold(value: number | string): void {
@@ -492,6 +565,48 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       return;
     }
     this.scoreThreshold = Math.max(0, Math.min(5, parsed));
+    this.updateRouteQuery({ page: 1, score_threshold: this.scoreThreshold || null });
+  }
+
+  onScoreFilterModeChange(mode: ScoreFilterMode): void {
+    this.scoreFilterMode = mode;
+    this.updateRouteQuery({ page: 1, score_filter_mode: mode === 'atLeast' ? null : mode });
+  }
+
+  onRemoteOnlyChange(enabled: boolean): void {
+    this.remoteOnly = !!enabled;
+    this.updateRouteQuery({ page: 1, remote_only: this.remoteOnly ? 'true' : null });
+  }
+
+  onSearchQueryChange(value: string): void {
+    this.searchQuery = value;
+    this.searchQueryInput$.next(value.trim());
+  }
+
+  onPageSizeChange(value: number | string): void {
+    const parsed = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (!Number.isFinite(parsed) || ![10, 25, 50].includes(parsed)) {
+      return;
+    }
+
+    this.pageSize = parsed;
+    this.updateRouteQuery({ page: 1, page_size: String(parsed) });
+  }
+
+  goToPage(targetPage: number): void {
+    if (!Number.isFinite(targetPage) || targetPage < 1) {
+      return;
+    }
+
+    if (this.totalPages > 0 && targetPage > this.totalPages) {
+      return;
+    }
+
+    if (targetPage === this.page) {
+      return;
+    }
+
+    this.updateRouteQuery({ page: targetPage });
   }
 
   clearCompanyFilter(): void {
@@ -509,9 +624,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     const normalizedIdentityId = (identityId || '').trim();
     this.selectedIdentityId = normalizedIdentityId;
     this.identityContext.setSelectedIdentityId(normalizedIdentityId);
-    this.updateIdentityQueryParam(normalizedIdentityId);
-    this.applyScoresToJobs();
-    this.loadActivitySummary();
+    this.checkedJobIds.clear();
+    this.updateRouteQuery({
+      identityId: normalizedIdentityId || null,
+      page: 1,
+    });
   }
 
   private passesScoreFilter(job: ScoredJobDescription): boolean {
@@ -679,12 +796,14 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   private updateIdentityQueryParam(identityId: string): void {
+    this.updateRouteQuery({ identityId: identityId || null });
+  }
+
+  private updateRouteQuery(queryParams: Record<string, string | number | null>): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {
-        identityId: identityId || null
-      },
-      queryParamsHandling: 'merge'
+      queryParams,
+      queryParamsHandling: 'merge',
     });
   }
 
