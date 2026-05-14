@@ -49,6 +49,7 @@ Storage note:
 | `preference_scores` | `preference_scores` | `[]PreferenceScore` | Embedded per-preference score results |
 | `scoring_status` | `scoring_status` | `string` | One of `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | `weighted_score` | `number` | Deterministic aggregate for one `(job_id, identity_id)` pair |
+| `weighted_score_available` | `weighted_score_available` | `boolean` | `false` means aggregate is N/A because no preference had enough evidence |
 
 One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
 
@@ -59,7 +60,8 @@ One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
 | `preference_key` | `preference_key` | `string` | Stable preference identifier |
 | `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot used to detect stale per-preference scores |
 | `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking and aggregate recomputation |
-| `score` | `score` | `integer` | AI-generated score from 1 to 5 |
+| `score` | `score` | `integer` | AI-generated score from 1 to 5 when available; `0` when marked N/A |
+| `score_available` | `score_available` | `boolean` | `false` means not enough information to judge this preference |
 | `scored_at` | `scored_at` | Timestamp object | `{ "seconds": <unix>, "nanos": 0 }` |
 
 Proto-first rule:
@@ -207,6 +209,8 @@ Ranking semantics:
 - If guidance changed for one preference key, only that embedded preference score is recomputed; other preference entries remain reusable.
 - `weighted_score` must be recomputed and persisted whenever `preference_guidance`, `preference_weight`, or `preference_scores` membership changes.
 - When an identity preference is removed, matching embedded entries are removed from `preference_scores` by `preference_key`, then `weighted_score` is recomputed.
+- Embedded entries with `score_available=false` are treated as N/A and excluded from weighted aggregation.
+- If no embedded preference score is available after filtering N/A entries, `weighted_score_available` is set to `false`.
 - If `preference_scores` becomes empty for a document, `scoring_status` is set to `skipped` and `weighted_score` is set to `0`.
 
 ## Queue And Channel Contracts

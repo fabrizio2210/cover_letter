@@ -389,40 +389,73 @@ def safe_json_dump(value):
 
 def parse_ollama_response(content):
     if not content:
-        return None, "empty_content"
+        return None, None, "empty_content"
 
     if isinstance(content, str):
         stripped = content.strip()
+        normalized = stripped.lower().strip(".\n\r\t ")
+        if normalized in {
+            "n/a",
+            "na",
+            "not available",
+            "not enough information",
+            "insufficient information",
+        }:
+            return None, False, "explicit_na"
         try:
             payload = json.loads(stripped)
             if isinstance(payload, dict) and "score" in payload:
                 score_value = payload.get("score")
+                if isinstance(score_value, str):
+                    normalized_score = score_value.lower().strip(".\n\r\t ")
+                    if normalized_score in {
+                        "n/a",
+                        "na",
+                        "not available",
+                        "not enough information",
+                        "insufficient information",
+                    }:
+                        return None, False, "json_dict_na"
                 if score_value is not None:
-                    return int(score_value), "json_dict_score"
+                    return int(score_value), True, "json_dict_score"
+            if isinstance(payload, dict) and payload.get("score_available") is False:
+                return None, False, "json_dict_score_unavailable"
             if isinstance(payload, int):
-                return payload, "json_integer"
+                return payload, True, "json_integer"
         except Exception:
             pass
 
         if stripped.isdigit():
-            return int(stripped), "plain_integer"
+            return int(stripped), True, "plain_integer"
 
         digits = [ch for ch in stripped if ch.isdigit()]
         if digits:
-            return int(digits[0]), "first_digit_fallback"
+            return int(digits[0]), True, "first_digit_fallback"
 
-        return None, "string_without_parseable_score"
+        return None, None, "string_without_parseable_score"
 
     if isinstance(content, dict):
         try:
+            if content.get("score_available") is False:
+                return None, False, "dict_score_unavailable"
             score_value = content.get("score")
             if score_value is None:
-                return None, "dict_without_score"
-            return int(score_value), "dict_score"
+                return None, None, "dict_without_score"
+            if isinstance(score_value, str):
+                normalized_score = score_value.lower().strip(".\n\r\t ")
+                if normalized_score in {
+                    "n/a",
+                    "na",
+                    "not available",
+                    "not enough information",
+                    "insufficient information",
+                }:
+                    return None, False, "dict_na"
+            return int(score_value), True, "dict_score"
         except Exception:
-            return None, "dict_score_cast_failed"
+            return None, None, "dict_score_cast_failed"
 
-    return None, f"unsupported_content_type:{type(content).__name__}"
+    return None, None, f"unsupported_content_type:{type(content).__name__}"
 
 
 def extract_ollama_content(response):
@@ -526,13 +559,13 @@ def build_prompt(job, company, identity, preference):
 
     system_instruction = (
         "You are an objective HR analyzer. Evaluate one candidate preference against one job posting using the preference guidance. "
-        "Return only one integer score from 1 to 5. "
+        "Return either one integer score from 1 to 5, or N/A when there is not enough information in the job posting to judge this preference. "
         "Do not return JSON and do not add any explanation text."
     )
 
     user_prompt = (
         f"Preference Guidance: {preference_guidance}\n\n"
-        "Respond only with one number in range 1..5.\n\n"
+        "Respond only with one number in range 1..5, or N/A if the posting does not provide enough evidence.\n\n"
         f"Job Title: {job_title}\n"
         f"Job Description: {job_description}\n"
         f"Job Location: {job_location}\n"
@@ -550,12 +583,14 @@ def upsert_identity_score_doc(
     status,
     preference_scores=None,
     weighted_score=0.0,
+    weighted_score_available=False,
 ):
     score_proto = common_pb2.JobPreferenceScore(
         job_id=job_id_str,
         identity_id=identity_id_str,
         scoring_status=status,
         weighted_score=float(weighted_score),
+        weighted_score_available=bool(weighted_score_available),
     )
 
     for pref_score in preference_scores or []:
@@ -565,6 +600,7 @@ def upsert_identity_score_doc(
                 preference_guidance=str(pref_score.get("preference_guidance", "")),
                 preference_weight=float(pref_score.get("preference_weight", 0) or 0),
                 score=int(pref_score.get("score", 0) or 0),
+                score_available=bool(pref_score.get("score_available", True)),
             )
         )
 
@@ -574,6 +610,7 @@ def upsert_identity_score_doc(
     score_doc["identity_id"] = identity_id_str
     score_doc["scoring_status"] = scoring_status_to_bson(status)
     score_doc["weighted_score"] = float(weighted_score)
+    score_doc["weighted_score_available"] = bool(weighted_score_available)
     score_doc["preference_scores"] = preference_scores or []
 
     job_preference_scores_col.update_one(
@@ -656,7 +693,7 @@ def score_preference(
     preference_key = get_field(preference, "key", "")
 
     if test_mode:
-        return stable_test_score(job_id, preference_key)
+        return {"score": stable_test_score(job_id, preference_key), "score_available": True}
 
     system_instruction, user_prompt = build_prompt(job_doc, company_doc, identity_doc, preference)
 
@@ -700,7 +737,20 @@ def score_preference(
         )
     )
 
-    score, parse_strategy = parse_ollama_response(content)
+    score, score_available, parse_strategy = parse_ollama_response(content)
+
+    if score_available is False:
+        print(
+            "debug: Parsed model score as unavailable: "
+            + safe_json_dump(
+                {
+                    "job_id": job_id,
+                    "preference_key": preference_key,
+                    "parse_strategy": parse_strategy,
+                }
+            )
+        )
+        return {"score": 0, "score_available": False}
 
     if score is None:
         raise ValueError(
@@ -733,24 +783,28 @@ def score_preference(
                 "job_id": job_id,
                 "preference_key": preference_key,
                 "score": score,
+                "score_available": True,
                 "parse_strategy": parse_strategy,
             }
         )
     )
 
-    return score
+    return {"score": score, "score_available": True}
 
 
-def build_preference_score_doc(preference, score):
+def build_preference_score_doc(preference, score_result):
     preference_key = get_field(preference, "key", "")
     scored_at = now_proto_timestamp()
+    score_value = int(score_result.get("score", 0) or 0)
+    score_available = bool(score_result.get("score_available", True))
 
     preference_score = common_pb2.PreferenceScore(
         preference_key=preference_key,
         preference_guidance=str(get_field(preference, "guidance", "") or get_field(preference, "label", "")),
         preference_weight=float(get_field(preference, "weight", 0) or 0),
-        score=int(score),
+        score=score_value,
         scored_at=scored_at,
+        score_available=score_available,
     )
 
     score_doc = MessageToDict(preference_score, preserving_proto_field_name=True)
@@ -767,6 +821,7 @@ def persist_identity_scores(job_preference_scores_col, job_doc, identity_doc, pr
         identity_id_str,
         status=common_pb2.SCORING_STATUS_QUEUED,
         preference_scores=preference_scores,
+        weighted_score_available=False,
     )
 
 
@@ -791,14 +846,19 @@ def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_d
     weighted_sum = 0.0
     total_weight = 0.0
     for doc in preference_scores:
+        score_available = doc.get("score_available")
+        if score_available is False:
+            continue
         score = int(doc.get("score", 0))
         weight = float(doc.get("preference_weight", 0))
         weighted_sum += score * weight
         total_weight += weight
 
     weighted_score = 0.0
+    weighted_score_available = False
     if total_weight > 0:
         weighted_score = weighted_sum / total_weight
+        weighted_score_available = True
 
     upsert_identity_score_doc(
         job_preference_scores_col,
@@ -807,6 +867,7 @@ def compute_and_persist_aggregate(job_preference_scores_col, job_doc, identity_d
         status=common_pb2.SCORING_STATUS_SCORED,
         preference_scores=preference_scores,
         weighted_score=weighted_score,
+        weighted_score_available=weighted_score_available,
     )
 
 
@@ -862,6 +923,7 @@ def process_scoring_job(
                 get_message_id(identity_doc),
                 status=common_pb2.SCORING_STATUS_SKIPPED,
                 preference_scores=[],
+                weighted_score_available=False,
             )
         print(f"warn: Skipping job '{job_id}' due to missing prerequisites ({error}).")
         if identity_doc and scoring_state:
@@ -890,6 +952,7 @@ def process_scoring_job(
             get_message_id(identity_proto),
             status=common_pb2.SCORING_STATUS_SKIPPED,
             preference_scores=[],
+            weighted_score_available=False,
         )
         print(f"warn: Skipping job '{job_id}' due to missing preferences list.")
         return
@@ -928,6 +991,7 @@ def process_scoring_job(
         identity_id_str,
         status=common_pb2.SCORING_STATUS_QUEUED,
         preference_scores=[],
+        weighted_score_available=False,
     )
 
     try:
@@ -944,6 +1008,8 @@ def process_scoring_job(
                 # Guidance unchanged: reuse existing score and scored_at; update weight snapshot.
                 reused = dict(stored)
                 reused["preference_weight"] = float(get_field(preference, "weight", 0) or 0)
+                if "score_available" not in reused:
+                    reused["score_available"] = True
                 preference_scores.append(reused)
                 reused_count += 1
                 print(
@@ -954,6 +1020,7 @@ def process_scoring_job(
                             "identity_id": identity_id_str,
                             "preference_key": pref_key,
                             "stored_score": reused.get("score"),
+                            "score_available": reused.get("score_available", True),
                             "stored_guidance": stored.get("preference_guidance", ""),
                             "current_guidance": current_guidance,
                         }
@@ -978,7 +1045,7 @@ def process_scoring_job(
                         }
                     )
                 )
-                score = score_preference(
+                score_result = score_preference(
                     ollama_client,
                     model_name,
                     test_mode,
@@ -988,7 +1055,7 @@ def process_scoring_job(
                     company_proto,
                     identity_proto,
                 )
-                preference_scores.append(build_preference_score_doc(preference, score))
+                preference_scores.append(build_preference_score_doc(preference, score_result))
                 rescored_count += 1
                 print(
                     "debug: Model score computed for preference: "
@@ -997,7 +1064,8 @@ def process_scoring_job(
                             "job_id": job_id_str,
                             "identity_id": identity_id_str,
                             "preference_key": pref_key,
-                            "score": score,
+                            "score": score_result.get("score", 0),
+                            "score_available": score_result.get("score_available", True),
                         }
                     )
                 )
@@ -1050,6 +1118,7 @@ def process_scoring_job(
             get_message_id(identity_proto),
             status=common_pb2.SCORING_STATUS_FAILED,
             preference_scores=[],
+            weighted_score_available=False,
         )
         if identity_doc and scoring_state:
             scoring_state, completed_run = scoring_run_manager.advance(identity_doc)

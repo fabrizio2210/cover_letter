@@ -248,6 +248,7 @@ At minimum this applies to:
 | `preference_scores` | array | Embedded per-preference scores for this job/identity pair |
 | `scoring_status` | string | One of `queued`, `scored`, `failed`, `skipped` |
 | `weighted_score` | number | Deterministic weighted aggregate for this job/identity pair |
+| `weighted_score_available` | boolean | `true` when `weighted_score` is computed from at least one available preference score; `false` when aggregate is N/A |
 
 Each entry in `preference_scores` must include:
 
@@ -256,7 +257,8 @@ Each entry in `preference_scores` must include:
 | `preference_key` | string | Stable key from identity preference |
 | `preference_guidance` | string | Guidance snapshot used for cache-invalidation checks |
 | `preference_weight` | number | Weight snapshot used for deterministic aggregate recomputation |
-| `score` | integer | Integer score in range `1..5` |
+| `score` | integer | Integer score in range `1..5` when `score_available=true`; `0` when `score_available=false` |
+| `score_available` | boolean | `false` means the scorer marked this preference as N/A due to insufficient evidence |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 
 Uniqueness rule:
@@ -280,7 +282,7 @@ Scoring prompt inputs must exclude:
 - preference key.
 
 For each enabled preference, the prompt must ask Ollama for:
-- an integer score from 1 to 5.
+- either an integer score from 1 to 5, or `N/A` when there is not enough information to judge the preference.
 
 The worker must treat model output as per-preference evidence only. Weighted aggregate ranking is computed deterministically outside the model output.
 
@@ -297,17 +299,19 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 7. Load any existing `job-preference-scores` document for `(job_id, identity_id)` to evaluate reusable per-preference entries.
 8. For each enabled preference key:
   - if an existing entry with the same `preference_key` exists and its stored `preference_guidance` exactly matches the current identity preference `guidance`, reuse the existing `score`;
-  - otherwise, recompute only that single preference score via Ollama and replace the embedded entry snapshot fields (`preference_guidance`, `preference_weight`, `score`, `scored_at`).
+  - otherwise, recompute only that single preference score via Ollama and replace the embedded entry snapshot fields (`preference_guidance`, `preference_weight`, `score`, `score_available`, `scored_at`).
 9. Upsert one `job-preference-scores` document for `(job_id, identity_id)` containing embedded per-preference scores.
-10. Recompute `weighted_score` deterministically from stored embedded preference scores and their stored `preference_weight` values.
+10. Recompute `weighted_score` deterministically from stored embedded preference scores where `score_available=true`, using their stored `preference_weight` values.
 11. Persist recomputed `weighted_score` on the same `job-preference-scores` document before terminal status write.
-12. Update the same `job-preference-scores` document with terminal `scoring_status`.
-13. Publish scoring-progress updates for run start, incremental completion, and terminal state.
+12. Persist `weighted_score_available=false` when no embedded preference score is available (all are N/A).
+13. Update the same `job-preference-scores` document with terminal `scoring_status`.
+14. Publish scoring-progress updates for run start, incremental completion, and terminal state.
 
 Weighted aggregate recomputation trigger rules:
 - `weighted_score` must be recomputed and persisted whenever any embedded preference entry is inserted, updated, or removed.
 - `weighted_score` must be recomputed and persisted whenever `preference_weight` changes for any embedded preference entry.
 - `weighted_score` recomputation is deterministic and must not depend on model output format.
+- Preference entries marked `score_available=false` (N/A) must not contribute to aggregate weighting.
 
 Scoring lifecycle expectations:
 - Allowed values on score documents: `queued`, `scored`, `failed`, `skipped`.

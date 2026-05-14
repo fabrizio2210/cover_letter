@@ -500,23 +500,60 @@ func UpdateIdentityPreferences(c *gin.Context) {
 				}
 			}
 			newEntries = append(newEntries, entry)
-			score, _ := entry["score"].(int32)
-			weight, _ := entry["preference_weight"].(float64)
-			weightedSum += float64(score) * weight
+
+			scoreAvailable := true
+			if rawAvailable, exists := entry["score_available"]; exists {
+				if available, ok := rawAvailable.(bool); ok {
+					scoreAvailable = available
+				}
+			}
+			if !scoreAvailable {
+				continue
+			}
+
+			var score float64
+			switch scoreRaw := entry["score"].(type) {
+			case int32:
+				score = float64(scoreRaw)
+			case int64:
+				score = float64(scoreRaw)
+			case int:
+				score = float64(scoreRaw)
+			case float64:
+				score = scoreRaw
+			}
+
+			var weight float64
+			switch weightRaw := entry["preference_weight"].(type) {
+			case float64:
+				weight = weightRaw
+			case int32:
+				weight = float64(weightRaw)
+			case int64:
+				weight = float64(weightRaw)
+			case int:
+				weight = float64(weightRaw)
+			}
+
+			weightedSum += score * weight
 			weightSum += weight
 		}
 
 		var ws float64
+		weightedScoreAvailable := false
 		if weightSum > 0 {
 			ws = weightedSum / weightSum
+			weightedScoreAvailable = true
 		}
 
 		setDoc := bson.M{
-			"preference_scores": newEntries,
-			"weighted_score":    ws,
+			"preference_scores":        newEntries,
+			"weighted_score":           ws,
+			"weighted_score_available": weightedScoreAvailable,
 		}
 		if len(newEntries) == 0 {
 			setDoc["scoring_status"] = "skipped"
+			setDoc["weighted_score_available"] = false
 		}
 
 		scoreFilter := bson.M{"_id": docID}

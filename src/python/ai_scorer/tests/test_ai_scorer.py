@@ -219,7 +219,7 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertIsNotNone(context)
 
     def test_score_preference_uses_test_mode(self):
-        score = score_preference(
+        score_result = score_preference(
             ollama_client=None,
             model_name="unused",
             test_mode=True,
@@ -230,8 +230,9 @@ class AiScorerUnitTests(unittest.TestCase):
             identity_doc={},
         )
 
-        self.assertGreaterEqual(score, 1)
-        self.assertLessEqual(score, 5)
+        self.assertTrue(score_result.get("score_available"))
+        self.assertGreaterEqual(score_result.get("score", 0), 1)
+        self.assertLessEqual(score_result.get("score", 0), 5)
 
     def test_score_preference_parses_ollama_response(self):
         client = FakeOllamaClient(
@@ -242,7 +243,7 @@ class AiScorerUnitTests(unittest.TestCase):
             }
         )
 
-        score = score_preference(
+        score_result = score_preference(
             ollama_client=client,
             model_name="qwen2.5:1.5b",
             test_mode=False,
@@ -253,7 +254,8 @@ class AiScorerUnitTests(unittest.TestCase):
             identity_doc={"name": "Fab", "description": "Platform"},
         )
 
-        self.assertEqual(score, 4)
+        self.assertTrue(score_result.get("score_available"))
+        self.assertEqual(score_result.get("score"), 4)
         self.assertIsNotNone(client.last_messages)
         if client.last_messages is None:
             self.fail("Expected Ollama messages to be captured")
@@ -269,6 +271,30 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertNotIn("Candidate Identity Description:", prompt_text)
         self.assertNotIn("Preference Key:", prompt_text)
         self.assertNotIn("Preference Weight:", prompt_text)
+        self.assertIn("or N/A", prompt_text)
+
+    def test_score_preference_parses_na_response(self):
+        client = FakeOllamaClient(
+            {
+                "message": {
+                    "content": "N/A"
+                }
+            }
+        )
+
+        score_result = score_preference(
+            ollama_client=client,
+            model_name="qwen2.5:1.5b",
+            test_mode=False,
+            job_id="507f1f77bcf86cd799439011",
+            preference={"key": "remote", "guidance": "Remote", "weight": 1, "enabled": True},
+            job_doc={"title": "Engineer", "description": "desc", "location": "EU", "platform": "ashby"},
+            company_doc={"name": "Acme", "description": "Infra"},
+            identity_doc={"name": "Fab", "description": "Platform"},
+        )
+
+        self.assertFalse(score_result.get("score_available"))
+        self.assertEqual(score_result.get("score"), 0)
 
     def test_compute_and_persist_aggregate_updates_score_document(self):
         job_id = ObjectId()
@@ -284,11 +310,13 @@ class AiScorerUnitTests(unittest.TestCase):
                             "preference_key": "remote",
                             "preference_weight": 2.0,
                             "score": 5,
+                            "score_available": True,
                         },
                         {
                             "preference_key": "coding",
                             "preference_weight": 1.0,
                             "score": 3,
+                            "score_available": True,
                         },
                     ],
                 },
@@ -302,7 +330,74 @@ class AiScorerUnitTests(unittest.TestCase):
         if updated is None:
             self.fail("Expected updated score document")
         self.assertEqual(updated.get("scoring_status"), "scored")
+        self.assertTrue(updated.get("weighted_score_available"))
         self.assertAlmostEqual(updated.get("weighted_score"), (5 * 2.0 + 3 * 1.0) / (2.0 + 1.0))
+
+    def test_compute_and_persist_aggregate_skips_unavailable_scores(self):
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        scores = FakeCollection(
+            docs=[
+                {
+                    "job_id": str(job_id),
+                    "identity_id": str(identity_id),
+                    "preference_scores": [
+                        {
+                            "preference_key": "remote",
+                            "preference_weight": 2.0,
+                            "score": 5,
+                            "score_available": True,
+                        },
+                        {
+                            "preference_key": "culture",
+                            "preference_weight": 10.0,
+                            "score": 0,
+                            "score_available": False,
+                        },
+                    ],
+                },
+            ]
+        )
+
+        compute_and_persist_aggregate(scores, {"_id": job_id}, {"_id": identity_id})
+
+        updated = scores.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(updated)
+        if updated is None:
+            self.fail("Expected updated score document")
+        self.assertTrue(updated.get("weighted_score_available"))
+        self.assertEqual(updated.get("weighted_score"), 5.0)
+
+    def test_compute_and_persist_aggregate_all_scores_unavailable(self):
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        scores = FakeCollection(
+            docs=[
+                {
+                    "job_id": str(job_id),
+                    "identity_id": str(identity_id),
+                    "preference_scores": [
+                        {
+                            "preference_key": "remote",
+                            "preference_weight": 2.0,
+                            "score": 0,
+                            "score_available": False,
+                        },
+                    ],
+                },
+            ]
+        )
+
+        compute_and_persist_aggregate(scores, {"_id": job_id}, {"_id": identity_id})
+
+        updated = scores.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(updated)
+        if updated is None:
+            self.fail("Expected updated score document")
+        self.assertFalse(updated.get("weighted_score_available"))
+        self.assertEqual(updated.get("weighted_score"), 0.0)
 
     def test_process_scoring_job_success_path(self):
         field_id = ObjectId()
@@ -375,6 +470,7 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertEqual(len(preference_scores), 2)
         for score in preference_scores:
             self.assertIn("scored_at", score)
+            self.assertTrue(score.get("score_available", False))
 
     def test_process_scoring_job_rescore_updates_single_doc(self):
         field_id = ObjectId()

@@ -62,6 +62,7 @@ export interface JobPreferenceScore {
   preference_scores: PreferenceScore[];
   scoring_status?: string;
   weighted_score?: number;
+  weighted_score_available?: boolean;
 }
 
 export interface PreferenceScore {
@@ -69,6 +70,7 @@ export interface PreferenceScore {
   preference_guidance?: string;
   preference_weight?: number;
   score: number;
+  score_available?: boolean;
   rationale?: string;
   scored_at?: string | Timestamp;
 }

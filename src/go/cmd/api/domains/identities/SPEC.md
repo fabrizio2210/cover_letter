@@ -212,7 +212,8 @@ Preference update lifecycle:
 	- remove embedded `preference_scores` entries with `preference_key` in `removed_keys`;
 	- for embedded entries with `preference_key` in `updated_keys`, refresh `preference_weight` from the new identity preference;
 	- when `guidance` changed for a key in `updated_keys`, recompute that single preference score and update its embedded snapshot (`preference_guidance`, `preference_weight`, `score`, `scored_at`);
-	- recompute and persist `weighted_score` deterministically after all per-document mutations.
+	- recompute and persist `weighted_score` deterministically after all per-document mutations, excluding entries where `score_available=false` (N/A);
+	- persist `weighted_score_available=false` when no entry remains available for weighting.
 5. If a score document has zero remaining embedded `preference_scores` after removal, set `scoring_status` to `skipped` and persist `weighted_score = 0`.
 
 Removal lookup rule:

@@ -1045,6 +1045,9 @@ func TestUpdateIdentityPreferences_GuidanceChanged_DropsStaleScoredEntry(t *test
 	if setDoc["weighted_score"] != float64(0) {
 		t.Fatalf("expected weighted_score=0, got %#v", setDoc["weighted_score"])
 	}
+	if setDoc["weighted_score_available"] != false {
+		t.Fatalf("expected weighted_score_available=false, got %#v", setDoc["weighted_score_available"])
+	}
 }
 
 func TestUpdateIdentityPreferences_GuidanceChanged_EnqueuesRescore(t *testing.T) {
@@ -1166,6 +1169,9 @@ func TestUpdateIdentityPreferences_RemovedKey_RemovesFromScoreDoc(t *testing.T) 
 	if setDoc["weighted_score"] != float64(4) {
 		t.Fatalf("expected weighted_score=4, got %#v", setDoc["weighted_score"])
 	}
+	if setDoc["weighted_score_available"] != true {
+		t.Fatalf("expected weighted_score_available=true, got %#v", setDoc["weighted_score_available"])
+	}
 }
 
 func TestUpdateIdentityPreferences_WeightChanged_UpdatesWeightInScoreDoc(t *testing.T) {
@@ -1223,6 +1229,9 @@ func TestUpdateIdentityPreferences_WeightChanged_UpdatesWeightInScoreDoc(t *test
 	// weighted_score = 4*3/3 = 4
 	if setDoc["weighted_score"] != float64(4) {
 		t.Fatalf("expected weighted_score=4, got %#v", setDoc["weighted_score"])
+	}
+	if setDoc["weighted_score_available"] != true {
+		t.Fatalf("expected weighted_score_available=true, got %#v", setDoc["weighted_score_available"])
 	}
 }
 
@@ -1304,6 +1313,9 @@ func TestUpdateIdentityPreferences_WeightChanged_RecomputesWeightedScore(t *test
 	if math.Abs(weightedScore-4.4) > 1e-9 {
 		t.Fatalf("expected weighted_score=4.4, got %v", weightedScore)
 	}
+	if setDoc["weighted_score_available"] != true {
+		t.Fatalf("expected weighted_score_available=true, got %#v", setDoc["weighted_score_available"])
+	}
 }
 
 func TestUpdateIdentityPreferences_ZeroRemainingEntries_SetsSkipped(t *testing.T) {
@@ -1355,6 +1367,60 @@ func TestUpdateIdentityPreferences_ZeroRemainingEntries_SetsSkipped(t *testing.T
 	}
 	if setDoc["weighted_score"] != float64(0) {
 		t.Fatalf("expected weighted_score=0, got %#v", setDoc["weighted_score"])
+	}
+	if setDoc["weighted_score_available"] != false {
+		t.Fatalf("expected weighted_score_available=false, got %#v", setDoc["weighted_score_available"])
+	}
+}
+
+func TestUpdateIdentityPreferences_AllScoresUnavailable_SetsWeightedUnavailable(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Remote work", "weight": float64(1), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-444",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Remote work", "preference_weight": float64(1), "score": int32(0), "score_available": false},
+			},
+			"weighted_score": float64(0),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"Remote work"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	if setDoc["weighted_score"] != float64(0) {
+		t.Fatalf("expected weighted_score=0, got %#v", setDoc["weighted_score"])
+	}
+	if setDoc["weighted_score_available"] != false {
+		t.Fatalf("expected weighted_score_available=false, got %#v", setDoc["weighted_score_available"])
 	}
 }
 

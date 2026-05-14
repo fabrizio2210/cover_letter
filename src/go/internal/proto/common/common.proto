@@ -122,6 +122,7 @@ message PreferenceScore {
     int32 score = 4; // @gotags: bson:"score"
     string rationale = 5; // @gotags: bson:"rationale,omitempty"
     google.protobuf.Timestamp scored_at = 6; // @gotags: bson:"scored_at,omitempty"
+    bool score_available = 7; // @gotags: bson:"score_available,omitempty"
 }
 
 message JobPreferenceScore {
@@ -131,6 +132,7 @@ message JobPreferenceScore {
     repeated PreferenceScore preference_scores = 4; // @gotags: bson:"preference_scores,omitempty"
     ScoringStatus scoring_status = 5; // @gotags: bson:"scoring_status"
     double weighted_score = 6; // @gotags: bson:"weighted_score"
+    bool weighted_score_available = 7; // @gotags: bson:"weighted_score_available,omitempty"
 }
 
 message Job {
