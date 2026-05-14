@@ -351,5 +351,87 @@ describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
 
     expect(apiServiceSpy.getJobPreferenceScores).toHaveBeenCalledTimes(1);
   });
+
+  it('filters enrichment_retiring_jobs from visible activity workflows', () => {
+    component.activitySummary = {
+      active_workflows: [
+        { workflow_id: 'crawler_4dayweek', status: 'running', message: '' },
+        { workflow_id: 'enrichment_retiring_jobs', status: 'running', message: '' },
+      ],
+      global_queue_depth: {
+        crawler_trigger: 0,
+        crawler_ycombinator: 0,
+        crawler_hackernews: 0,
+        crawler_ats_job_extraction: 0,
+        crawler_levelsfyi: 0,
+        crawler_4dayweek: 0,
+        crawler_enrichment_ats: 0,
+        job_scoring: 0,
+      },
+    } as any;
+
+    expect(component.visibleActivityWorkflows.length).toBe(1);
+    expect(component.visibleActivityWorkflows[0].workflow_id).toBe('crawler_4dayweek');
+  });
+
+  it('does not treat enrichment_retiring_jobs as an active crawl blocker', () => {
+    component.selectedIdentityId = 'identity-1';
+    (component as any).setCrawlSnapshots([
+      {
+        run_id: 'run-enrichment',
+        identity_id: 'identity-1',
+        status: 'running',
+        workflow_id: 'enrichment_retiring_jobs',
+        workflow: 'enrichment_retiring_jobs',
+        message: 'Checking stale jobs',
+        estimated_total: 1,
+        completed: 0,
+        percent: 0,
+        updated_at: { seconds: 10, nanos: 0 },
+      },
+    ]);
+
+    expect(component.selectedIdentityHasActiveCrawl).toBeFalse();
+  });
+
+  it('reloadSingleJob updates only the targeted job entry', () => {
+    component.rawJobs = [
+      {
+        id: 'job-1',
+        title: 'Old title',
+        description: 'Old description',
+        location: 'Remote',
+        platform: 'ashby',
+        external_job_id: 'ext-1',
+        source_url: 'https://example.com/job-1',
+      } as any,
+      {
+        id: 'job-2',
+        title: 'Second job',
+        description: 'Desc',
+        location: 'Remote',
+        platform: 'ashby',
+        external_job_id: 'ext-2',
+        source_url: 'https://example.com/job-2',
+      } as any,
+    ];
+    apiServiceSpy.getJobDescription.and.returnValue(of({
+      id: 'job-1',
+      title: 'Updated title',
+      description: 'Updated description',
+      location: 'Remote',
+      platform: 'ashby',
+      external_job_id: 'ext-1',
+      source_url: 'https://example.com/job-1',
+    } as any));
+
+    (component as any).reloadSingleJob('job-1');
+
+    expect(component.rawJobs.length).toBe(2);
+    expect(component.rawJobs[0].id).toBe('job-1');
+    expect(component.rawJobs[0].title).toBe('Updated title');
+    expect(component.rawJobs[1].id).toBe('job-2');
+    expect(component.rawJobs[1].title).toBe('Second job');
+  });
 });
 

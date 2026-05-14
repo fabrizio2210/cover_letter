@@ -23,3 +23,5 @@ This file owns frontend behavior for job discovery, ranking, crawl triggering, a
 - Crawl controls are identity-scoped.
 - When crawl and scoring are both active, crawl progress has precedence in shared progress UI.
 - Job Discovery is the primary route for manual crawl triggering.
+- The Job Discovery activity panel hides `enrichment_retiring_jobs` entries; that workflow is treated as background cleanup for this page.
+- Job-update SSE events from `enrichment_retiring_jobs` must still update the targeted job entry so stale/closed status changes remain visible without list-wide reload.

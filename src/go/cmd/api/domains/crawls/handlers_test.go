@@ -422,6 +422,34 @@ func TestCrawlHubFindActiveByIdentity_IgnoresSupersededQueuedLifecycle(t *testin
 	}
 }
 
+func TestCrawlHubFindActiveByIdentity_WithFilter(t *testing.T) {
+	setTestGlobals(t)
+
+	now := time.Now().UTC()
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r-crawler",
+		IdentityId: "id1",
+		Status:     "running",
+		WorkflowId: workflowCrawlerYCombinator,
+		UpdatedAt:  timestamppb.New(now.Add(-1 * time.Minute)),
+	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r-enrichment",
+		IdentityId: "id1",
+		Status:     "running",
+		WorkflowId: "enrichment_retiring_jobs",
+		UpdatedAt:  timestamppb.New(now),
+	})
+
+	active, ok := crawlHub.findActiveByIdentity("id1", isCrawlBlockingWorkflowSnapshot)
+	if !ok {
+		t.Fatal("expected active blocking snapshot")
+	}
+	if active.RunId != "r-crawler" {
+		t.Fatalf("expected crawler snapshot to block, got run_id=%s", active.RunId)
+	}
+}
+
 func TestCrawlHubLastRunWorkflowStats(t *testing.T) {
 	setTestGlobals(t)
 
@@ -578,6 +606,67 @@ func TestTriggerCrawl(t *testing.T) {
 	t.Run("active crawl conflict", func(t *testing.T) {
 		resetHubs()
 		crawlHub.publish(&models.CrawlProgress{RunId: "existing", IdentityId: identityID, Status: "running"})
+		baseCollection.findOneFn = func(ctx context.Context, filter interface{}) MongoSingleResultIface {
+			return &mockMongoSingleResult{decodeFn: func(v interface{}) error {
+				m, ok := v.(*bson.M)
+				if !ok {
+					return errors.New("unexpected decode target")
+				}
+				*m = bson.M{"_id": primitive.NewObjectID(), "roles": bson.A{"backend"}}
+				return nil
+			}}
+		}
+
+		c, w := testctx.CreateGinTestContext(http.MethodPost, "/api/crawls", makeReq(validReqBody))
+		TriggerCrawl(c)
+		if w.Code != http.StatusConflict {
+			t.Fatalf("expected 409, got %d", w.Code)
+		}
+	})
+
+	t.Run("enrichment active does not block crawl trigger", func(t *testing.T) {
+		resetHubs()
+		crawlHub.publish(&models.CrawlProgress{
+			RunId:      "existing-enrichment",
+			IdentityId: identityID,
+			Status:     "running",
+			WorkflowId: "enrichment_retiring_jobs",
+			Workflow:   "enrichment_retiring_jobs",
+		})
+		baseCollection.findOneFn = func(ctx context.Context, filter interface{}) MongoSingleResultIface {
+			return &mockMongoSingleResult{decodeFn: func(v interface{}) error {
+				m, ok := v.(*bson.M)
+				if !ok {
+					return errors.New("unexpected decode target")
+				}
+				*m = bson.M{"_id": primitive.NewObjectID(), "roles": bson.A{"backend"}}
+				return nil
+			}}
+		}
+
+		c, w := testctx.CreateGinTestContext(http.MethodPost, "/api/crawls", makeReq(validReqBody))
+		TriggerCrawl(c)
+		if w.Code != http.StatusAccepted {
+			t.Fatalf("expected 202, got %d", w.Code)
+		}
+	})
+
+	t.Run("crawler active still blocks when enrichment also active", func(t *testing.T) {
+		resetHubs()
+		crawlHub.publish(&models.CrawlProgress{
+			RunId:      "existing-enrichment",
+			IdentityId: identityID,
+			Status:     "running",
+			WorkflowId: "enrichment_retiring_jobs",
+			Workflow:   "enrichment_retiring_jobs",
+		})
+		crawlHub.publish(&models.CrawlProgress{
+			RunId:      "existing-crawler",
+			IdentityId: identityID,
+			Status:     "running",
+			WorkflowId: workflowCrawler4DayWeek,
+			Workflow:   workflowCrawler4DayWeek,
+		})
 		baseCollection.findOneFn = func(ctx context.Context, filter interface{}) MongoSingleResultIface {
 			return &mockMongoSingleResult{decodeFn: func(v interface{}) error {
 				m, ok := v.(*bson.M)
@@ -1131,6 +1220,13 @@ func TestGetActivitySummary(t *testing.T) {
 		WorkflowId: workflowCrawlerYCombinator,
 		Message:    "Processing companies",
 	})
+	crawlHub.publish(&models.CrawlProgress{
+		RunId:      "r2",
+		IdentityId: "id1",
+		Status:     "running",
+		WorkflowId: "enrichment_retiring_jobs",
+		Message:    "Checking stale jobs",
+	})
 
 	// Verify the crawl was stored in the hub
 	allSnapshots := crawlHub.listSnapshots("")
@@ -1156,7 +1252,7 @@ func TestGetActivitySummary(t *testing.T) {
 	}
 
 	if len(summary.ActiveWorkflows) != 1 {
-		t.Fatalf("expected 1 active workflow for id1, got %d", len(summary.ActiveWorkflows))
+		t.Fatalf("expected 1 active blocking workflow for id1, got %d", len(summary.ActiveWorkflows))
 	}
 
 	if summary.ActiveWorkflows[0].WorkflowID != workflowCrawlerYCombinator {

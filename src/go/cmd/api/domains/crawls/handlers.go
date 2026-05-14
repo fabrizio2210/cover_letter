@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -231,7 +232,7 @@ userIDRaw, _ := c.Get("userId")
 		}
 	}
 
-	if active, ok := crawlHub.findActiveByIdentity(identityID); ok {
+	if active, ok := crawlHub.findActiveByIdentity(identityID, isCrawlBlockingWorkflowSnapshot); ok {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":       "A crawl is already running for this identity",
 			"run_id":      active.RunId,
@@ -341,9 +342,13 @@ func GetActivitySummary(c *gin.Context) {
 	activeCrawls := crawlHub.listSnapshots(identityID)
 	activeWorkflows := make([]activeWorkflowItem, 0)
 	for _, crawl := range activeCrawls {
-		if crawl.Status == "queued" || crawl.Status == "running" {
+		if (crawl.Status == "queued" || crawl.Status == "running") && isCrawlBlockingWorkflowSnapshot(crawl) {
+			workflowID := crawl.WorkflowId
+			if workflowID == "" {
+				workflowID = crawl.Workflow
+			}
 			activeWorkflows = append(activeWorkflows, activeWorkflowItem{
-				WorkflowID: crawl.WorkflowId,
+				WorkflowID: workflowID,
 				Status:     crawl.Status,
 				Message:    crawl.Message,
 			})
@@ -638,15 +643,22 @@ func (h *crawlProgressHub) listSnapshots(identityID string) []*models.CrawlProgr
 	return result
 }
 
-func (h *crawlProgressHub) findActiveByIdentity(identityID string) (*models.CrawlProgress, bool) {
+func (h *crawlProgressHub) findActiveByIdentity(identityID string, includeSnapshot ...func(*models.CrawlProgress) bool) (*models.CrawlProgress, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	var shouldInclude func(*models.CrawlProgress) bool
+	if len(includeSnapshot) > 0 {
+		shouldInclude = includeSnapshot[0]
+	}
 	var latest *models.CrawlProgress
 	for _, snapshot := range h.snapshots {
 		if h.isSupersededQueuedLifecycleSnapshotLocked(snapshot) {
 			continue
 		}
 		if snapshot.IdentityId != identityID {
+			continue
+		}
+		if shouldInclude != nil && !shouldInclude(snapshot) {
 			continue
 		}
 		if snapshot.Status == "queued" || snapshot.Status == "running" {
@@ -762,6 +774,23 @@ func isQueuedLifecycleSnapshot(snapshot *models.CrawlProgress) bool {
 	}
 
 	return snapshot.RunId != "" && snapshot.WorkflowRunId == "" && snapshot.WorkflowId == "" && snapshot.Workflow == "queued"
+}
+
+func isCrawlBlockingWorkflowSnapshot(snapshot *models.CrawlProgress) bool {
+	if snapshot == nil {
+		return false
+	}
+
+	workflowID := snapshot.WorkflowId
+	if workflowID == "" {
+		workflowID = snapshot.Workflow
+	}
+
+	if workflowID == "" || workflowID == "queued" || workflowID == "finalizing" {
+		return true
+	}
+
+	return strings.HasPrefix(workflowID, "crawler_")
 }
 
 func isCrawlerWorkflow(workflowID string) bool {

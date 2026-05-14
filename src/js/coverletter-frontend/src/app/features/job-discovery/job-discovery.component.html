@@ -60,19 +60,19 @@
         <div class="crawl-status-header">
           <strong>Crawler & Scoring Activity</strong>
           <span class="crawl-status-badge">
-            {{ activitySummary.active_workflows.length > 0 ? 'active' : 'idle' }}
+            {{ visibleActivityWorkflows.length > 0 ? 'active' : 'idle' }}
           </span>
         </div>
 
-        <p *ngIf="activitySummary.active_workflows.length > 0">
-          {{ activitySummary.active_workflows.length }} workflow(s) running
+        <p *ngIf="visibleActivityWorkflows.length > 0">
+          {{ visibleActivityWorkflows.length }} workflow(s) running
         </p>
-        <p *ngIf="activitySummary.active_workflows.length === 0">
+        <p *ngIf="visibleActivityWorkflows.length === 0">
           No active crawl or scoring workflows
         </p>
 
-        <div *ngIf="activitySummary.active_workflows.length > 0" class="active-workflows-list">
-          <div *ngFor="let workflow of activitySummary.active_workflows" class="workflow-item">
+        <div *ngIf="visibleActivityWorkflows.length > 0" class="active-workflows-list">
+          <div *ngFor="let workflow of visibleActivityWorkflows" class="workflow-item">
             <span class="workflow-status-badge" [class.workflow-status-running]="workflow.status === 'running'">
               {{ workflow.status }}
             </span>

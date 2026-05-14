@@ -34,7 +34,9 @@ Behavior:
 - Enqueue crawl request onto `crawler_trigger_queue`.
 - Generate `run_id` before enqueueing.
 - Include authenticated `user_id` (`JWT sub`) in queue payload.
-- Return `409` if an active crawl already exists for the same `identity_id`.
+- Return `409` if an active blocking crawl already exists for the same `identity_id`.
+- Blocking scope for this conflict check includes parent lifecycle snapshots (`queued`, `finalizing`) and active workflow snapshots with `workflow_id` prefix `crawler_`.
+- Active `enrichment_` workflow snapshots are background work and do not block manual crawl trigger requests.
 
 Response `202`:
 

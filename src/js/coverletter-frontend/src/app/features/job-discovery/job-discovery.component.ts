@@ -70,6 +70,12 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   activitySummary: ActivitySummaryResponse | null = null;
   activitySummaryLoading = false;
 
+  get visibleActivityWorkflows() {
+    return (this.activitySummary?.active_workflows || []).filter(
+      (workflow) => workflow.workflow_id !== 'enrichment_retiring_jobs',
+    );
+  }
+
   @ViewChild('companyDetailsPanel') private companyDetailsPanel?: ElementRef<HTMLElement>;
   @ViewChild('selectedOpportunitySection') private selectedOpportunitySection?: ElementRef<HTMLElement>;
 
@@ -242,7 +248,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   }
 
   get selectedIdentityCrawlProgress(): CrawlProgress | null {
-    const progress = this.pickMostRelevantCrawl(this.getCrawlSnapshotsForIdentity(this.selectedIdentityId));
+    const progress = this.pickMostRelevantCrawl(this.getBlockingCrawlSnapshotsForIdentity(this.selectedIdentityId));
     if (!progress) {
       return null;
     }
@@ -782,6 +788,19 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
     return Array.from(this.crawlSnapshotsByKey.values())
       .filter((snapshot) => snapshot.identity_id === identityId);
+  }
+
+  private getBlockingCrawlSnapshotsForIdentity(identityId: string): CrawlProgress[] {
+    return this.getCrawlSnapshotsForIdentity(identityId)
+      .filter((snapshot) => this.isBlockingCrawlWorkflow(snapshot.workflow_id || snapshot.workflow));
+  }
+
+  private isBlockingCrawlWorkflow(workflowId?: string | null): boolean {
+    if (!workflowId || workflowId === 'queued' || workflowId === 'finalizing') {
+      return true;
+    }
+
+    return workflowId.startsWith('crawler_');
   }
 
   private pickMostRelevantCrawl(crawls: CrawlProgress[]): CrawlProgress | null {
