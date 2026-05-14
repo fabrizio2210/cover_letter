@@ -241,3 +241,7 @@ if [ "${DEPLOY:-0}" == "1" ]; then
 else
   echo "Skipping stack deployment: DEPLOY is not set to 1"
 fi
+
+######################
+# Cleanup
+docker container prune -f
