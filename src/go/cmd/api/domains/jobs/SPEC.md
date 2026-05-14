@@ -57,8 +57,8 @@ One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
 | JSON key | BSON key | Type | Notes |
 |---|---|---|---|
 | `preference_key` | `preference_key` | `string` | Stable preference identifier |
-| `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot |
-| `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking |
+| `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot used to detect stale per-preference scores |
+| `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking and aggregate recomputation |
 | `score` | `score` | `integer` | AI-generated score from 1 to 5 |
 | `scored_at` | `scored_at` | Timestamp object | `{ "seconds": <unix>, "nanos": 0 }` |
 
@@ -203,6 +203,11 @@ Ranking semantics:
 - AI writes per-preference scores only.
 - The application computes weighted aggregate deterministically from preference weights.
 - Aggregate score is persisted only on the matching `job-preference-scores` document.
+- A per-preference score is reusable only when the stored `preference_guidance` snapshot matches the current identity preference guidance for the same `preference_key`.
+- If guidance changed for one preference key, only that embedded preference score is recomputed; other preference entries remain reusable.
+- `weighted_score` must be recomputed and persisted whenever `preference_guidance`, `preference_weight`, or `preference_scores` membership changes.
+- When an identity preference is removed, matching embedded entries are removed from `preference_scores` by `preference_key`, then `weighted_score` is recomputed.
+- If `preference_scores` becomes empty for a document, `scoring_status` is set to `skipped` and `weighted_score` is set to `0`.
 
 ## Queue And Channel Contracts
 

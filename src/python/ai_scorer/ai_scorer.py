@@ -894,30 +894,126 @@ def process_scoring_job(
         print(f"warn: Skipping job '{job_id}' due to missing preferences list.")
         return
 
+    job_id_str = get_message_id(job_proto)
+    identity_id_str = get_message_id(identity_proto)
+
+    # Load existing per-preference scores before marking QUEUED so we can reuse
+    # entries whose guidance snapshot still matches the current identity preference.
+    existing_pref_map = {}
+    existing_doc = job_preference_scores_col.find_one(
+        {"job_id": job_id_str, "identity_id": identity_id_str}
+    )
+    if existing_doc:
+        for entry in (existing_doc.get("preference_scores") or []):
+            pref_key = entry.get("preference_key", "")
+            if pref_key:
+                existing_pref_map[pref_key] = entry
+
+    print(
+        "debug: Per-preference scoring setup: "
+        + safe_json_dump(
+            {
+                "job_id": job_id_str,
+                "identity_id": identity_id_str,
+                "enabled_preferences": len(enabled_preferences_proto),
+                "existing_preferences": len(existing_pref_map),
+                "test_mode": bool(test_mode),
+            }
+        )
+    )
+
     upsert_identity_score_doc(
         job_preference_scores_col,
-        get_message_id(job_proto),
-        get_message_id(identity_proto),
+        job_id_str,
+        identity_id_str,
         status=common_pb2.SCORING_STATUS_QUEUED,
         preference_scores=[],
     )
 
     try:
         preference_scores = []
-        job_id_str = get_message_id(job_proto)
+        reused_count = 0
+        rescored_count = 0
         for preference in enabled_preferences_proto:
-            score = score_preference(
-                ollama_client,
-                model_name,
-                test_mode,
-                job_id_str,
-                preference,
-                job_proto,
-                company_proto,
-                identity_proto,
+            pref_key = get_field(preference, "key", "")
+            current_guidance = str(
+                get_field(preference, "guidance", "") or get_field(preference, "label", "")
             )
+            stored = existing_pref_map.get(pref_key)
+            if stored and stored.get("preference_guidance") == current_guidance:
+                # Guidance unchanged: reuse existing score and scored_at; update weight snapshot.
+                reused = dict(stored)
+                reused["preference_weight"] = float(get_field(preference, "weight", 0) or 0)
+                preference_scores.append(reused)
+                reused_count += 1
+                print(
+                    "debug: Reusing stored preference score: "
+                    + safe_json_dump(
+                        {
+                            "job_id": job_id_str,
+                            "identity_id": identity_id_str,
+                            "preference_key": pref_key,
+                            "stored_score": reused.get("score"),
+                            "stored_guidance": stored.get("preference_guidance", ""),
+                            "current_guidance": current_guidance,
+                        }
+                    )
+                )
+            else:
+                reason = "guidance_changed_or_missing"
+                if not stored:
+                    reason = "no_existing_score"
+                elif stored.get("preference_guidance") != current_guidance:
+                    reason = "guidance_changed"
+                print(
+                    "debug: Scoring preference via model: "
+                    + safe_json_dump(
+                        {
+                            "job_id": job_id_str,
+                            "identity_id": identity_id_str,
+                            "preference_key": pref_key,
+                            "reason": reason,
+                            "previous_guidance": (stored or {}).get("preference_guidance", ""),
+                            "current_guidance": current_guidance,
+                        }
+                    )
+                )
+                score = score_preference(
+                    ollama_client,
+                    model_name,
+                    test_mode,
+                    job_id_str,
+                    preference,
+                    job_proto,
+                    company_proto,
+                    identity_proto,
+                )
+                preference_scores.append(build_preference_score_doc(preference, score))
+                rescored_count += 1
+                print(
+                    "debug: Model score computed for preference: "
+                    + safe_json_dump(
+                        {
+                            "job_id": job_id_str,
+                            "identity_id": identity_id_str,
+                            "preference_key": pref_key,
+                            "score": score,
+                        }
+                    )
+                )
 
-            preference_scores.append(build_preference_score_doc(preference, score))
+        print(
+            "info: Per-preference scoring summary: "
+            + safe_json_dump(
+                {
+                    "job_id": job_id_str,
+                    "identity_id": identity_id_str,
+                    "enabled_preferences": len(enabled_preferences_proto),
+                    "reused_preferences": reused_count,
+                    "rescored_preferences": rescored_count,
+                }
+            )
+        )
 
         persist_identity_scores(
             job_preference_scores_col,

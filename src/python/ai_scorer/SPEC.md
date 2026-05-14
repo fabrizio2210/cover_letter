@@ -254,8 +254,8 @@ Each entry in `preference_scores` must include:
 | BSON key | Type | Notes |
 |---|---|---|
 | `preference_key` | string | Stable key from identity preference |
-| `preference_guidance` | string | Guidance snapshot |
-| `preference_weight` | number | Weight snapshot |
+| `preference_guidance` | string | Guidance snapshot used for cache-invalidation checks |
+| `preference_weight` | number | Weight snapshot used for deterministic aggregate recomputation |
 | `score` | integer | Integer score in range `1..5` |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 
@@ -294,11 +294,20 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 4. Resolve company via `job-descriptions.company` in global DB.
 5. Resolve identity via company field in per-user `identities`.
 6. Keep only enabled preferences from `identities.preferences`.
-7. For each enabled preference, request a score from Ollama within the currently assigned job worker.
-8. Upsert one `job-preference-scores` document for `(job_id, identity_id)` containing embedded per-preference scores.
-9. Compute weighted aggregate from stored scores and weights.
-10. Update the same `job-preference-scores` document with aggregate fields and terminal `scoring_status`.
-11. Publish scoring-progress updates for run start, incremental completion, and terminal state.
+7. Load any existing `job-preference-scores` document for `(job_id, identity_id)` to evaluate reusable per-preference entries.
+8. For each enabled preference key:
+  - if an existing entry with the same `preference_key` exists and its stored `preference_guidance` exactly matches the current identity preference `guidance`, reuse the existing `score`;
+  - otherwise, recompute only that single preference score via Ollama and replace the embedded entry snapshot fields (`preference_guidance`, `preference_weight`, `score`, `scored_at`).
+9. Upsert one `job-preference-scores` document for `(job_id, identity_id)` containing embedded per-preference scores.
+10. Recompute `weighted_score` deterministically from stored embedded preference scores and their stored `preference_weight` values.
+11. Persist recomputed `weighted_score` on the same `job-preference-scores` document before terminal status write.
+12. Update the same `job-preference-scores` document with terminal `scoring_status`.
+13. Publish scoring-progress updates for run start, incremental completion, and terminal state.
+
+Weighted aggregate recomputation trigger rules:
+- `weighted_score` must be recomputed and persisted whenever any embedded preference entry is inserted, updated, or removed.
+- `weighted_score` must be recomputed and persisted whenever `preference_weight` changes for any embedded preference entry.
+- `weighted_score` recomputation is deterministic and must not depend on model output format.
 
 Scoring lifecycle expectations:
 - Allowed values on score documents: `queued`, `scored`, `failed`, `skipped`.

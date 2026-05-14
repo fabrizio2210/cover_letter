@@ -54,6 +54,12 @@ The crawler may still coexist with manual data entry for companies and recipient
 
 After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns only a score from 1 to 5, while the overall score is computed deterministically by the application using the stored weights.
 
+Per-preference scoring lifecycle:
+- each stored per-preference result keeps the scored `preference_guidance` snapshot and is reusable only while that guidance remains unchanged for the same `preference_key`;
+- when `preference_guidance` changes, only the affected preference score is recomputed, while unchanged preferences remain reusable;
+- `weighted_score` is recomputed and persisted whenever `preference_guidance` or `preference_weight` changes;
+- when a preference is removed from an identity, matching embedded entries are removed from `preference_scores` in `job-preference-scores` by `preference_key`, then `weighted_score` is recomputed.
+
 Separation of concerns:
 - `roles` define discovery scope for crawler queries.
 - `preferences` define scoring criteria and weights.

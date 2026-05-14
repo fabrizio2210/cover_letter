@@ -200,7 +200,23 @@ Response `200`:
 Rules:
 - Preference keys must be unique inside one identity.
 - This endpoint replaces the full preference list.
-- Changing preferences should trigger a full re-score for the identity.
+- Preference updates are applied with immediate bulk recompute semantics for existing score documents of that identity.
+
+Preference update lifecycle:
+1. Compute key sets from old and new lists:
+	- `updated_keys`: keys present in both lists where `guidance`, `weight`, or `enabled` changed.
+	- `removed_keys`: keys present in old list and absent from new list.
+2. Persist the new identity preference list.
+3. Load all `job-preference-scores` documents for that `identity_id`.
+4. For each loaded score document:
+	- remove embedded `preference_scores` entries with `preference_key` in `removed_keys`;
+	- for embedded entries with `preference_key` in `updated_keys`, refresh `preference_weight` from the new identity preference;
+	- when `guidance` changed for a key in `updated_keys`, recompute that single preference score and update its embedded snapshot (`preference_guidance`, `preference_weight`, `score`, `scored_at`);
+	- recompute and persist `weighted_score` deterministically after all per-document mutations.
+5. If a score document has zero remaining embedded `preference_scores` after removal, set `scoring_status` to `skipped` and persist `weighted_score = 0`.
+
+Removal lookup rule:
+- Matching for cleanup must use `preference_key` only.
 
 ## Implementation
 

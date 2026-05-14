@@ -604,6 +604,262 @@ class AiScorerUnitTests(unittest.TestCase):
             self.fail("Expected identity score document")
         self.assertEqual(stored_score.get("scoring_status"), "scored")
 
+    def test_process_scoring_job_reuses_score_when_guidance_unchanged(self):
+        """Existing per-preference scores are reused when guidance snapshot matches."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[{
+                "_id": job_id, "company": company_id,
+                "title": "Eng", "description": "desc", "location": "Remote", "platform": "lever",
+            }]
+        )
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[{
+                "_id": identity_id, "name": "Fab",
+                "preferences": [
+                    {"key": "remote", "guidance": "Remote work", "weight": 1, "enabled": True},
+                    {"key": "backend", "guidance": "Backend only", "weight": 1, "enabled": True},
+                ],
+            }]
+        )
+        score_docs = FakeCollection(
+            docs=[{
+                "job_id": str(job_id), "identity_id": str(identity_id),
+                "preference_scores": [
+                    {"preference_key": "remote", "preference_guidance": "Remote work",
+                     "preference_weight": 1.0, "score": 5, "scored_at": {"seconds": 100, "nanos": 0}},
+                    {"preference_key": "backend", "preference_guidance": "Backend only",
+                     "preference_weight": 1.0, "score": 4, "scored_at": {"seconds": 200, "nanos": 0}},
+                ],
+                "scoring_status": "scored",
+                "weighted_score": 4.5,
+            }]
+        )
+        ollama_client = CountingOllamaClient()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="ch",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=ollama_client,
+            model_name="test-model",
+            test_mode=False,
+            identity_id=str(identity_id),
+        )
+
+        self.assertEqual(ollama_client.call_count, 0, "Ollama must not be called when guidance is unchanged")
+        stored = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored)
+        if stored is None:
+            self.fail("Expected stored score document")
+        pref_map = {p["preference_key"]: p for p in stored.get("preference_scores", [])}
+        self.assertEqual(pref_map["remote"]["scored_at"]["seconds"], 100, "scored_at must be preserved for reused entry")
+        self.assertEqual(pref_map["backend"]["scored_at"]["seconds"], 200, "scored_at must be preserved for reused entry")
+
+    def test_process_scoring_job_recomputes_only_changed_guidance(self):
+        """Only the preference whose guidance changed is recomputed; the other is reused."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[{
+                "_id": job_id, "company": company_id,
+                "title": "Eng", "description": "desc", "location": "Remote", "platform": "lever",
+            }]
+        )
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[{
+                "_id": identity_id, "name": "Fab",
+                "preferences": [
+                    # guidance changed from "Remote work" -> "Fully remote"
+                    {"key": "remote", "guidance": "Fully remote", "weight": 1, "enabled": True},
+                    # guidance unchanged
+                    {"key": "backend", "guidance": "Backend only", "weight": 1, "enabled": True},
+                ],
+            }]
+        )
+        score_docs = FakeCollection(
+            docs=[{
+                "job_id": str(job_id), "identity_id": str(identity_id),
+                "preference_scores": [
+                    {"preference_key": "remote", "preference_guidance": "Remote work",
+                     "preference_weight": 1.0, "score": 5, "scored_at": {"seconds": 100, "nanos": 0}},
+                    {"preference_key": "backend", "preference_guidance": "Backend only",
+                     "preference_weight": 1.0, "score": 4, "scored_at": {"seconds": 200, "nanos": 0}},
+                ],
+                "scoring_status": "scored",
+                "weighted_score": 4.5,
+            }]
+        )
+        ollama_client = CountingOllamaClient()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="ch",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=ollama_client,
+            model_name="test-model",
+            test_mode=False,
+            identity_id=str(identity_id),
+        )
+
+        self.assertEqual(ollama_client.call_count, 1, "Ollama must be called exactly once for the changed preference")
+        stored = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored)
+        if stored is None:
+            self.fail("Expected stored score document")
+        pref_map = {p["preference_key"]: p for p in stored.get("preference_scores", [])}
+        self.assertEqual(pref_map["remote"]["preference_guidance"], "Fully remote",
+                         "New guidance snapshot must be stored after recompute")
+        self.assertNotEqual(pref_map["remote"]["scored_at"]["seconds"], 100,
+                            "scored_at must be updated for recomputed entry")
+        self.assertEqual(pref_map["backend"]["scored_at"]["seconds"], 200,
+                         "scored_at must be preserved for reused entry")
+
+    def test_process_scoring_job_removes_stale_preference_on_rescore(self):
+        """Preferences removed from identity are absent from preference_scores after rescore."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[{
+                "_id": job_id, "company": company_id,
+                "title": "Eng", "description": "desc", "location": "Remote", "platform": "lever",
+            }]
+        )
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[{
+                "_id": identity_id, "name": "Fab",
+                # "system_design" was removed from the identity
+                "preferences": [
+                    {"key": "remote", "guidance": "Remote", "weight": 2, "enabled": True},
+                ],
+            }]
+        )
+        score_docs = FakeCollection(
+            docs=[{
+                "job_id": str(job_id), "identity_id": str(identity_id),
+                "preference_scores": [
+                    {"preference_key": "remote", "preference_guidance": "Remote",
+                     "preference_weight": 2.0, "score": 4, "scored_at": {"seconds": 100, "nanos": 0}},
+                    {"preference_key": "system_design", "preference_guidance": "Good architecture",
+                     "preference_weight": 1.0, "score": 3, "scored_at": {"seconds": 100, "nanos": 0}},
+                ],
+                "scoring_status": "scored",
+                "weighted_score": 3.67,
+            }]
+        )
+        ollama_client = CountingOllamaClient()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="ch",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=ollama_client,
+            model_name="test-model",
+            test_mode=False,
+            identity_id=str(identity_id),
+        )
+
+        stored = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored)
+        if stored is None:
+            self.fail("Expected stored score document")
+        pref_keys = [p["preference_key"] for p in stored.get("preference_scores", [])]
+        self.assertIn("remote", pref_keys)
+        self.assertNotIn("system_design", pref_keys, "Removed preference must be absent after rescore")
+        self.assertAlmostEqual(stored.get("weighted_score"), 4.0,
+                               msg="weighted_score must reflect only remaining preferences")
+
+    def test_process_scoring_job_recomputes_weighted_score_on_weight_change(self):
+        """weighted_score is recomputed using updated preference_weight when weight changes."""
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+
+        jobs = FakeCollection(
+            docs=[{
+                "_id": job_id, "company": company_id,
+                "title": "Eng", "description": "desc", "location": "Remote", "platform": "lever",
+            }]
+        )
+        companies = FakeCollection(docs=[{"_id": company_id, "name": "Acme"}])
+        identities = FakeCollection(
+            docs=[{
+                "_id": identity_id, "name": "Fab",
+                "preferences": [
+                    # weight changed from 1.0 -> 3.0; guidance unchanged
+                    {"key": "remote", "guidance": "Remote", "weight": 3, "enabled": True},
+                    {"key": "backend", "guidance": "Backend only", "weight": 1, "enabled": True},
+                ],
+            }]
+        )
+        score_docs = FakeCollection(
+            docs=[{
+                "job_id": str(job_id), "identity_id": str(identity_id),
+                "preference_scores": [
+                    {"preference_key": "remote", "preference_guidance": "Remote",
+                     "preference_weight": 1.0, "score": 5, "scored_at": {"seconds": 100, "nanos": 0}},
+                    {"preference_key": "backend", "preference_guidance": "Backend only",
+                     "preference_weight": 1.0, "score": 3, "scored_at": {"seconds": 200, "nanos": 0}},
+                ],
+                "scoring_status": "scored",
+                "weighted_score": 4.0,  # (5*1 + 3*1) / (1+1)
+            }]
+        )
+        ollama_client = CountingOllamaClient()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+
+        process_scoring_job(
+            job_id=str(job_id),
+            job_descriptions_col=jobs,
+            companies_col=companies,
+            identities_col=identities,
+            job_preference_scores_col=score_docs,
+            redis_client=FakeRedisClient(),
+            scoring_progress_channel="ch",
+            scoring_run_manager=scoring_run_manager,
+            ollama_client=ollama_client,
+            model_name="test-model",
+            test_mode=False,
+            identity_id=str(identity_id),
+        )
+
+        self.assertEqual(ollama_client.call_count, 0, "Ollama must not be called when only weight changed")
+        stored = score_docs.find_one({"job_id": str(job_id), "identity_id": str(identity_id)})
+        self.assertIsNotNone(stored)
+        if stored is None:
+            self.fail("Expected stored score document")
+        # weighted_score = (5*3 + 3*1) / (3+1) = 18/4 = 4.5
+        self.assertAlmostEqual(stored.get("weighted_score"), 4.5,
+                               msg="weighted_score must be recomputed from updated weights")
+
 
 class TimestampTests(unittest.TestCase):
     def test_now_timestamp_dict_shape(self):
@@ -612,6 +868,17 @@ class TimestampTests(unittest.TestCase):
         self.assertIn("nanos", ts)
         self.assertIsInstance(ts["seconds"], int)
         self.assertEqual(ts["nanos"], 0)
+
+
+class CountingOllamaClient:
+    """Fake Ollama client that tracks how many times chat() is called."""
+
+    def __init__(self):
+        self.call_count = 0
+
+    def chat(self, model, messages, options):
+        self.call_count += 1
+        return {"message": {"content": "3"}}
 
 
 class WorkerPoolConfigTests(unittest.TestCase):

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"testing"
 
@@ -50,6 +51,7 @@ type fakeMongoCollection struct {
 	updateDoc    interface{}
 	updateErr    error
 	updateResult *mongo.UpdateResult
+	updateCalls  []struct{ filter, doc interface{} }
 
 	deleteFilter interface{}
 	deleteErr    error
@@ -90,6 +92,7 @@ func (f *fakeMongoCollection) FindOne(_ context.Context, filter interface{}) Mon
 func (f *fakeMongoCollection) UpdateOne(_ context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error) {
 	f.updateFilter = filter
 	f.updateDoc = update
+	f.updateCalls = append(f.updateCalls, struct{ filter, doc interface{} }{filter, update})
 	if f.updateErr != nil {
 		return nil, f.updateErr
 	}
@@ -156,14 +159,19 @@ func (f *fakeMongoSingleResult) Decode(v interface{}) error {
 	return nil
 }
 
-func withFakeMongo(t *testing.T, col MongoCollectionIface) {
+func withFakeMongoMultiCollection(t *testing.T, cols map[string]MongoCollectionIface) {
 	t.Helper()
 	prev := getMongoClient
-	client := &fakeMongoClient{db: &fakeMongoDatabase{collections: map[string]MongoCollectionIface{"identities": col}}}
+	client := &fakeMongoClient{db: &fakeMongoDatabase{collections: cols}}
 	SetMongoClientProvider(func() MongoClientIface { return client })
 	t.Cleanup(func() {
 		getMongoClient = prev
 	})
+}
+
+func withFakeMongo(t *testing.T, col MongoCollectionIface) {
+	t.Helper()
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{"identities": col})
 }
 
 func decodeResponseMap(t *testing.T, body []byte) map[string]interface{} {
@@ -909,5 +917,523 @@ func TestAssociateFieldWithIdentity_ConvertsFieldIDToObjectID(t *testing.T) {
 	setDoc := updateDoc["$set"].(bson.M)
 	if _, ok := setDoc["field_id"].(primitive.ObjectID); !ok {
 		t.Fatalf("field_id should be ObjectID, got %T", setDoc["field_id"])
+	}
+}
+
+// --- UpdateIdentityPreferences scoring lifecycle tests ---
+
+func withFakeQueuePush(t *testing.T) *[]map[string]string {
+	t.Helper()
+	prev := queuePush
+	calls := &[]map[string]string{}
+	SetQueuePushProvider(func(_ context.Context, _ string, payload []byte) error {
+		var m map[string]string
+		if err := json.Unmarshal(payload, &m); err != nil {
+			return err
+		}
+		*calls = append(*calls, m)
+		return nil
+	})
+	t.Cleanup(func() { queuePush = prev })
+	return calls
+}
+
+func TestUpdateIdentityPreferences_OldPreferencesNotFound_ProceedsNoDiff(t *testing.T) {
+	id := primitive.NewObjectID().Hex()
+	identCol := &fakeMongoCollection{
+		// FindOne returns ErrNoDocuments (default when singleResult is nil)
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	queueCalls := withFakeQueuePush(t)
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{"identities": identCol})
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"Remote only"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+id+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+id+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: id}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(*queueCalls) != 0 {
+		t.Fatalf("expected no queue pushes, got %d", len(*queueCalls))
+	}
+}
+
+func TestUpdateIdentityPreferences_FetchOldPreferencesFails(t *testing.T) {
+	id := primitive.NewObjectID().Hex()
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{err: errors.New("mongo unavailable")},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{"identities": identCol})
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"Remote only"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+id+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+id+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: id}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	payload := decodeResponseMap(t, rec.Body.Bytes())
+	if payload["error"] != "Failed to fetch identity" {
+		t.Fatalf("unexpected error: %#v", payload)
+	}
+}
+
+func TestUpdateIdentityPreferences_GuidanceChanged_DropsStaleScoredEntry(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Old guidance", "weight": float64(1), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-abc",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Old guidance", "preference_weight": float64(1), "score": int32(4)},
+			},
+			"weighted_score":  float64(4),
+			"scoring_status":  "scored",
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	// guidance changed: "Old guidance" → "New guidance"
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"New guidance"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(scoreCol.updateCalls) != 1 {
+		t.Fatalf("expected 1 score UpdateOne call, got %d", len(scoreCol.updateCalls))
+	}
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	entries, _ := setDoc["preference_scores"].(bson.A)
+	if len(entries) != 0 {
+		t.Fatalf("expected stale entry dropped, got %d entries", len(entries))
+	}
+	if setDoc["scoring_status"] != "skipped" {
+		t.Fatalf("expected scoring_status=skipped after all entries removed, got %#v", setDoc["scoring_status"])
+	}
+	if setDoc["weighted_score"] != float64(0) {
+		t.Fatalf("expected weighted_score=0, got %#v", setDoc["weighted_score"])
+	}
+}
+
+func TestUpdateIdentityPreferences_GuidanceChanged_EnqueuesRescore(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Old guidance", "weight": float64(1), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-xyz",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Old guidance", "preference_weight": float64(1), "score": int32(3)},
+			},
+			"weighted_score": float64(3),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+	queueCalls := withFakeQueuePush(t)
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"New guidance"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(*queueCalls) != 1 {
+		t.Fatalf("expected 1 queue push, got %d", len(*queueCalls))
+	}
+	call := (*queueCalls)[0]
+	if call["job_id"] != "job-xyz" {
+		t.Fatalf("unexpected job_id in queue payload: %#v", call)
+	}
+	if call["identity_id"] != identityID {
+		t.Fatalf("unexpected identity_id in queue payload: %#v", call)
+	}
+}
+
+func TestUpdateIdentityPreferences_RemovedKey_RemovesFromScoreDoc(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	// old identity has two prefs: "remote" and "salary"
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Remote work", "weight": float64(1), "enabled": true},
+				bson.M{"key": "salary", "guidance": "High salary", "weight": float64(2), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	// score doc has entries for both
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-111",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Remote work", "preference_weight": float64(1), "score": int32(4)},
+				bson.M{"preference_key": "salary", "preference_guidance": "High salary", "preference_weight": float64(2), "score": int32(5)},
+			},
+			"weighted_score": float64(4.67),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+	queueCalls := withFakeQueuePush(t)
+
+	// new list has only "remote" — "salary" is removed
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"Remote work"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(*queueCalls) != 0 {
+		t.Fatalf("expected no queue pushes (guidance unchanged), got %d", len(*queueCalls))
+	}
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	entries, _ := setDoc["preference_scores"].(bson.A)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 remaining entry, got %d", len(entries))
+	}
+	remaining, _ := entries[0].(bson.M)
+	if remaining["preference_key"] != "remote" {
+		t.Fatalf("expected 'remote' to remain, got %#v", remaining["preference_key"])
+	}
+	// weighted_score = 4*1 / 1 = 4
+	if setDoc["weighted_score"] != float64(4) {
+		t.Fatalf("expected weighted_score=4, got %#v", setDoc["weighted_score"])
+	}
+}
+
+func TestUpdateIdentityPreferences_WeightChanged_UpdatesWeightInScoreDoc(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Remote work", "weight": float64(1), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-222",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Remote work", "preference_weight": float64(1), "score": int32(4)},
+			},
+			"weighted_score": float64(4),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	// weight changed from 1 → 3, guidance unchanged
+	reqBody := `{"preferences":[{"key":"remote","weight":3,"enabled":true,"guidance":"Remote work"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	entries, _ := setDoc["preference_scores"].(bson.A)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	entry, _ := entries[0].(bson.M)
+	if entry["preference_weight"] != float64(3) {
+		t.Fatalf("expected preference_weight updated to 3, got %#v", entry["preference_weight"])
+	}
+	// weighted_score = 4*3/3 = 4
+	if setDoc["weighted_score"] != float64(4) {
+		t.Fatalf("expected weighted_score=4, got %#v", setDoc["weighted_score"])
+	}
+}
+
+func TestUpdateIdentityPreferences_WeightChanged_RecomputesWeightedScore(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Remote work", "weight": float64(1), "enabled": true},
+				bson.M{"key": "salary", "guidance": "High salary", "weight": float64(2), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-223",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Remote work", "preference_weight": float64(1), "score": int32(4)},
+				bson.M{"preference_key": "salary", "preference_guidance": "High salary", "preference_weight": float64(2), "score": int32(5)},
+			},
+			"weighted_score": float64(4.6666667),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	// Change remote weight from 1 -> 3 and keep salary unchanged at 2.
+	reqBody := `{"preferences":[{"key":"remote","weight":3,"enabled":true,"guidance":"Remote work"},{"key":"salary","weight":2,"enabled":true,"guidance":"High salary"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(scoreCol.updateCalls) != 1 {
+		t.Fatalf("expected one score doc update, got %d", len(scoreCol.updateCalls))
+	}
+
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	entries, _ := setDoc["preference_scores"].(bson.A)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// Ensure remote entry weight was updated from 1 to 3.
+	var remoteWeight float64
+	for _, item := range entries {
+		entry, ok := item.(bson.M)
+		if !ok {
+			continue
+		}
+		if entry["preference_key"] == "remote" {
+			remoteWeight, _ = entry["preference_weight"].(float64)
+		}
+	}
+	if remoteWeight != 3 {
+		t.Fatalf("expected remote preference_weight=3, got %v", remoteWeight)
+	}
+
+	// New weighted_score = (4*3 + 5*2) / (3+2) = 4.4
+	weightedScore, ok := setDoc["weighted_score"].(float64)
+	if !ok {
+		t.Fatalf("weighted_score has unexpected type: %T", setDoc["weighted_score"])
+	}
+	if math.Abs(weightedScore-4.4) > 1e-9 {
+		t.Fatalf("expected weighted_score=4.4, got %v", weightedScore)
+	}
+}
+
+func TestUpdateIdentityPreferences_ZeroRemainingEntries_SetsSkipped(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id": identObjID,
+			"preferences": bson.A{
+				bson.M{"key": "remote", "guidance": "Old", "weight": float64(1), "enabled": true},
+			},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":         scoreDocID,
+			"job_id":      "job-333",
+			"identity_id": identityID,
+			"preference_scores": bson.A{
+				bson.M{"preference_key": "remote", "preference_guidance": "Old", "preference_weight": float64(1), "score": int32(3)},
+			},
+			"weighted_score": float64(3),
+		}}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	// empty preference list — all removed
+	reqBody := `{"preferences":[]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	setDoc := scoreCol.updateCalls[0].doc.(bson.M)["$set"].(bson.M)
+	if setDoc["scoring_status"] != "skipped" {
+		t.Fatalf("expected scoring_status=skipped, got %#v", setDoc["scoring_status"])
+	}
+	if setDoc["weighted_score"] != float64(0) {
+		t.Fatalf("expected weighted_score=0, got %#v", setDoc["weighted_score"])
+	}
+}
+
+func TestUpdateIdentityPreferences_ScoreDocAggregateError(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id":         identObjID,
+			"preferences": bson.A{},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		aggregateErr: errors.New("aggregate failed"),
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"OK"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	payload := decodeResponseMap(t, rec.Body.Bytes())
+	if payload["error"] != "Failed to load score documents" {
+		t.Fatalf("unexpected error: %#v", payload)
+	}
+}
+
+func TestUpdateIdentityPreferences_ScoreDocUpdateError(t *testing.T) {
+	identityID := primitive.NewObjectID().Hex()
+	identObjID, _ := primitive.ObjectIDFromHex(identityID)
+	scoreDocID := primitive.NewObjectID()
+
+	identCol := &fakeMongoCollection{
+		singleResult: &fakeMongoSingleResult{doc: bson.M{
+			"_id":         identObjID,
+			"preferences": bson.A{},
+		}},
+		updateResult: &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1},
+	}
+	scoreCol := &fakeMongoCollection{
+		cursor: &fakeMongoCursor{docs: []bson.M{{
+			"_id":               scoreDocID,
+			"job_id":            "job-444",
+			"identity_id":       identityID,
+			"preference_scores": bson.A{},
+			"weighted_score":    float64(0),
+		}}},
+		updateErr: errors.New("update failed"),
+	}
+	withFakeMongoMultiCollection(t, map[string]MongoCollectionIface{
+		"identities":            identCol,
+		"job-preference-scores": scoreCol,
+	})
+
+	reqBody := `{"preferences":[{"key":"remote","weight":1,"enabled":true,"guidance":"OK"}]}`
+	req, _ := http.NewRequest(http.MethodPut, "/api/identities/"+identityID+"/preferences", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx, rec := apitesting.CreateGinTestContext(http.MethodPut, "/api/identities/"+identityID+"/preferences", req)
+	ctx.Params = gin.Params{{Key: "id", Value: identityID}}
+
+	UpdateIdentityPreferences(ctx)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	payload := decodeResponseMap(t, rec.Body.Bytes())
+	if payload["error"] != "Failed to update score document" {
+		t.Fatalf("unexpected error: %#v", payload)
 	}
 }
