@@ -8,7 +8,7 @@ generate-proto:
 	# 4. Generate Python code for ai_scorer
 	protoc --plugin=protoc-gen-mypy=/usr/bin/protoc-gen-mypy --mypy_out=src/python/ai_scorer/ --python_out=src/python/ai_scorer/ --proto_path=src/go/internal/proto/common/ common.proto
 
-.PHONY: test-fast test-full install-hooks
+.PHONY: test-fast test-full install-hooks eval-scorer
 
 test-fast:
 	bash scripts/test-gate.sh --mode fast
@@ -18,4 +18,7 @@ test-full:
 
 install-hooks:
 	git config core.hooksPath .githooks
-	chmod +x .githooks/pre-commit .githooks/pre-push scripts/test-gate.sh
+	chmod +x .githooks/pre-commit .githooks/pre-push scripts/test-gate.sh scripts/eval-scorer.sh
+
+eval-scorer:
+	bash scripts/eval-scorer.sh $(CANDIDATE_MODEL)

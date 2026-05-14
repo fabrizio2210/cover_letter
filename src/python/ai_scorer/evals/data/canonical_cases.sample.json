@@ -1,0 +1,62 @@
+[
+  {
+    "case_id": "sample_remote_1",
+    "source": {
+      "job_id": "sample-1",
+      "db": "cover_letter_global",
+      "extracted_at": "2026-05-14T00:00:00Z"
+    },
+    "job": {
+      "title": "Platform Engineer",
+      "description": "This role is fully remote and focuses on backend distributed systems.",
+      "location": "Remote"
+    },
+    "preference": {
+      "key": "remote",
+      "guidance": "Prefers fully remote roles"
+    },
+    "expected": {
+      "score_available": true,
+      "score": 5
+    },
+    "tags": [
+      "long_description",
+      "remote"
+    ],
+    "redaction": {
+      "emails": 0,
+      "phones": 0,
+      "urls": 0
+    }
+  },
+  {
+    "case_id": "sample_remote_na_1",
+    "source": {
+      "job_id": "sample-2",
+      "db": "cover_letter_global",
+      "extracted_at": "2026-05-14T00:00:00Z"
+    },
+    "job": {
+      "title": "Engineering Manager",
+      "description": "Lead software teams and coordinate project delivery.",
+      "location": "Unknown"
+    },
+    "preference": {
+      "key": "remote",
+      "guidance": "Prefers fully remote roles"
+    },
+    "expected": {
+      "score_available": false,
+      "score": null
+    },
+    "tags": [
+      "short_description",
+      "ambiguous"
+    ],
+    "redaction": {
+      "emails": 0,
+      "phones": 0,
+      "urls": 0
+    }
+  }
+]

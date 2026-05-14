@@ -1,0 +1,14 @@
+[
+  {
+    "key": "coding",
+    "guidance": "It requires a lot of coding"
+  },
+  {
+    "key": "remote_work",
+    "guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred."
+  },
+  {
+    "key": "backend_infra",
+    "guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit."
+  }
+]

@@ -1,0 +1,10 @@
+[
+  {
+    "key": "remote",
+    "guidance": "Prefers fully remote roles"
+  },
+  {
+    "key": "backend",
+    "guidance": "Prefers backend engineering work"
+  }
+]
