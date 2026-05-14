@@ -180,6 +180,18 @@
           <span class="status-chip">{{ job.score?.scoring_status || 'unscored' }}</span>
         </div>
 
+        <div class="preference-scores" *ngIf="job.score as score">
+          <ng-container *ngIf="getPreferenceScores(score).length > 0; else noPreferenceScores">
+            <div class="preference-score-item" *ngFor="let preferenceScore of getPreferenceScores(score)">
+              <span class="preference-score-key">{{ preferenceScore.preference_key }}</span>
+              <span class="preference-score-value">{{ formatPreferenceScore(preferenceScore) }}</span>
+            </div>
+          </ng-container>
+          <ng-template #noPreferenceScores>
+            <div class="preference-score-empty">No preference scores yet</div>
+          </ng-template>
+        </div>
+
         <div class="job-actions">
           <button type="button" class="primary-btn" (click)="prepareCoverLetter(job); $event.stopPropagation()">Prepare Cover Letter</button>
           <button type="button" class="ghost-btn" (click)="markAsNotInterested(job); $event.stopPropagation()">Mark as Not Interested</button>

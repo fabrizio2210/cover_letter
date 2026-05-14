@@ -7,7 +7,7 @@ import { Subscription, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 import { IdentityContextService } from '../../core/services/identity-context.service';
-import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, ScoredJobDescription, ScoringProgress, ActivitySummaryResponse } from '../../shared/models/models';
+import { CrawlProgress, Identity, JobDescription, JobPreferenceScore, JobUpdateEvent, PreferenceScore, ScoredJobDescription, ScoringProgress, ActivitySummaryResponse } from '../../shared/models/models';
 import { getCrawlSnapshotKey, getCrawlStatusRank, getWorkflowLabel } from '../../shared/utils/workflow-utils';
 
 type ScoreFilterMode = 'atLeast' | 'exactly' | 'atMost';
@@ -458,6 +458,22 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
   formatScore(score?: number): string {
     return (score ?? 0).toFixed(1);
+  }
+
+  formatPreferenceScore(preferenceScore?: PreferenceScore | null): string {
+    if (!preferenceScore || preferenceScore.score_available === false) {
+      return 'N/A';
+    }
+
+    if (typeof preferenceScore.score !== 'number' || Number.isNaN(preferenceScore.score)) {
+      return 'N/A';
+    }
+
+    return `${Math.round(preferenceScore.score)}`;
+  }
+
+  getPreferenceScores(score?: JobPreferenceScore | null): PreferenceScore[] {
+    return score?.preference_scores || [];
   }
 
   setScorePreset(value: number): void {

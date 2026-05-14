@@ -62,11 +62,8 @@ For Job Discovery score rendering (cards, ranked list rows, and selected-job det
 
 - show `weighted_score` as the primary score indicator when `weighted_score_available=true`;
 - show N/A for aggregate score when `weighted_score_available=false`;
-- show per-preference entries from `preference_scores` including:
-	- `preference_key`
-	- `preference_guidance`
-	- `preference_weight`
-	- `score` (`1..5` when `score_available=true`, otherwise N/A)
+- for each scored job card, show every per-preference entry from `preference_scores` as the pair `preference_key` + `score` (`1..5` when `score_available=true`, otherwise N/A);
+- do not render `preference_guidance` or `preference_weight` in job cards;
 - treat per-preference score entries as first-class explanation for ranking outcomes.
 
 ---

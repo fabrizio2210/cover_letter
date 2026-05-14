@@ -180,6 +180,43 @@
   text-transform: uppercase;
 }
 
+.preference-scores {
+  margin-top: 0.75rem;
+  border: 1px solid #dfe8fa;
+  border-radius: 0.75rem;
+  background: #f8fbff;
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.preference-score-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  font-size: 0.78rem;
+}
+
+.preference-score-key {
+  color: #456087;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.preference-score-value {
+  color: #1648b3;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.preference-score-empty {
+  color: #7c8ea8;
+  font-size: 0.76rem;
+  font-style: italic;
+}
+
 .job-actions {
   margin-top: 0.9rem;
   display: flex;

@@ -269,7 +269,19 @@ describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
     apiServiceSpy.getIdentities.and.returnValue(of([]));
     apiServiceSpy.getActiveCrawls.and.returnValue(of([]));
     apiServiceSpy.getActiveScoring.and.returnValue(of([]));
-    apiServiceSpy.getActivitySummary.and.returnValue(of({ queue_depth: {}, crawl_progress: [], scoring_progress: [] } as any));
+    apiServiceSpy.getActivitySummary.and.returnValue(of({
+      active_workflows: [],
+      global_queue_depth: {
+        crawler_trigger: 0,
+        crawler_ycombinator: 0,
+        crawler_hackernews: 0,
+        crawler_ats_job_extraction: 0,
+        crawler_levelsfyi: 0,
+        crawler_4dayweek: 0,
+        crawler_enrichment_ats: 0,
+        job_scoring: 0,
+      },
+    } as any));
     apiServiceSpy.subscribeToCrawlProgress.and.returnValue(of());
     apiServiceSpy.subscribeToScoringProgress.and.returnValue(of());
     apiServiceSpy.subscribeToJobUpdates.and.returnValue(of());
@@ -340,3 +352,4 @@ describe('JobDiscoveryComponent refreshJobsOnTerminalProgress', () => {
     expect(apiServiceSpy.getJobPreferenceScores).toHaveBeenCalledTimes(1);
   });
 });
+
