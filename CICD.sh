@@ -245,3 +245,4 @@ fi
 ######################
 # Cleanup
 docker container prune -f
+docker volume prune -f
