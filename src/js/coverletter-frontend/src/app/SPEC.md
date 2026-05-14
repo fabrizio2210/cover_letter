@@ -56,6 +56,19 @@ Crawl progress is tracked via SSE. The \`CrawlProgress\` type defines the status
 - **Settings**: User-specific settings only (`user_settings` scope).
 - **Admin Fields**: Global fields CRUD is admin-only (`/api/admin/fields`) and not part of user settings.
 
+### 4.1 Score Display Contract
+
+For Job Discovery score rendering (cards, ranked list rows, and selected-job detail panels), the UI contract is:
+
+- show `weighted_score` as the primary score indicator when `weighted_score_available=true`;
+- show N/A for aggregate score when `weighted_score_available=false`;
+- show per-preference entries from `preference_scores` including:
+	- `preference_key`
+	- `preference_guidance`
+	- `preference_weight`
+	- `score` (`1..5` when `score_available=true`, otherwise N/A)
+- treat per-preference score entries as first-class explanation for ranking outcomes.
+
 ---
 
 ## 5. SSE Progress Handling

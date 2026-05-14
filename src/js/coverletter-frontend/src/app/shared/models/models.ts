@@ -71,7 +71,6 @@ export interface PreferenceScore {
   preference_weight?: number;
   score: number;
   score_available?: boolean;
-  rationale?: string;
   scored_at?: string | Timestamp;
 }
 

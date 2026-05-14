@@ -120,7 +120,6 @@ message PreferenceScore {
     string preference_guidance = 2; // @gotags: bson:"preference_guidance,omitempty"
     double preference_weight = 3; // @gotags: bson:"preference_weight,omitempty"
     int32 score = 4; // @gotags: bson:"score"
-    string rationale = 5; // @gotags: bson:"rationale,omitempty"
     google.protobuf.Timestamp scored_at = 6; // @gotags: bson:"scored_at,omitempty"
     bool score_available = 7; // @gotags: bson:"score_available,omitempty"
 }

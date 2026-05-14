@@ -180,21 +180,6 @@
   text-transform: uppercase;
 }
 
-.rationale-box {
-  margin-top: 0.85rem;
-  border-left: 3px solid #4f82ff;
-  background: #f7f9ff;
-  border-radius: 0.65rem;
-  padding: 0.75rem;
-  color: #3a4d6f;
-}
-
-.rationale-box p {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.5;
-}
-
 .job-actions {
   margin-top: 0.9rem;
   display: flex;

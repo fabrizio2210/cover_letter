@@ -201,6 +201,10 @@ Query params:
 
 Response `200`: array of `JobPreferenceScore` filtered by query params.
 
+Response usage contract:
+- clients must treat `weighted_score` as the primary aggregate ranking indicator;
+- clients must render the embedded `preference_scores` breakdown for preference-level visibility.
+
 Ranking semantics:
 - AI writes per-preference scores only.
 - The application computes weighted aggregate deterministically from preference weights.

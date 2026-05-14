@@ -54,6 +54,10 @@ The crawler may still coexist with manual data entry for companies and recipient
 
 After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns only a score from 1 to 5, while the overall score is computed deterministically by the application using the stored weights.
 
+Score visualization contract:
+- the Job Discovery UI must display the deterministic `weighted_score` as the primary ranking value;
+- the Job Discovery UI must also display embedded `preference_scores` entries so users can inspect each preference-level score (`score` or N/A) together with its `preference_key` and `preference_guidance` context.
+
 Per-preference scoring lifecycle:
 - each stored per-preference result keeps the scored `preference_guidance` snapshot and is reusable only while that guidance remains unchanged for the same `preference_key`;
 - when `preference_guidance` changes, only the affected preference score is recomputed, while unchanged preferences remain reusable;
@@ -178,7 +182,7 @@ Default redirect: `/dashboard` renders the overview directly (no longer redirect
 - feedback toasts for asynchronous operations.
 
 ### Target features (UX-specified, not yet built)
-- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, identity selector, manual crawl trigger, crawler-status widget with progress bar and live phase updates, per-identity discovery settings panel; company details and open positions are shown when a job is selected;
+- Job Discovery page: ranked feed, filter chips, Re-Rank trigger, identity selector, manual crawl trigger, crawler-status widget with progress bar and live phase updates, per-identity discovery settings panel; score widgets show both `weighted_score` and per-preference `preference_scores` breakdown; company details and open positions are shown when a job is selected;
 - Identity preference editing: weight bars per preference, "Add Preference" action, Global Curator Preferences section (writing tone, discovery interval, AI creativity);
 - Split-pane Letter Editor with rich-text toolbar and AI Refiner chat panel (conversation history, Apply Change / Undo);
 - Dashboard overview with stat cards (Active Applications, Total Jobs Scraped, Top AI-Scored Jobs, Sent Letters), scrollable Top Scored Opportunities feed, live crawler progress for the currently active identity run, and a last-completed-run workflow stats widget that shows discovered jobs and discovered companies for each `crawler_` workflow;

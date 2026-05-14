@@ -441,13 +441,6 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return this.selectedJob?.id === job.id;
   }
 
-  getFirstRationale(job: ScoredJobDescription): string {
-    const rationale = job.score?.preference_scores
-      .find((preferenceScore) => preferenceScore.rationale)
-      ?.rationale;
-    return rationale || 'No rationale available yet. Trigger reranking to enrich this job.';
-  }
-
   renderJobDescription(description?: string): string {
     const rawDescription = (description || '').trim();
     if (!rawDescription) {
