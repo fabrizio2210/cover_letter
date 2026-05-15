@@ -536,7 +536,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because it is a hands-on Android engineering role, but part of the scope is platform collaboration and observability enablement rather than pure feature coding volume.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -910,7 +910,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because available signals suggest only moderate backend/infra alignment.",
+    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role spans agent orchestration, backend systems, and cloud infrastructure, but also includes web-interface work so it is not a pure backend/infra-only role.",
     "tags": [
       "rich_description",
       "remote_location"
