@@ -8,7 +8,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "empty_description",
       "remote_location"
@@ -30,7 +30,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "empty_description",
       "remote_location"
@@ -52,7 +52,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 3,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=3 available=True because it is platform-oriented but explicitly frontend-leaning, so backend/infra fit is only partial.",
+    "rationale": "[model=gpt-5] score=3 available=True because it is platform-oriented but explicitly frontend-leaning, so backend/infra fit is only partial.",
     "tags": [
       "empty_description",
       "remote_location"
@@ -74,7 +74,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because this is primarily a management role, so heavy hands-on coding is less central.",
+    "rationale": "[model=gpt-5] score=2 available=True because this is primarily a management role, so heavy hands-on coding is less central.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -96,7 +96,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -118,7 +118,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 3,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=3 available=True because the role is management-oriented, so backend/infra individual-contributor fit is limited.",
+    "rationale": "[model=gpt-5] score=3 available=True because the role is management-oriented, so backend/infra individual-contributor fit is limited.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -140,7 +140,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -162,7 +162,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -184,7 +184,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -206,7 +206,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -228,7 +228,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -250,7 +250,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -272,7 +272,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -294,7 +294,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -316,7 +316,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -338,7 +338,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -360,7 +360,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -382,7 +382,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -404,7 +404,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -426,7 +426,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -448,7 +448,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 3,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=3 available=True because available signals suggest only moderate backend/infra alignment.",
+    "rationale": "[model=gpt-5] score=3 available=True because available signals suggest only moderate backend/infra alignment.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -470,7 +470,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -492,7 +492,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -514,7 +514,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -536,7 +536,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because it is a hands-on Android engineering role, but part of the scope is platform collaboration and observability enablement rather than pure feature coding volume.",
+    "rationale": "[model=gpt-5] score=4 available=True because it is a hands-on Android engineering role, but part of the scope is platform collaboration and observability enablement rather than pure feature coding volume.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -558,7 +558,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -580,7 +580,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because despite platform wording, the mobile-android emphasis is not aligned with backend/infra preference.",
+    "rationale": "[model=gpt-5] score=2 available=True because despite platform wording, the mobile-android emphasis is not aligned with backend/infra preference.",
     "tags": [
       "medium_description",
       "remote_location"
@@ -602,7 +602,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -624,7 +624,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -646,7 +646,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because platform focus indicates good backend/infra alignment, though details are broad rather than backend-only.",
+    "rationale": "[model=gpt-5] score=4 available=True because platform focus indicates good backend/infra alignment, though details are broad rather than backend-only.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -668,7 +668,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -690,7 +690,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -712,7 +712,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because the role is software-heavy but research/HPC oriented rather than backend infrastructure focused.",
+    "rationale": "[model=gpt-5] score=2 available=True because the role is software-heavy but research/HPC oriented rather than backend infrastructure focused.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -734,7 +734,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -756,7 +756,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -778,7 +778,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because the role is software-heavy but research/HPC oriented rather than backend infrastructure focused.",
+    "rationale": "[model=gpt-5] score=2 available=True because the role is software-heavy but research/HPC oriented rather than backend infrastructure focused.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -800,7 +800,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -822,7 +822,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -844,7 +844,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -866,7 +866,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -888,7 +888,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -910,7 +910,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role spans agent orchestration, backend systems, and cloud infrastructure, but also includes web-interface work so it is not a pure backend/infra-only role.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role spans agent orchestration, backend systems, and cloud infrastructure, but also includes web-interface work so it is not a pure backend/infra-only role.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -932,7 +932,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 4,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
+    "rationale": "[model=gpt-5] score=4 available=True because the role is technical and includes coding, but scope suggests balanced responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -954,7 +954,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -976,7 +976,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -998,7 +998,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because this is primarily a management role, so heavy hands-on coding is less central.",
+    "rationale": "[model=gpt-5] score=2 available=True because this is primarily a management role, so heavy hands-on coding is less central.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -1020,7 +1020,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -1042,7 +1042,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 2,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=2 available=True because the role is management-oriented, so backend/infra individual-contributor fit is limited.",
+    "rationale": "[model=gpt-5] score=2 available=True because the role is management-oriented, so backend/infra individual-contributor fit is limited.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -1064,7 +1064,7 @@
     "preference_guidance": "It requires a lot of coding",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+    "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -1086,7 +1086,7 @@
     "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+    "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
     "tags": [
       "rich_description",
       "remote_location"
@@ -1108,7 +1108,7 @@
     "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
     "expected_score": 5,
     "expected_score_available": true,
-    "rationale": "[model=qwen2.5:1.5b] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+    "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
     "tags": [
       "rich_description",
       "remote_location"
