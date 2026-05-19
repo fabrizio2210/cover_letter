@@ -22,6 +22,7 @@ class CaseResult:
     actual_score: Optional[int]
     actual_score_available: Optional[bool]
     error: Optional[str] = None  # set when model call threw an exception
+    latency_ms: Optional[float] = None  # wall-clock time for the model call
 
 
 @dataclass
@@ -39,6 +40,11 @@ class EvalMetrics:
     mean_abs_error: float
     # Count of actual score predictions (keys: "1".."5", "na", "error")
     score_distribution: dict = field(default_factory=dict)
+    # Per-case latency statistics (ms); None when no timing data is available
+    mean_latency_ms: Optional[float] = None
+    p50_latency_ms: Optional[float] = None
+    p95_latency_ms: Optional[float] = None
+    total_latency_ms: Optional[float] = None
 
 
 @dataclass
@@ -56,6 +62,19 @@ class RegressionResult:
 EXACT_ACCURACY_DROP_THRESHOLD = 0.03
 NA_F1_DROP_THRESHOLD = 0.05
 MAE_INCREASE_THRESHOLD = 0.20
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _percentile(values: list, p: float) -> float:
+    """Linear-interpolation percentile over a non-empty list of floats."""
+    s = sorted(values)
+    k = (len(s) - 1) * p / 100.0
+    lo = int(k)
+    hi = min(lo + 1, len(s) - 1)
+    return s[lo] + (s[hi] - s[lo]) * (k - lo)
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +168,19 @@ def compute_metrics(results: list) -> EvalMetrics:
         else:
             dist["error"] += 1
 
+    # --- Latency stats ---
+    latencies = [
+        r.latency_ms for r in results
+        if r.latency_ms is not None and r.error is None
+    ]
+    if latencies:
+        mean_latency_ms = sum(latencies) / len(latencies)
+        p50_latency_ms = _percentile(latencies, 50)
+        p95_latency_ms = _percentile(latencies, 95)
+        total_latency_ms = sum(latencies)
+    else:
+        mean_latency_ms = p50_latency_ms = p95_latency_ms = total_latency_ms = None
+
     return EvalMetrics(
         total=total,
         errored=errored,
@@ -158,6 +190,10 @@ def compute_metrics(results: list) -> EvalMetrics:
         na_f1=na_f1,
         mean_abs_error=mean_abs_error,
         score_distribution=dist,
+        mean_latency_ms=mean_latency_ms,
+        p50_latency_ms=p50_latency_ms,
+        p95_latency_ms=p95_latency_ms,
+        total_latency_ms=total_latency_ms,
     )
 
 

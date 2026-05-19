@@ -31,15 +31,37 @@ def write_summary(
     run_at: str,
     candidate_metrics,
     regression,
+    reference_metrics_dict: Optional[dict] = None,
 ) -> str:
     """Write summary.json; returns its path."""
+    cm_dict = _metrics_to_dict(candidate_metrics)
+
+    timing: dict = {}
+    if candidate_metrics.mean_latency_ms is not None:
+        timing["candidate"] = {
+            "mean_ms": round(candidate_metrics.mean_latency_ms, 1),
+            "p50_ms": round(candidate_metrics.p50_latency_ms, 1),
+            "p95_ms": round(candidate_metrics.p95_latency_ms, 1),
+            "total_ms": round(candidate_metrics.total_latency_ms, 1),
+        }
+    if reference_metrics_dict:
+        baseline_mean = reference_metrics_dict.get("mean_latency_ms")
+        if baseline_mean is not None:
+            timing["baseline"] = {
+                "mean_ms": round(baseline_mean, 1),
+                "p50_ms": round(reference_metrics_dict.get("p50_latency_ms", 0.0), 1),
+                "p95_ms": round(reference_metrics_dict.get("p95_latency_ms", 0.0), 1),
+                "total_ms": round(reference_metrics_dict.get("total_latency_ms", 0.0), 1),
+            }
+
     data = {
         "fixture_source": fixture_source,
         "fixture_model": fixture_model,
         "fixture_count": fixture_count,
         "candidate_model": candidate_model,
         "run_at": run_at,
-        "candidate_metrics": _metrics_to_dict(candidate_metrics),
+        "candidate_metrics": cm_dict,
+        "timing": timing,
         "regression": {
             "passed": regression.passed,
             "reasons": regression.reasons,
@@ -95,6 +117,7 @@ def write_report(
     regression,
     cases,
     candidate_results: list,
+    reference_metrics_dict: Optional[dict] = None,
 ) -> str:
     """Write report.md; returns its path."""
     cm = candidate_metrics
@@ -142,7 +165,48 @@ def write_report(
 
     lines.append("")
 
-    # Cases where candidate missed the golden label
+    # --- Timing section ---
+    cm_has_timing = cm.mean_latency_ms is not None
+    baseline_mean = reference_metrics_dict.get("mean_latency_ms") if reference_metrics_dict else None
+    baseline_has_timing = baseline_mean is not None
+
+    if cm_has_timing:
+        def _fmt_ms(v):
+            return f"{v:,.1f} ms" if v is not None else "N/A"
+
+        if baseline_has_timing:
+            lines += [
+                "## Timing",
+                "",
+                "| Metric | Candidate | Baseline (golden) | Delta |",
+                "|---|---|---|---|",
+            ]
+            for label, c_val, b_key in [
+                ("Mean", cm.mean_latency_ms, "mean_latency_ms"),
+                ("P50",  cm.p50_latency_ms,  "p50_latency_ms"),
+                ("P95",  cm.p95_latency_ms,  "p95_latency_ms"),
+                ("Total", cm.total_latency_ms, "total_latency_ms"),
+            ]:
+                b_val = reference_metrics_dict.get(b_key)
+                delta_str = (
+                    f"+{c_val - b_val:,.1f} ms" if c_val - b_val >= 0
+                    else f"{c_val - b_val:,.1f} ms"
+                ) if b_val is not None else "N/A"
+                lines.append(
+                    f"| {label} | {_fmt_ms(c_val)} | {_fmt_ms(b_val)} | {delta_str} |"
+                )
+        else:
+            lines += [
+                "## Timing",
+                "",
+                "| Metric | Candidate |",
+                "|---|---|",
+                f"| Mean  | {_fmt_ms(cm.mean_latency_ms)} |",
+                f"| P50   | {_fmt_ms(cm.p50_latency_ms)} |",
+                f"| P95   | {_fmt_ms(cm.p95_latency_ms)} |",
+                f"| Total | {_fmt_ms(cm.total_latency_ms)} |",
+            ]
+        lines.append("")
     candidate_map = {r.case_id: r for r in candidate_results}
 
     misses = []

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from typing import Optional
 
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
@@ -51,6 +52,7 @@ def run_eval(
         actual_available: Optional[bool] = None
         error: Optional[str] = None
 
+        t0 = time.perf_counter()
         try:
             result = score_preference(
                 ollama_client=client,
@@ -66,6 +68,7 @@ def run_eval(
             actual_available = result.get("score_available", False)
         except Exception as exc:
             error = str(exc)
+        latency_ms = (time.perf_counter() - t0) * 1000.0
 
         if verbose:
             if error:
@@ -82,6 +85,7 @@ def run_eval(
                 actual_score=actual_score,
                 actual_score_available=actual_available,
                 error=error,
+                latency_ms=latency_ms,
             )
         )
 

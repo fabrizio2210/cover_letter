@@ -105,6 +105,10 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         na_f1=reference_metrics_dict.get("na_f1", 0.0),
         mean_abs_error=reference_metrics_dict.get("mean_abs_error", 0.0),
         score_distribution=reference_metrics_dict.get("score_distribution", {}),
+        mean_latency_ms=reference_metrics_dict.get("mean_latency_ms"),
+        p50_latency_ms=reference_metrics_dict.get("p50_latency_ms"),
+        p95_latency_ms=reference_metrics_dict.get("p95_latency_ms"),
+        total_latency_ms=reference_metrics_dict.get("total_latency_ms"),
     )
 
     regression = check_regression(reference_metrics, candidate_metrics)
@@ -122,6 +126,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         run_at=run_at,
         candidate_metrics=candidate_metrics,
         regression=regression,
+        reference_metrics_dict=reference_metrics_dict,
     )
     per_case_path = write_per_case(
         output_dir=args.output_dir,
@@ -139,6 +144,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         regression=regression,
         cases=cases,
         candidate_results=candidate_results,
+        reference_metrics_dict=reference_metrics_dict,
     )
 
     print(f"\n[eval] Artifacts written to {args.output_dir}:")
