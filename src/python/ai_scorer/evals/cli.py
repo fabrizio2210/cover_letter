@@ -59,10 +59,10 @@ def _cmd_label(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def _cmd_eval(args: argparse.Namespace) -> int:
-    from src.python.ai_scorer.evals.metrics import compute_metrics, check_regression
+    from src.python.ai_scorer.evals.metrics import EvalMetrics, compute_metrics, check_regression
     from src.python.ai_scorer.evals.report import write_per_case, write_report, write_summary
     from src.python.ai_scorer.evals.runner import run_eval
-    from src.python.ai_scorer.evals.schema import load_fixtures, validate_fixtures
+    from src.python.ai_scorer.evals.schema import load_fixtures, load_fixture_meta, validate_fixtures
 
     # Load and validate canonical fixtures
     cases = load_fixtures(args.fixtures)
@@ -73,22 +73,18 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             print(f"  {e}")
         return 2
 
-    print(f"[eval] Loaded {len(cases)} canonical cases from {args.fixtures}")
-    print(f"[eval] Baseline model : {args.baseline}")
-    print(f"[eval] Candidate model: {args.candidate}")
-    print(f"[eval] Ollama host    : {args.ollama_host}")
+    # Load fixture metadata (v2 format) to get fixture_model and reference_metrics
+    fixture_meta = load_fixture_meta(args.fixtures)
+    fixture_model = fixture_meta.fixture_model if fixture_meta else "(unknown)"
+    reference_metrics_dict = fixture_meta.reference_metrics if fixture_meta else {}
 
-    # --- Baseline run ---
-    print(f"\n[eval] Running baseline ({args.baseline}) ...")
-    baseline_results = run_eval(
-        cases=cases,
-        ollama_host=args.ollama_host,
-        model_name=args.baseline,
-        verbose=args.verbose,
-    )
+    print(f"[eval] Loaded {len(cases)} canonical cases from {args.fixtures}")
+    print(f"[eval] Fixture model (golden): {fixture_model}")
+    print(f"[eval] Candidate model       : {args.candidate}")
+    print(f"[eval] Ollama host           : {args.ollama_host}")
 
     # --- Candidate run ---
-    print(f"\n[eval] Running candidate ({args.candidate}) ...")
+    print(f"\n[eval] Running candidate ({args.candidate}) against golden set ...")
     candidate_results = run_eval(
         cases=cases,
         ollama_host=args.ollama_host,
@@ -96,10 +92,22 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         verbose=args.verbose,
     )
 
-    # --- Metrics ---
-    baseline_metrics = compute_metrics(baseline_results)
     candidate_metrics = compute_metrics(candidate_results)
-    regression = check_regression(baseline_metrics, candidate_metrics)
+
+    # Build reference EvalMetrics from stored fixture metadata (no second model run).
+    # Falls back to zero metrics when fixture has no reference (old v1 bare-array format).
+    reference_metrics = EvalMetrics(
+        total=reference_metrics_dict.get("total", 0),
+        errored=reference_metrics_dict.get("errored", 0),
+        exact_accuracy=reference_metrics_dict.get("exact_accuracy", 0.0),
+        na_precision=reference_metrics_dict.get("na_precision", 0.0),
+        na_recall=reference_metrics_dict.get("na_recall", 0.0),
+        na_f1=reference_metrics_dict.get("na_f1", 0.0),
+        mean_abs_error=reference_metrics_dict.get("mean_abs_error", 0.0),
+        score_distribution=reference_metrics_dict.get("score_distribution", {}),
+    )
+
+    regression = check_regression(reference_metrics, candidate_metrics)
 
     # --- Artifacts ---
     run_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -107,33 +115,29 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 
     summary_path = write_summary(
         output_dir=args.output_dir,
-        baseline_model=args.baseline,
-        candidate_model=args.candidate,
-        fixture_path=args.fixtures,
+        fixture_source=args.fixtures,
+        fixture_model=fixture_model,
         fixture_count=len(cases),
+        candidate_model=args.candidate,
         run_at=run_at,
-        baseline_metrics=baseline_metrics,
         candidate_metrics=candidate_metrics,
         regression=regression,
     )
     per_case_path = write_per_case(
         output_dir=args.output_dir,
         cases=cases,
-        baseline_results=baseline_results,
         candidate_results=candidate_results,
     )
     report_path = write_report(
         output_dir=args.output_dir,
-        baseline_model=args.baseline,
-        candidate_model=args.candidate,
-        fixture_path=args.fixtures,
+        fixture_source=args.fixtures,
+        fixture_model=fixture_model,
         fixture_count=len(cases),
+        candidate_model=args.candidate,
         run_at=run_at,
-        baseline_metrics=baseline_metrics,
         candidate_metrics=candidate_metrics,
         regression=regression,
         cases=cases,
-        baseline_results=baseline_results,
         candidate_results=candidate_results,
     )
 
@@ -142,13 +146,11 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     print(f"  {per_case_path}")
     print(f"  {report_path}")
 
-    # Print inline summary
-    bm = baseline_metrics
     cm = candidate_metrics
-    print("\n[eval] Metrics summary:")
-    print(f"  exact_accuracy   : baseline={bm.exact_accuracy:.3f}  candidate={cm.exact_accuracy:.3f}")
-    print(f"  na_f1            : baseline={bm.na_f1:.3f}  candidate={cm.na_f1:.3f}")
-    print(f"  mean_abs_error   : baseline={bm.mean_abs_error:.3f}  candidate={cm.mean_abs_error:.3f}")
+    print("\n[eval] Metrics summary (vs golden set):")
+    print(f"  exact_accuracy : {cm.exact_accuracy:.3f}")
+    print(f"  na_f1          : {cm.na_f1:.3f}")
+    print(f"  mean_abs_error : {cm.mean_abs_error:.3f}")
 
     if regression.passed:
         print("\n[eval] Regression gate: PASSED")
@@ -215,15 +217,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # --- eval ---
-    p_eval = sub.add_parser("eval", help="Run eval: candidate model vs baseline")
+    p_eval = sub.add_parser("eval", help="Run eval: candidate model vs golden fixtures")
     p_eval.add_argument(
         "--ollama-host",
         default=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
-    )
-    p_eval.add_argument(
-        "--baseline",
-        default=os.environ.get("EVAL_BASELINE_MODEL", "qwen2.5:1.5b"),
-        help="Baseline model name (default: EVAL_BASELINE_MODEL env or qwen2.5:1.5b)",
     )
     p_eval.add_argument(
         "--candidate",

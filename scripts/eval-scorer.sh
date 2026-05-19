@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-# eval-scorer.sh — manual eval runner for AI scorer prompt/model quality.
+# eval-scorer.sh — run the AI scorer eval against canonical golden fixtures.
 #
-# Runs candidate model vs baseline on canonical golden fixtures and writes
-# artifacts to eval-results/.
+# Validates a candidate model (or the current settings) against the golden set
+# and writes artifacts to eval-results/.
 #
 # Usage:
-#   bash scripts/eval-scorer.sh                          # self-compare baseline
-#   bash scripts/eval-scorer.sh smollm2:1.7b             # compare new model vs baseline
-#   bash scripts/eval-scorer.sh smollm2:1.7b qwen2.5:1.5b /path/to/fixtures.json
+#   bash scripts/eval-scorer.sh                          # validate current EVAL_CANDIDATE_MODEL
+#   bash scripts/eval-scorer.sh my-new-model:tag         # test a specific new model
+#   bash scripts/eval-scorer.sh my-new-model:tag /path/to/custom-fixture.json
 #
 # Environment variables:
 #   OLLAMA_HOST            Ollama base URL (default: http://localhost:11434)
-#   EVAL_BASELINE_MODEL    Baseline model  (default: qwen2.5:1.5b)
-#   EVAL_CANDIDATE_MODEL   Candidate model (default: same as baseline)
+#   EVAL_CANDIDATE_MODEL   Candidate model to test (default: qwen2.5:1.5b)
 #   EVAL_FIXTURES          Path to canonical fixture file
 #   EVAL_OUTPUT_DIR        Output directory for artifacts (default: eval-results)
 set -euo pipefail
@@ -21,16 +20,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
-EVAL_BASELINE_MODEL="${EVAL_BASELINE_MODEL:-qwen2.5:1.5b}"
-EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-$EVAL_BASELINE_MODEL}}"
-EVAL_FIXTURES="${3:-${EVAL_FIXTURES:-src/python/ai_scorer/evals/data/canonical/v1.json}}"
+EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-qwen2.5:1.5b}}"
+EVAL_FIXTURES="${2:-${EVAL_FIXTURES:-src/python/ai_scorer/evals/data/canonical/v1.json}}"
 EVAL_OUTPUT_DIR="${EVAL_OUTPUT_DIR:-eval-results}"
 
-if [[ $# -ge 2 ]]; then
-    EVAL_BASELINE_MODEL="$2"
-fi
-
-echo "[eval-scorer] Baseline model : $EVAL_BASELINE_MODEL"
 echo "[eval-scorer] Candidate model: $EVAL_CANDIDATE_MODEL"
 echo "[eval-scorer] Fixtures       : $EVAL_FIXTURES"
 echo "[eval-scorer] Ollama host    : $OLLAMA_HOST"
@@ -50,20 +43,22 @@ if [[ ! -f "$EVAL_FIXTURES" ]]; then
     echo "  2. Propose labels using the baseline model:"
     echo "       python -m src.python.ai_scorer.evals.cli label \\"
     echo "           --ollama-host $OLLAMA_HOST \\"
-    echo "           --model $EVAL_BASELINE_MODEL \\"
+    echo "           --model $EVAL_CANDIDATE_MODEL \\"
     echo "           --input  src/python/ai_scorer/evals/data/proposed/candidates.json \\"
     echo "           --output src/python/ai_scorer/evals/data/proposed/labeled.json"
     echo ""
-    echo "  3. Review and correct labels, then copy to canonical:"
-    echo "       cp src/python/ai_scorer/evals/data/proposed/labeled.json \\"
-    echo "          src/python/ai_scorer/evals/data/canonical/v1.json"
+    echo "  3. Review and correct labels, then promote to canonical:"
+    echo "       python -m src.python.ai_scorer.evals.cli promote \\"
+    echo "           --input   src/python/ai_scorer/evals/data/proposed/labeled.json \\"
+    echo "           --output  src/python/ai_scorer/evals/data/canonical/v1.json \\"
+    echo "           --model   $EVAL_CANDIDATE_MODEL \\"
+    echo "           --ollama-host $OLLAMA_HOST"
     echo ""
     exit 1
 fi
 
 PYTHONPATH="$REPO_ROOT" python3 -m src.python.ai_scorer.evals.cli eval \
     --ollama-host "$OLLAMA_HOST" \
-    --baseline    "$EVAL_BASELINE_MODEL" \
     --candidate   "$EVAL_CANDIDATE_MODEL" \
     --fixtures    "$EVAL_FIXTURES" \
     --output-dir  "$EVAL_OUTPUT_DIR" \

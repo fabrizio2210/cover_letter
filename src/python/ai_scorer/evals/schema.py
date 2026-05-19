@@ -12,7 +12,22 @@ from dataclasses import asdict, dataclass
 from typing import Optional
 
 SCHEMA_VERSION = "1"
+FIXTURE_FORMAT_VERSION = "2"
 EXTRACTOR_VERSION = "1"
+
+
+@dataclass
+class FixtureMeta:
+    """Metadata stored at the top of a canonical fixture file (v2 format).
+
+    fixture_model   — the model name used when labeling / validating these cases.
+    reference_metrics — EvalMetrics-compatible dict computed from that model run;
+                        used as the regression baseline so no second model run is
+                        needed at eval time.
+    """
+    fixture_model: str
+    reference_metrics: dict  # keys mirror EvalMetrics fields
+    format_version: str = FIXTURE_FORMAT_VERSION
 
 
 @dataclass
@@ -117,17 +132,51 @@ def _case_from_dict(item: dict) -> EvalCase:
     )
 
 
+def _cases_list_from_raw(raw, path: str) -> list:
+    """Extract the cases list from either v1 (bare array) or v2 (object) format."""
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict) and "cases" in raw:
+        return raw["cases"]
+    raise ValueError(f"Unexpected fixture format in {path}: expected array or {{meta, cases}} object")
+
+
 def load_fixtures(path: str) -> list:
-    """Load and return a list of EvalCase from a JSON fixture file."""
+    """Load and return a list of EvalCase from a JSON fixture file.
+
+    Supports both v1 (bare JSON array) and v2 ({"meta": ..., "cases": [...]}) formats.
+    """
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    if not isinstance(raw, list):
-        raise ValueError(f"Expected JSON array in {path}, got {type(raw).__name__}")
-    return [_case_from_dict(item) for item in raw]
+    return [_case_from_dict(item) for item in _cases_list_from_raw(raw, path)]
 
 
-def dump_fixtures(cases: list, path: str) -> None:
-    """Write a list of EvalCase to a JSON fixture file."""
-    data = [asdict(c) for c in cases]
+def load_fixture_meta(path: str) -> Optional[FixtureMeta]:
+    """Return FixtureMeta from a v2 fixture file, or None for v1 (bare array) files."""
+    with open(path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    if isinstance(raw, dict) and "meta" in raw:
+        m = raw["meta"]
+        return FixtureMeta(
+            fixture_model=m.get("fixture_model", ""),
+            reference_metrics=m.get("reference_metrics", {}),
+            format_version=m.get("format_version", FIXTURE_FORMAT_VERSION),
+        )
+    return None
+
+
+def dump_fixtures(cases: list, path: str, meta: Optional[FixtureMeta] = None) -> None:
+    """Write a list of EvalCase to a JSON fixture file.
+
+    If *meta* is provided the file is written in v2 format ({"meta": ..., "cases": [...]}).
+    Otherwise the legacy v1 bare-array format is used (for proposed/labeled intermediates).
+    """
+    if meta is not None:
+        data: object = {
+            "meta": asdict(meta),
+            "cases": [asdict(c) for c in cases],
+        }
+    else:
+        data = [asdict(c) for c in cases]
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
