@@ -24,6 +24,10 @@
         "/^bash scripts\\/test-gate\\.sh/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^bash -n /home/fabrizio/Progetti/cover_letter/CICD\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     },
     "makefile.configureOnOpen": false
