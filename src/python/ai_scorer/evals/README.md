@@ -4,12 +4,16 @@ This folder contains manual golden-eval tooling for scorer prompt/model regressi
 
 ## Files
 
-- `core.py`: fixture validation, metric computation, and baseline-vs-candidate threshold checks.
-- `extract_goldens.py`: exports proposed golden cases from MongoDB with default redaction.
-- `run_eval.py`: runs live model evaluation for baseline and candidate models.
-- `data/canonical_cases.sample.json`: sample canonical fixture file format.
+- `cli.py`: unified entrypoint for `extract`, `label`, and `eval`.
+- `extractor.py`: canonical candidate fixture extractor used by `cli extract`.
+- `schema.py`: canonical fixture schema, validation, and serialization.
+- `redaction.py`: deterministic redaction helpers used during extraction.
+- `runner.py`: live model execution used by `cli eval`.
+- `core.py`: validation and regression-threshold helpers used by the older direct eval path.
+- `data/canonical/v1.json`: checked-in canonical fixture file.
+- `data/canonical_cases.sample.json`: minimal bare-array fixture example.
 
-## 1) Extract proposed golden cases
+## 1) Extract candidate cases
 
 Example preferences file:
 
@@ -20,31 +24,43 @@ Example preferences file:
 ]
 ```
 
-Run extraction:
+Run extraction with the canonical CLI:
 
 ```bash
-PYTHONPATH=. python3 src/python/ai_scorer/evals/extract_goldens.py \
+PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli extract \
   --mongo-uri 'mongodb://root:develop@localhost:27017/admin' \
-  --db-name cover_letter_global \
+  --global-db cover_letter_global \
   --limit 30 \
-  --preferences-json src/python/ai_scorer/evals/data/preferences.sample.json \
-  --out src/python/ai_scorer/evals/data/proposed_cases.json
+  --preferences src/python/ai_scorer/evals/data/preferences.sample.json \
+  --output src/python/ai_scorer/evals/data/proposed/candidates.json
 ```
+
+The extractor writes an unlabeled candidate file. It uses the same case fields as the canonical schema, but `expected_score_available` and `expected_score` are left unset until review.
 
 ## 2) Review and promote to canonical fixtures
 
-- Copy reviewed cases into a canonical file (same schema as sample fixture).
-- Ensure each case has `expected.score_available` and `expected.score` values validated for scoring.
-
-## 3) Run baseline vs candidate eval
+Generate first-pass labels:
 
 ```bash
-PYTHONPATH=. python3 src/python/ai_scorer/evals/run_eval.py \
-  --fixtures src/python/ai_scorer/evals/data/canonical_cases.sample.json \
-  --baseline-model qwen2.5:1.5b \
-  --candidate-model qwen2.5:1.5b \
+PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli label \
   --ollama-host http://localhost:11434 \
-  --out-dir /tmp/ai_scorer_eval_run
+  --model qwen2.5:1.5b \
+  --input src/python/ai_scorer/evals/data/proposed/candidates.json \
+  --output src/python/ai_scorer/evals/data/proposed/labeled.json
+```
+
+- Review the labeled output and correct it manually.
+- Copy approved cases into `data/canonical/v1.json` using the canonical `{meta, cases}` structure.
+- Ensure each canonical case has `expected.score_available` and `expected.score` set before it is used for eval.
+
+## 3) Run eval against the canonical fixture set
+
+```bash
+PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli eval \
+  --fixtures src/python/ai_scorer/evals/data/canonical/v1.json \
+  --candidate qwen2.5:1.5b \
+  --ollama-host http://localhost:11434 \
+  --output-dir /tmp/ai_scorer_eval_run
 ```
 
 Artifacts:
@@ -59,4 +75,4 @@ Artifacts:
 - `na_f1_drop <= 0.05`
 - `mean_abs_error_increase <= 0.20`
 
-These can be overridden via CLI flags in `run_eval.py`.
+These can be overridden via CLI flags in `cli.py eval`.

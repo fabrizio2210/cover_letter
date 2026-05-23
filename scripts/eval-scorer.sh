@@ -47,12 +47,8 @@ if [[ ! -f "$EVAL_FIXTURES" ]]; then
     echo "           --input  src/python/ai_scorer/evals/data/proposed/candidates.json \\"
     echo "           --output src/python/ai_scorer/evals/data/proposed/labeled.json"
     echo ""
-    echo "  3. Review and correct labels, then promote to canonical:"
-    echo "       python -m src.python.ai_scorer.evals.cli promote \\"
-    echo "           --input   src/python/ai_scorer/evals/data/proposed/labeled.json \\"
-    echo "           --output  src/python/ai_scorer/evals/data/canonical/v1.json \\"
-    echo "           --model   $EVAL_CANDIDATE_MODEL \\"
-    echo "           --ollama-host $OLLAMA_HOST"
+    echo "  3. Review and correct labels, then copy approved cases into:"
+    echo "       src/python/ai_scorer/evals/data/canonical/v1.json"
     echo ""
     exit 1
 fi

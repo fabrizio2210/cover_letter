@@ -12,7 +12,7 @@ from src.python.ai_scorer.evals.core import (
     compute_metrics,
     load_and_validate_cases,
 )
-from src.python.ai_scorer.evals.extract_goldens import redact_text
+from src.python.ai_scorer.evals.redaction import redact_text
 
 
 class AiScorerEvalsCoreTests(unittest.TestCase):
@@ -89,14 +89,14 @@ class AiScorerEvalsCoreTests(unittest.TestCase):
 
     def test_redact_text_masks_sensitive_patterns(self):
         raw = "Contact me at person@example.com or +39 333 123 4567. See https://example.com/job"
-        redacted, stats = redact_text(raw)
+        redacted = redact_text(raw)
 
-        self.assertIn("[REDACTED_EMAIL]", redacted)
-        self.assertIn("[REDACTED_PHONE]", redacted)
-        self.assertIn("[REDACTED_URL]", redacted)
-        self.assertEqual(stats["emails"], 1)
-        self.assertEqual(stats["phones"], 1)
-        self.assertEqual(stats["urls"], 1)
+        self.assertIn("[EMAIL REDACTED]", redacted)
+        self.assertIn("[PHONE REDACTED]", redacted)
+        self.assertIn("[URL REDACTED]", redacted)
+        self.assertEqual(redacted.count("[EMAIL REDACTED]"), 1)
+        self.assertEqual(redacted.count("[PHONE REDACTED]"), 1)
+        self.assertEqual(redacted.count("[URL REDACTED]"), 1)
 
 
 if __name__ == "__main__":
