@@ -2,22 +2,26 @@
   "meta": {
     "fixture_model": "qwen2.5:1.5b",
     "reference_metrics": {
-      "total": 51,
+      "total": 54,
       "errored": 0,
-      "exact_accuracy": 0.6078431372549019,
+      "exact_accuracy": 0.5740740740740741,
       "na_precision": 0.0,
       "na_recall": 0.0,
       "na_f1": 0.0,
-      "mean_abs_error": 0.6666666666666666,
+      "mean_abs_error": 0.8333333333333334,
       "score_distribution": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 2,
-        "5": 49,
+        "5": 52,
         "na": 0,
         "error": 0
-      }
+      },
+      "mean_latency_ms": 27031.97306681452,
+      "p50_latency_ms": 21775.37844250037,
+      "p95_latency_ms": 68516.54754629926,
+      "total_latency_ms": 1459726.545607984
     },
     "format_version": "2"
   },
