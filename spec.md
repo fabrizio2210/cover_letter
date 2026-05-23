@@ -52,7 +52,7 @@ The crawler may still coexist with manual data entry for companies and recipient
 
 #### Score and filter job descriptions
 
-After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns only a score from 1 to 5, while the overall score is computed deterministically by the application using the stored weights.
+After job descriptions are stored, the system asynchronously evaluates them against weighted user preferences defined on the selected identity profile. Preferences can represent requirements such as remote work, heavy coding, or sector fit. The AI does not decide the final ranking directly: for each preference it returns only a score from 0 to 5, while the overall score is computed deterministically by the application using the stored weights.
 
 Score visualization contract:
 - the Job Discovery UI must display the deterministic `weighted_score` as the primary ranking value;

@@ -157,7 +157,7 @@ class AiScorerUnitTests(unittest.TestCase):
         score_a = stable_test_score("job-1", "remote")
         score_b = stable_test_score("job-1", "remote")
         self.assertEqual(score_a, score_b)
-        self.assertGreaterEqual(score_a, 1)
+        self.assertGreaterEqual(score_a, 0)
         self.assertLessEqual(score_a, 5)
 
     def test_resolve_scoring_context_success(self):
@@ -231,8 +231,31 @@ class AiScorerUnitTests(unittest.TestCase):
         )
 
         self.assertTrue(score_result.get("score_available"))
-        self.assertGreaterEqual(score_result.get("score", 0), 1)
+        self.assertGreaterEqual(score_result.get("score", 0), 0)
         self.assertLessEqual(score_result.get("score", 0), 5)
+
+    def test_score_preference_accepts_zero_as_available_score(self):
+        client = FakeOllamaClient(
+            {
+                "message": {
+                    "content": "0"
+                }
+            }
+        )
+
+        score_result = score_preference(
+            ollama_client=client,
+            model_name="qwen2.5:1.5b",
+            test_mode=False,
+            job_id="507f1f77bcf86cd799439011",
+            preference={"key": "remote", "guidance": "Remote", "weight": 1, "enabled": True},
+            job_doc={"title": "Engineer", "description": "desc", "location": "EU", "platform": "ashby"},
+            company_doc={"name": "Acme", "description": "Infra"},
+            identity_doc={"name": "Fab", "description": "Platform"},
+        )
+
+        self.assertTrue(score_result.get("score_available"))
+        self.assertEqual(score_result.get("score"), 0)
 
     def test_score_preference_parses_ollama_response(self):
         client = FakeOllamaClient(

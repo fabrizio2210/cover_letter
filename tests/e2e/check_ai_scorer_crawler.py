@@ -38,7 +38,7 @@ JOB_ID_WITHOUT_IDENTITY = '100000000000000000000002'
 def stable_test_score(job_id, preference_key):
     seed_text = f'{job_id}:{preference_key}'
     seed = sum(ord(ch) for ch in seed_text)
-    return (seed % 5) + 1
+    return seed % 6
 
 
 # Connect to MongoDB

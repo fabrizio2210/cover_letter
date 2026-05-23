@@ -52,7 +52,7 @@ class EvalCase:
     location: str
     preference_key: str
     preference_guidance: str
-    # None = not yet labeled (candidate); int 1..5 or None (N/A) in canonical
+    # None = not yet labeled (candidate); int 0..5 or None (N/A) in canonical
     expected_score: Optional[int]
     expected_score_available: Optional[bool]
     rationale: str
@@ -86,8 +86,8 @@ def validate_case(case: EvalCase) -> list:
     elif case.expected_score_available:
         if case.expected_score is None:
             errors.append("expected_score must be set when expected_score_available=True")
-        elif case.expected_score not in range(1, 6):
-            errors.append(f"expected_score must be 1..5, got {case.expected_score!r}")
+        elif case.expected_score not in range(0, 6):
+            errors.append(f"expected_score must be 0..5, got {case.expected_score!r}")
     else:
         if case.expected_score is not None:
             errors.append(

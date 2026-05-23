@@ -38,7 +38,7 @@ class EvalMetrics:
     na_f1: float
     # MAE only over cases where expected_score_available=True AND no error
     mean_abs_error: float
-    # Count of actual score predictions (keys: "1".."5", "na", "error")
+    # Count of actual score predictions (keys: "0".."5", "na", "error")
     score_distribution: dict = field(default_factory=dict)
     # Per-case latency statistics (ms); None when no timing data is available
     mean_latency_ms: Optional[float] = None
@@ -157,13 +157,13 @@ def compute_metrics(results: list) -> EvalMetrics:
     mean_abs_error = sum(mae_errors) / len(mae_errors) if mae_errors else 0.0
 
     # --- Score distribution ---
-    dist: dict = {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "na": 0, "error": 0}
+    dist: dict = {"0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "na": 0, "error": 0}
     for r in results:
         if r.error is not None:
             dist["error"] += 1
         elif not r.actual_score_available:
             dist["na"] += 1
-        elif r.actual_score is not None and 1 <= r.actual_score <= 5:
+        elif r.actual_score is not None and 0 <= r.actual_score <= 5:
             dist[str(r.actual_score)] += 1
         else:
             dist["error"] += 1

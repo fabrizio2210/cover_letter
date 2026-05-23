@@ -257,7 +257,7 @@ Each entry in `preference_scores` must include:
 | `preference_key` | string | Stable key from identity preference |
 | `preference_guidance` | string | Guidance snapshot used for cache-invalidation checks |
 | `preference_weight` | number | Weight snapshot used for deterministic aggregate recomputation |
-| `score` | integer | Integer score in range `1..5` when `score_available=true`; `0` when `score_available=false` |
+| `score` | integer | Integer score in range `0..5` when `score_available=true`; `0` when `score_available=false` |
 | `score_available` | boolean | `false` means the scorer marked this preference as N/A due to insufficient evidence |
 | `scored_at` | object | `{ "seconds": <unix>, "nanos": 0 }` |
 
@@ -282,7 +282,7 @@ Scoring prompt inputs must exclude:
 - preference key.
 
 For each enabled preference, the prompt must ask Ollama for:
-- either an integer score from 1 to 5, or `N/A` when there is not enough information to judge the preference.
+- either an integer score from 0 to 5, or `N/A` when there is not enough information to judge the preference.
 
 The worker must treat model output as per-preference evidence only. Weighted aggregate ranking is computed deterministically outside the model output.
 

@@ -374,10 +374,10 @@ def parse_object_id(value):
 
 
 def stable_test_score(job_id, preference_key):
-    # Deterministic integer score in [1..5] for test mode.
+    # Deterministic integer score in [0..5] for test mode.
     seed_text = f"{job_id}:{preference_key}"
     seed = sum(ord(ch) for ch in seed_text)
-    return (seed % 5) + 1
+    return seed % 6
 
 
 def safe_json_dump(value):
@@ -559,13 +559,13 @@ def build_prompt(job, company, identity, preference):
 
     system_instruction = (
         "You are an objective HR analyzer. Evaluate one candidate preference against one job posting using the preference guidance. "
-        "Return either one integer score from 1 to 5, or N/A when there is not enough information in the job posting to judge this preference. "
+        "Return either one integer score from 0 to 5, or N/A when there is not enough information in the job posting to judge this preference. "
         "Do not return JSON and do not add any explanation text."
     )
 
     user_prompt = (
         f"Preference Guidance: {preference_guidance}\n\n"
-        "Respond only with one number in range 1..5, or N/A if the posting does not provide enough evidence.\n\n"
+        "Respond only with one number in range 0..5, or N/A if the posting does not provide enough evidence.\n\n"
         f"Job Title: {job_title}\n"
         f"Job Description: {job_description}\n"
         f"Job Location: {job_location}\n"
@@ -764,7 +764,7 @@ def score_preference(
             )
         )
 
-    if score < 1 or score > 5:
+    if score < 0 or score > 5:
         raise ValueError(
             f"Invalid model response: score out of range ({score}) "
             + safe_json_dump(

@@ -21,7 +21,7 @@ PREFERENCE_WEIGHTS = {
 def stable_test_score(job_id, preference_key):
     seed_text = f'{job_id}:{preference_key}'
     seed = sum(ord(ch) for ch in seed_text)
-    return (seed % 5) + 1
+    return seed % 6
 
 
 expected_scores = {key: stable_test_score(JOB_ID, key) for key in PREFERENCE_WEIGHTS}

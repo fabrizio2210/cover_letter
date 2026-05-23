@@ -21,7 +21,7 @@ class FixtureValidationError(ValueError):
 
 
 def _is_valid_score(score: Any) -> bool:
-    return isinstance(score, int) and 1 <= score <= 5
+    return isinstance(score, int) and 0 <= score <= 5
 
 
 def _required_path(dct: dict[str, Any], path: str) -> Any:
@@ -61,7 +61,7 @@ def validate_case(case: dict[str, Any]) -> None:
 
     if expected_available:
         if not _is_valid_score(expected_score):
-            raise FixtureValidationError("expected.score must be integer in range 1..5 when score_available=true")
+            raise FixtureValidationError("expected.score must be integer in range 0..5 when score_available=true")
     else:
         if expected_score is not None:
             raise FixtureValidationError("expected.score must be null when score_available=false")
@@ -109,7 +109,7 @@ def compute_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     na_fn = 0
 
     mae_values: list[float] = []
-    labels = ["1", "2", "3", "4", "5", LABEL_NA]
+    labels = ["0", "1", "2", "3", "4", "5", LABEL_NA]
     confusion = {expected: {predicted: 0 for predicted in labels} for expected in labels}
 
     for row in rows:

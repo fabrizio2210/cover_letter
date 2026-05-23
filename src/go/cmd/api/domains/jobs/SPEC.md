@@ -60,7 +60,7 @@ One `JobPreferenceScore` document exists per `(job_id, identity_id)` pair.
 | `preference_key` | `preference_key` | `string` | Stable preference identifier |
 | `preference_guidance` | `preference_guidance` | `string` | Human-friendly guidance snapshot used to detect stale per-preference scores |
 | `preference_weight` | `preference_weight` | `number` | Weight snapshot used in deterministic ranking and aggregate recomputation |
-| `score` | `score` | `integer` | AI-generated score from 1 to 5 when available; `0` when marked N/A |
+| `score` | `score` | `integer` | AI-generated score from 0 to 5 when available; `0` when marked N/A |
 | `score_available` | `score_available` | `boolean` | `false` means not enough information to judge this preference |
 | `scored_at` | `scored_at` | Timestamp object | `{ "seconds": <unix>, "nanos": 0 }` |
 

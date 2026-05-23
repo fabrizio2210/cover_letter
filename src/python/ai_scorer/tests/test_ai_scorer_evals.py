@@ -77,7 +77,7 @@ class AiScorerEvalsCoreTests(unittest.TestCase):
                 "case_id": "bad",
                 "job": {"title": "T", "description": "D", "location": "L"},
                 "preference": {"key": "remote", "guidance": "Remote"},
-                "expected": {"score_available": True, "score": 9},
+                "expected": {"score_available": True, "score": 6},
             }
         ]
 
@@ -86,6 +86,23 @@ class AiScorerEvalsCoreTests(unittest.TestCase):
             path.write_text(json.dumps(fixtures), encoding="utf-8")
             with self.assertRaises(FixtureValidationError):
                 load_and_validate_cases(path)
+
+    def test_fixture_validation_accepts_zero_score_when_available(self):
+        fixtures = [
+            {
+                "case_id": "zero-valid",
+                "job": {"title": "T", "description": "D", "location": "L"},
+                "preference": {"key": "remote", "guidance": "Remote"},
+                "expected": {"score_available": True, "score": 0},
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixtures.json"
+            path.write_text(json.dumps(fixtures), encoding="utf-8")
+            loaded = load_and_validate_cases(path)
+
+        self.assertEqual(len(loaded), 1)
 
     def test_redact_text_masks_sensitive_patterns(self):
         raw = "Contact me at person@example.com or +39 333 123 4567. See https://example.com/job"

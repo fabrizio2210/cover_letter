@@ -70,12 +70,12 @@ class TestEvalCaseValidation(unittest.TestCase):
     def test_score_out_of_range(self):
         case = _valid_scored_case(expected_score=6)
         errors = validate_case(case)
-        self.assertTrue(any("1..5" in e for e in errors))
+        self.assertTrue(any("0..5" in e for e in errors))
 
-    def test_score_zero_is_invalid(self):
-        case = _valid_scored_case(expected_score=0)
+    def test_negative_score_is_invalid(self):
+        case = _valid_scored_case(expected_score=-1)
         errors = validate_case(case)
-        self.assertTrue(any("1..5" in e for e in errors))
+        self.assertTrue(any("0..5" in e for e in errors))
 
     def test_unlabeled_case_fails_canonical_validation(self):
         case = _valid_scored_case(expected_score=None, expected_score_available=None)

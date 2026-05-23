@@ -159,7 +159,7 @@ def write_report(
         "| Score | Candidate |",
         "|---|---|",
     ]
-    for bucket in ["1", "2", "3", "4", "5", "na", "error"]:
+    for bucket in ["0", "1", "2", "3", "4", "5", "na", "error"]:
         c_count = cm.score_distribution.get(bucket, 0)
         lines.append(f"| {bucket} | {c_count} |")
 
