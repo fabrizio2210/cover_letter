@@ -6,5 +6,9 @@
   {
     "key": "backend",
     "guidance": "Prefers backend engineering work"
+  },
+  {
+    "key": "coding",
+    "guidance": "Prefers roles that involve a lot of coding"
   }
 ]
