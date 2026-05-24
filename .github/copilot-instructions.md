@@ -9,7 +9,7 @@ make test-full
 ```
 
 Do not commit, do not present the result as done, and do not proceed to the next step if this command fails.
-Fix the failure first, then re-run `make test-full` until it passes.
+Fix the failure first, then re-run `make test-full` until it passes. It is a long running command (~5 minutes), you should use the terminal to se the output.
 
 ## What `make test-full` checks
 
