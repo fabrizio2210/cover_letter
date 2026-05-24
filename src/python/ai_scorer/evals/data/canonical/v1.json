@@ -2,53 +2,31 @@
   "meta": {
     "fixture_model": "qwen2.5:1.5b",
     "reference_metrics": {
-      "total": 54,
+      "total": 53,
       "errored": 0,
-      "exact_accuracy": 0.5740740740740741,
+      "exact_accuracy": 0.5849056603773585,
       "na_precision": 0.0,
       "na_recall": 0.0,
       "na_f1": 0.0,
-      "mean_abs_error": 0.8113207547169812,
+      "mean_abs_error": 0.8076923076923077,
       "score_distribution": {
         "0": 0,
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
+        "4": 1,
         "5": 51,
         "na": 1,
         "error": 0
       },
-      "mean_latency_ms": 6097.958214277764,
-      "p50_latency_ms": 5009.992740499911,
-      "p95_latency_ms": 9894.612618349856,
-      "total_latency_ms": 329289.74357099924
+      "mean_latency_ms": 6208.93309849051,
+      "p50_latency_ms": 5281.15797800001,
+      "p95_latency_ms": 9362.272500800098,
+      "total_latency_ms": 329073.45421999705
     },
     "format_version": "2"
   },
   "cases": [
-    {
-      "case_id": "ab71083c-61f4-4d8a-a8d8-0628e0846ac6",
-      "title": "Frontend Platform Engineer, JavaScript Infrastructure 2 days ago Fully Remote",
-      "description": "",
-      "location": "Remote",
-      "preference_key": "coding",
-      "preference_guidance": "It requires a lot of coding",
-      "expected_score": 5,
-      "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
-      "tags": [
-        "empty_description",
-        "remote_location"
-      ],
-      "schema_version": "1",
-      "provenance": {
-        "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1969b9d42292667e955",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
-        "extractor_version": "1"
-      }
-    },
     {
       "case_id": "1d270981-bfd3-44a3-a634-7335053eef5d",
       "title": "Frontend Platform Engineer, JavaScript Infrastructure 2 days ago Fully Remote",
