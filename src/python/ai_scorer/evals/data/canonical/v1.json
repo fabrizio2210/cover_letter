@@ -8,20 +8,21 @@
       "na_precision": 0.0,
       "na_recall": 0.0,
       "na_f1": 0.0,
-      "mean_abs_error": 0.8333333333333334,
+      "mean_abs_error": 0.8113207547169812,
       "score_distribution": {
+        "0": 0,
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 2,
-        "5": 52,
-        "na": 0,
+        "5": 51,
+        "na": 1,
         "error": 0
       },
-      "mean_latency_ms": 27031.97306681452,
-      "p50_latency_ms": 21775.37844250037,
-      "p95_latency_ms": 68516.54754629926,
-      "total_latency_ms": 1459726.545607984
+      "mean_latency_ms": 6097.958214277764,
+      "p50_latency_ms": 5009.992740499911,
+      "p95_latency_ms": 9894.612618349856,
+      "total_latency_ms": 329289.74357099924
     },
     "format_version": "2"
   },

@@ -132,7 +132,7 @@ class AiScorerUnitTests(unittest.TestCase):
         normalized = normalize_description_markdown(plain)
         self.assertEqual(normalized, plain)
 
-    def test_build_prompt_uses_normalized_description(self):
+    def test_build_prompt_uses_snippet_context(self):
         _, prompt = build_prompt(
             job={
                 "title": "Engineer",
@@ -142,10 +142,13 @@ class AiScorerUnitTests(unittest.TestCase):
             company={},
             identity={},
             preference={"guidance": "Remote first"},
+            snippets=["Hello world", "Remote collaboration"],
         )
 
-        self.assertIn("Job Description: Hello **world**", prompt)
-        self.assertIn("- Remote", prompt)
+        self.assertIn("Relevant Context Snippets:", prompt)
+        self.assertIn("- Hello world", prompt)
+        self.assertIn("- Remote collaboration", prompt)
+        self.assertNotIn("Job Description:", prompt)
 
     def test_parse_object_id_handles_valid_and_invalid_values(self):
         oid = ObjectId()
@@ -285,8 +288,9 @@ class AiScorerUnitTests(unittest.TestCase):
         prompt_text = client.last_messages[1]["content"]
         self.assertIn("Preference Guidance:", prompt_text)
         self.assertIn("Job Title:", prompt_text)
-        self.assertIn("Job Description:", prompt_text)
         self.assertIn("Job Location:", prompt_text)
+        self.assertIn("Relevant Context Snippets:", prompt_text)
+        self.assertNotIn("Job Description:", prompt_text)
         self.assertNotIn("Source Platform:", prompt_text)
         self.assertNotIn("Company Name:", prompt_text)
         self.assertNotIn("Company Description:", prompt_text)

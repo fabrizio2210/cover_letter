@@ -54,10 +54,11 @@ High-level flow:
 1. Read one JSON payload from Redis.
 2. Validate the payload shape.
 3. Resolve required MongoDB context for scoring.
-4. Score each enabled identity preference using Ollama.
-5. Persist per-preference scores.
-6. Compute deterministic aggregate ranking from stored scores and weights.
-7. Update job scoring fields and lifecycle status.
+4. For each enabled identity preference, retrieve top 2 relevant snippets from the job description using embeddings.
+5. Score each enabled identity preference using Ollama with reduced prompt context (title, location, retrieved snippets).
+6. Persist per-preference scores.
+7. Compute deterministic aggregate ranking from stored scores and weights.
+8. Update job scoring fields and lifecycle status.
 
 ---
 
@@ -72,17 +73,19 @@ High-level flow:
 | `MONGO_HOST` | `mongodb://localhost:27017/` | Yes | MongoDB connection URI |
 | `OLLAMA_HOST` | none | Yes | Ollama base URL (dev stack uses `http://ollama:11434`) |
 | `OLLAMA_MODEL` | none | Yes | Ollama model name |
+| `EMBEDDING_MODEL` | none | Yes | Embedding model used to retrieve top relevant snippets per preference |
 | `AI_SCORER_TEST_MODE` | `0` | No | If `1`, disable real Ollama calls and use deterministic fake responses |
 | `AI_SCORER_OLLAMA_PARALLELISM` | `1` | No | Worker-pool size (maximum number of jobs processed in parallel) |
 
 Rules:
 - If `AI_SCORER_TEST_MODE=1`, the worker may run without a reachable Ollama endpoint.
-- If `AI_SCORER_TEST_MODE!=1`, missing `OLLAMA_HOST` or `OLLAMA_MODEL` is a startup error.
+- If `AI_SCORER_TEST_MODE!=1`, missing `OLLAMA_HOST`, `OLLAMA_MODEL`, or `EMBEDDING_MODEL` is a startup error.
 - `AI_SCORER_OLLAMA_PARALLELISM` must be an integer greater than zero; invalid values fall back to `1`.
 - Queue-level worker assignment remains per job payload when `AI_SCORER_OLLAMA_PARALLELISM > 1`; parallelism scales by concurrent jobs, not by per-preference fan-out within one job.
 - Global reads use `cover_letter_global` (`job-descriptions`, `companies`).
 - Per-user reads/writes use `cover_letter_<user_id>` (`identities`, `job-preference-scores`).
 - In `docker/lib/stack-dev.yml`, `OLLAMA_HOST` is expected to target the internal service DNS name (`http://ollama:11434`).
+- Snippet retrieval is fixed to top `2` snippets per preference using sentence candidates plus rolling `2`-sentence windows.
 
 ---
 
@@ -272,10 +275,12 @@ Aggregate and lifecycle fields are stored on `job-preference-scores`, not on `jo
 ## 8. Prompt Construction Contract
 
 Scoring prompt inputs must include:
-- job title, description, and location;
+- job title and location;
+- top 2 embedding-retrieved snippets from the job description;
 - one enabled identity preference guidance at a time.
 
 Scoring prompt inputs must exclude:
+- full raw job description text;
 - source platform;
 - company name and company description;
 - identity name and identity description.
@@ -283,6 +288,12 @@ Scoring prompt inputs must exclude:
 
 For each enabled preference, the prompt must ask Ollama for:
 - either an integer score from 0 to 5, or `N/A` when there is not enough information to judge the preference.
+
+Snippet retrieval rules:
+- Candidate snippets are generated from the job description as individual sentences plus rolling 2-sentence windows.
+- The worker embeds candidate snippets and the active preference guidance using `EMBEDDING_MODEL`.
+- The worker computes similarity and selects the top 2 snippets for prompt context.
+- If fewer than 2 snippets are available, the worker uses all available snippets.
 
 The worker must treat model output as per-preference evidence only. Weighted aggregate ranking is computed deterministically outside the model output.
 
@@ -299,7 +310,11 @@ The worker must treat model output as per-preference evidence only. Weighted agg
 7. Load any existing `job-preference-scores` document for `(job_id, identity_id)` to evaluate reusable per-preference entries.
 8. For each enabled preference key:
   - if an existing entry with the same `preference_key` exists and its stored `preference_guidance` exactly matches the current identity preference `guidance`, reuse the existing `score`;
-  - otherwise, recompute only that single preference score via Ollama and replace the embedded entry snapshot fields (`preference_guidance`, `preference_weight`, `score`, `score_available`, `scored_at`).
+  - otherwise, generate snippet candidates from job description text as individual sentences plus rolling 2-sentence windows;
+  - embed snippet candidates and the active preference guidance using `EMBEDDING_MODEL`;
+  - retrieve top 2 relevant snippets by similarity (or fewer when less text is available);
+  - build the scoring prompt from job title, location, retrieved snippets, and active preference guidance;
+  - recompute only that single preference score via Ollama and replace the embedded entry snapshot fields (`preference_guidance`, `preference_weight`, `score`, `score_available`, `scored_at`).
 9. Upsert one `job-preference-scores` document for `(job_id, identity_id)` containing embedded per-preference scores.
 10. Recompute `weighted_score` deterministically from stored embedded preference scores where `score_available=true`, using their stored `preference_weight` values.
 11. Persist recomputed `weighted_score` on the same `job-preference-scores` document before terminal status write.
@@ -326,6 +341,7 @@ Scoring lifecycle expectations:
 When `AI_SCORER_TEST_MODE=1`:
 - the worker must not require a real Ollama connection;
 - the worker still consumes real Redis messages and reads/writes MongoDB;
+- embedding-based snippet retrieval still runs using the configured `EMBEDDING_MODEL`;
 - scoring output is synthetic and deterministic enough for integration testing;
 - queue payload shape and MongoDB persistence shape must remain unchanged.
 
@@ -340,6 +356,7 @@ The worker should log and skip, rather than crash the process, for recoverable m
 - missing `user_id` or `job_id`;
 - missing MongoDB job/company/identity linkage;
 - no enabled identity preferences;
+- no usable snippet candidates from description text;
 - invalid or incomplete model response.
 
 Connection or infrastructure failures may temporarily abort processing, but the worker is expected to continue its main loop after retry delay.

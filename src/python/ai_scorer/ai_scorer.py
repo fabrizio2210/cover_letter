@@ -1,5 +1,6 @@
 import json
 import html
+import math
 import os
 import queue
 import re
@@ -31,6 +32,13 @@ _SCORING_STATUS_BSON: dict[int, str] = {
 
 
 TERMINAL_PROGRESS_STATUSES = {"completed", "failed"}
+
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+SNIPPET_TOP_K = 2
+SNIPPET_WINDOW_SIZE = 2
+
+_EMBEDDING_MODEL_CACHE = {}
+_EMBEDDING_MODEL_CACHE_LOCK = threading.Lock()
 
 
 def scoring_status_to_bson(status: int) -> str:
@@ -550,12 +558,185 @@ def normalize_description_markdown(description: Any) -> str:
     return text.strip()
 
 
-def build_prompt(job, company, identity, preference):
+def resolve_embedding_model_name() -> str:
+    configured = str(os.environ.get("EMBEDDING_MODEL", "") or "").strip()
+    return configured or DEFAULT_EMBEDDING_MODEL
+
+
+def build_embedding_model(model_name: str):
+    try:
+        from fastembed import TextEmbedding
+    except Exception as exc:
+        raise RuntimeError(f"fastembed import failed: {exc}") from exc
+
+    return TextEmbedding(model_name=model_name)
+
+
+def get_embedding_model(model_name: str):
+    with _EMBEDDING_MODEL_CACHE_LOCK:
+        cached = _EMBEDDING_MODEL_CACHE.get(model_name)
+        if cached is not None:
+            return cached
+
+        created = build_embedding_model(model_name)
+        _EMBEDDING_MODEL_CACHE[model_name] = created
+        return created
+
+
+def _vector_to_float_list(vector: Any) -> list[float]:
+    if hasattr(vector, "tolist"):
+        vector = vector.tolist()
+    return [float(value) for value in vector]
+
+
+def _cosine_similarity(vector_a: list[float], vector_b: list[float]) -> float:
+    if not vector_a or not vector_b or len(vector_a) != len(vector_b):
+        return -1.0
+
+    dot = 0.0
+    norm_a = 0.0
+    norm_b = 0.0
+    for idx in range(len(vector_a)):
+        value_a = vector_a[idx]
+        value_b = vector_b[idx]
+        dot += value_a * value_b
+        norm_a += value_a * value_a
+        norm_b += value_b * value_b
+
+    if norm_a <= 0.0 or norm_b <= 0.0:
+        return -1.0
+
+    return dot / (math.sqrt(norm_a) * math.sqrt(norm_b))
+
+
+def generate_hybrid_chunks(text: str, window_size: int = SNIPPET_WINDOW_SIZE) -> list[str]:
+    if not text:
+        return []
+
+    normalized_text = text.replace("\r\n", "\n").replace("\r", "\n")
+    paragraph_blocks = re.split(r"\n\s*\n+", normalized_text)
+
+    atomic_units: list[str] = []
+
+    def append_atomic(candidate: str):
+        cleaned = re.sub(r"\s+", " ", candidate).strip()
+        if cleaned:
+            atomic_units.append(cleaned)
+
+    for block in paragraph_blocks:
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if not lines:
+            continue
+
+        current_lines: list[str] = []
+
+        def flush_current_lines():
+            if current_lines:
+                append_atomic(" ".join(current_lines))
+                current_lines.clear()
+
+        for raw_line in lines:
+            is_bullet = bool(re.match(r"^([-*•]|\d+[.)])\s+", raw_line))
+            is_heading = raw_line.endswith(":") or raw_line.startswith("#")
+
+            if is_bullet or is_heading:
+                flush_current_lines()
+                bullet_removed = re.sub(r"^([-*•]|\d+[.)])\s+", "", raw_line).strip()
+                append_atomic(bullet_removed)
+                continue
+
+            current_lines.append(raw_line)
+
+        flush_current_lines()
+
+    if not atomic_units:
+        return []
+
+    sentence_like_units: list[str] = []
+    for unit in atomic_units:
+        parts = re.split(r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[\.!\?])\s", unit)
+        for part in parts:
+            cleaned = part.strip()
+            if cleaned:
+                sentence_like_units.append(cleaned)
+
+    if not sentence_like_units:
+        return []
+
+    ordered_chunks: list[str] = []
+    seen: set[str] = set()
+
+    for sentence_like in sentence_like_units:
+        if sentence_like not in seen:
+            seen.add(sentence_like)
+            ordered_chunks.append(sentence_like)
+
+    if window_size <= 1:
+        return ordered_chunks
+
+    for start_idx in range(0, max(0, len(sentence_like_units) - window_size + 1)):
+        window_text = " ".join(sentence_like_units[start_idx : start_idx + window_size]).strip()
+        if window_text and window_text not in seen:
+            seen.add(window_text)
+            ordered_chunks.append(window_text)
+
+    return ordered_chunks
+
+
+def get_top_snippets(
+    embedding_model,
+    chunks: list[str],
+    cached_vectors: list[list[float]],
+    requirement: str,
+    top_k: int = SNIPPET_TOP_K,
+) -> list[str]:
+    if not chunks or not cached_vectors or not requirement:
+        return []
+
+    requirement_vector = _vector_to_float_list(next(embedding_model.embed([requirement])))
+    similarities = []
+    for idx, vector in enumerate(cached_vectors):
+        similarities.append((idx, _cosine_similarity(vector, requirement_vector)))
+
+    ranked = sorted(similarities, key=lambda pair: pair[1], reverse=True)
+    selected = [chunks[idx] for idx, _ in ranked[: max(0, top_k)] if 0 <= idx < len(chunks)]
+    return selected
+
+
+def retrieve_relevant_snippets(job_description: str, preference_guidance: str) -> list[str]:
+    if not job_description:
+        return []
+
+    model_name = resolve_embedding_model_name()
+    embedding_model = get_embedding_model(model_name)
+
+    chunks = generate_hybrid_chunks(job_description, window_size=SNIPPET_WINDOW_SIZE)
+    if not chunks:
+        return []
+
+    cached_vectors = [_vector_to_float_list(vector) for vector in embedding_model.embed(chunks)]
+    if not cached_vectors:
+        return []
+
+    return get_top_snippets(
+        embedding_model,
+        chunks,
+        cached_vectors,
+        preference_guidance,
+        top_k=SNIPPET_TOP_K,
+    )
+
+
+def build_prompt(job, company, identity, preference, snippets=None):
     job_title = get_field(job, "title", "")
-    job_description = normalize_description_markdown(get_field(job, "description", ""))
     job_location = get_field(job, "location", "")
 
     preference_guidance = get_field(preference, "guidance", "")
+    snippet_lines = snippets or []
+    if snippet_lines:
+        snippet_block = "\n".join(f"- {snippet}" for snippet in snippet_lines)
+    else:
+        snippet_block = "- (no relevant snippets available)"
 
     system_instruction = (
         "You are an objective HR analyzer. Evaluate one candidate preference against one job posting using the preference guidance. "
@@ -567,8 +748,9 @@ def build_prompt(job, company, identity, preference):
         f"Preference Guidance: {preference_guidance}\n\n"
         "Respond only with one number in range 0..5, or N/A if the posting does not provide enough evidence.\n\n"
         f"Job Title: {job_title}\n"
-        f"Job Description: {job_description}\n"
         f"Job Location: {job_location}\n"
+        "Relevant Context Snippets:\n"
+        f"{snippet_block}\n"
         "\n"
     )
 
@@ -691,11 +873,34 @@ def score_preference(
     identity_doc,
 ):
     preference_key = get_field(preference, "key", "")
+    preference_guidance = str(get_field(preference, "guidance", "") or get_field(preference, "label", ""))
+    job_description = normalize_description_markdown(get_field(job_doc, "description", ""))
+
+    relevant_snippets = []
+    try:
+        relevant_snippets = retrieve_relevant_snippets(job_description, preference_guidance)
+    except Exception as exc:
+        print(
+            "warn: Failed to retrieve embedding snippets: "
+            + safe_json_dump(
+                {
+                    "job_id": job_id,
+                    "preference_key": preference_key,
+                    "error": str(exc),
+                }
+            )
+        )
 
     if test_mode:
         return {"score": stable_test_score(job_id, preference_key), "score_available": True}
 
-    system_instruction, user_prompt = build_prompt(job_doc, company_doc, identity_doc, preference)
+    system_instruction, user_prompt = build_prompt(
+        job_doc,
+        company_doc,
+        identity_doc,
+        preference,
+        snippets=relevant_snippets,
+    )
 
     request_payload = {
         "job_id": job_id,
@@ -1240,6 +1445,7 @@ def main():
     test_mode = os.environ.get("AI_SCORER_TEST_MODE", "0") == "1"
     ollama_host = os.environ.get("OLLAMA_HOST")
     ollama_model = os.environ.get("OLLAMA_MODEL")
+    embedding_model_name = str(os.environ.get("EMBEDDING_MODEL", "") or "").strip()
     worker_pool_size = parse_worker_pool_size(os.environ.get("AI_SCORER_OLLAMA_PARALLELISM", "1"))
 
     if not test_mode:
@@ -1247,9 +1453,17 @@ def main():
             raise RuntimeError("Environment variable OLLAMA_HOST is required when AI_SCORER_TEST_MODE != 1")
         if not ollama_model:
             raise RuntimeError("Environment variable OLLAMA_MODEL is required when AI_SCORER_TEST_MODE != 1")
+        if not embedding_model_name:
+            raise RuntimeError("Environment variable EMBEDDING_MODEL is required when AI_SCORER_TEST_MODE != 1")
 
     if test_mode and not ollama_model:
         ollama_model = "test-mode-model"
+
+    effective_embedding_model = embedding_model_name or DEFAULT_EMBEDDING_MODEL
+    try:
+        get_embedding_model(effective_embedding_model)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to initialize embedding model '{effective_embedding_model}': {exc}") from exc
 
     client = MongoClient(mongo_uri)
     global_db = client[mongo_db_name]
@@ -1289,6 +1503,7 @@ def main():
     print(f"info: Publishing progress on Redis channel '{scoring_progress_channel}'...")
     print(f"info: Global Mongo DB '{mongo_db_name}' at '{mongo_uri}'")
     print(f"info: Test mode = {test_mode}")
+    print(f"info: Embedding model = {effective_embedding_model}")
     print(f"info: AI_SCORER_OLLAMA_PARALLELISM (worker pool size) = {worker_pool_size}")
 
     try:
