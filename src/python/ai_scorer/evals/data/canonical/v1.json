@@ -26,12 +26,12 @@
     },
     "golden_metrics": {
       "score_distribution": {
-        "0": 0,
+        "0": 7,
         "1": 2,
         "2": 7,
         "3": 3,
         "4": 10,
-        "5": 31,
+        "5": 24,
         "na": 0,
         "error": 0
       }
@@ -40,24 +40,24 @@
   },
   "cases": [
     {
-      "case_id": "1d270981-bfd3-44a3-a634-7335053eef5d",
-      "title": "Frontend Platform Engineer, JavaScript Infrastructure 2 days ago Fully Remote",
-      "description": "",
-      "location": "Remote",
+      "case_id": "31d2af06-70a5-443e-8b72-16e63ed7236a",
+      "title": "Assistant/Associate Professor (Clinical): Large Animal Surgery",
+      "description": "**The Department of Veterinary Clinical Sciences in the Carlson College of Veterinary Medicine invites applications for a full-time (1.00 FTE), 12-month, fixed-term, Assistant or Associate Professor (Clinical): Large Animal Surgery position. Reappointment is at the discretion of the Department Head.**\n\nAppointment at the Assistant Professor rank is anticipated; however, appointment at a promoted rank may be considered depending upon the qualifications of the successful candidate.\n\nThe Carlson College of Veterinary Medicine provides professional and graduate programs for veterinary students leading to DVM, MS and PhD degrees, operates both a Large and a Small Animal Teaching Hospital (VTH), and a State Veterinary Diagnostic Laboratory. The College operates within a total budget (from all sources) of approximately $37 million annually, which supports educational programs, veterinary medical and diagnostic public services, and research programs with broad impacts related to animal and human health. The Department of Clinical Sciences oversees clinical, classroom, and laboratory teaching, and scholarly activity of clinical faculty and residents. The VTH provides primary and referral health care for animals throughout the Pacific Northwest\n\nThe purpose of this position is to provide clinical service, foster critical thinking, generate original medical information and advance professional veterinary students’ and house officers’ knowledge and skills through research, mentorship and instruction in the Department of Clinical Sciences and the Veterinary Teaching Hospital. The balance between these duties will differ between candidates in our clinical and tenure tracks, and based on departmental need. Also, the Department is receptive to faculty members seeking part-time appointments. Duties and expectations will vary with the FTE of the appointment.\n\nThe incumbent provides **Large Animal Surgery Services** to veterinary patients admitted during regular hours and after hours. The incumbent also mentors, assists and instructs interns, residents and students in the classroom, teaching laboratory and hospital. The distribution of efforts may change with program needs.\n\nAchievement in scholarship and creative activity that is recognized as contributing to the body of knowledge in the practice discipline is required. Such activity should be validated by peers and show evidence of financial independence from university funding, if such funding is required to meet scholarly goals.",
+      "location": "onsite",
       "preference_key": "remote_work",
-      "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
+      "preference_guidance": "Prefers fully remote roles",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "rationale": "[model=gpt-5] score=0 available=True because the posting is explicitly on-site/clinical and does not satisfy a fully remote preference.",
       "tags": [
-        "empty_description",
-        "remote_location"
+        "medium_description",
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1969b9d42292667e955",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafa",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -106,24 +106,24 @@
       }
     },
     {
-      "case_id": "03006450-21aa-41fc-abda-c0802301b306",
-      "title": "Engineering Manager - AI Fleet Management",
-      "description": "The Platform team creates the technology that enables Spotify to learn quickly and scale easily, enabling rapid growth in our users and our business around the globe. Spanning many disciplines, we work to make the business work; creating the infrastructure, tooling, frameworks, and capabilities needed to welcome a billion customers.\n\nWhat if the systems you built changed how millions of developers work — not just at Spotify, but across the industry? The Platform Developer Experience (PDX) team builds the infrastructure and internal products that power how Spotify engineers ship software. Within PDX, the Wingspan team is building the next generation of fleet management and reimagining how we interact with AI agents — and bringing those capabilities to market through Portal, Spotify’s external developer platform built on Backstage.\n \nWe are redesigning platform engineering around intelligent agents, large language models, and decision-aware automation. In this role, you’ll lead a team shaping how AI becomes a core operating layer of modern platform infrastructure, directly improving how developers ship and maintain software at scale.",
-      "location": "Remote (Sweden)",
-      "preference_key": "remote_work",
-      "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
+      "case_id": "06b4b6e3-02fc-4f28-8837-120d8524b4e2",
+      "title": "Assistant/Associate Professor (Clinical): Large Animal Surgery",
+      "description": "**The Department of Veterinary Clinical Sciences in the Carlson College of Veterinary Medicine invites applications for a full-time (1.00 FTE), 12-month, fixed-term, Assistant or Associate Professor (Clinical): Large Animal Surgery position. Reappointment is at the discretion of the Department Head.**\n\nAppointment at the Assistant Professor rank is anticipated; however, appointment at a promoted rank may be considered depending upon the qualifications of the successful candidate.\n\nThe Carlson College of Veterinary Medicine provides professional and graduate programs for veterinary students leading to DVM, MS and PhD degrees, operates both a Large and a Small Animal Teaching Hospital (VTH), and a State Veterinary Diagnostic Laboratory. The College operates within a total budget (from all sources) of approximately $37 million annually, which supports educational programs, veterinary medical and diagnostic public services, and research programs with broad impacts related to animal and human health. The Department of Clinical Sciences oversees clinical, classroom, and laboratory teaching, and scholarly activity of clinical faculty and residents. The VTH provides primary and referral health care for animals throughout the Pacific Northwest\n\nThe purpose of this position is to provide clinical service, foster critical thinking, generate original medical information and advance professional veterinary students’ and house officers’ knowledge and skills through research, mentorship and instruction in the Department of Clinical Sciences and the Veterinary Teaching Hospital. The balance between these duties will differ between candidates in our clinical and tenure tracks, and based on departmental need. Also, the Department is receptive to faculty members seeking part-time appointments. Duties and expectations will vary with the FTE of the appointment.\n\nThe incumbent provides **Large Animal Surgery Services** to veterinary patients admitted during regular hours and after hours. The incumbent also mentors, assists and instructs interns, residents and students in the classroom, teaching laboratory and hospital. The distribution of efforts may change with program needs.\n\nAchievement in scholarship and creative activity that is recognized as contributing to the body of knowledge in the practice discipline is required. Such activity should be validated by peers and show evidence of financial independence from university funding, if such funding is required to meet scholarly goals.",
+      "location": "onsite",
+      "preference_key": "coding",
+      "preference_guidance": "Prefers roles that involve a lot of coding",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "rationale": "[model=gpt-5] score=0 available=True because the role is non-software and does not require coding, which strongly mismatches the coding preference.",
       "tags": [
         "medium_description",
-        "remote_location"
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9636",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafa",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -304,24 +304,24 @@
       }
     },
     {
-      "case_id": "234cc1b5-3453-4e25-a818-408509ca441a",
-      "title": "Senior Platform Engineer",
-      "description": "About Liatrio\n At Liatrio, we don't just ship software — we enable real transformation.\n\nWe help large enterprises break free from legacy systems and truly enable AI across their organizations. We design and deliver secure, scalable, agentic AI-native platforms that reshape how teams build, deliver, and thrive at scale.\n\nWe live this every day by embedding deeply with clients to drive meaningful AI enablement — accelerating modernization, reducing risk, and creating lasting competitive advantage through production-grade AI systems.\n\nIf you're a hands-on engineer who leads with AI and drives lasting change, this is where you belong. \nAbout the Role\n We're looking for Senior Platform engineers passionate about best practices in modern engineering and enabling clients by transferring knowledge, coaching, training, and upskilling. You'll be embedded with clients doing hands-on technical work while coaching teams and helping organizations transform how they deliver software.",
-      "location": "Remote (United States)",
-      "preference_key": "remote_work",
-      "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
+      "case_id": "4c2539fe-a3a4-486b-9917-7bc7f4d85a0a",
+      "title": "Specialist Veterinary Nurse - Cardiology",
+      "description": "Working pattern: Part time - 3 days (22.5 hours) on Monday, Tuesday and Wednesday\n\nFixed Term: 2 years\n\nWe have an exciting opportunity for a Registered Veterinary Nurse to join our nursing team at the Queen's Veterinary School Hospital as a Specialist Nurse working with as part of the Cardiology team.\n\nThe Cardiology service is a key part of our multidisciplinary referral hospital and requires close communication with the other clinical services. There is a busy and variable caseload, which will require you to be adaptable, be an excellent communicator and have the ability to work well under pressure.\n\nThe successful applicant will be involved in specialist Cardiology consultations, diagnostic investigations (e.g. echocardiograms and ECG Holter analysis), minimally invasive cardiac procedures (e.g. pacemaker implantation) and inpatient management as well as clinical research. They will also be involved on our Hypertrophic Cardiomyopathy Clinic.\n\nWe are seeking an individual with a passion for nursing and problem-solving, and the ability to communicate with all levels of staff, students and clients. The ability to work on your own initiative with minimal supervision is essential.\n\nIn return, we offer an encouraging and nurturing environment and have a dedicated team of clinicians and nurses who are committed to providing the best care for our patients.\n\nInformal enquiries about this role, please contact Mr Jose Novo Matos by email on: [[EMAIL REDACTED]](mailto:[EMAIL REDACTED])\n\nFurther particulars for the role and information about the Department are available in the Further Particulars document enclosed with this advert. If you are viewing this advert on an external site, please visit the University's job pages for access.\n\nClick the 'Apply' button below to register an account with our recruitment system (if you have not already) and apply online.\n\nTo submit an application for this vacancy, please click on the link 'Apply online' This will route you to the University's Web Recruitment System, where you will need to register an account (if you have not already) before completing the online application form or visit the following website: [[URL REDACTED]]([URL REDACTED])\n\nThe closing date is midnight on Monday 25 May 2026\n\nInterviews will be held on Friday 5 June 2026\n\nOnce an offer of employment has been accepted, the successful candidate will be required to undergo a health assessment.\n\nApplications are welcome from internal candidates who would like to apply for the role on the basis of a secondment from their current role in the University.\n\nPlease quote reference PP49421 on your application and in any correspondence about this vacancy.\n\nThe University actively supports equality, diversity and inclusion and encourages applications from all sections of society.\n\nThe University has a responsibility to ensure that all employees are eligible to live and work in the UK.",
+      "location": "onsite",
+      "preference_key": "coding",
+      "preference_guidance": "Prefers roles that involve a lot of coding",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "rationale": "[model=gpt-5] score=0 available=True because the role is non-software and does not require substantial coding, which strongly mismatches the coding preference.",
       "tags": [
         "medium_description",
-        "remote_location"
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9664",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafe",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -348,24 +348,24 @@
       }
     },
     {
-      "case_id": "3cb93bdb-e821-42cf-9514-2b0dc447c528",
-      "title": "Staff Data Platform Engineer",
-      "description": "Are you obsessed with data, partner success, taking action, and changing the game? If you have a whole lot of hustle and a touch of nerd, come work with Pattern! We want you to use your skills to push one of the fastest-growing companies headquartered in the US to the top of the list. \n \nPattern accelerates brands on global ecommerce marketplaces leveraging proprietary technology and AI. Utilizing more than 66 trillion data points, sophisticated machine learning and AI models, Pattern optimizes and automates all levers of ecommerce growth for global brands, including advertising, content management, logistics and fulfillment, pricing, forecasting and customer service. Hundreds of global brands depend on Pattern’s ecommerce acceleration platform every day to drive profitable revenue growth across 60+ global marketplaces—including Amazon, Walmart.com, Target.com, eBay, Tmall, TikTok Shop, JD, and Mercado Libre. To learn more, visit pattern.com or email [EMAIL REDACTED].\n \nPattern has been named one of the fastest growing tech companies headquartered in North America by Deloitte and one of best-led companies by Inc. We place employee experience at the center of our business model and have been recognized as one of Newsweek’s Global Most Loved Workplaces®.\n\nWe are looking for a visionary Staff Data Platform Engineer to lead the design, architecture, and implementation of our next-generation data platform. In this high-impact role, you will be the catalyst that enables our partners and global teams to extract actionable insights with unprecedented speed and sustainability. If you are ready to architect the backbone of a data-driven empire and eliminate friction at a global scale, you belong at Pattern.",
-      "location": "Remote (Lehi, United States)",
-      "preference_key": "coding",
-      "preference_guidance": "It requires a lot of coding",
-      "expected_score": 5,
+      "case_id": "b6592c50-2561-4247-814d-28dfe3972be4",
+      "title": "Specialist Veterinary Nurse - Cardiology",
+      "description": "Working pattern: Part time - 3 days (22.5 hours) on Monday, Tuesday and Wednesday\n\nFixed Term: 2 years\n\nWe have an exciting opportunity for a Registered Veterinary Nurse to join our nursing team at the Queen's Veterinary School Hospital as a Specialist Nurse working with as part of the Cardiology team.\n\nThe Cardiology service is a key part of our multidisciplinary referral hospital and requires close communication with the other clinical services. There is a busy and variable caseload, which will require you to be adaptable, be an excellent communicator and have the ability to work well under pressure.\n\nThe successful applicant will be involved in specialist Cardiology consultations, diagnostic investigations (e.g. echocardiograms and ECG Holter analysis), minimally invasive cardiac procedures (e.g. pacemaker implantation) and inpatient management as well as clinical research. They will also be involved on our Hypertrophic Cardiomyopathy Clinic.\n\nWe are seeking an individual with a passion for nursing and problem-solving, and the ability to communicate with all levels of staff, students and clients. The ability to work on your own initiative with minimal supervision is essential.\n\nIn return, we offer an encouraging and nurturing environment and have a dedicated team of clinicians and nurses who are committed to providing the best care for our patients.\n\nInformal enquiries about this role, please contact Mr Jose Novo Matos by email on: [[EMAIL REDACTED]](mailto:[EMAIL REDACTED])\n\nFurther particulars for the role and information about the Department are available in the Further Particulars document enclosed with this advert. If you are viewing this advert on an external site, please visit the University's job pages for access.\n\nClick the 'Apply' button below to register an account with our recruitment system (if you have not already) and apply online.\n\nTo submit an application for this vacancy, please click on the link 'Apply online' This will route you to the University's Web Recruitment System, where you will need to register an account (if you have not already) before completing the online application form or visit the following website: [[URL REDACTED]]([URL REDACTED])\n\nThe closing date is midnight on Monday 25 May 2026\n\nInterviews will be held on Friday 5 June 2026\n\nOnce an offer of employment has been accepted, the successful candidate will be required to undergo a health assessment.\n\nApplications are welcome from internal candidates who would like to apply for the role on the basis of a secondment from their current role in the University.\n\nPlease quote reference PP49421 on your application and in any correspondence about this vacancy.\n\nThe University actively supports equality, diversity and inclusion and encourages applications from all sections of society.\n\nThe University has a responsibility to ensure that all employees are eligible to live and work in the UK.",
+      "location": "onsite",
+      "preference_key": "backend_infra",
+      "preference_guidance": "Prefers backend engineering work",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+      "rationale": "[model=gpt-5] score=0 available=True because this is not a backend/infrastructure engineering role, so it strongly mismatches the backend/infra preference.",
       "tags": [
         "medium_description",
-        "remote_location"
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9669",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafe",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -700,24 +700,24 @@
       }
     },
     {
-      "case_id": "316345d9-3101-47b2-b3db-482a1a9ad35f",
-      "title": "Lead Research Software Engineer",
-      "description": "Requisition Id 16230\n\n**Overview:**\n\nThe National Center for Computational Sciences (NCCS) at Oak Ridge National Lab (ORNL), which hosts several of the world’s most powerful computer systems, is seeking highly qualified individuals to play a key role in designing, developing, and deploying data management tools and persistent services that support scientific and AI/ML campaigns that run on NCCS computing infrastructure, including the world’s first exaflop system, Frontier.\n\n**The Team:**\n\nAs a Lead Research Software Engineer (RSE) in the Data and Platform Services (DAPS) group, you will work within the HPC Operations Section. The DAPS group designs and operates data management platforms, tools, and services for the end-to-end data lifecycle from ingestion to publication and supports several large initiatives and facilities at ORNL. Our primary development and deployment platform is the Oak Ridge Leadership Computing Facility (OLCF) Slate Service, built on Kubernetes and Rancher, which provides a container orchestration service for running critical operation applications and user-managed persistent applications that run alongside our OLCF supercomputer systems and other OLCF managed HPC clusters.\n\n**The Role:**\n\nAs a Lead Research Software Engineer, you will design, implement, operate, and maintain federated data platforms, data management portals, data processing pipelines, API gateways, and persistent services for the entire data lifecycle on our on-premises Kubernetes clusters, with a strong focus on innovation, scalability, reliability, and maintainability. You will also assist with AI initiatives at OLCF, evaluate and integrate key data engineering and MLOps technologies, be an individual contributor for medium sized projects, and collaborate with Platform engineers in delivering a robust set of production services for OLCF users. This role requires: significant experience with data management platforms and tools, significant experience with full stack application and API development, working knowledge of Kubernetes and containerization. Knowledge of current AI/ML tools and workflows is preferred but not required.\n\n**Major Duties/Responsibilities:**\n\nApplication Development and Deployment\n\n- Identify and evaluate solutions for federated data management (e.g., Pelican, Rucio), data catalog solutions (e.g. CKAN, DKAN, Schema.org), streaming data (e.g., Kafka), and data movement (XRootD, Globus, S3).\n- Design and implement web portals and API services for data management using a combination of modern web technologies.\n- Develop, implement, and maintain Kubernetes deployment recipes for data portals, catalogs, API gateways, and other ancillary services like key-value stores and databases.\n- Design and develop solutions for MLOps including model lifecycle management and storage, as well as integration with existing platforms like MLFlow.\n- Stay up to date on both open source and commercial platforms and tools being developed for end-to-end data and ML lifecycle management.\n\nCollaboration\n\n- Assist the Group Leader with developing platform and software design documents for new projects and lead implementation efforts with other Software Engineers in the group.\n- Partner closely with internal platforms, cybersecurity, and account management teams to ensure the platform meets security, compliance, role-based access controls, and usability expectations.\n- Participate in cross-functional projects related to platform enhancements and cluster lifecycle automation.\n- Be able to represent the DAPS team with internal collaborators and partners across the lab.\n\n**Basic Qualifications:**\n\n- BS degree and 5+ years of relevant experience or equivalent experience.\n- At least three years of experience with data management platform and tools development.\n- At least three years of experience with full stack application and API development.\n- Experience with CI/CD tooling, GitOps, and Kubernetes.\n- Experience with code review and familiarity with tools like git, GitHub and GitLab.\n\n**Preferred Qualifications:**\n\n- M.S. or Ph.D. in a technical field.\n- Excellent interpersonal/communications skills, and the ability to work as part of a team.\n- Experience with modern MLOps, data engineering, and LLM technologies.\n- Experience with PHP, Python, modern Javascript frameworks (React, AngularJS, NodeJS).\n- Experience designing and implementing highly available systems/services.\n- 8+ years of experience in addition to the degree.\n- Experience with modern software practices such as test-driven development, Agile software development practices and a firm, proven knowledge of software development lifecycles.\n- Demonstrated activity within the broader open-source software community.\n\nThis position will remain open for a minimum of 5 days after which it will close when a qualified candidate is identified and/or hired.\n\nWe accept Word (.doc, .docx), Adobe (unsecured .pdf), Rich Text Format (.rtf), and HTML (.htm, .html) up to 5MB in size. Resumes from third party vendors will not be accepted; these resumes will be deleted and the candidates submitted will not be considered for employment.\n\nIf you have trouble applying for a position, please email [EMAIL REDACTED].\n\nORNL is an equal opportunity employer. All qualified applicants, including individuals with disabilities and protected veterans, are encouraged to apply.  UT-Battelle is an E-Verify employer.",
-      "location": "Remote (United States)",
+      "case_id": "65551c87-5596-47eb-9c74-2051259ace27",
+      "title": "Specialist Veterinary Nurse - Cardiology",
+      "description": "Working pattern: Part time - 3 days (22.5 hours) on Monday, Tuesday and Wednesday\n\nFixed Term: 2 years\n\nWe have an exciting opportunity for a Registered Veterinary Nurse to join our nursing team at the Queen's Veterinary School Hospital as a Specialist Nurse working with as part of the Cardiology team.\n\nThe Cardiology service is a key part of our multidisciplinary referral hospital and requires close communication with the other clinical services. There is a busy and variable caseload, which will require you to be adaptable, be an excellent communicator and have the ability to work well under pressure.\n\nThe successful applicant will be involved in specialist Cardiology consultations, diagnostic investigations (e.g. echocardiograms and ECG Holter analysis), minimally invasive cardiac procedures (e.g. pacemaker implantation) and inpatient management as well as clinical research. They will also be involved on our Hypertrophic Cardiomyopathy Clinic.\n\nWe are seeking an individual with a passion for nursing and problem-solving, and the ability to communicate with all levels of staff, students and clients. The ability to work on your own initiative with minimal supervision is essential.\n\nIn return, we offer an encouraging and nurturing environment and have a dedicated team of clinicians and nurses who are committed to providing the best care for our patients.\n\nInformal enquiries about this role, please contact Mr Jose Novo Matos by email on: [[EMAIL REDACTED]](mailto:[EMAIL REDACTED])\n\nFurther particulars for the role and information about the Department are available in the Further Particulars document enclosed with this advert. If you are viewing this advert on an external site, please visit the University's job pages for access.\n\nClick the 'Apply' button below to register an account with our recruitment system (if you have not already) and apply online.\n\nTo submit an application for this vacancy, please click on the link 'Apply online' This will route you to the University's Web Recruitment System, where you will need to register an account (if you have not already) before completing the online application form or visit the following website: [[URL REDACTED]]([URL REDACTED])\n\nThe closing date is midnight on Monday 25 May 2026\n\nInterviews will be held on Friday 5 June 2026\n\nOnce an offer of employment has been accepted, the successful candidate will be required to undergo a health assessment.\n\nApplications are welcome from internal candidates who would like to apply for the role on the basis of a secondment from their current role in the University.\n\nPlease quote reference PP49421 on your application and in any correspondence about this vacancy.\n\nThe University actively supports equality, diversity and inclusion and encourages applications from all sections of society.\n\nThe University has a responsibility to ensure that all employees are eligible to live and work in the UK.",
+      "location": "onsite",
       "preference_key": "remote_work",
-      "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
+      "preference_guidance": "Prefers fully remote roles",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "rationale": "[model=gpt-5] score=0 available=True because the posting is explicitly on-site/clinical and does not satisfy a fully remote preference.",
       "tags": [
-        "rich_description",
-        "remote_location"
+        "medium_description",
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9637",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafe",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -854,24 +854,24 @@
       }
     },
     {
-      "case_id": "04d0b549-068f-433b-9547-528b73f6e32c",
-      "title": "Principal Platform Engineer",
-      "description": "About Liatrio\nAt Liatrio, we don't just ship software — we enable real transformation.\nWe help large enterprises break free from legacy systems and truly enable AI across their organizations. We design and deliver secure, scalable, agentic AI-native platforms that reshape how teams build, deliver, and thrive at scale.\nWe live this every day by embedding deeply with clients to drive meaningful AI enablement — accelerating modernization, reducing risk, and creating lasting competitive advantage through production-grade AI systems. We use tools like Claude, Cursor, and Codex daily to move faster and deliver better outcomes.\nIf you're a technical leader who leads with AI and drives lasting change, this is where you belong.\n\n \nAbout the Role\nThe Principal Platform Engineer defines the scope of technical work, owns the architectural direction of complex Platform workstreams, and is accountable for the technical outcomes of the engagement. \nYou are responsible for code quality, architecture, and technical direction across your team — and you're the person who makes sure what gets built is the right thing, built the right way.\nYou make the hard architecture calls, document the tradeoffs, and communicate them in a way that builds trust with the engineers executing the work and the technical leaders sponsoring it.\n \n\n \nWhat You'll Do\nTechnical Ownership and Architecture\nDefine the scope of technical work related to deliverables and milestones of the engagement\nOwn the architectural direction of your Platform workstream — CI/CD pipeline design, IaC architecture, platform strategy, observability programs, DevSecOps implementation, AI tooling and implementation, and developer experience\nResponsible for code quality, architecture, and technical direction across the team\nBuild and own complex delivery infrastructure — pipelines teams depend on, IaC systems that don't drift, and cloud-native platform environments that work for teams who aren't infrastructure specialists\nDrive observability maturity — implementing metrics, logging, tracing, and alerting strategies that change how teams operate\nBuild platform engineering initiatives within your workstream — developer platforms, self-service tooling, automated governance, policy as code\nIntegrate AI and LLM capabilities into client delivery pipelines and developer workflows in ways that are architecturally sound and maintainable\nAnticipate technical risk before it becomes delivery risk — surface issues early and communicate proactively\nParticipate in scoping discussions and SOW architecture for new and existing customers\nLead or participate in Platform Dojo engagements, coaching client teams on modern delivery practices\nGenerate ideas, be willing to fail fast, and demonstrate with POCs\nClient Technical Engagement\nServe as the senior technical point of contact for your workstream — engaging directly with client engineering managers and directors on architecture, delivery strategy, and technical risk\nProactively identify opportunities to improve engineering culture, delivery practices, and technical quality at the client, and drive that change\nParticipate in business development including client expansion conversations and SOW development\nTeam Leadership and Development\nResponsible and accountable for the technical outcomes of your team\nMentor engineers through real technical challenges — pairing, architecture reviews, feedback that raises their game\nOrganize and break down complex work so the team can execute with clarity\nLiatrio Growth\nIdentify and surface expansion opportunities to the sales team and validate SOWs\nBuild accelerators from client engagement insights that benefit future engagements\n \n\n \nExperience and Skills\nEngineering and Infrastructure\nYou have a track record of owning the architectural direction of complex, high-stakes Platform workstreams — you've made the hard calls, been accountable for the outcomes, and learned from the experiences that didn't go as planned\nYou've designed and owned CI/CD systems at enterprise scale — defined the strategy, rationalized toolchains, and built governance models that let large organizations move fast without losing control\nYou've built and led cloud-native platform adoption in complex production environments — whether that's Kubernetes, managed container services, or other orchestration platforms — and built or overseen the platform engineering layer that makes it operable for teams who aren't infrastructure specialists\nYou've built and owned IaC systems that organizations genuinely depend on — module design, remote state management, drift detection, and migrating existing infrastructure into code without breaking production systems\nYou've built platform engineering work that demonstrably changed how engineering teams operate — internal developer platforms, self-service tooling, automated governance — reducing toil and improving delivery quality\nYou've implemented DevSecOps practices in real enterprise environments — secure pipelines, secrets management, policy as code, automated compliance — making security a first-class engineering concern\nYou've built observability programs that changed how teams behave — systems and culture that make engineers capable of understanding and operating what they build\nAI and Intelligent Systems\nYou've integrated AI capabilities into real Platform and platform workflows — intelligent pipeline automation, AI-augmented developer tooling, or operational automation — and you can speak to the architecture, the tradeoffs, and what actually worked\nYou have enough depth in LLM capabilities and agentic patterns to make architectural decisions about where and how to apply them in a Platform context, and guide your team through implementation that holds up in production\nYou can have a credible conversation with client technical leaders about where AI creates genuine leverage — grounded in what's real\nYou use AI coding tools like Claude, Cursor, or Windsurf as a daily driver — and you actively champion adoption on your team because you've seen the compounding impact on quality and speed\n \n\n \nRequirements\n8+ years of hands-on Platform engineering experience, with demonstrated ownership of complex technical workstreams\nEmployment eligibility: must be authorized to work in the United States or Canada without the need for sponsorship.\nTravel availability: 25-50% depending on client needs\nFull benefits including unlimited PTO, funded HSA option, 401k match, monthly LiveWell stipend, and quarterly company bonus\nAnnual base salary: $170,000- $200,000 , depending on experience",
+      "case_id": "0fdca6b6-1ad9-4eef-800a-4bfbc00f85de",
+      "title": "Frontend Platform Engineer, JavaScript Infrastructure 5 days ago Fully Remote",
+      "description": "",
       "location": "Remote",
       "preference_key": "backend_infra",
-      "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
-      "expected_score": 5,
+      "preference_guidance": "Prefers backend engineering work",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+      "rationale": "[model=gpt-5] score=0 available=True because this is not a backend/infrastructure engineering role, so it strongly mismatches the backend/infra preference.",
       "tags": [
-        "rich_description",
+        "empty_description",
         "remote_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9639",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a0c3aeb84569b3799808520",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -986,24 +986,24 @@
       }
     },
     {
-      "case_id": "38cab61a-114d-4c3c-84f4-c7d21512738b",
-      "title": "Platform Engineer - Multicloud",
-      "description": "### **About Supabase**\n\nSupabase is the Postgres development platform, built by developers for developers. We provide a complete backend solution including Database, Auth, Storage, Edge Functions, Realtime, and Vector Search. All services are deeply integrated and designed for growth.\n\n### **About the Role**\n\nWe’re looking for a Platform Engineer to join our Compute Team and help us build cloud-portable infrastructure. You’ll work closely with product and our infrastructure teams to audit our current platform for cloud-specific dependencies, design for portability, and help build the foundation that will allow us to run workloads across multiple cloud environments or colocated infrastructure.\n\nThis role is ideal for someone who thrives in async, fast-paced environments and is excited about building developer tools that scale to millions.\n\n### **What You’ll Be Responsible for**\n\n- Audit existing infrastructure components to identify cloud-specific dependencies and build a structured, actionable migration backlog\n\n- Design and implement cloud-agnostic abstractions over compute, networking, and storage layers\n\n- Maintain and evolve our Kubernetes-based workload orchestration to run portably across cloud environments\n\n- Collaborate with platform and product engineering teams to ensure new work is built with multi-cloud portability in mind from the start\n\n- Contribute to architecture decisions around target cloud environments and colocated infrastructure options\n\n### **You Might Be a Good Fit If You**\n\n- Have 8+ years of experience in platform or infrastructure engineering\n\n- Have experience working with multi-cloud environments at scale\n\n- Are experienced with Kubernetes and comfortable running it across multiple environments (AWS, GCP, and Azure)\n\n- Have worked with Pulumi or similar infrastructure-as-code tooling\n\n- Have been through at least one cloud abstraction, portability, or re-platforming initiative\n\n- Communicate clearly across both technical and non-technical audiences\n\n- Have experience in async or globally distributed teams\n\n- Are energized by solving real-world problems for developers\n\n- Are comfortable navigating ambiguity and moving quickly\n\n#### **What We Offer**\n\n- **Fully Remote**\n\n  We hire globally. We believe you can do your best work from anywhere. There are no Supabase offices, but we provide a WeWork membership or co-working allowance you can use anywhere in the world.\n\n- **ESOP**\n\n  Every team member receives ESOP (equity ownership) in the company. We want everyone to share in the upside of what we’re building together.\n\n- **Tech Allowance**\n\n  Use this budget to set up your ideal work environment—laptop, monitor, headphones, or whatever helps you do your best work.\n\n- **Health Benefits**\n\n  Supabase covers 100% of health insurance for employees and 80% for dependents, wherever you are. Your wellbeing and your family’s health are important to us.\n\n- **Annual Off-Sites**\n\n  Once a year, the entire company gathers in a new city for a week of connection, collaboration, and fun. It’s a highlight of our year.\n\n- **Flexible Work**\n\n  We operate asynchronously and trust you to manage your own time. You know what needs to be done and when.\n\n- **Professional Development**\n\n  Every team member receives an annual education allowance to spend on learning—courses, books, conferences, or anything that supports your growth.\n\n#### **About the Team**\n\nSupabase was born-remote and open-source-first. We believe our globally distributed team is our secret weapon in building tools developers love.\n\n- 280+ team members\n\n- 55+ countries\n\n- 20+ languages spoken\n\n- $500M raised\n\n- 500,000+ community members\n\nWe move fast, build in public, and use what we ship. If it’s in your project, we probably use it in ours too. We believe deeply in the open-source ecosystem and strive to support—not replace—existing tools and communities.\n\n#### **Hiring Process**\n\nWe keep things simple, async-friendly, and respectful of your time:\n\n1. Apply – Our team will review your application.\n\n2. Intro Call – A short video chat to get to know each other.\n\n3. Interviews – Up to four calls with:\n\n   - Team Leads\n\n   - Future teammates\n\n   - Someone cross-functional from product, growth, or engineering (depending on the role)\n\n   - Someone from our leadership/founding team\n4. Decision – We may follow up with a final question or go straight to offer.\n\nAll communication is remote and we aim to move fast.",
-      "location": "Remote",
+      "case_id": "97b1faf6-5b10-42ed-ba37-dc72ef377238",
+      "title": "Assistant/Associate Professor (Clinical): Large Animal Surgery",
+      "description": "**The Department of Veterinary Clinical Sciences in the Carlson College of Veterinary Medicine invites applications for a full-time (1.00 FTE), 12-month, fixed-term, Assistant or Associate Professor (Clinical): Large Animal Surgery position. Reappointment is at the discretion of the Department Head.**\n\nAppointment at the Assistant Professor rank is anticipated; however, appointment at a promoted rank may be considered depending upon the qualifications of the successful candidate.\n\nThe Carlson College of Veterinary Medicine provides professional and graduate programs for veterinary students leading to DVM, MS and PhD degrees, operates both a Large and a Small Animal Teaching Hospital (VTH), and a State Veterinary Diagnostic Laboratory. The College operates within a total budget (from all sources) of approximately $37 million annually, which supports educational programs, veterinary medical and diagnostic public services, and research programs with broad impacts related to animal and human health. The Department of Clinical Sciences oversees clinical, classroom, and laboratory teaching, and scholarly activity of clinical faculty and residents. The VTH provides primary and referral health care for animals throughout the Pacific Northwest\n\nThe purpose of this position is to provide clinical service, foster critical thinking, generate original medical information and advance professional veterinary students’ and house officers’ knowledge and skills through research, mentorship and instruction in the Department of Clinical Sciences and the Veterinary Teaching Hospital. The balance between these duties will differ between candidates in our clinical and tenure tracks, and based on departmental need. Also, the Department is receptive to faculty members seeking part-time appointments. Duties and expectations will vary with the FTE of the appointment.\n\nThe incumbent provides **Large Animal Surgery Services** to veterinary patients admitted during regular hours and after hours. The incumbent also mentors, assists and instructs interns, residents and students in the classroom, teaching laboratory and hospital. The distribution of efforts may change with program needs.\n\nAchievement in scholarship and creative activity that is recognized as contributing to the body of knowledge in the practice discipline is required. Such activity should be validated by peers and show evidence of financial independence from university funding, if such funding is required to meet scholarly goals.",
+      "location": "onsite",
       "preference_key": "backend_infra",
-      "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
-      "expected_score": 5,
+      "preference_guidance": "Prefers backend engineering work",
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because the title and description strongly indicate backend/platform/infrastructure responsibilities.",
+      "rationale": "[model=gpt-5] score=0 available=True because this is not a backend/infrastructure engineering role, so it strongly mismatches the backend/infra preference.",
       "tags": [
-        "rich_description",
-        "remote_location"
+        "medium_description",
+        "onsite_location"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963b",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a11adf8e6aac02df259fafa",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
