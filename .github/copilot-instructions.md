@@ -9,7 +9,21 @@ make test-full
 ```
 
 Do not commit, do not present the result as done, and do not proceed to the next step if this command fails.
-Fix the failure first, then re-run `make test-full` until it passes. It is a long running command (~5 minutes), you should use the terminal to se the output.
+Fix the failure first, then re-run `make test-full` until it passes. It is a long running command (~5 minutes), you should redirect the output to a file.
+
+## Long-running test execution protocol
+
+Because `make test-full` is long-running and output can be truncated by tooling, use this exact workflow:
+
+1. Run once with persistent logging:
+
+```bash
+bash scripts/test-gate.sh --mode full 2>&1 | tee /tmp/cover-letter-test-full.log
+```
+
+2. Run the command once and wait for completion; do not spam retries while it is still running.
+3. Use the log file as source of truth for pass/fail when live output is incomplete.
+
 
 ## What `make test-full` checks
 
