@@ -31,8 +31,8 @@
         "2": 7,
         "3": 7,
         "4": 10,
-        "5": 20,
-        "na": 0,
+        "5": 17,
+        "na": 3,
         "error": 0
       }
     },
@@ -238,24 +238,23 @@
       }
     },
     {
-      "case_id": "f1c132be-95f0-4462-83ed-be9b63ba846e",
-      "title": "Senior Backend Engineer",
-      "description": "We’re looking for Senior Backend Engineers to join our Platform team.\nThis team builds and evolves the backend systems at the core of our products and customer-facing solutions.\nIn this role, you’ll design and operate distributed systems, work with Web3 infrastructure, and collaborate closely with product and platform engineers to deliver reliable, scalable solutions.\nWe value strong ownership, thoughtful system design, and a high bar for code quality.\nIf you enjoy building solid systems, moving fast without cutting corners, and using modern tools (including AI) to work more efficiently, you’ll feel right at home with us.",
-      "location": "Remote (Portugal)",
+      "case_id": "9e681de3-cdd9-43cf-bb82-3070f8819aa6",
+      "title": "Senior Platform Engineer",
+      "description": "Good Inside is building technology to support parents with personalized guidance and AI-powered support. This role focuses on backend services, third-party integrations, backend-for-frontend abstractions, documentation, and close collaboration with product and engineering partners to improve platform reliability and scalability.",
+      "location": "unknown",
       "preference_key": "remote_work",
       "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
-      "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "expected_score": null,
+      "expected_score_available": false,
+      "rationale": "[model=gpt-5] score=na available=False because location evidence was intentionally redacted, so remote-work preference cannot be evaluated.",
       "tags": [
-        "medium_description",
-        "remote_location"
+        "rich_description"
       ],
       "schema_version": "1",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f965c",
-        "extracted_at": "2026-05-14T17:02:32.319977+00:00",
+        "source_job_id": "6a0c3b040a7947106af54c12",
+        "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
       }
     },
@@ -372,16 +371,15 @@
     {
       "case_id": "e2d2150e-5ce0-40b7-af76-a57850291ebc",
       "title": "Staff Data Platform Engineer",
-      "description": "Are you obsessed with data, partner success, taking action, and changing the game? If you have a whole lot of hustle and a touch of nerd, come work with Pattern! We want you to use your skills to push one of the fastest-growing companies headquartered in the US to the top of the list. \n \nPattern accelerates brands on global ecommerce marketplaces leveraging proprietary technology and AI. Utilizing more than 66 trillion data points, sophisticated machine learning and AI models, Pattern optimizes and automates all levers of ecommerce growth for global brands, including advertising, content management, logistics and fulfillment, pricing, forecasting and customer service. Hundreds of global brands depend on Pattern’s ecommerce acceleration platform every day to drive profitable revenue growth across 60+ global marketplaces—including Amazon, Walmart.com, Target.com, eBay, Tmall, TikTok Shop, JD, and Mercado Libre. To learn more, visit pattern.com or email [EMAIL REDACTED].\n \nPattern has been named one of the fastest growing tech companies headquartered in North America by Deloitte and one of best-led companies by Inc. We place employee experience at the center of our business model and have been recognized as one of Newsweek’s Global Most Loved Workplaces®.\n\nWe are looking for a visionary Staff Data Platform Engineer to lead the design, architecture, and implementation of our next-generation data platform. In this high-impact role, you will be the catalyst that enables our partners and global teams to extract actionable insights with unprecedented speed and sustainability. If you are ready to architect the backbone of a data-driven empire and eliminate friction at a global scale, you belong at Pattern.",
-      "location": "Remote (Lehi, United States)",
+      "description": "Are you obsessed with data, partner success, taking action, and changing the game? If you have a whole lot of hustle and a touch of nerd, come work with Pattern! We want you to use your skills to push one of the fastest-growing companies. \n \nPattern accelerates brands on global ecommerce marketplaces leveraging proprietary technology and AI. Utilizing more than 66 trillion data points, sophisticated machine learning and AI models, Pattern optimizes and automates all levers of ecommerce growth for global brands, including advertising, content management, logistics and fulfillment, pricing, forecasting and customer service. Hundreds of global brands depend on Pattern’s ecommerce acceleration platform every day to drive profitable revenue growth across 60+ global marketplaces—including Amazon, Walmart.com, Target.com, eBay, Tmall, TikTok Shop, JD, and Mercado Libre. To learn more, visit pattern.com or email [EMAIL REDACTED].\n \nPattern has been named one of the fastest growing tech companies headquartered in North America by Deloitte and one of best-led companies by Inc. We place employee experience at the center of our business model and have been recognized as one of Newsweek’s Global Most Loved Workplaces®.\n\nWe are looking for a visionary Staff Data Platform Engineer to lead the design, architecture, and implementation of our next-generation data platform. In this high-impact role, you will be the catalyst that enables our partners and global teams to extract actionable insights with unprecedented speed and sustainability. If you are ready to architect the backbone of a data-driven empire and eliminate friction at a global scale, you belong at Pattern.",
+      "location": "unknown",
       "preference_key": "remote_work",
       "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
-      "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "expected_score": null,
+      "expected_score_available": false,
+      "rationale": "[model=gpt-5] score=na available=False because the location signal was intentionally redacted, so remote-work preference cannot be evaluated.",
       "tags": [
-        "medium_description",
-        "remote_location"
+        "rich_description"
       ],
       "schema_version": "1",
       "provenance": {
@@ -505,15 +503,14 @@
       "case_id": "c55d0c7b-c4e0-4a62-b7c5-871b1b9f977e",
       "title": "C++ Engineer - Platform Engineering",
       "description": "The CI Experience squad owns the client continuous integration (CI) infrastructure at Spotify. Our mission is to ensure smooth, reliable, and fast integration of code changes across all client repositories. We provide the tooling, documentation, and support that empower client engineers to build, test, and ship confidently.\n \nWe’re evolving our CI platform to meet the growing complexity of Spotify’s client ecosystem. Spanning Android, iOS, desktop, and embedded platforms, by building scalable, maintainable systems and best practices for continuous delivery.",
-      "location": "Remote (United Kingdom)",
+      "location": "unknown",
       "preference_key": "remote_work",
       "preference_guidance": "Prefers fully remote positions. Hybrid is acceptable. On-site only is not preferred.",
-      "expected_score": 5,
-      "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because location is explicitly remote, which strongly matches the remote-work preference.",
+      "expected_score": null,
+      "expected_score_available": false,
+      "rationale": "[model=gpt-5] score=na available=False because location evidence was intentionally redacted, so remote-work preference cannot be evaluated.",
       "tags": [
-        "medium_description",
-        "remote_location"
+        "rich_description"
       ],
       "schema_version": "1",
       "provenance": {
