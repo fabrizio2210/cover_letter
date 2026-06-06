@@ -122,6 +122,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         fixture_source=args.fixtures,
         fixture_model=fixture_model,
         fixture_count=len(cases),
+        cases=cases,
         candidate_model=args.candidate,
         run_at=run_at,
         candidate_metrics=candidate_metrics,

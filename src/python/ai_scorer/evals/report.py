@@ -22,11 +22,31 @@ def _fmt_pct(v: float) -> str:
     return f"{v * 100:.1f}%"
 
 
+def _golden_score_distribution(cases) -> dict:
+    """Build score distribution from golden fixture cases."""
+    dist = {str(i): 0 for i in range(6)}
+    dist["na"] = 0
+    dist["error"] = 0
+
+    for case in cases:
+        if case.expected_score_available and case.expected_score is not None:
+            bucket = str(case.expected_score)
+            if bucket in dist:
+                dist[bucket] += 1
+            else:
+                dist["error"] += 1
+        else:
+            dist["na"] += 1
+
+    return dist
+
+
 def write_summary(
     output_dir: str,
     fixture_source: str,
     fixture_model: str,
     fixture_count: int,
+    cases,
     candidate_model: str,
     run_at: str,
     candidate_metrics,
@@ -61,6 +81,9 @@ def write_summary(
         "candidate_model": candidate_model,
         "run_at": run_at,
         "candidate_metrics": cm_dict,
+        "golden_metrics": {
+            "score_distribution": _golden_score_distribution(cases),
+        },
         "timing": timing,
         "regression": {
             "passed": regression.passed,
@@ -156,12 +179,14 @@ def write_report(
         "",
         "## Score Distribution",
         "",
-        "| Score | Candidate |",
-        "|---|---|",
+        "| Score | Candidate | Golden |",
+        "|---|---|---|",
     ]
+    golden_dist = _golden_score_distribution(cases)
     for bucket in ["0", "1", "2", "3", "4", "5", "na", "error"]:
         c_count = cm.score_distribution.get(bucket, 0)
-        lines.append(f"| {bucket} | {c_count} |")
+        g_count = golden_dist.get(bucket, 0)
+        lines.append(f"| {bucket} | {c_count} | {g_count} |")
 
     lines.append("")
 
