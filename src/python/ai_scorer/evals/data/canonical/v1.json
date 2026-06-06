@@ -24,6 +24,18 @@
       "p95_latency_ms": 9362.272500800098,
       "total_latency_ms": 329073.45421999705
     },
+    "golden_metrics": {
+      "score_distribution": {
+        "0": 0,
+        "1": 2,
+        "2": 7,
+        "3": 3,
+        "4": 10,
+        "5": 31,
+        "na": 0,
+        "error": 0
+      }
+    },
     "format_version": "2"
   },
   "cases": [
