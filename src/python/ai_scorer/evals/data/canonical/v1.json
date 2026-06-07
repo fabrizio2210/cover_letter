@@ -4,25 +4,25 @@
     "reference_metrics": {
       "total": 53,
       "errored": 0,
-      "exact_accuracy": 0.5849056603773585,
+      "exact_accuracy": 0.3584905660377358,
       "na_precision": 0.0,
       "na_recall": 0.0,
       "na_f1": 0.0,
-      "mean_abs_error": 0.8076923076923077,
+      "mean_abs_error": 1.530612244897959,
       "score_distribution": {
-        "0": 0,
+        "0": 2,
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 1,
-        "5": 51,
+        "5": 49,
         "na": 1,
         "error": 0
       },
-      "mean_latency_ms": 6208.93309849051,
-      "p50_latency_ms": 5281.15797800001,
-      "p95_latency_ms": 9362.272500800098,
-      "total_latency_ms": 329073.45421999705
+      "mean_latency_ms": 4553.999166207547,
+      "p50_latency_ms": 3566.120699999999,
+      "p95_latency_ms": 8551.438886800019,
+      "total_latency_ms": 241361.955809
     },
     "golden_metrics": {
       "score_distribution": {
