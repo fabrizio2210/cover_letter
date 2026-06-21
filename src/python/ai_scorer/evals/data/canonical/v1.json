@@ -1,37 +1,37 @@
 {
   "meta": {
-    "fixture_model": "qwen2.5:1.5b",
+    "fixture_model": "gemini-3.5-flash",
     "reference_metrics": {
       "total": 53,
       "errored": 0,
-      "exact_accuracy": 0.20754716981132076,
-      "na_precision": 0.1,
-      "na_recall": 0.3333333333333333,
-      "na_f1": 0.15384615384615383,
-      "mean_abs_error": 1.0,
+      "exact_accuracy": 0.5660377358490566,
+      "na_precision": 1.0,
+      "na_recall": 1.0,
+      "na_f1": 1.0,
+      "mean_abs_error": 0.56,
       "score_distribution": {
-        "0": 0,
-        "1": 0,
-        "2": 7,
-        "3": 1,
-        "4": 34,
-        "5": 1,
-        "na": 10,
+        "0": 11,
+        "1": 3,
+        "2": 1,
+        "3": 7,
+        "4": 14,
+        "5": 14,
+        "na": 3,
         "error": 0
       },
-      "mean_latency_ms": 4747.233251735835,
-      "p50_latency_ms": 4644.710586999963,
-      "p95_latency_ms": 6455.143198200085,
-      "total_latency_ms": 251603.36234199928
+      "mean_latency_ms": 3200.1527326226546,
+      "p50_latency_ms": 3151.136906000147,
+      "p95_latency_ms": 5346.983479200026,
+      "total_latency_ms": 169608.0948290007
     },
     "golden_metrics": {
       "score_distribution": {
-        "0": 7,
-        "1": 2,
-        "2": 7,
-        "3": 7,
+        "0": 10,
+        "1": 0,
+        "2": 6,
+        "3": 8,
         "4": 10,
-        "5": 17,
+        "5": 16,
         "na": 3,
         "error": 0
       }
@@ -484,9 +484,9 @@
       "location": "hybrid",
       "preference_key": "backend_infra",
       "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
-      "expected_score": 3,
+      "expected_score": 2,
       "expected_score_available": true,
-      "rationale": "Score 3: this is a senior data-science/AI platform role with some platform and engineering collaboration, but core responsibilities center on data science and AI governance rather than primary backend/infrastructure engineering ownership.",
+      "rationale": "Score 2: this is a senior data-science/AI platform role with some platform and engineering collaboration, but core responsibilities center on data science and AI governance rather than primary backend/infrastructure engineering ownership.",
       "tags": [
         "rich_description",
         "hybrid_location"
@@ -593,9 +593,9 @@
       "location": "Remote (Sweden)",
       "preference_key": "backend_infra",
       "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
-      "expected_score": 2,
+      "expected_score": 3,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=2 available=True because despite platform wording, the mobile-android emphasis is not aligned with backend/infra preference.",
+      "rationale": "[model=gpt-5] score=3 available=True because despite platform wording, the mobile-android emphasis is not aligned with backend/infra preference.",
       "tags": [
         "medium_description",
         "remote_location"
@@ -1077,9 +1077,9 @@
       "location": "Remote",
       "preference_key": "coding",
       "preference_guidance": "It requires a lot of coding",
-      "expected_score": 5,
+      "expected_score": 3,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=5 available=True because the role is clearly engineering-focused with substantial hands-on coding expectations.",
+      "rationale": "[model=gpt-5] score=3 available=True because the role is centered mostly on performance and does not mention coding itself.",
       "tags": [
         "rich_description",
         "remote_location"
@@ -1143,9 +1143,9 @@
       "location": "hybrid",
       "preference_key": "remote_work",
       "preference_guidance": "Prefers fully remote roles",
-      "expected_score": 2,
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=2 available=True because the role is explicitly hybrid and includes on-site operations/emergency support, so it is a weak fit for fully remote preference.",
+      "rationale": "[model=gpt-5] score=0 available=True because the role is explicitly hybrid and includes on-site operations/emergency support, so it is a weak fit for fully remote preference.",
       "tags": [
         "rich_description"
       ],
@@ -1164,9 +1164,9 @@
       "location": "hybrid",
       "preference_key": "backend_infra",
       "preference_guidance": "Prefers backend engineering work",
-      "expected_score": 1,
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=1 available=True because this role is operational management in animal care facilities and does not indicate backend engineering responsibilities.",
+      "rationale": "[model=gpt-5] score=0 available=True because this role is operational management in animal care facilities and does not indicate backend engineering responsibilities.",
       "tags": [
         "rich_description"
       ],
@@ -1185,9 +1185,9 @@
       "location": "hybrid",
       "preference_key": "coding",
       "preference_guidance": "Prefers roles that involve a lot of coding",
-      "expected_score": 1,
+      "expected_score": 0,
       "expected_score_available": true,
-      "rationale": "[model=gpt-5] score=1 available=True because this is a management/operations role in animal facility programs with no clear software coding responsibilities.",
+      "rationale": "[model=gpt-5] score=0 available=True because this is a management/operations role in animal facility programs with no clear software coding responsibilities.",
       "tags": [
         "rich_description"
       ],
