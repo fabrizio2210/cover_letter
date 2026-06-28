@@ -745,10 +745,6 @@ def build_prompt(job, company, identity, preference, snippets=None):
         "Treat the job title and job location as primary evidence; generic company boilerplate and repeated snippet fragments should not raise a score by themselves. "
         "Return either one integer score from 0 to 5, or N/A when the job posting is truly insufficient. "
         "Do not return JSON and do not add any explanation text."
-    )
-
-    user_prompt = (
-        f"Preference Guidance: {preference_guidance}\n\n"
         "Scoring rubric:\n"
         "- 0 = opposite fit, explicit mismatch, or clearly unsupported\n"
         "- 1 = tiny indirect overlap, mostly noise\n"
@@ -759,6 +755,10 @@ def build_prompt(job, company, identity, preference, snippets=None):
         "Choose the best matching numeric score from 0 to 5. If there is some evidence, prefer a numeric score over N/A.\n\n"
         "Do not let boilerplate snippets override a weak or conflicting title/location signal.\n\n"
         "Respond only with one number in range 0..5, or N/A only if the posting provides no meaningful evidence at all.\n\n"
+    )
+
+    user_prompt = (
+        f"Preference Guidance: {preference_guidance}\n\n"
         f"Job Title: {job_title}\n"
         f"Job Location: {job_location}\n"
         "Relevant Context Snippets:\n"
