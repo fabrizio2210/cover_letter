@@ -1465,8 +1465,6 @@ def main():
             raise RuntimeError("Environment variable OLLAMA_HOST is required when AI_SCORER_TEST_MODE != 1")
         if not ollama_model:
             raise RuntimeError("Environment variable OLLAMA_MODEL is required when AI_SCORER_TEST_MODE != 1")
-        if not embedding_model_name:
-            raise RuntimeError("Environment variable EMBEDDING_MODEL is required when AI_SCORER_TEST_MODE != 1")
 
     if test_mode and not ollama_model:
         ollama_model = "test-mode-model"
