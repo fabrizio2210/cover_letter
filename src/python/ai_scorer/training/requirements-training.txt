@@ -1,0 +1,10 @@
+# Optional dependencies for ai_scorer fine-tuning and packaging.
+# Keep separate from runtime scorer dependencies.
+
+torch==2.8.0
+transformers==4.55.4
+peft==0.17.1
+trl==0.21.0
+accelerate==1.10.1
+datasets==4.0.0
+sentencepiece==0.2.1

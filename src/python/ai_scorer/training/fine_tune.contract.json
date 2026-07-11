@@ -1,0 +1,21 @@
+{
+  "base_model": {
+    "ollama_tag": "qwen2.5:1.5b",
+    "hf_id": "Qwen/Qwen2.5-1.5B-Instruct"
+  },
+  "training_method": "qlora",
+  "preferred_stack": "unsloth+trl",
+  "hardware_profile": "cpu-only",
+  "system_prompt_policy": "keep-system",
+  "promotion_gate": "existing-scorer-eval",
+  "packaging": {
+    "merge_hf": true,
+    "gguf": true,
+    "ollama": true
+  },
+  "excluded_scope": [
+    "distributed-training",
+    "automated-hpo",
+    "cloud-provisioning"
+  ]
+}

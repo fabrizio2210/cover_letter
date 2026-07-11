@@ -1,0 +1,29 @@
+{
+  "dataset_dir": "src/python/ai_scorer/training/data/export/no-system-prompt",
+  "total_records": 500,
+  "split_reports": [
+    {
+      "split": "train",
+      "path": "src/python/ai_scorer/training/data/export/no-system-prompt/train.jsonl",
+      "count": 400,
+      "critical_errors": [],
+      "warnings": []
+    },
+    {
+      "split": "val",
+      "path": "src/python/ai_scorer/training/data/export/no-system-prompt/val.jsonl",
+      "count": 50,
+      "critical_errors": [],
+      "warnings": []
+    },
+    {
+      "split": "test",
+      "path": "src/python/ai_scorer/training/data/export/no-system-prompt/test.jsonl",
+      "count": 50,
+      "critical_errors": [],
+      "warnings": []
+    }
+  ],
+  "duplicate_case_ids": [],
+  "critical_error_count": 0
+}
