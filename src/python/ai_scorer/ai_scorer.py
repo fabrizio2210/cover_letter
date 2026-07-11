@@ -614,6 +614,9 @@ def generate_hybrid_chunks(text: str, window_size: int = SNIPPET_WINDOW_SIZE) ->
         return []
 
     normalized_text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Some job descriptions use inline bullets (e.g. "foo • bar • baz").
+    # Convert those separators into line starts so bullet-aware chunking can split them.
+    normalized_text = re.sub(r"\s*•\s+", "\n• ", normalized_text)
     paragraph_blocks = re.split(r"\n\s*\n+", normalized_text)
 
     atomic_units: list[str] = []
