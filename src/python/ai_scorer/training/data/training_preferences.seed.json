@@ -1,0 +1,42 @@
+[
+  {
+    "key": "pref_01_product_delivery",
+    "guidance": "I prioritize opportunities focused on product delivery, specifically those that emphasize sustainable, long-term maintainability."
+  },
+  {
+    "key": "pref_02_incident_response",
+    "guidance": "Roles involving incident response are a priority, provided the approach is driven by pragmatic and sensible decision-making."
+  },
+  {
+    "key": "pref_03_architecture_ownership",
+    "guidance": "I am seeking positions centered on architecture ownership, where practical and pragmatic choices take precedence."
+  },
+  {
+    "key": "pref_04_platform_reliability",
+    "guidance": "My focus is on platform reliability work that is clearly defined by measurable outcomes and data-driven results."
+  },
+  {
+    "key": "pref_05_cross-team_communication",
+    "guidance": "I value roles requiring cross-team communication, particularly where high engineering standards and quality are the primary objectives."
+  },
+  {
+    "key": "pref_06_mentorship",
+    "guidance": "I am looking for mentorship-heavy roles that foster a culture of clear ownership and individual accountability."
+  },
+  {
+    "key": "pref_07_api_design",
+    "guidance": "I want to work on API design, with a strong commitment to building interfaces that remain maintainable over the long term."
+  },
+  {
+    "key": "pref_08_performance_tuning",
+    "guidance": "Performance tuning is a key interest, specifically when it is coupled with a rigorous commitment to engineering quality."
+  },
+  {
+    "key": "pref_09_data_pipelines",
+    "guidance": "I am interested in data pipeline roles, provided the design philosophy prioritizes longevity and ease of maintenance."
+  },
+  {
+    "key": "pref_10_developer_tooling",
+    "guidance": "Developer tooling is a high priority for me, especially in environments that favor pragmatic solutions over over-engineering."
+  }
+]
