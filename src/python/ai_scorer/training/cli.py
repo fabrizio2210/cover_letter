@@ -221,6 +221,12 @@ def _cmd_package(args: argparse.Namespace) -> int:
 def _cmd_eval_gate(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.fine_tune_eval_gate import main as eval_gate_main
 
+    # Set environment variable for system prompt control
+    if args.without_system_prompt:
+        os.environ["EVAL_WITH_SYSTEM_PROMPT"] = "false"
+    else:
+        os.environ["EVAL_WITH_SYSTEM_PROMPT"] = "true"
+
     gate_args = [
         "--candidate-model",
         args.candidate_model,
@@ -316,6 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument("--run-dir", default="")
     p_gate.add_argument("--eval-script", default="scripts/eval-scorer.sh")
     p_gate.add_argument("--fixtures", default="")
+    p_gate.add_argument("--without-system-prompt", action="store_true", help="Run evaluation without system prompt")
 
     return parser
 

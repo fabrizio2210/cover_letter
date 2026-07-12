@@ -733,7 +733,7 @@ def retrieve_relevant_snippets(job_description: str, preference_guidance: str) -
     )
 
 
-def build_prompt(job, company, identity, preference, snippets=None):
+def build_prompt(job, company, identity, preference, snippets=None, include_system_prompt=True):
     job_title = get_field(job, "title", "")
     job_location = get_field(job, "location", "")
 
@@ -771,6 +771,10 @@ def build_prompt(job, company, identity, preference, snippets=None):
         f"{snippet_block}\n"
         "\n"
     )
+
+    # When include_system_prompt is False, return empty system instruction
+    if not include_system_prompt:
+        system_instruction = ""
 
     return system_instruction, user_prompt
 
@@ -912,29 +916,36 @@ def score_preference(
     if test_mode:
         return {"score": stable_test_score(job_id, preference_key), "score_available": True}
 
+    # Check if system prompt should be included (default: true for backward compatibility)
+    include_system_prompt = os.environ.get("EVAL_WITH_SYSTEM_PROMPT", "true").lower() in ("true", "1", "yes")
+
     system_instruction, user_prompt = build_prompt(
         job_doc,
         company_doc,
         identity_doc,
         preference,
         snippets=relevant_snippets,
+        include_system_prompt=include_system_prompt,
     )
+
+    # Build message list, filtering system message if disabled
+    messages = []
+    if include_system_prompt and system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": user_prompt})
 
     request_payload = {
         "job_id": job_id,
         "preference_key": preference_key,
         "model": model_name,
-        "messages": [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_prompt},
-        ],
+        "messages": messages,
         "options": {"temperature": 0},
     }
     print(f"debug: Ollama request: {safe_json_dump(request_payload)}")
 
     response = ollama_client.chat(
         model=model_name,
-        messages=request_payload["messages"],
+        messages=messages,
         options={"temperature": 0},
     )
     print(

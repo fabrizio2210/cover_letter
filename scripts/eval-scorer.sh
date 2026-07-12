@@ -10,10 +10,11 @@
 #   bash scripts/eval-scorer.sh my-new-model:tag /path/to/custom-fixture.json
 #
 # Environment variables:
-#   OLLAMA_HOST            Ollama base URL (default: http://localhost:11434)
-#   EVAL_CANDIDATE_MODEL   Candidate model to test (default: qwen2.5:1.5b)
-#   EVAL_FIXTURES          Path to canonical fixture file
-#   EVAL_OUTPUT_DIR        Output directory for artifacts (default: eval-results)
+#   OLLAMA_HOST               Ollama base URL (default: http://localhost:11434)
+#   EVAL_CANDIDATE_MODEL      Candidate model to test (default: qwen2.5:1.5b)
+#   EVAL_FIXTURES             Path to canonical fixture file
+#   EVAL_OUTPUT_DIR           Output directory for artifacts (default: eval-results)
+#   EVAL_WITH_SYSTEM_PROMPT   Include system prompt in eval (default: true)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,11 +24,13 @@ OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-qwen2.5:1.5b}}"
 EVAL_FIXTURES="${2:-${EVAL_FIXTURES:-src/python/ai_scorer/evals/data/canonical/v1.json}}"
 EVAL_OUTPUT_DIR="${EVAL_OUTPUT_DIR:-eval-results}"
+EVAL_WITH_SYSTEM_PROMPT="${EVAL_WITH_SYSTEM_PROMPT:-true}"
 
 echo "[eval-scorer] Candidate model: $EVAL_CANDIDATE_MODEL"
 echo "[eval-scorer] Fixtures       : $EVAL_FIXTURES"
 echo "[eval-scorer] Ollama host    : $OLLAMA_HOST"
 echo "[eval-scorer] Output dir     : $EVAL_OUTPUT_DIR"
+echo "[eval-scorer] System prompt  : $EVAL_WITH_SYSTEM_PROMPT"
 
 if [[ ! -f "$EVAL_FIXTURES" ]]; then
     echo ""
@@ -53,6 +56,7 @@ if [[ ! -f "$EVAL_FIXTURES" ]]; then
     exit 1
 fi
 
+EVAL_WITH_SYSTEM_PROMPT="$EVAL_WITH_SYSTEM_PROMPT" \
 PYTHONPATH="$REPO_ROOT" python3 -m src.python.ai_scorer.evals.cli eval \
     --ollama-host "$OLLAMA_HOST" \
     --candidate   "$EVAL_CANDIDATE_MODEL" \

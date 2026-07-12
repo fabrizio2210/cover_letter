@@ -76,3 +76,36 @@ Artifacts:
 - `mean_abs_error_increase <= 0.20`
 
 These can be overridden via CLI flags in `cli.py eval`.
+
+## 4) Optional: Run eval without system prompt
+
+By default, evaluations include the system prompt in all Ollama requests. To compare model behavior without the system prompt (e.g., for ablation studies), use the `EVAL_WITH_SYSTEM_PROMPT` environment variable:
+
+```bash
+# Eval without system prompt
+EVAL_WITH_SYSTEM_PROMPT=false PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli eval \
+  --fixtures src/python/ai_scorer/evals/data/canonical/v1.json \
+  --candidate qwen2.5:1.5b \
+  --ollama-host http://localhost:11434 \
+  --output-dir /tmp/ai_scorer_eval_run_no_system
+```
+
+Via `eval-scorer.sh`:
+
+```bash
+# Eval without system prompt
+EVAL_WITH_SYSTEM_PROMPT=false bash scripts/eval-scorer.sh qwen2.5:1.5b
+```
+
+Via training CLI `eval-gate`:
+
+```bash
+# Run eval gate without system prompt
+python3 -m src.python.ai_scorer.training.cli eval-gate \
+  --candidate-model qwen2.5:1.5b \
+  --without-system-prompt
+```
+
+**Environment variable:** `EVAL_WITH_SYSTEM_PROMPT` (default: `true`)
+- `true` or `1` or `yes` — Include system prompt (default)
+- `false` or `0` or `no` — Exclude system prompt
