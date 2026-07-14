@@ -38,21 +38,26 @@ def _to_chat_record(case: TrainingCase, strip_system: bool = False) -> dict:
     }
 
 
-def _split_cases(cases: list[TrainingCase], seed: int, train_ratio: float, val_ratio: float) -> tuple[list[TrainingCase], list[TrainingCase], list[TrainingCase]]:
-    if train_ratio <= 0 or val_ratio < 0 or train_ratio + val_ratio >= 1:
-        raise ValueError("Ratios must satisfy: train_ratio > 0, val_ratio >= 0, train_ratio + val_ratio < 1")
+def _split_cases(
+    cases: list[TrainingCase],
+    seed: int,
+    val_ratio: float,
+) -> tuple[list[TrainingCase], list[TrainingCase]]:
+    if val_ratio <= 0 or val_ratio >= 1:
+        raise ValueError("val_ratio must satisfy: 0 < val_ratio < 1")
 
-    shuffled = list(cases)
-    random.Random(seed).shuffle(shuffled)
+    source_job_ids = sorted({case.source_job_id for case in cases})
+    if len(source_job_ids) < 2:
+        raise ValueError("At least two distinct source_job_id values are required for train/val splitting")
 
-    n_total = len(shuffled)
-    n_train = int(n_total * train_ratio)
-    n_val = int(n_total * val_ratio)
+    random.Random(seed).shuffle(source_job_ids)
+    n_val_jobs = round(len(source_job_ids) * val_ratio)
+    n_val_jobs = max(1, min(len(source_job_ids) - 1, n_val_jobs))
+    val_job_ids = set(source_job_ids[:n_val_jobs])
 
-    train = shuffled[:n_train]
-    val = shuffled[n_train : n_train + n_val]
-    test = shuffled[n_train + n_val :]
-    return train, val, test
+    train = [case for case in cases if case.source_job_id not in val_job_ids]
+    val = [case for case in cases if case.source_job_id in val_job_ids]
+    return train, val
 
 
 def _write_jsonl(records: list[dict], path: str) -> None:
@@ -65,7 +70,6 @@ def export_jsonl_splits(
     cases: list[TrainingCase],
     output_dir: str,
     seed: int,
-    train_ratio: float,
     val_ratio: float,
     strip_system: bool = False,
 ) -> dict:
@@ -73,10 +77,9 @@ def export_jsonl_splits(
     if not labeled:
         raise ValueError("No labeled cases available for export")
 
-    train_cases, val_cases, test_cases = _split_cases(
+    train_cases, val_cases = _split_cases(
         labeled,
         seed=seed,
-        train_ratio=train_ratio,
         val_ratio=val_ratio,
     )
 
@@ -84,20 +87,29 @@ def export_jsonl_splits(
 
     train_path = os.path.join(output_dir, "train.jsonl")
     val_path = os.path.join(output_dir, "val.jsonl")
-    test_path = os.path.join(output_dir, "test.jsonl")
 
     _write_jsonl([_to_chat_record(case, strip_system=strip_system) for case in train_cases], train_path)
     _write_jsonl([_to_chat_record(case, strip_system=strip_system) for case in val_cases], val_path)
-    _write_jsonl([_to_chat_record(case, strip_system=strip_system) for case in test_cases], test_path)
+
+    stale_test_path = os.path.join(output_dir, "test.jsonl")
+    if os.path.isfile(stale_test_path):
+        os.remove(stale_test_path)
+
+    total = len(labeled)
+    train_job_count = len({case.source_job_id for case in train_cases})
+    val_job_count = len({case.source_job_id for case in val_cases})
 
     summary = {
         "total_labeled": len(labeled),
         "train": len(train_cases),
         "val": len(val_cases),
-        "test": len(test_cases),
+        "train_source_jobs": train_job_count,
+        "val_source_jobs": val_job_count,
         "seed": seed,
-        "train_ratio": train_ratio,
-        "val_ratio": val_ratio,
+        "requested_val_ratio": val_ratio,
+        "actual_train_ratio": len(train_cases) / total,
+        "actual_val_ratio": len(val_cases) / total,
+        "split_unit": "source_job_id",
         "strip_system_prompt": strip_system,
     }
     summary_path = os.path.join(output_dir, "summary.json")
@@ -107,7 +119,6 @@ def export_jsonl_splits(
     return {
         "train": train_path,
         "val": val_path,
-        "test": test_path,
         "summary": summary_path,
     }
 
@@ -117,7 +128,6 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     parser.add_argument("--output-dir", default="src/python/ai_scorer/training/data/export")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--train-ratio", type=float, default=0.8)
     parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--strip-system-prompt", action="store_true", help="Remove system prompt from messages (embed at fine-tuning instead)")
     args = parser.parse_args(argv)
@@ -134,7 +144,6 @@ def main(argv: list[str] | None = None) -> None:
         cases,
         output_dir=args.output_dir,
         seed=args.seed,
-        train_ratio=args.train_ratio,
         val_ratio=args.val_ratio,
         strip_system=args.strip_system_prompt,
     )

@@ -5,7 +5,7 @@
     {
       "split": "train",
       "path": "src/python/ai_scorer/training/data/export/no-system-prompt/train.jsonl",
-      "count": 400,
+      "count": 450,
       "critical_errors": [],
       "warnings": []
     },
@@ -15,15 +15,9 @@
       "count": 50,
       "critical_errors": [],
       "warnings": []
-    },
-    {
-      "split": "test",
-      "path": "src/python/ai_scorer/training/data/export/no-system-prompt/test.jsonl",
-      "count": 50,
-      "critical_errors": [],
-      "warnings": []
     }
   ],
   "duplicate_case_ids": [],
+  "overlapping_source_job_ids": [],
   "critical_error_count": 0
 }

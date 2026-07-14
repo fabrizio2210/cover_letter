@@ -1,10 +1,13 @@
 {
   "total_labeled": 500,
-  "train": 400,
+  "train": 450,
   "val": 50,
-  "test": 50,
+  "train_source_jobs": 45,
+  "val_source_jobs": 5,
   "seed": 42,
-  "train_ratio": 0.8,
-  "val_ratio": 0.1,
+  "requested_val_ratio": 0.1,
+  "actual_train_ratio": 0.9,
+  "actual_val_ratio": 0.1,
+  "split_unit": "source_job_id",
   "strip_system_prompt": true
 }

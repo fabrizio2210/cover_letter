@@ -106,8 +106,6 @@ def _cmd_export(args: argparse.Namespace) -> int:
         args.output_dir,
         "--seed",
         str(args.seed),
-        "--train-ratio",
-        str(args.train_ratio),
         "--val-ratio",
         str(args.val_ratio),
     ]
@@ -271,14 +269,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     p_export.add_argument("--output-dir", default="src/python/ai_scorer/training/data/export")
     p_export.add_argument("--seed", type=int, default=42)
-    p_export.add_argument("--train-ratio", type=float, default=0.8)
     p_export.add_argument("--val-ratio", type=float, default=0.1)
     p_export.add_argument("--strip-system-prompt", action="store_true", help="Remove system prompt from messages (embed at fine-tuning instead)")
 
     p_preflight = sub.add_parser("preflight", help="Validate exported JSONL dataset splits")
     p_preflight.add_argument("--dataset-profile", choices=["keep-system", "no-system"], default="keep-system")
     p_preflight.add_argument("--dataset-dir", default="")
-    p_preflight.add_argument("--splits", default="train,val,test")
+    p_preflight.add_argument("--splits", default="train,val")
     p_preflight.add_argument("--report-out", default="")
 
     p_runtime = sub.add_parser("detect-runtime", help="Detect CUDA/CPU fine-tuning runtime path")

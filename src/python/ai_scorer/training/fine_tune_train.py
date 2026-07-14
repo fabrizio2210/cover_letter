@@ -203,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     if not os.path.isfile(train_path) or not os.path.isfile(val_path):
         raise SystemExit(f"Missing dataset split in {dataset_dir}; expected train.jsonl and val.jsonl")
 
-    preflight = run_preflight(dataset_dir, ["train", "val", "test"])
+    preflight = run_preflight(dataset_dir, ["train", "val"])
     if preflight.critical_error_count > 0:
         raise SystemExit("Preflight failed. Run training preflight command and fix dataset errors first.")
 

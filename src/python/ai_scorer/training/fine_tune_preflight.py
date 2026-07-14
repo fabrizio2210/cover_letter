@@ -23,6 +23,7 @@ class PreflightReport:
     total_records: int
     split_reports: list[SplitReport]
     duplicate_case_ids: list[str]
+    overlapping_source_job_ids: list[str]
     critical_error_count: int
 
 
@@ -84,6 +85,7 @@ def _validate_messages(messages: list[dict], where: str) -> list[str]:
 def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
     split_reports: list[SplitReport] = []
     all_case_ids: dict[str, int] = {}
+    source_job_splits: dict[str, set[str]] = {}
     total = 0
 
     for split in splits:
@@ -97,6 +99,8 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
         rows = _read_jsonl(path)
         report.count = len(rows)
         total += len(rows)
+        if not rows:
+            report.critical_errors.append("split file is empty")
 
         for idx, row in enumerate(rows):
             where = f"{split}[{idx}]"
@@ -115,8 +119,14 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
             case_id = meta.get("case_id")
             if not isinstance(case_id, str) or not case_id.strip():
                 report.critical_errors.append(f"{where}: meta.case_id must be a non-empty string")
-                continue
-            all_case_ids[case_id] = all_case_ids.get(case_id, 0) + 1
+            else:
+                all_case_ids[case_id] = all_case_ids.get(case_id, 0) + 1
+
+            source_job_id = meta.get("source_job_id")
+            if not isinstance(source_job_id, str) or not source_job_id.strip():
+                report.critical_errors.append(f"{where}: meta.source_job_id must be a non-empty string")
+            else:
+                source_job_splits.setdefault(source_job_id, set()).add(split)
 
         split_reports.append(report)
 
@@ -125,14 +135,25 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
         for report in split_reports:
             report.critical_errors.append(f"duplicate case ids detected across splits: {len(duplicate_case_ids)}")
 
-    critical_error_count = len(duplicate_case_ids)
-    critical_error_count += sum(len(report.critical_errors) for report in split_reports)
+    overlapping_source_job_ids = sorted(
+        source_job_id
+        for source_job_id, observed_splits in source_job_splits.items()
+        if len(observed_splits) > 1
+    )
+    if overlapping_source_job_ids:
+        for report in split_reports:
+            report.critical_errors.append(
+                f"source job ids detected across splits: {len(overlapping_source_job_ids)}"
+            )
+
+    critical_error_count = sum(len(report.critical_errors) for report in split_reports)
 
     return PreflightReport(
         dataset_dir=dataset_dir,
         total_records=total,
         split_reports=split_reports,
         duplicate_case_ids=duplicate_case_ids,
+        overlapping_source_job_ids=overlapping_source_job_ids,
         critical_error_count=critical_error_count,
     )
 
@@ -144,7 +165,7 @@ def _default_output(dataset_dir: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate training JSONL exports before fine-tuning")
     parser.add_argument("--dataset-dir", required=True)
-    parser.add_argument("--splits", default="train,val,test", help="Comma-separated split names")
+    parser.add_argument("--splits", default="train,val", help="Comma-separated split names")
     parser.add_argument("--report-out", default="")
     args = parser.parse_args(argv)
 
@@ -159,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                 "total_records": report.total_records,
                 "split_reports": [asdict(item) for item in report.split_reports],
                 "duplicate_case_ids": report.duplicate_case_ids,
+                "overlapping_source_job_ids": report.overlapping_source_job_ids,
                 "critical_error_count": report.critical_error_count,
             },
             handle,

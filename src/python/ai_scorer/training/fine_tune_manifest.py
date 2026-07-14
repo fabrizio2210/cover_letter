@@ -25,7 +25,7 @@ def tree_sha256(paths: list[str]) -> str:
 
 
 def collect_jsonl_paths(dataset_dir: str) -> list[str]:
-    names = ["train.jsonl", "val.jsonl", "test.jsonl"]
+    names = ["train.jsonl", "val.jsonl"]
     paths: list[str] = []
     for name in names:
         path = os.path.join(dataset_dir, name)

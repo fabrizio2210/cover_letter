@@ -17,15 +17,22 @@ This package creates supervised fine-tuning datasets for `ai_scorer`.
 python -m src.python.ai_scorer.training.cli generate-preferences
 python -m src.python.ai_scorer.training.cli extract --limit 50
 python -m src.python.ai_scorer.training.cli label --model gemini-3.5-flash
-python -m src.python.ai_scorer.training.cli export
+python -m src.python.ai_scorer.training.cli export --val-ratio 0.1
 ```
 
 Default outputs:
 - `src/python/ai_scorer/training/data/proposed/candidates.json`
 - `src/python/ai_scorer/training/data/proposed/labeled.json`
-- `src/python/ai_scorer/training/data/export/{train,val,test}.jsonl`
+- `src/python/ai_scorer/training/data/export/{train,val}.jsonl`
 
 Gemini labeling requires `GEMINI_TOKEN` in environment.
+
+Dataset export creates a 90/10 train/validation split by `source_job_id` by
+default. All preference cases for the same source job stay in one split, so
+validation measures performance on jobs that were not present during training.
+The validation ratio must be greater than zero and less than one. The canonical
+53-case scorer evaluation remains the separate final promotion gate; there is
+no internal test split.
 
 ## Fine-tuning and packaging workflow
 
@@ -49,7 +56,8 @@ python3 -m src.python.ai_scorer.training.cli preflight --dataset-profile no-syst
 ```
 
 Checks include role order, assistant labels (`0..5` or `N/A`), empty content,
-split presence/counts, and duplicate `case_id` values.
+non-empty train/validation splits, duplicate `case_id` values, and
+`source_job_id` leakage across splits.
 
 ### 2) Runtime detection
 
