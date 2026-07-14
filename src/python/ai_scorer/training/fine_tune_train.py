@@ -45,6 +45,67 @@ _IGNORE_INDEX = -100
 LOSS_MODES = ("response-only", "chat-full")
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
+
+
+def _configure_cpu_runtime(cpu_threads: int, cpu_interop_threads: int) -> dict:
+    """Configure CPU parallelism before model loading and report effective values."""
+    if cpu_threads < 0:
+        raise ValueError("cpu_threads cannot be negative")
+    if cpu_interop_threads <= 0:
+        raise ValueError("cpu_interop_threads must be greater than zero")
+
+    # Capture taskset/cpuset restrictions before loading PyTorch. OpenMP may
+    # subsequently bind the calling thread to one place even though its worker
+    # pool remains spread across the complete launch affinity.
+    try:
+        affinity_cpus = sorted(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        affinity_cpus = []
+
+    if cpu_threads > 0:
+        thread_count = str(cpu_threads)
+        os.environ["CPU_THREADS"] = thread_count
+        os.environ["OMP_NUM_THREADS"] = thread_count
+        os.environ["MKL_NUM_THREADS"] = thread_count
+        os.environ.setdefault("OMP_DYNAMIC", "FALSE")
+        os.environ.setdefault("OMP_PROC_BIND", "spread")
+        os.environ.setdefault("OMP_PLACES", "threads")
+
+    try:
+        import torch  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("CPU thread configuration requires torch") from exc
+
+    if cpu_threads > 0:
+        torch.set_num_threads(cpu_threads)
+        try:
+            torch.set_num_interop_threads(cpu_interop_threads)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                "PyTorch inter-op threads must be configured before parallel work starts"
+            ) from exc
+
+    return {
+        "configured": cpu_threads > 0,
+        "requested_threads": cpu_threads,
+        "requested_interop_threads": cpu_interop_threads if cpu_threads > 0 else 0,
+        "torch_threads": int(torch.get_num_threads()),
+        "torch_interop_threads": int(torch.get_num_interop_threads()),
+        "affinity_cpu_count": len(affinity_cpus),
+        "affinity_cpus": affinity_cpus,
+        "omp_num_threads": os.environ.get("OMP_NUM_THREADS", ""),
+        "mkl_num_threads": os.environ.get("MKL_NUM_THREADS", ""),
+        "omp_dynamic": os.environ.get("OMP_DYNAMIC", ""),
+        "omp_proc_bind": os.environ.get("OMP_PROC_BIND", ""),
+        "omp_places": os.environ.get("OMP_PLACES", ""),
+    }
+
+
 def _encode_training_example(
     messages: list[dict],
     tokenizer,
@@ -293,10 +354,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-steps", type=int, default=200)
     parser.add_argument("--num-train-epochs", type=int, default=1)
     parser.add_argument("--loss-mode", choices=LOSS_MODES, default="response-only")
+    parser.add_argument(
+        "--cpu-threads",
+        type=_positive_int,
+        default=0,
+        help="PyTorch/OMP/MKL intra-op threads; omit to use runtime defaults",
+    )
+    parser.add_argument(
+        "--cpu-interop-threads",
+        type=_positive_int,
+        default=1,
+        help="PyTorch inter-op threads when --cpu-threads is set",
+    )
     parser.add_argument("--resume-from-checkpoint", default="")
     parser.add_argument("--smoke-run", action="store_true")
     args = parser.parse_args(argv)
 
+    cpu_runtime = _configure_cpu_runtime(args.cpu_threads, args.cpu_interop_threads)
     _set_determinism(args.seed)
 
     dataset_dir = _resolve_dataset_dir(args.dataset_profile, args.dataset_dir)
@@ -312,6 +386,13 @@ def main(argv: list[str] | None = None) -> int:
     runtime = detect_runtime()
     if runtime.warning:
         print(f"[training.train] WARNING: {runtime.warning}")
+    if cpu_runtime["configured"]:
+        print(
+            "[training.train] "
+            f"cpu_threads={cpu_runtime['torch_threads']} "
+            f"cpu_interop_threads={cpu_runtime['torch_interop_threads']} "
+            f"affinity_cpu_count={cpu_runtime['affinity_cpu_count']}"
+        )
 
     run_id = args.run_id or _run_id()
     run_dir = os.path.join(args.output_root, "runs", run_id)
@@ -325,6 +406,7 @@ def main(argv: list[str] | None = None) -> int:
             "hf_id": args.base_model_hf,
         },
         "runtime": asdict(runtime),
+        "cpu_runtime": cpu_runtime,
         "dataset_profile": args.dataset_profile,
         "dataset_dir": dataset_dir,
         "dataset_hash": tree_sha256(collect_jsonl_paths(dataset_dir)),

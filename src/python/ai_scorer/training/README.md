@@ -98,6 +98,26 @@ python3 -m src.python.ai_scorer.training.cli train \
   --run-id qwen25-keep-system-r1
 ```
 
+For CPU training, `--cpu-threads` explicitly configures PyTorch intra-op
+parallelism and the matching `OMP_NUM_THREADS` and `MKL_NUM_THREADS` values.
+It also defaults OpenMP to `OMP_DYNAMIC=FALSE`, `OMP_PROC_BIND=spread`, and
+`OMP_PLACES=threads`. Use `taskset` separately when the process should be pinned
+to specific logical CPUs:
+
+```bash
+taskset -c 0-21 python3 -m src.python.ai_scorer.training.cli train \
+--dataset-profile keep-system \
+--loss-mode response-only \
+--cpu-threads 22 \
+--cpu-interop-threads 1 \
+--num-train-epochs 12 \
+--max-steps -1 \
+--run-id qwen25-response-only-12epochs
+```
+
+The startup output and `run_manifest.json` report the effective PyTorch thread
+counts and process CPU affinity.
+
 Artifacts are written under:
 - `src/python/ai_scorer/training/artifacts/runs/<run-id>/`
 

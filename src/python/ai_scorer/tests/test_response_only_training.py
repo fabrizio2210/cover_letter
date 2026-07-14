@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import os
+import sys
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from src.python.ai_scorer.training.fine_tune_train import (
     LOSS_MODES,
     _CausalLMCollator,
     _IGNORE_INDEX,
+    _configure_cpu_runtime,
     _encode_chat_full,
     _encode_response_only,
     _encode_training_example,
 )
-from src.python.ai_scorer.training.cli import build_parser
+from src.python.ai_scorer.training.cli import _cmd_train, build_parser
 
 
 class _FakeQwenTokenizer:
@@ -150,6 +155,62 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
             with self.subTest(loss_mode=loss_mode):
                 args = parser.parse_args(["train", "--loss-mode", loss_mode])
                 self.assertEqual(args.loss_mode, loss_mode)
+
+    def test_cli_accepts_explicit_cpu_thread_counts(self):
+        args = build_parser().parse_args(
+            ["train", "--cpu-threads", "22", "--cpu-interop-threads", "1"]
+        )
+
+        self.assertEqual(args.cpu_threads, 22)
+        self.assertEqual(args.cpu_interop_threads, 1)
+
+        with patch(
+            "src.python.ai_scorer.training.fine_tune_train.main",
+            return_value=0,
+        ) as train_main:
+            self.assertEqual(_cmd_train(args), 0)
+
+        forwarded = train_main.call_args.args[0]
+        self.assertEqual(forwarded[forwarded.index("--cpu-threads") + 1], "22")
+        self.assertEqual(forwarded[forwarded.index("--cpu-interop-threads") + 1], "1")
+
+    def test_configures_torch_openmp_and_mkl_threads(self):
+        state = {"threads": 96, "interop_threads": 96}
+        fake_torch = SimpleNamespace(
+            set_num_threads=lambda value: state.update(threads=value),
+            set_num_interop_threads=lambda value: state.update(interop_threads=value),
+            get_num_threads=lambda: state["threads"],
+            get_num_interop_threads=lambda: state["interop_threads"],
+        )
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key
+            not in {
+                "CPU_THREADS",
+                "OMP_NUM_THREADS",
+                "MKL_NUM_THREADS",
+                "OMP_DYNAMIC",
+                "OMP_PROC_BIND",
+                "OMP_PLACES",
+            }
+        }
+
+        with patch.dict(os.environ, environment, clear=True), patch.dict(
+            sys.modules, {"torch": fake_torch}
+        ):
+            configured = _configure_cpu_runtime(22, 1)
+
+            self.assertEqual(os.environ["CPU_THREADS"], "22")
+            self.assertEqual(os.environ["OMP_NUM_THREADS"], "22")
+            self.assertEqual(os.environ["MKL_NUM_THREADS"], "22")
+            self.assertEqual(os.environ["OMP_DYNAMIC"], "FALSE")
+            self.assertEqual(os.environ["OMP_PROC_BIND"], "spread")
+            self.assertEqual(os.environ["OMP_PLACES"], "threads")
+
+        self.assertTrue(configured["configured"])
+        self.assertEqual(configured["torch_threads"], 22)
+        self.assertEqual(configured["torch_interop_threads"], 1)
 
 
 if __name__ == "__main__":

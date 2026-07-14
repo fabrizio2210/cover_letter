@@ -169,7 +169,11 @@ def _cmd_train(args: argparse.Namespace) -> int:
         str(args.num_train_epochs),
         "--loss-mode",
         args.loss_mode,
+        "--cpu-interop-threads",
+        str(args.cpu_interop_threads),
     ]
+    if args.cpu_threads:
+        train_args.extend(["--cpu-threads", str(args.cpu_threads)])
     if args.run_id:
         train_args.extend(["--run-id", args.run_id])
     if args.resume_from_checkpoint:
@@ -303,6 +307,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=LOSS_MODES,
         default="response-only",
         help="Training labels: assistant response only (experimental default) or all chat tokens",
+    )
+    p_train.add_argument(
+        "--cpu-threads",
+        type=int,
+        default=0,
+        help="PyTorch/OMP/MKL intra-op threads; 0 uses runtime defaults",
+    )
+    p_train.add_argument(
+        "--cpu-interop-threads",
+        type=int,
+        default=1,
+        help="PyTorch inter-op threads when --cpu-threads is set",
     )
     p_train.add_argument("--resume-from-checkpoint", default="")
     p_train.add_argument("--smoke-run", action="store_true")
