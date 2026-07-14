@@ -9,8 +9,11 @@ should be addressed before relying on a fine-tuned model for promotion.
    every job ID used by the promotion fixtures from the training and validation
    pool.
 
-2. Use Qwen's native chat template, response-only loss, EOS/end-of-turn
-   supervision, and answer-preserving truncation.
+2. **Implemented, pending controlled validation:** use Qwen's native chat
+   template, EOS/end-of-turn supervision, answer-preserving truncation, and
+   padding masking. Response-only loss remains experimental; the training CLI
+   also provides a native-chat full-sequence baseline so both objectives can be
+   compared with identical data and training settings.
 
 3. Implement a genuinely branched QLoRA training path, or rename and document
    the current implementation honestly as CPU LoRA.

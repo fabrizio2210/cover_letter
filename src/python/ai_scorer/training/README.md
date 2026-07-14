@@ -40,6 +40,18 @@ The training package includes an end-to-end fine-tuning workflow for qwen2.5:1.5
 with a preferred CUDA path (`unsloth + trl`) and a CPU fallback path
 (`transformers + peft`). Runtime path selection is automatic.
 
+Training examples are always formatted with Qwen's native chat template. The
+`--loss-mode` option selects which non-padding tokens contribute to the loss:
+
+- `response-only` (experimental default) masks the system and user prompt and
+  supervises only the assistant score and Qwen end-of-turn token.
+- `chat-full` supervises every retained chat token and provides a native-chat
+  full-sequence baseline for controlled comparisons.
+
+Both modes reserve enough space for the complete assistant score and
+end-of-turn target before truncating over-length context from the left. Padding
+is always excluded from the loss.
+
 Decision contract:
 - `src/python/ai_scorer/training/fine_tune.contract.json`
 
@@ -80,6 +92,7 @@ Typical run:
 ```bash
 python3 -m src.python.ai_scorer.training.cli train \
   --dataset-profile keep-system \
+  --loss-mode response-only \
   --max-steps 400 \
   --gradient-accumulation-steps 16 \
   --run-id qwen25-keep-system-r1
@@ -88,8 +101,8 @@ python3 -m src.python.ai_scorer.training.cli train \
 Artifacts are written under:
 - `src/python/ai_scorer/training/artifacts/runs/<run-id>/`
 
-Each run writes `run_manifest.json` with config hash inputs, dataset hash, git
-SHA, runtime selection, and elapsed time.
+Each run writes `run_manifest.json` with config hash inputs, dataset hash, loss
+mode, git SHA, runtime selection, and elapsed time.
 
 ### 4) Merge adapters into full HF weights
 

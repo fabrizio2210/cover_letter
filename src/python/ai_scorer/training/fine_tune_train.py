@@ -41,13 +41,114 @@ def _read_jsonl(path: str) -> list[dict]:
     return rows
 
 
-def _messages_to_text(messages: list[dict]) -> str:
-    lines: list[str] = []
-    for msg in messages:
-        role = str(msg.get("role", "")).strip().upper()
-        content = str(msg.get("content", "")).strip()
-        lines.append(f"{role}: {content}")
-    return "\n".join(lines)
+_IGNORE_INDEX = -100
+LOSS_MODES = ("response-only", "chat-full")
+
+
+def _encode_training_example(
+    messages: list[dict],
+    tokenizer,
+    max_length: int,
+    loss_mode: str,
+) -> dict[str, list[int]]:
+    """Apply the model chat template and build labels for the selected loss mode."""
+    if max_length <= 0:
+        raise ValueError("max_length must be greater than zero")
+    if loss_mode not in LOSS_MODES:
+        raise ValueError(f"Unsupported loss mode: {loss_mode}")
+    if not messages or str(messages[-1].get("role", "")).strip() != "assistant":
+        raise ValueError("Each training example must end with an assistant message")
+
+    prompt_messages = messages[:-1]
+    prompt_ids = list(
+        tokenizer.apply_chat_template(
+            prompt_messages,
+            tokenize=True,
+            add_generation_prompt=True,
+        )
+    )
+    full_ids = list(
+        tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=False,
+        )
+    )
+    if full_ids[: len(prompt_ids)] != prompt_ids:
+        raise ValueError("Chat template did not produce a stable assistant prompt prefix")
+
+    response_ids = full_ids[len(prompt_ids) :]
+    end_token_id = tokenizer.eos_token_id
+    if end_token_id is None:
+        raise ValueError("Tokenizer must define an end-of-turn/EOS token")
+    try:
+        end_index = response_ids.index(end_token_id)
+    except ValueError as exc:
+        raise ValueError("Assistant response is missing the chat-template end-of-turn token") from exc
+
+    # Qwen's template adds a newline after <|im_end|>. Stop at <|im_end|> so
+    # the only supervised tokens are the score and the end-of-turn marker.
+    response_ids = response_ids[: end_index + 1]
+    if len(response_ids) == 1:
+        raise ValueError("Assistant response must contain a target before the end-of-turn token")
+    if len(response_ids) > max_length:
+        raise ValueError("Assistant target cannot fit within max_length without truncation")
+
+    # Reserve space for the complete response before truncating context. Keeping
+    # the right edge of the prompt also preserves Qwen's assistant-turn header.
+    prompt_budget = max_length - len(response_ids)
+    if len(prompt_ids) > prompt_budget:
+        prompt_ids = prompt_ids[-prompt_budget:] if prompt_budget else []
+
+    input_ids = prompt_ids + response_ids
+    if loss_mode == "response-only":
+        labels = [_IGNORE_INDEX] * len(prompt_ids) + response_ids
+    else:
+        labels = list(input_ids)
+    return {
+        "input_ids": input_ids,
+        "attention_mask": [1] * len(input_ids),
+        "labels": labels,
+    }
+
+
+def _encode_response_only(messages: list[dict], tokenizer, max_length: int) -> dict[str, list[int]]:
+    """Apply the model chat template and supervise only the final assistant turn."""
+    return _encode_training_example(messages, tokenizer, max_length, "response-only")
+
+
+def _encode_chat_full(messages: list[dict], tokenizer, max_length: int) -> dict[str, list[int]]:
+    """Apply the model chat template and supervise every retained non-padding token."""
+    return _encode_training_example(messages, tokenizer, max_length, "chat-full")
+
+
+class _CausalLMCollator:
+    """Pad model inputs while always masking padding positions in labels."""
+
+    def __init__(self, tokenizer):
+        self.pad_token_id = tokenizer.pad_token_id
+        self.padding_side = tokenizer.padding_side
+        if self.pad_token_id is None:
+            raise ValueError("Tokenizer must define a pad token")
+        if self.padding_side not in {"left", "right"}:
+            raise ValueError(f"Unsupported tokenizer padding side: {self.padding_side}")
+
+    def __call__(self, features: list[dict]):
+        import torch  # type: ignore
+
+        max_length = max(len(feature["input_ids"]) for feature in features)
+        batch = {"input_ids": [], "attention_mask": [], "labels": []}
+        for feature in features:
+            pad_length = max_length - len(feature["input_ids"])
+            if self.padding_side == "right":
+                batch["input_ids"].append(feature["input_ids"] + [self.pad_token_id] * pad_length)
+                batch["attention_mask"].append(feature["attention_mask"] + [0] * pad_length)
+                batch["labels"].append(feature["labels"] + [_IGNORE_INDEX] * pad_length)
+            else:
+                batch["input_ids"].append([self.pad_token_id] * pad_length + feature["input_ids"])
+                batch["attention_mask"].append([0] * pad_length + feature["attention_mask"])
+                batch["labels"].append([_IGNORE_INDEX] * pad_length + feature["labels"])
+        return {name: torch.tensor(values, dtype=torch.long) for name, values in batch.items()}
 
 
 def _set_determinism(seed: int) -> None:
@@ -81,6 +182,7 @@ def _train_cpu_transformers(
     num_train_epochs: int,
     max_seq_length: int,
     seed: int,
+    loss_mode: str,
     resume_from_checkpoint: str,
 ) -> dict:
     try:
@@ -89,7 +191,6 @@ def _train_cpu_transformers(
         from transformers import (  # type: ignore
             AutoModelForCausalLM,
             AutoTokenizer,
-            DataCollatorForLanguageModeling,
             Trainer,
             TrainingArguments,
         )
@@ -99,17 +200,17 @@ def _train_cpu_transformers(
         ) from exc
 
     class _TextDataset(torch.utils.data.Dataset):
-        def __init__(self, rows: list[dict], tokenizer, max_len: int):
+        def __init__(self, rows: list[dict], tokenizer, max_len: int, selected_loss_mode: str):
             self.examples = []
             for row in rows:
-                text = _messages_to_text(list(row.get("messages", [])))
-                tokenized = tokenizer(
-                    text,
-                    truncation=True,
-                    max_length=max_len,
-                    padding=False,
+                self.examples.append(
+                    _encode_training_example(
+                        list(row.get("messages", [])),
+                        tokenizer,
+                        max_len,
+                        selected_loss_mode,
+                    )
                 )
-                self.examples.append(tokenized)
 
         def __len__(self):
             return len(self.examples)
@@ -135,10 +236,10 @@ def _train_cpu_transformers(
     train_rows = _read_jsonl(train_path)
     val_rows = _read_jsonl(val_path)
 
-    train_ds = _TextDataset(train_rows, tokenizer, max_seq_length)
-    val_ds = _TextDataset(val_rows, tokenizer, max_seq_length)
+    train_ds = _TextDataset(train_rows, tokenizer, max_seq_length, loss_mode)
+    val_ds = _TextDataset(val_rows, tokenizer, max_seq_length, loss_mode)
 
-    collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    collator = _CausalLMCollator(tokenizer)
     training_args = TrainingArguments(
         output_dir=output_dir,
         per_device_train_batch_size=per_device_batch_size,
@@ -163,7 +264,7 @@ def _train_cpu_transformers(
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=collator,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     resume = resume_from_checkpoint if resume_from_checkpoint else None
@@ -191,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--max-steps", type=int, default=200)
     parser.add_argument("--num-train-epochs", type=int, default=1)
+    parser.add_argument("--loss-mode", choices=LOSS_MODES, default="response-only")
     parser.add_argument("--resume-from-checkpoint", default="")
     parser.add_argument("--smoke-run", action="store_true")
     args = parser.parse_args(argv)
@@ -234,6 +336,7 @@ def main(argv: list[str] | None = None) -> int:
         "learning_rate": args.learning_rate,
         "max_steps": 5 if args.smoke_run else args.max_steps,
         "num_train_epochs": args.num_train_epochs,
+        "loss_mode": args.loss_mode,
         "resume_from_checkpoint": args.resume_from_checkpoint,
         "started_at_epoch": now_epoch(),
     }
@@ -254,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         num_train_epochs=args.num_train_epochs,
         max_seq_length=args.max_seq_length,
         seed=args.seed,
+        loss_mode=args.loss_mode,
         resume_from_checkpoint=args.resume_from_checkpoint,
     )
 

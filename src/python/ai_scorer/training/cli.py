@@ -34,6 +34,7 @@ from src.python.ai_scorer.training.preferences import (
     generate_random_preferences,
     save_preferences,
 )
+from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
 
 
 def _resolve_dataset_dir(profile: str, override: str) -> str:
@@ -166,6 +167,8 @@ def _cmd_train(args: argparse.Namespace) -> int:
         str(args.max_steps),
         "--num-train-epochs",
         str(args.num_train_epochs),
+        "--loss-mode",
+        args.loss_mode,
     ]
     if args.run_id:
         train_args.extend(["--run-id", args.run_id])
@@ -295,6 +298,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_train.add_argument("--learning-rate", type=float, default=2e-4)
     p_train.add_argument("--max-steps", type=int, default=200)
     p_train.add_argument("--num-train-epochs", type=int, default=1)
+    p_train.add_argument(
+        "--loss-mode",
+        choices=LOSS_MODES,
+        default="response-only",
+        help="Training labels: assistant response only (experimental default) or all chat tokens",
+    )
     p_train.add_argument("--resume-from-checkpoint", default="")
     p_train.add_argument("--smoke-run", action="store_true")
 
