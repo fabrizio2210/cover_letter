@@ -1,5 +1,3 @@
-version: '3.4'
-
 services:
   traefik:
     image: traefik
@@ -19,28 +17,14 @@ services:
     networks:
       - backends
     ports:
-      - target: 80
-        published: 80
-        mode: host
-      - target: 443
-        published: 443
-        mode: host
-      - target: 8080
-        published: 8888
-        mode: host
-    deploy:
-      labels:
-        traefik.http.routers.dashboard.rule: "PathPrefix(`/dashboard`)"
-        traefik.http.routers.dashboard.service: "api@internal"
-      mode: global
-      placement:
-        constraints:
-          - node.role == manager
-      update_config:
-        parallelism: 1
-        delay: 10s
-      restart_policy:
-        condition: on-failure
+      - "80:80"
+      - "443:443"
+      - "8888:8080"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.rule: "PathPrefix(`/dashboard`)"
+      traefik.http.routers.dashboard.service: "api@internal"
+    restart: unless-stopped
 
 # vue:
   #   image: fabrizio2210/coverletter-frontend-dev
@@ -110,8 +94,6 @@ services:
     entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=0.0.0.0:11434 ollama serve & sleep 10 && ollama pull qwen2.5:1.5b && wait"]
     restart: always
     cpus: 3.0
-    deploy:
-      replicas: 2
     volumes:
       # This is just for speed up the dev environment, in prod we don't want to persist the model data on disk.
       - ollama_data:/root/.ollama
@@ -258,8 +240,6 @@ services:
       - ../../:/app
     networks:
       - backends
-    deploy:
-      replicas: 4
 
   enrichment-retiring-jobs:
     image: fabrizio2210/coverletter-enrichment-retiring-jobs-dev
@@ -294,6 +274,8 @@ services:
   mongo-express:
     image: mongo-express
     restart: always
+    ports:
+      - "8081:8081"
     labels: 
       traefik.port: 80
       traefik.enable: "true"
@@ -331,6 +313,8 @@ services:
       - JOB_UPDATE_CHANNEL_NAME=job_update_channel
     volumes:
       - ../../src/go/:/app
+    ports:
+      - "8080:8080"
     labels:
       traefik.enable: "true"
       traefik.http.routers.api.rule: "PathPrefix(`/api`)"
@@ -350,6 +334,8 @@ services:
       traefik.http.services.frontend-service.loadbalancer.server.port: 4200
     volumes:
       - ../../src/js/coverletter-frontend/src:/app/src
+    ports:
+      - "4200:4200"
     restart: unless-stopped
     networks:
       - backends
@@ -404,5 +390,5 @@ volumes:
 
 networks:
   backends:
-    driver: overlay
-    attachable: true
+    name: lib_backends
+    driver: bridge
