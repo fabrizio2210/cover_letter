@@ -3,22 +3,13 @@ Runner: execute eval cases against a live Ollama model and return CaseResult lis
 """
 from __future__ import annotations
 
-import os
-import sys
 import time
 from typing import Optional
-
-_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
 
 from src.python.ai_scorer.evals.metrics import CaseResult
 from src.python.ai_scorer.evals.schema import EvalCase
 
-try:
-    from src.python.ai_scorer.ai_scorer import build_ollama_client, score_preference
-except ImportError:
-    from ai_scorer import build_ollama_client, score_preference  # type: ignore[no-redef]
+from src.python.ai_scorer.ai_scorer import build_ollama_client, score_preference
 
 
 def run_eval(

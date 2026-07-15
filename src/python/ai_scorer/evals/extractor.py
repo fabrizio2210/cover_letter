@@ -15,14 +15,6 @@ import argparse
 import datetime
 import json
 import os
-import sys
-
-# ---------------------------------------------------------------------------
-# Import path setup — works both as module (PYTHONPATH=.) and direct script
-# ---------------------------------------------------------------------------
-_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
 
 from src.python.ai_scorer.description_normalization import normalize_description_markdown
 from src.python.ai_scorer.evals.redaction import redact_case_fields

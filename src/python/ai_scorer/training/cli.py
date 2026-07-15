@@ -23,11 +23,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
-
-_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
 
 from src.python.ai_scorer.training.dataset_split import (
     DEFAULT_PROMOTION_FIXTURES,

@@ -32,4 +32,4 @@ RUN pip install watchdog
 WORKDIR /app
 
 # Command to run the bot with auto-reloading
-CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "src/python/telegram_bot/telegram_bot.py"]
+CMD ["watchmedo", "auto-restart", "--patterns=*.py", "--recursive", "--", "python", "-m", "src.python.telegram_bot.telegram_bot"]

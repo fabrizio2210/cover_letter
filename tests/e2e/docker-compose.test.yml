@@ -11,10 +11,10 @@ services:
 
   ai_querier:
     image: python:3.11-slim
-    working_dir: /app
+    working_dir: /workspace
     volumes:
       - ../..:/workspace:delegated
-    command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_querier/ai_querier.py"
+    command: bash -c "pip install -r /workspace/src/python/ai_querier/requirements.txt >/dev/null 2>&1 || true && python -u -m src.python.ai_querier.ai_querier"
     environment:
       - AI_QUERIER_TEST_MODE=1
       - REDIS_HOST=redis
@@ -28,10 +28,10 @@ services:
 
   ai_scorer:
     image: python:3.11-slim
-    working_dir: /app
+    working_dir: /workspace
     volumes:
       - ../..:/workspace:delegated
-    command: bash -c "pip install -r /workspace/src/python/ai_scorer/requirements.txt >/dev/null 2>&1 || true && python -u /workspace/src/python/ai_scorer/ai_scorer.py"
+    command: bash -c "pip install -r /workspace/src/python/ai_scorer/requirements.txt >/dev/null 2>&1 || true && python -u -m src.python.ai_scorer.ai_scorer"
     environment:
       - AI_SCORER_TEST_MODE=1
       - REDIS_HOST=redis

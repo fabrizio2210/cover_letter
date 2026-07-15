@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import unittest
@@ -8,6 +9,15 @@ import unittest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILES_DIR = REPO_ROOT / "docker/x86_64"
+COMPOSE_RUNTIME_FILES = (
+    REPO_ROOT / "docker/lib/stack-dev.yml",
+    REPO_ROOT / "docker/prod/stack.yml",
+    REPO_ROOT / "tests/e2e/docker-compose.test.yml",
+    REPO_ROOT / "tests/e2e/docker-compose.candidate.yml",
+)
+DIRECT_SCRIPT_COMMAND = re.compile(
+    r"\bpython(?:3)?(?:\s+-u)?\s+(?!-m(?:\s|$))\S+\.py\b"
+)
 
 
 def discover_python_docker_entrypoints():
@@ -32,43 +42,43 @@ def discover_python_docker_entrypoints():
                 continue
 
             arguments = command[python_index + 1 :]
-            if len(arguments) >= 2 and arguments[0] == "-m":
-                mode, target = "module", arguments[1]
-            elif arguments and arguments[0].endswith(".py"):
-                mode, target = "script", arguments[0]
-            else:
+            if len(arguments) < 2 or arguments[0] != "-m":
                 raise AssertionError(
-                    f"Unsupported Python CMD in {dockerfile.name}:{line_number}: {command}"
+                    f"Python CMD must use package mode in "
+                    f"{dockerfile.name}:{line_number}: {command}"
                 )
 
-            entrypoints.append((dockerfile.name, mode, target))
+            entrypoints.append((dockerfile.name, arguments[1]))
 
     return entrypoints
 
 
-def import_command(mode, target):
-    if mode == "module":
-        return REPO_ROOT, f"importlib.import_module({target!r})"
-
-    script = REPO_ROOT / target
-    if not script.is_file():
-        raise AssertionError(f"Python Docker entrypoint does not exist: {target}")
-
+def import_command(target):
     # The Telegram dependency currently installed by the combined local test
     # environment is incompatible with Python 3.12. Stub that external API so
     # this smoke test can still validate the entrypoint's repository imports.
     bootstrap = ""
-    if target == "src/python/telegram_bot/telegram_bot.py":
+    if target == "src.python.telegram_bot.telegram_bot":
         bootstrap = (
             "from unittest.mock import MagicMock; "
             "sys.modules['telegram'] = MagicMock(); "
             "sys.modules['telegram.ext'] = MagicMock(); "
         )
 
-    return script.parent, f"{bootstrap}importlib.import_module({script.stem!r})"
+    return f"{bootstrap}importlib.import_module({target!r})"
 
 
 class PythonEntrypointTests(unittest.TestCase):
+    def test_compose_python_entrypoints_use_package_mode(self):
+        for runtime_file in COMPOSE_RUNTIME_FILES:
+            with self.subTest(runtime_file=runtime_file.relative_to(REPO_ROOT)):
+                direct_commands = DIRECT_SCRIPT_COMMAND.findall(runtime_file.read_text())
+                self.assertEqual(
+                    direct_commands,
+                    [],
+                    f"Python entrypoints must use 'python -m' in {runtime_file}",
+                )
+
     def test_all_python_docker_entrypoints_import(self):
         """Keep every Python Docker CMD covered by test-fast."""
         entrypoints = discover_python_docker_entrypoints()
@@ -80,19 +90,19 @@ class PythonEntrypointTests(unittest.TestCase):
         # Production and development Dockerfiles share entrypoints. Import each
         # unique target once while retaining all declaring files in diagnostics.
         declarations = {}
-        for dockerfile, mode, target in entrypoints:
-            declarations.setdefault((mode, target), []).append(dockerfile)
+        for dockerfile, target in entrypoints:
+            declarations.setdefault(target, []).append(dockerfile)
 
-        for (mode, target), dockerfiles in declarations.items():
-            with self.subTest(dockerfiles=dockerfiles, mode=mode, target=target):
-                cwd, statement = import_command(mode, target)
+        for target, dockerfiles in declarations.items():
+            with self.subTest(dockerfiles=dockerfiles, target=target):
+                statement = import_command(target)
                 result = subprocess.run(
                     [
                         sys.executable,
                         "-c",
                         f"import importlib, sys; {statement}",
                     ],
-                    cwd=cwd,
+                    cwd=REPO_ROOT,
                     env=environment,
                     capture_output=True,
                     text=True,

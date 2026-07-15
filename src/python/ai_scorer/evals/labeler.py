@@ -19,28 +19,15 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
-
-_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
 
 from src.python.ai_scorer.evals.schema import EvalCase, dump_fixtures, load_fixtures
 
-try:
-    from src.python.ai_scorer.ai_scorer import (
-        build_ollama_client,
-        extract_ollama_content,
-        parse_ollama_response,
-        score_preference,
-    )
-except ImportError:
-    from ai_scorer import (  # type: ignore[no-redef]
-        build_ollama_client,
-        extract_ollama_content,
-        parse_ollama_response,
-        score_preference,
-    )
+from src.python.ai_scorer.ai_scorer import (
+    build_ollama_client,
+    extract_ollama_content,
+    parse_ollama_response,
+    score_preference,
+)
 
 
 def _label_case(case: EvalCase, ollama_client, model_name: str) -> EvalCase:

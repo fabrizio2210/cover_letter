@@ -15,15 +15,8 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 from pymongo import ASCENDING, MongoClient
 
-try:
-    from .description_normalization import normalize_description_markdown
-except ImportError:
-    from description_normalization import normalize_description_markdown
-
-try:
-    from . import common_pb2
-except ImportError:
-    import common_pb2
+from . import common_pb2
+from .description_normalization import normalize_description_markdown
 
 
 _SCORING_STATUS_BSON: dict[int, str] = {

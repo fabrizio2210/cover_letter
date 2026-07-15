@@ -1,8 +1,4 @@
 import os
-import sys
-
-# Add the 'src' directory to sys.path for absolute imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 from telegram import BotCommand, Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, MessageHandler, Filters

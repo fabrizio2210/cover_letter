@@ -31,4 +31,4 @@ WORKDIR /app
 COPY src/python /app/src/python
 
 # Command to run the ai_scorer worker directly (no auto-reload)
-CMD ["python", "src/python/ai_scorer/ai_scorer.py"]
+CMD ["python", "-m", "src.python.ai_scorer.ai_scorer"]

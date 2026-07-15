@@ -7,7 +7,7 @@ import json
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 import google.generativeai as genai
-import common_pb2
+from . import common_pb2
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 

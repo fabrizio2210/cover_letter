@@ -11,7 +11,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export BOT_TOKEN="$$(cat /run/secrets/COVERLETTER_BOT_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/telegram_bot/telegram_bot.py
+      - export BOT_TOKEN="$$(cat /run/secrets/COVERLETTER_BOT_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.telegram_bot.telegram_bot
     restart: always
     environment:
       TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
@@ -27,7 +27,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export GEMINI_TOKEN="$$(cat /run/secrets/COVERLETTER_GEMINI_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_querier/ai_querier.py
+      - export GEMINI_TOKEN="$$(cat /run/secrets/COVERLETTER_GEMINI_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.ai_querier.ai_querier
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter
@@ -42,7 +42,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python src/python/ai_scorer/ai_scorer.py
+      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.ai_scorer.ai_scorer
     restart: always
     environment:
       REDIS_HOST: redis_cover_letter

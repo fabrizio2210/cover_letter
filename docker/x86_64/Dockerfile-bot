@@ -32,4 +32,4 @@ WORKDIR /app
 COPY src/python/telegram_bot /app/src/python/telegram_bot
 
 # Command to run the bot directly
-CMD ["python", "src/python/telegram_bot/telegram_bot.py"]
+CMD ["python", "-m", "src.python.telegram_bot.telegram_bot"]
