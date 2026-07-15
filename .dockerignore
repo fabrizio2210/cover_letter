@@ -1,0 +1,18 @@
+# Version-control and local tooling metadata
+.git/
+.venv/
+
+# Generated Python files
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Local AI training and evaluation artifacts
+src/python/ai_scorer/training/artifacts/
+src/python/ai_scorer/evals/data/proposed/
+eval-results/
+
+# Generated test and frontend output
+tests/e2e/.artifacts/
+src/js/coverletter-frontend/node_modules/
+src/js/coverletter-frontend/dist/
