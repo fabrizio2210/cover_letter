@@ -5,6 +5,12 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 
+from src.python.ai_scorer.training.dataset_split import (
+    load_split_manifest,
+    validate_current_golden,
+)
+from src.python.ai_scorer.job_fingerprint import fingerprint_basis, validate_fingerprint
+
 _ALLOWED_ASSISTANT_LABELS = {"N/A", "0", "1", "2", "3", "4", "5"}
 
 
@@ -23,7 +29,9 @@ class PreflightReport:
     total_records: int
     split_reports: list[SplitReport]
     duplicate_case_ids: list[str]
-    overlapping_source_job_ids: list[str]
+    overlapping_job_fingerprints: list[str]
+    promotion_overlap_fingerprints: list[str]
+    manifest_errors: list[str]
     critical_error_count: int
 
 
@@ -82,11 +90,23 @@ def _validate_messages(messages: list[dict], where: str) -> list[str]:
     return errors
 
 
-def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
+def run_preflight(
+    dataset_dir: str,
+    splits: list[str],
+    split_manifest_path: str = "",
+) -> PreflightReport:
     split_reports: list[SplitReport] = []
     all_case_ids: dict[str, int] = {}
-    source_job_splits: dict[str, set[str]] = {}
+    fingerprint_splits: dict[str, set[str]] = {}
     total = 0
+    manifest_errors: list[str] = []
+    manifest_path = split_manifest_path or os.path.join(dataset_dir, "split-manifest.json")
+    try:
+        manifest = load_split_manifest(manifest_path)
+        manifest_errors.extend(validate_current_golden(manifest))
+    except (OSError, ValueError) as exc:
+        manifest = None
+        manifest_errors.append(str(exc))
 
     for split in splits:
         path = os.path.join(dataset_dir, f"{split}.jsonl")
@@ -122,11 +142,23 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
             else:
                 all_case_ids[case_id] = all_case_ids.get(case_id, 0) + 1
 
-            source_job_id = meta.get("source_job_id")
-            if not isinstance(source_job_id, str) or not source_job_id.strip():
-                report.critical_errors.append(f"{where}: meta.source_job_id must be a non-empty string")
+            job_fingerprint = meta.get("job_fingerprint")
+            fingerprint_error = validate_fingerprint(job_fingerprint)
+            if fingerprint_error:
+                report.critical_errors.append(f"{where}: {fingerprint_error}")
             else:
-                source_job_splits.setdefault(source_job_id, set()).add(split)
+                meta_basis = meta.get("fingerprint_basis")
+                if meta_basis != fingerprint_basis(job_fingerprint):
+                    report.critical_errors.append(
+                        f"{where}: meta.fingerprint_basis must match meta.job_fingerprint"
+                    )
+                fingerprint_splits.setdefault(job_fingerprint, set()).add(split)
+                if manifest is not None:
+                    expected = set(manifest.get(f"{split}_fingerprints", []))
+                    if job_fingerprint not in expected:
+                        report.critical_errors.append(
+                            f"{where}: job fingerprint is not assigned to {split} in split manifest"
+                        )
 
         split_reports.append(report)
 
@@ -135,15 +167,52 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
         for report in split_reports:
             report.critical_errors.append(f"duplicate case ids detected across splits: {len(duplicate_case_ids)}")
 
-    overlapping_source_job_ids = sorted(
-        source_job_id
-        for source_job_id, observed_splits in source_job_splits.items()
+    overlapping_job_fingerprints = sorted(
+        job_fingerprint
+        for job_fingerprint, observed_splits in fingerprint_splits.items()
         if len(observed_splits) > 1
     )
-    if overlapping_source_job_ids:
+    if overlapping_job_fingerprints:
         for report in split_reports:
             report.critical_errors.append(
-                f"source job ids detected across splits: {len(overlapping_source_job_ids)}"
+                f"job fingerprints detected across splits: {len(overlapping_job_fingerprints)}"
+            )
+
+    promotion_overlap_fingerprints: list[str] = []
+    if manifest is not None:
+        observed = set(fingerprint_splits)
+        excluded = set(manifest["promotion_exclusion_fingerprints"])
+        promotion_overlap_fingerprints = sorted(observed & excluded)
+        if promotion_overlap_fingerprints:
+            for report in split_reports:
+                report.critical_errors.append(
+                    f"promotion-excluded fingerprints detected in dataset: {len(promotion_overlap_fingerprints)}"
+                )
+        for report in split_reports:
+            expected = set(manifest.get(f"{report.split}_fingerprints", []))
+            observed_in_split = {
+                fingerprint
+                for fingerprint, observed_splits in fingerprint_splits.items()
+                if report.split in observed_splits
+            }
+            missing = expected - observed_in_split
+            if missing:
+                report.critical_errors.append(
+                    f"split is missing {len(missing)} fingerprints assigned by the manifest"
+                )
+
+    if manifest_errors:
+        if split_reports:
+            split_reports[0].critical_errors.extend(
+                f"split manifest: {error}" for error in manifest_errors
+            )
+        else:
+            split_reports.append(
+                SplitReport(
+                    split="manifest",
+                    path=manifest_path,
+                    critical_errors=[f"split manifest: {error}" for error in manifest_errors],
+                )
             )
 
     critical_error_count = sum(len(report.critical_errors) for report in split_reports)
@@ -153,7 +222,9 @@ def run_preflight(dataset_dir: str, splits: list[str]) -> PreflightReport:
         total_records=total,
         split_reports=split_reports,
         duplicate_case_ids=duplicate_case_ids,
-        overlapping_source_job_ids=overlapping_source_job_ids,
+        overlapping_job_fingerprints=overlapping_job_fingerprints,
+        promotion_overlap_fingerprints=promotion_overlap_fingerprints,
+        manifest_errors=manifest_errors,
         critical_error_count=critical_error_count,
     )
 
@@ -166,11 +237,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate training JSONL exports before fine-tuning")
     parser.add_argument("--dataset-dir", required=True)
     parser.add_argument("--splits", default="train,val", help="Comma-separated split names")
+    parser.add_argument("--split-manifest", default="")
     parser.add_argument("--report-out", default="")
     args = parser.parse_args(argv)
 
     splits = [item.strip() for item in args.splits.split(",") if item.strip()]
-    report = run_preflight(args.dataset_dir, splits)
+    report = run_preflight(args.dataset_dir, splits, args.split_manifest)
 
     report_path = args.report_out or _default_output(args.dataset_dir)
     with open(report_path, "w", encoding="utf-8") as handle:
@@ -180,7 +252,9 @@ def main(argv: list[str] | None = None) -> int:
                 "total_records": report.total_records,
                 "split_reports": [asdict(item) for item in report.split_reports],
                 "duplicate_case_ids": report.duplicate_case_ids,
-                "overlapping_source_job_ids": report.overlapping_source_job_ids,
+                "overlapping_job_fingerprints": report.overlapping_job_fingerprints,
+                "promotion_overlap_fingerprints": report.promotion_overlap_fingerprints,
+                "manifest_errors": report.manifest_errors,
                 "critical_error_count": report.critical_error_count,
             },
             handle,

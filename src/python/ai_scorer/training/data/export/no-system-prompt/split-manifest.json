@@ -1,0 +1,800 @@
+{
+  "format_version": "1",
+  "seed": 42,
+  "requested_val_ratio": 0.1,
+  "fingerprint_bases": [
+    "legacy-partial"
+  ],
+  "preference_set_hash": "d4c75d148e5bf9158400633434f57f2de1ec927aba7d7094fd133e2d3f60723d",
+  "golden_fixture": "src/python/ai_scorer/evals/data/canonical/v1.json",
+  "golden_fixture_sha256": "97fd1b3ce6cbadaad033826025465dce2cd8d4d3f23da38110609ea196788f69",
+  "golden_case_count": 53,
+  "golden_fingerprints": [
+    "jdfp:v1:description:056af9d4ef261b1c506fb73f097b1d635c31e9c815023f7c464567286754be8a",
+    "jdfp:v1:description:078f5f5f4a9a0638924709d8fca367ad26d365335b5de3860a038c0a61bb2e0e",
+    "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+    "jdfp:v1:description:0d01f66a073828d6d2a6706f1f135b24d043f56f0a503005a163260124cf0825",
+    "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+    "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+    "jdfp:v1:description:260354e7a8bb960af1acbc9ab8e0dae7626eb5c1334c59022869f456b544fceb",
+    "jdfp:v1:description:274f849f2a2f6dbe1520b55021c5a4d086855b71132c4b1751fedc0bfbd1c905",
+    "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+    "jdfp:v1:description:3d9e9d825996b58bc788f8997cb87eff7706c33846cfbaf9eeecb589c1ecf263",
+    "jdfp:v1:description:43f91cb64879b60b61025f834631ccfecfd855b54c6b5d01931f1d669e22d8d6",
+    "jdfp:v1:description:4ae7506623a7cafb90e54752d143c8092a6832dc36c23aa38e0935b9592c1366",
+    "jdfp:v1:description:5f3913e0127a3f25c8c8f1d4b45ff1eead5b1196b478f3639a1dca39891ce778",
+    "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+    "jdfp:v1:description:64fd371e5122d4fa8f7ace4fb77eb91e0fa27e6852b30524f37592762ef19b42",
+    "jdfp:v1:description:6efa752d39149c77870082f04a466d7562056b9c140337ad5320d521a53d891a",
+    "jdfp:v1:description:797791cd6873b08a5a624f248b1051cbe9c076600eea74d5fa6a32c7a90e3852",
+    "jdfp:v1:description:8637c82c583e55a94ef5854d2b1f5bcb5da45c7b90df6b26840cdd28f1dc98df",
+    "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+    "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+    "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
+    "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
+    "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+    "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd",
+    "jdfp:v1:title-location:d7888f15b9db8ad8465323298d65360870d5a649fb0e16b9726b84875fff480e"
+  ],
+  "golden_fingerprint_set_sha256": "0cfc78405b0284d205ca9f14bc6db52834fb696f1a8f5e6a7772e09a039de112",
+  "confirmed_promotion_fingerprints": [
+    "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
+    "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
+    "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
+    "jdfp:v1:legacy-partial:58c20704b9f939c7e30831bca9af859aa6375e8f5bd3e1b9c28d0e2b2194feb5",
+    "jdfp:v1:legacy-partial:7ba4ef4467c905e5aae607e18129ae4067d611011d9229ac24859ecb4c9ffe7d",
+    "jdfp:v1:legacy-partial:7e69bf1a9df86f0b1c0d43704749d718daa345c0bf210b9f112ef96fda9fc178",
+    "jdfp:v1:legacy-partial:8294d9bacd5f94ec5947d4f3a8dd022f93eb20c96a419ee586956e31b5dbd302",
+    "jdfp:v1:legacy-partial:8445904cfab3869264f89de0cb90365fb9986a742c2183b43e545f80d2812da5",
+    "jdfp:v1:legacy-partial:b0b279ab9837a7e8c7f96b8bd643395967601feaa92649023d57e9f578d652db",
+    "jdfp:v1:legacy-partial:b1fd01928d6a1e541f8dda1d8c16e4f9afbfdf1f68feefa13d997d38bb0f97dc",
+    "jdfp:v1:legacy-partial:b22d7d59f552be564476ec78e7d2d958cee05a358e657e3952225ea6dbd9b4c4",
+    "jdfp:v1:legacy-partial:ccf1f21a94c6a812c596368b5832169058095ab6aabbab5bb8151a916e9ce520",
+    "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd"
+  ],
+  "quarantined_fingerprints": [
+    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
+    "jdfp:v1:legacy-partial:7e12254ea532ac499be480e11484f87b6e186deb2ffb2ebad4012d69d96827ba",
+    "jdfp:v1:legacy-partial:cdbd81e307e130527edb23ebdd26dc438e80039a2dbd48a1edc01f61e73ccfaa",
+    "jdfp:v1:legacy-partial:daa881bcd1a5e5c72629e7b242b8dd7a1097579dfa019a7052d1996b878eaf52",
+    "jdfp:v1:legacy-partial:f90f666b5ee39f3c93e85d499bc7be3fdb1a9125f75723a7a818b0a50fef4ee7"
+  ],
+  "promotion_exclusion_fingerprints": [
+    "jdfp:v1:description:056af9d4ef261b1c506fb73f097b1d635c31e9c815023f7c464567286754be8a",
+    "jdfp:v1:description:078f5f5f4a9a0638924709d8fca367ad26d365335b5de3860a038c0a61bb2e0e",
+    "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+    "jdfp:v1:description:0d01f66a073828d6d2a6706f1f135b24d043f56f0a503005a163260124cf0825",
+    "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+    "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+    "jdfp:v1:description:260354e7a8bb960af1acbc9ab8e0dae7626eb5c1334c59022869f456b544fceb",
+    "jdfp:v1:description:274f849f2a2f6dbe1520b55021c5a4d086855b71132c4b1751fedc0bfbd1c905",
+    "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+    "jdfp:v1:description:3d9e9d825996b58bc788f8997cb87eff7706c33846cfbaf9eeecb589c1ecf263",
+    "jdfp:v1:description:43f91cb64879b60b61025f834631ccfecfd855b54c6b5d01931f1d669e22d8d6",
+    "jdfp:v1:description:4ae7506623a7cafb90e54752d143c8092a6832dc36c23aa38e0935b9592c1366",
+    "jdfp:v1:description:5f3913e0127a3f25c8c8f1d4b45ff1eead5b1196b478f3639a1dca39891ce778",
+    "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+    "jdfp:v1:description:64fd371e5122d4fa8f7ace4fb77eb91e0fa27e6852b30524f37592762ef19b42",
+    "jdfp:v1:description:6efa752d39149c77870082f04a466d7562056b9c140337ad5320d521a53d891a",
+    "jdfp:v1:description:797791cd6873b08a5a624f248b1051cbe9c076600eea74d5fa6a32c7a90e3852",
+    "jdfp:v1:description:8637c82c583e55a94ef5854d2b1f5bcb5da45c7b90df6b26840cdd28f1dc98df",
+    "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+    "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+    "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
+    "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
+    "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
+    "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
+    "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
+    "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
+    "jdfp:v1:legacy-partial:58c20704b9f939c7e30831bca9af859aa6375e8f5bd3e1b9c28d0e2b2194feb5",
+    "jdfp:v1:legacy-partial:7ba4ef4467c905e5aae607e18129ae4067d611011d9229ac24859ecb4c9ffe7d",
+    "jdfp:v1:legacy-partial:7e12254ea532ac499be480e11484f87b6e186deb2ffb2ebad4012d69d96827ba",
+    "jdfp:v1:legacy-partial:7e69bf1a9df86f0b1c0d43704749d718daa345c0bf210b9f112ef96fda9fc178",
+    "jdfp:v1:legacy-partial:8294d9bacd5f94ec5947d4f3a8dd022f93eb20c96a419ee586956e31b5dbd302",
+    "jdfp:v1:legacy-partial:8445904cfab3869264f89de0cb90365fb9986a742c2183b43e545f80d2812da5",
+    "jdfp:v1:legacy-partial:b0b279ab9837a7e8c7f96b8bd643395967601feaa92649023d57e9f578d652db",
+    "jdfp:v1:legacy-partial:b1fd01928d6a1e541f8dda1d8c16e4f9afbfdf1f68feefa13d997d38bb0f97dc",
+    "jdfp:v1:legacy-partial:b22d7d59f552be564476ec78e7d2d958cee05a358e657e3952225ea6dbd9b4c4",
+    "jdfp:v1:legacy-partial:ccf1f21a94c6a812c596368b5832169058095ab6aabbab5bb8151a916e9ce520",
+    "jdfp:v1:legacy-partial:cdbd81e307e130527edb23ebdd26dc438e80039a2dbd48a1edc01f61e73ccfaa",
+    "jdfp:v1:legacy-partial:daa881bcd1a5e5c72629e7b242b8dd7a1097579dfa019a7052d1996b878eaf52",
+    "jdfp:v1:legacy-partial:f90f666b5ee39f3c93e85d499bc7be3fdb1a9125f75723a7a818b0a50fef4ee7",
+    "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd",
+    "jdfp:v1:title-location:d7888f15b9db8ad8465323298d65360870d5a649fb0e16b9726b84875fff480e"
+  ],
+  "train_fingerprints": [
+    "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
+    "jdfp:v1:legacy-partial:1ed51d81238a6ba594a8e3c8c2d4c52c2c47f64135b70c0a39d62b062d518916",
+    "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
+    "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
+    "jdfp:v1:legacy-partial:7ae42213c390a5a08f3f0b782c22e4f0c50ab912647255707892808297c6e80e",
+    "jdfp:v1:legacy-partial:b8eada57dff41e18be5fb1f96ecc0f654d64660d951770e7695744c9bfd75cdb",
+    "jdfp:v1:legacy-partial:d7e84395b257111bb76990eb19891cd62e4cf13ede00b9e8fe1d80069e9c3e83",
+    "jdfp:v1:legacy-partial:dbf86d34782aa3b894f0fd8ffbd7176f2411b632835ba5d0ea96356625245d10",
+    "jdfp:v1:legacy-partial:e8832e4ffea8c07f6057d7e98dfe76bce618c9fd39f0f51632df8e9c95aedd4c",
+    "jdfp:v1:legacy-partial:f93bbca2fcdae7674f3838ae50b7a6019806c942c3ccc74c3f87bf613ea572d2"
+  ],
+  "val_fingerprints": [
+    "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+    "jdfp:v1:legacy-partial:b9412eebc358beddd28f1352d111d70fbe7744dc7061d18bc36aa4d0159f7ab1"
+  ],
+  "reconciliation": [
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Platform Engineer"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 14,
+      "status": "quarantined",
+      "reason": "partial snippet or title evidence overlaps the golden set",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+          "matched_snippet_count": 0,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": false
+        },
+        {
+          "golden_fingerprint": "jdfp:v1:description:5f3913e0127a3f25c8c8f1d4b45ff1eead5b1196b478f3639a1dca39891ce778",
+          "matched_snippet_count": 0,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": false
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Security Engineer II – Cloud & Data Security"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 9,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:1ed51d81238a6ba594a8e3c8c2d4c52c2c47f64135b70c0a39d62b062d518916",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Software Engineer, Backend"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 13,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Performance Engineer, Backend"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 10,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+          "matched_snippet_count": 10,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Platform Engineer"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 11,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+          "matched_snippet_count": 11,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Platform Engineer - Multicloud"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 11,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:8637c82c583e55a94ef5854d2b1f5bcb5da45c7b90df6b26840cdd28f1dc98df",
+          "matched_snippet_count": 11,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:58c20704b9f939c7e30831bca9af859aa6375e8f5bd3e1b9c28d0e2b2194feb5",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Software Engineer II, ML Platform"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:797791cd6873b08a5a624f248b1051cbe9c076600eea74d5fa6a32c7a90e3852",
+          "matched_snippet_count": 12,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Staff Software Engineer, FinPlatform Backend"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Operations Product Manager (Sport)"
+      ],
+      "locations": [
+        "Australia",
+        "Belgium",
+        "Canada",
+        "France",
+        "Germany",
+        "Ireland",
+        "Israel",
+        "Italy",
+        "Mexico",
+        "Netherlands",
+        "Poland",
+        "Portugal",
+        "Romania",
+        "Saudi Arabia",
+        "Spain",
+        "Sweden",
+        "Switzerland",
+        "US",
+        "United Arab Emirates"
+      ],
+      "case_count": 190,
+      "legacy_group_count": 19,
+      "snippet_count": 7,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:7ae42213c390a5a08f3f0b782c22e4f0c50ab912647255707892808297c6e80e",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Technical Program Manager"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 10,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:7ba4ef4467c905e5aae607e18129ae4067d611011d9229ac24859ecb4c9ffe7d",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Specialist Veterinary Nurse - Cardiology"
+      ],
+      "locations": [
+        "onsite"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 8,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+          "matched_snippet_count": 8,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:7e12254ea532ac499be480e11484f87b6e186deb2ffb2ebad4012d69d96827ba",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Platform Engineer"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "quarantined",
+      "reason": "partial snippet or title evidence overlaps the golden set",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+          "matched_snippet_count": 0,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": false
+        },
+        {
+          "golden_fingerprint": "jdfp:v1:description:5f3913e0127a3f25c8c8f1d4b45ff1eead5b1196b478f3639a1dca39891ce778",
+          "matched_snippet_count": 0,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": false
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:7e69bf1a9df86f0b1c0d43704749d718daa345c0bf210b9f112ef96fda9fc178",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Lead Research Software Engineer"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 10,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:6efa752d39149c77870082f04a466d7562056b9c140337ad5320d521a53d891a",
+          "matched_snippet_count": 10,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:8294d9bacd5f94ec5947d4f3a8dd022f93eb20c96a419ee586956e31b5dbd302",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Sr. Data Scientist, AI/ML Systems"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 15,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:4ae7506623a7cafb90e54752d143c8092a6832dc36c23aa38e0935b9592c1366",
+          "matched_snippet_count": 15,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:8445904cfab3869264f89de0cb90365fb9986a742c2183b43e545f80d2812da5",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Data Scientist AI/ML"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 11,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:0d01f66a073828d6d2a6706f1f135b24d043f56f0a503005a163260124cf0825",
+          "matched_snippet_count": 11,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Lead Backend Software Engineer (Product)"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 14,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:b0b279ab9837a7e8c7f96b8bd643395967601feaa92649023d57e9f578d652db",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Assistant/Associate Professor (Clinical): Large Animal Surgery"
+      ],
+      "locations": [
+        "onsite"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 6,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+          "matched_snippet_count": 6,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:b1fd01928d6a1e541f8dda1d8c16e4f9afbfdf1f68feefa13d997d38bb0f97dc",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Manager, Professional Services Engineers (EMEA)"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 13,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+          "matched_snippet_count": 13,
+          "all_snippets_contained": true,
+          "title_equal": false,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:b22d7d59f552be564476ec78e7d2d958cee05a358e657e3952225ea6dbd9b4c4",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Principal Platform Engineer"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 10,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:260354e7a8bb960af1acbc9ab8e0dae7626eb5c1334c59022869f456b544fceb",
+          "matched_snippet_count": 10,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": false,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:b8eada57dff41e18be5fb1f96ecc0f654d64660d951770e7695744c9bfd75cdb",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Product Marketing Manager"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:b9412eebc358beddd28f1352d111d70fbe7744dc7061d18bc36aa4d0159f7ab1",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Revenue Technology - Data Strategy & Operations Lead"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 13,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:ccf1f21a94c6a812c596368b5832169058095ab6aabbab5bb8151a916e9ce520",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Principal Software Engineer - Agentic AI"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "confirmed_promotion_overlap",
+      "reason": "all normalized snippets occur in exactly one golden description",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+          "matched_snippet_count": 12,
+          "all_snippets_contained": true,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:cdbd81e307e130527edb23ebdd26dc438e80039a2dbd48a1edc01f61e73ccfaa",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Engineering Manager - AI Fleet Management & Honk"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 11,
+      "status": "quarantined",
+      "reason": "partial snippet or title evidence overlaps the golden set",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+          "matched_snippet_count": 3,
+          "all_snippets_contained": false,
+          "title_equal": false,
+          "location_equal": false,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:d7e84395b257111bb76990eb19891cd62e4cf13ede00b9e8fe1d80069e9c3e83",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Senior Product Manager, Platform Performance & Infrastructure"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 14,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:daa881bcd1a5e5c72629e7b242b8dd7a1097579dfa019a7052d1996b878eaf52",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Platform Engineer - Security"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 12,
+      "status": "quarantined",
+      "reason": "partial snippet or title evidence overlaps the golden set",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:43f91cb64879b60b61025f834631ccfecfd855b54c6b5d01931f1d669e22d8d6",
+          "matched_snippet_count": 2,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:dbf86d34782aa3b894f0fd8ffbd7176f2411b632835ba5d0ea96356625245d10",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Director of Global Developer Success"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 15,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:e8832e4ffea8c07f6057d7e98dfe76bce618c9fd39f0f51632df8e9c95aedd4c",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Solutions Engineer, PerfectScale"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 30,
+      "legacy_group_count": 3,
+      "snippet_count": 11,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:f90f666b5ee39f3c93e85d499bc7be3fdb1a9125f75723a7a818b0a50fef4ee7",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Engineering Manager - Platform Infrastructure"
+      ],
+      "locations": [
+        "remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 13,
+      "status": "quarantined",
+      "reason": "partial snippet or title evidence overlaps the golden set",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+          "matched_snippet_count": 1,
+          "all_snippets_contained": false,
+          "title_equal": false,
+          "location_equal": false,
+          "substantive_match": true
+        }
+      ]
+    },
+    {
+      "job_fingerprint": "jdfp:v1:legacy-partial:f93bbca2fcdae7674f3838ae50b7a6019806c942c3ccc74c3f87bf613ea572d2",
+      "fingerprint_basis": "legacy-partial",
+      "titles": [
+        "Principal Product Manager, Payment Platform"
+      ],
+      "locations": [
+        "hybrid"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 13,
+      "status": "eligible",
+      "reason": "no meaningful golden overlap found",
+      "evidence": []
+    },
+    {
+      "job_fingerprint": "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd",
+      "fingerprint_basis": "title-location",
+      "titles": [
+        "Frontend Platform Engineer, JavaScript Infrastructure 5 days ago Fully Remote"
+      ],
+      "locations": [
+        "Remote"
+      ],
+      "case_count": 10,
+      "legacy_group_count": 1,
+      "snippet_count": 0,
+      "status": "confirmed_promotion_overlap",
+      "reason": "empty-snippet fallback title and location match one golden job",
+      "evidence": [
+        {
+          "golden_fingerprint": "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd",
+          "matched_snippet_count": 0,
+          "all_snippets_contained": false,
+          "title_equal": true,
+          "location_equal": true,
+          "substantive_match": false
+        }
+      ]
+    }
+  ]
+}

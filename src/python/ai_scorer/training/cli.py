@@ -5,12 +5,13 @@ Subcommands:
   extract               — Build prompt-ready training cases from MongoDB
   label                 — Label cases with Gemini
   export                — Export labeled cases into chat JSONL splits
-    preflight             — Validate exported JSONL dataset integrity
-    detect-runtime        — Detect CUDA/CPU fine-tuning runtime path
-    train                 — Launch fine-tuning run with manifests/checkpoints
-    merge                 — Merge adapter into full HF weights
-    package               — Convert to GGUF and package Ollama model
-    eval-gate             — Run scorer eval gate for promotion
+  migrate-fingerprints  — Migrate existing paid labels to fingerprint identity
+  preflight             — Validate exported JSONL dataset integrity
+  detect-runtime        — Detect CUDA/CPU fine-tuning runtime path
+  train                 — Launch fine-tuning run with manifests/checkpoints
+  merge                 — Merge adapter into full HF weights
+  package               — Convert to GGUF and package Ollama model
+  eval-gate             — Run scorer eval gate for promotion
 
 Usage:
   python -m src.python.ai_scorer.training.cli generate-preferences
@@ -28,13 +29,17 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from src.python.ai_scorer.training.dataset_split import (
+    DEFAULT_PROMOTION_FIXTURES,
+    DEFAULT_SPLIT_MANIFEST,
+)
+from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
 from src.python.ai_scorer.training.preferences import (
     default_preferences_path,
     ensure_seed_preferences,
     generate_random_preferences,
     save_preferences,
 )
-from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
 
 
 def _resolve_dataset_dir(profile: str, override: str) -> str:
@@ -76,6 +81,14 @@ def _cmd_extract(args: argparse.Namespace) -> int:
             str(args.seed_count),
             "--seed",
             str(args.seed),
+            "--split-seed",
+            str(args.split_seed),
+            "--val-ratio",
+            str(args.val_ratio),
+            "--promotion-fixtures",
+            args.promotion_fixtures,
+            "--split-manifest",
+            args.split_manifest,
         ]
     )
     return 0
@@ -84,16 +97,19 @@ def _cmd_extract(args: argparse.Namespace) -> int:
 def _cmd_label(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.labeler import main as label_main
 
-    label_main(
-        [
-            "--input",
-            args.input,
-            "--output",
-            args.output,
-            "--model",
-            args.model,
-        ]
-    )
+    label_args = [
+        "--input",
+        args.input,
+        "--output",
+        args.output,
+        "--model",
+        args.model,
+    ]
+    if args.reuse_labels:
+        label_args.extend(["--reuse-labels", args.reuse_labels])
+    if args.allow_paid_calls:
+        label_args.append("--allow-paid-calls")
+    label_main(label_args)
     return 0
 
 
@@ -105,10 +121,8 @@ def _cmd_export(args: argparse.Namespace) -> int:
         args.input,
         "--output-dir",
         args.output_dir,
-        "--seed",
-        str(args.seed),
-        "--val-ratio",
-        str(args.val_ratio),
+        "--split-manifest",
+        args.split_manifest,
     ]
     if args.strip_system_prompt:
         export_args.append("--strip-system-prompt")
@@ -116,18 +130,47 @@ def _cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_migrate_fingerprints(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.migrate_job_fingerprints import main as migrate_main
+
+    migrate_args = [
+        "--candidates",
+        args.candidates,
+        "--labeled",
+        args.labeled,
+        "--golden-fixtures",
+        args.golden_fixtures,
+        "--preferences",
+        args.preferences,
+        "--split-manifest",
+        args.split_manifest,
+        "--seed",
+        str(args.seed),
+        "--val-ratio",
+        str(args.val_ratio),
+    ]
+    if args.report_out:
+        migrate_args.extend(["--report-out", args.report_out])
+    if args.apply:
+        migrate_args.append("--apply")
+    return migrate_main(migrate_args)
+
+
 def _cmd_preflight(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.fine_tune_preflight import main as preflight_main
 
     dataset_dir = _resolve_dataset_dir(args.dataset_profile, args.dataset_dir)
-    return preflight_main([
+    preflight_args = [
         "--dataset-dir",
         dataset_dir,
         "--splits",
         args.splits,
         "--report-out",
         args.report_out,
-    ])
+    ]
+    if args.split_manifest:
+        preflight_args.extend(["--split-manifest", args.split_manifest])
+    return preflight_main(preflight_args)
 
 
 def _cmd_detect_runtime(args: argparse.Namespace) -> int:
@@ -259,31 +302,58 @@ def build_parser() -> argparse.ArgumentParser:
     p_pref.add_argument("--overwrite", action="store_true")
 
     p_extract = sub.add_parser("extract", help="Extract prompt-ready training cases from MongoDB")
-    p_extract.add_argument("--mongo-uri", default=os.environ.get("MONGO_HOST", "mongodb://localhost:27017/"))
+    p_extract.add_argument(
+        "--mongo-uri",
+        default=os.environ.get("MONGO_HOST", "mongodb://localhost:27017/"),
+    )
     p_extract.add_argument("--global-db", default=os.environ.get("DB_NAME", "cover_letter_global"))
     p_extract.add_argument("--output", default="src/python/ai_scorer/training/data/proposed/candidates.json")
     p_extract.add_argument("--preferences", default=default_preferences_path())
     p_extract.add_argument("--limit", type=int, default=50)
     p_extract.add_argument("--seed-count", type=int, default=10)
     p_extract.add_argument("--seed", type=int, default=1337)
+    p_extract.add_argument("--split-seed", type=int, default=42)
+    p_extract.add_argument("--val-ratio", type=float, default=0.1)
+    p_extract.add_argument("--promotion-fixtures", default=DEFAULT_PROMOTION_FIXTURES)
+    p_extract.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
 
     p_label = sub.add_parser("label", help="Label extracted cases with Gemini")
     p_label.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/candidates.json")
     p_label.add_argument("--output", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     p_label.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash"))
+    p_label.add_argument("--reuse-labels", default="")
+    p_label.add_argument("--allow-paid-calls", action="store_true")
 
     p_export = sub.add_parser("export", help="Export labeled cases into chat JSONL splits")
     p_export.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     p_export.add_argument("--output-dir", default="src/python/ai_scorer/training/data/export")
-    p_export.add_argument("--seed", type=int, default=42)
-    p_export.add_argument("--val-ratio", type=float, default=0.1)
-    p_export.add_argument("--strip-system-prompt", action="store_true", help="Remove system prompt from messages (embed at fine-tuning instead)")
+    p_export.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_export.add_argument(
+        "--strip-system-prompt",
+        action="store_true",
+        help="Remove system prompt from messages (embed at fine-tuning instead)",
+    )
 
     p_preflight = sub.add_parser("preflight", help="Validate exported JSONL dataset splits")
     p_preflight.add_argument("--dataset-profile", choices=["keep-system", "no-system"], default="keep-system")
     p_preflight.add_argument("--dataset-dir", default="")
     p_preflight.add_argument("--splits", default="train,val")
     p_preflight.add_argument("--report-out", default="")
+    p_preflight.add_argument("--split-manifest", default="")
+
+    p_migrate = sub.add_parser(
+        "migrate-fingerprints",
+        help="Migrate paid labels to fingerprint identity",
+    )
+    p_migrate.add_argument("--candidates", default="src/python/ai_scorer/training/data/proposed/candidates.json")
+    p_migrate.add_argument("--labeled", default="src/python/ai_scorer/training/data/proposed/labeled.json")
+    p_migrate.add_argument("--golden-fixtures", default=DEFAULT_PROMOTION_FIXTURES)
+    p_migrate.add_argument("--preferences", default=default_preferences_path())
+    p_migrate.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_migrate.add_argument("--seed", type=int, default=42)
+    p_migrate.add_argument("--val-ratio", type=float, default=0.1)
+    p_migrate.add_argument("--report-out", default="")
+    p_migrate.add_argument("--apply", action="store_true")
 
     p_runtime = sub.add_parser("detect-runtime", help="Detect CUDA/CPU fine-tuning runtime path")
     p_runtime.add_argument("--output", default="")
@@ -358,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
         "extract": _cmd_extract,
         "label": _cmd_label,
         "export": _cmd_export,
+        "migrate-fingerprints": _cmd_migrate_fingerprints,
         "preflight": _cmd_preflight,
         "detect-runtime": _cmd_detect_runtime,
         "train": _cmd_train,

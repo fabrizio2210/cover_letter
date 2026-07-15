@@ -24,6 +24,7 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from src.python.ai_scorer.description_normalization import normalize_description_markdown
 from src.python.ai_scorer.evals.redaction import redact_case_fields
 from src.python.ai_scorer.evals.schema import (
     EXTRACTOR_VERSION,
@@ -32,11 +33,7 @@ from src.python.ai_scorer.evals.schema import (
     dump_fixtures,
     new_case_id,
 )
-
-try:
-    from src.python.ai_scorer.ai_scorer import normalize_description_markdown
-except ImportError:
-    from ai_scorer import normalize_description_markdown  # type: ignore[no-redef]
+from src.python.ai_scorer.job_fingerprint import description_fingerprint
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +99,8 @@ def _sample_diverse(docs: list, limit: int) -> list:
     # Fill remaining slots if some buckets had fewer than allocated
     remaining_limit = limit - len(selected)
     if remaining_limit > 0:
-        used_ids = {str(d["_id"]) for d in selected}
-        extras = [d for d in docs if str(d["_id"]) not in used_ids]
+        used_fingerprints = {str(d["job_fingerprint"]) for d in selected}
+        extras = [d for d in docs if str(d["job_fingerprint"]) not in used_fingerprints]
         selected.extend(extras[:remaining_limit])
 
     return selected[:limit]
@@ -128,9 +125,35 @@ def extract_candidates(
     # Fetch all docs; projection keeps only the fields we need
     cursor = global_db["job-descriptions"].find(
         {},
-        {"_id": 1, "title": 1, "description": 1, "location": 1},
+        {"_id": 0, "title": 1, "description": 1, "location": 1},
     )
-    all_docs = list(cursor)
+    all_docs = []
+    seen_fingerprints: set[str] = set()
+    for doc in cursor:
+        raw_title = doc.get("title", "") or ""
+        raw_description = doc.get("description", "") or ""
+        raw_location = doc.get("location", "") or ""
+        normalized_description = normalize_description_markdown(raw_description)
+        title, description, location = redact_case_fields(
+            raw_title, normalized_description, raw_location
+        )
+        fingerprint, basis = description_fingerprint(
+            description,
+            title=title,
+            location=location,
+        )
+        if fingerprint in seen_fingerprints:
+            continue
+        seen_fingerprints.add(fingerprint)
+        all_docs.append(
+            {
+                "title": title,
+                "description": description,
+                "location": location,
+                "job_fingerprint": fingerprint,
+                "fingerprint_basis": basis,
+            }
+        )
     print(f"[extractor] Fetched {len(all_docs)} job descriptions from {global_db_name}")
 
     sampled = _sample_diverse(all_docs, limit)
@@ -140,22 +163,12 @@ def extract_candidates(
     cases: list = []
 
     for doc in sampled:
-        raw_title = doc.get("title", "") or ""
-        raw_description = doc.get("description", "") or ""
-        raw_location = doc.get("location", "") or ""
-        source_job_id = str(doc["_id"])
-
-        # Normalise to markdown (same function used in production scorer)
-        normalized_description = normalize_description_markdown(raw_description)
-
-        # Redact sensitive patterns
-        title, description, location = redact_case_fields(
-            raw_title, normalized_description, raw_location
-        )
+        title = doc["title"]
+        description = doc["description"]
+        location = doc["location"]
 
         provenance = Provenance(
             source_db=global_db_name,
-            source_job_id=source_job_id,
             extracted_at=now_iso,
             extractor_version=EXTRACTOR_VERSION,
         )
@@ -166,6 +179,8 @@ def extract_candidates(
             cases.append(
                 EvalCase(
                     case_id=new_case_id(),
+                    job_fingerprint=doc["job_fingerprint"],
+                    fingerprint_basis=doc["fingerprint_basis"],
                     title=title,
                     description=description,
                     location=location,

@@ -8,17 +8,25 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from src.python.ai_scorer.training.preferences import default_preferences_path, ensure_seed_preferences, load_preferences
+from src.python.ai_scorer.description_normalization import normalize_description_markdown
+from src.python.ai_scorer.job_fingerprint import (
+    description_fingerprint,
+    partition_fingerprints,
+    stable_json_hash,
+)
+from src.python.ai_scorer.training.dataset_split import (
+    DEFAULT_PROMOTION_FIXTURES,
+    DEFAULT_SPLIT_MANIFEST,
+    build_split_manifest,
+    load_golden_fingerprints,
+    write_split_manifest,
+)
+from src.python.ai_scorer.training.preferences import (
+    default_preferences_path,
+    ensure_seed_preferences,
+    load_preferences,
+)
 from src.python.ai_scorer.training.schema import TrainingCase, dump_cases, new_case_id
-
-try:
-    from src.python.ai_scorer.ai_scorer import (
-        build_prompt,
-        normalize_description_markdown,
-        retrieve_relevant_snippets,
-    )
-except ImportError:
-    from ai_scorer import build_prompt, normalize_description_markdown, retrieve_relevant_snippets  # type: ignore[no-redef]
 
 
 def _sample_diverse(docs: list[dict], limit: int) -> list[dict]:
@@ -33,12 +41,49 @@ def _sample_diverse(docs: list[dict], limit: int) -> list[dict]:
     alloc_medium = max(1, limit - alloc_empty - alloc_short - alloc_rich)
 
     selected = empty[:alloc_empty] + short[:alloc_short] + medium[:alloc_medium] + rich[:alloc_rich]
-    selected_ids = {str(doc.get("_id")) for doc in selected}
+    selected_fingerprints = {str(doc.get("job_fingerprint")) for doc in selected}
     if len(selected) < limit:
-        extras = [doc for doc in docs if str(doc.get("_id")) not in selected_ids]
+        extras = [doc for doc in docs if str(doc.get("job_fingerprint")) not in selected_fingerprints]
         selected.extend(extras[: limit - len(selected)])
 
     return selected[:limit]
+
+
+def prepare_training_jobs(
+    all_docs: list[dict],
+    *,
+    limit: int,
+    promotion_fingerprints: set[str],
+    split_seed: int,
+    val_ratio: float,
+) -> tuple[list[dict], list[str], list[str]]:
+    jobs_by_fingerprint: dict[str, dict] = {}
+    for doc in all_docs:
+        description = normalize_description_markdown(doc.get("description", "") or "")
+        fingerprint, basis = description_fingerprint(
+            description,
+            title=doc.get("title", ""),
+            location=doc.get("location", ""),
+        )
+        if fingerprint in promotion_fingerprints:
+            continue
+        jobs_by_fingerprint.setdefault(
+            fingerprint,
+            {
+                **doc,
+                "description": description,
+                "job_fingerprint": fingerprint,
+                "fingerprint_basis": basis,
+            },
+        )
+
+    sampled = _sample_diverse(list(jobs_by_fingerprint.values()), limit)
+    train_fingerprints, val_fingerprints = partition_fingerprints(
+        [doc["job_fingerprint"] for doc in sampled],
+        seed=split_seed,
+        val_ratio=val_ratio,
+    )
+    return sampled, train_fingerprints, val_fingerprints
 
 
 def extract_training_cases(
@@ -46,28 +91,38 @@ def extract_training_cases(
     global_db_name: str,
     preferences: list[dict],
     limit: int,
-) -> list[TrainingCase]:
+    promotion_fingerprints: set[str],
+    split_seed: int,
+    val_ratio: float,
+) -> tuple[list[TrainingCase], list[str], list[str]]:
     from pymongo import MongoClient
+    from src.python.ai_scorer.ai_scorer import build_prompt, retrieve_relevant_snippets
 
     client = MongoClient(mongo_uri)
     db = client[global_db_name]
 
     cursor = db["job-descriptions"].find(
         {},
-        {"_id": 1, "title": 1, "description": 1, "location": 1},
+        {"_id": 0, "title": 1, "description": 1, "location": 1},
     )
     all_docs = list(cursor)
     print(f"[training.extract] fetched={len(all_docs)} from db={global_db_name}")
 
-    sampled = _sample_diverse(all_docs, limit)
+    sampled, train_fingerprints, val_fingerprints = prepare_training_jobs(
+        all_docs,
+        limit=limit,
+        promotion_fingerprints=promotion_fingerprints,
+        split_seed=split_seed,
+        val_ratio=val_ratio,
+    )
     print(f"[training.extract] sampled={len(sampled)} limit={limit}")
 
     cases: list[TrainingCase] = []
     for doc in sampled:
-        source_job_id = str(doc.get("_id"))
+        job_fingerprint = str(doc["job_fingerprint"])
         title = str(doc.get("title", "") or "")
         location = str(doc.get("location", "") or "")
-        description = normalize_description_markdown(doc.get("description", "") or "")
+        description = str(doc.get("description", "") or "")
 
         for pref in preferences:
             guidance = str(pref.get("guidance", "") or "")
@@ -82,7 +137,8 @@ def extract_training_cases(
             cases.append(
                 TrainingCase(
                     case_id=new_case_id(),
-                    source_job_id=source_job_id,
+                    job_fingerprint=job_fingerprint,
+                    fingerprint_basis=str(doc["fingerprint_basis"]),
                     title=title,
                     location=location,
                     preference_key=str(pref.get("key", "") or ""),
@@ -93,14 +149,14 @@ def extract_training_cases(
                 )
             )
             print(
-                f"[training.extract] {len(cases)}/{len(sampled)*len(preferences)} case={cases[-1].case_id} job={source_job_id} preference={pref.get('key')}"
-            )   
+                f"[training.extract] {len(cases)}/{len(sampled)*len(preferences)} case={cases[-1].case_id} job={job_fingerprint} preference={pref.get('key')}"
+            )
 
     print(
         "[training.extract] created="
         f"{len(cases)} ({len(sampled)} jobs x {len(preferences)} preferences)"
     )
-    return cases
+    return cases, train_fingerprints, val_fingerprints
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -112,6 +168,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--seed-count", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--split-seed", type=int, default=42)
+    parser.add_argument("--val-ratio", type=float, default=0.1)
+    parser.add_argument("--promotion-fixtures", default=DEFAULT_PROMOTION_FIXTURES)
+    parser.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
     args = parser.parse_args(argv)
 
     if args.preferences == default_preferences_path():
@@ -119,16 +179,32 @@ def main(argv: list[str] | None = None) -> None:
     else:
         preferences = load_preferences(args.preferences)
 
-    cases = extract_training_cases(
+    golden_fingerprints, golden_case_count = load_golden_fingerprints(args.promotion_fixtures)
+    cases, train_fingerprints, val_fingerprints = extract_training_cases(
         mongo_uri=args.mongo_uri,
         global_db_name=args.global_db,
         preferences=preferences,
         limit=args.limit,
+        promotion_fingerprints=set(golden_fingerprints),
+        split_seed=args.split_seed,
+        val_ratio=args.val_ratio,
     )
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     dump_cases(cases, args.output)
+    manifest = build_split_manifest(
+        train_fingerprints=train_fingerprints,
+        val_fingerprints=val_fingerprints,
+        golden_fingerprints=golden_fingerprints,
+        seed=args.split_seed,
+        val_ratio=args.val_ratio,
+        golden_fixture_path=args.promotion_fixtures,
+        golden_case_count=golden_case_count,
+        preference_set_hash=stable_json_hash(preferences),
+    )
+    write_split_manifest(manifest, args.split_manifest)
     print(f"[training.extract] done -> {args.output}")
+    print(f"[training.extract] split manifest -> {args.split_manifest}")
 
 
 if __name__ == "__main__":

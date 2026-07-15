@@ -11,7 +11,9 @@ import uuid
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-SCHEMA_VERSION = "1"
+from src.python.ai_scorer.job_fingerprint import fingerprint_basis, validate_fingerprint
+
+SCHEMA_VERSION = "2"
 FIXTURE_FORMAT_VERSION = "2"
 EXTRACTOR_VERSION = "1"
 
@@ -33,7 +35,6 @@ class FixtureMeta:
 @dataclass
 class Provenance:
     source_db: str
-    source_job_id: str
     extracted_at: str  # ISO-8601
     extractor_version: str = EXTRACTOR_VERSION
 
@@ -47,6 +48,8 @@ class EvalCase:
     """
 
     case_id: str
+    job_fingerprint: str
+    fingerprint_basis: str
     title: str
     description: str   # normalize_description_markdown() already applied
     location: str
@@ -74,6 +77,11 @@ def validate_case(case: EvalCase) -> list:
     errors = []
     if not case.case_id:
         errors.append("case_id is required")
+    fingerprint_error = validate_fingerprint(case.job_fingerprint)
+    if fingerprint_error:
+        errors.append(fingerprint_error)
+    elif case.fingerprint_basis != fingerprint_basis(case.job_fingerprint):
+        errors.append("fingerprint_basis must match job_fingerprint")
     if not case.preference_key:
         errors.append("preference_key is required")
     if not case.preference_guidance:
@@ -115,9 +123,19 @@ def validate_fixtures(cases: list) -> list:
 
 def _case_from_dict(item: dict) -> EvalCase:
     prov_raw = item.get("provenance")
-    provenance = Provenance(**prov_raw) if prov_raw else None
+    provenance = (
+        Provenance(
+            source_db=prov_raw.get("source_db", ""),
+            extracted_at=prov_raw.get("extracted_at", ""),
+            extractor_version=prov_raw.get("extractor_version", EXTRACTOR_VERSION),
+        )
+        if prov_raw
+        else None
+    )
     return EvalCase(
         case_id=item["case_id"],
+        job_fingerprint=item.get("job_fingerprint", ""),
+        fingerprint_basis=item.get("fingerprint_basis", ""),
         title=item.get("title", ""),
         description=item.get("description", ""),
         location=item.get("location", ""),

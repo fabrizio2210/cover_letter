@@ -5,13 +5,16 @@ import uuid
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-SCHEMA_VERSION = "1"
+from src.python.ai_scorer.job_fingerprint import fingerprint_basis, validate_fingerprint
+
+SCHEMA_VERSION = "2"
 
 
 @dataclass
 class TrainingCase:
     case_id: str
-    source_job_id: str
+    job_fingerprint: str
+    fingerprint_basis: str
     title: str
     location: str
     preference_key: str
@@ -32,8 +35,11 @@ def validate_case(case: TrainingCase) -> list[str]:
     errors: list[str] = []
     if not case.case_id:
         errors.append("case_id is required")
-    if not case.source_job_id:
-        errors.append("source_job_id is required")
+    fingerprint_error = validate_fingerprint(case.job_fingerprint)
+    if fingerprint_error:
+        errors.append(fingerprint_error)
+    elif case.fingerprint_basis != fingerprint_basis(case.job_fingerprint):
+        errors.append("fingerprint_basis must match job_fingerprint")
     if not case.preference_key:
         errors.append("preference_key is required")
     if not case.preference_guidance:
@@ -67,7 +73,8 @@ def validate_cases(cases: list[TrainingCase]) -> list[str]:
 def _case_from_dict(item: dict) -> TrainingCase:
     return TrainingCase(
         case_id=item["case_id"],
-        source_job_id=item.get("source_job_id", ""),
+        job_fingerprint=item.get("job_fingerprint", ""),
+        fingerprint_basis=item.get("fingerprint_basis", ""),
         title=item.get("title", ""),
         location=item.get("location", ""),
         preference_key=item.get("preference_key", ""),

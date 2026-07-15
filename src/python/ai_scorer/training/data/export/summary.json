@@ -1,13 +1,54 @@
 {
-  "total_labeled": 500,
-  "train": 450,
-  "val": 50,
-  "train_source_jobs": 45,
-  "val_source_jobs": 5,
+  "total_label_inventory": 500,
+  "total_exported": 320,
+  "excluded": 180,
+  "train": 300,
+  "val": 20,
+  "train_job_fingerprints": [
+    "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
+    "jdfp:v1:legacy-partial:1ed51d81238a6ba594a8e3c8c2d4c52c2c47f64135b70c0a39d62b062d518916",
+    "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
+    "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
+    "jdfp:v1:legacy-partial:7ae42213c390a5a08f3f0b782c22e4f0c50ab912647255707892808297c6e80e",
+    "jdfp:v1:legacy-partial:b8eada57dff41e18be5fb1f96ecc0f654d64660d951770e7695744c9bfd75cdb",
+    "jdfp:v1:legacy-partial:d7e84395b257111bb76990eb19891cd62e4cf13ede00b9e8fe1d80069e9c3e83",
+    "jdfp:v1:legacy-partial:dbf86d34782aa3b894f0fd8ffbd7176f2411b632835ba5d0ea96356625245d10",
+    "jdfp:v1:legacy-partial:e8832e4ffea8c07f6057d7e98dfe76bce618c9fd39f0f51632df8e9c95aedd4c",
+    "jdfp:v1:legacy-partial:f93bbca2fcdae7674f3838ae50b7a6019806c942c3ccc74c3f87bf613ea572d2"
+  ],
+  "val_job_fingerprints": [
+    "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+    "jdfp:v1:legacy-partial:b9412eebc358beddd28f1352d111d70fbe7744dc7061d18bc36aa4d0159f7ab1"
+  ],
+  "excluded_job_fingerprints": [
+    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
+    "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
+    "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
+    "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
+    "jdfp:v1:legacy-partial:58c20704b9f939c7e30831bca9af859aa6375e8f5bd3e1b9c28d0e2b2194feb5",
+    "jdfp:v1:legacy-partial:7ba4ef4467c905e5aae607e18129ae4067d611011d9229ac24859ecb4c9ffe7d",
+    "jdfp:v1:legacy-partial:7e12254ea532ac499be480e11484f87b6e186deb2ffb2ebad4012d69d96827ba",
+    "jdfp:v1:legacy-partial:7e69bf1a9df86f0b1c0d43704749d718daa345c0bf210b9f112ef96fda9fc178",
+    "jdfp:v1:legacy-partial:8294d9bacd5f94ec5947d4f3a8dd022f93eb20c96a419ee586956e31b5dbd302",
+    "jdfp:v1:legacy-partial:8445904cfab3869264f89de0cb90365fb9986a742c2183b43e545f80d2812da5",
+    "jdfp:v1:legacy-partial:b0b279ab9837a7e8c7f96b8bd643395967601feaa92649023d57e9f578d652db",
+    "jdfp:v1:legacy-partial:b1fd01928d6a1e541f8dda1d8c16e4f9afbfdf1f68feefa13d997d38bb0f97dc",
+    "jdfp:v1:legacy-partial:b22d7d59f552be564476ec78e7d2d958cee05a358e657e3952225ea6dbd9b4c4",
+    "jdfp:v1:legacy-partial:ccf1f21a94c6a812c596368b5832169058095ab6aabbab5bb8151a916e9ce520",
+    "jdfp:v1:legacy-partial:cdbd81e307e130527edb23ebdd26dc438e80039a2dbd48a1edc01f61e73ccfaa",
+    "jdfp:v1:legacy-partial:daa881bcd1a5e5c72629e7b242b8dd7a1097579dfa019a7052d1996b878eaf52",
+    "jdfp:v1:legacy-partial:f90f666b5ee39f3c93e85d499bc7be3fdb1a9125f75723a7a818b0a50fef4ee7",
+    "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd"
+  ],
+  "train_fingerprint_count": 10,
+  "val_fingerprint_count": 2,
   "seed": 42,
   "requested_val_ratio": 0.1,
-  "actual_train_ratio": 0.9,
-  "actual_val_ratio": 0.1,
-  "split_unit": "source_job_id",
+  "actual_train_ratio": 0.9375,
+  "actual_val_ratio": 0.0625,
+  "split_unit": "job_fingerprint",
+  "fingerprint_bases": [
+    "legacy-partial"
+  ],
   "strip_system_prompt": false
 }

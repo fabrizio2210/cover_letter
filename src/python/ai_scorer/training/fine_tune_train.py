@@ -16,6 +16,7 @@ from src.python.ai_scorer.training.fine_tune_manifest import (
 )
 from src.python.ai_scorer.training.fine_tune_preflight import run_preflight
 from src.python.ai_scorer.training.fine_tune_runtime import detect_runtime
+from src.python.ai_scorer.training.dataset_split import load_split_manifest
 
 
 def _resolve_dataset_dir(profile: str, override: str) -> str:
@@ -384,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("Preflight failed. Run training preflight command and fix dataset errors first.")
 
     runtime = detect_runtime()
+    split_manifest = load_split_manifest(os.path.join(dataset_dir, "split-manifest.json"))
     if runtime.warning:
         print(f"[training.train] WARNING: {runtime.warning}")
     if cpu_runtime["configured"]:
@@ -410,6 +412,17 @@ def main(argv: list[str] | None = None) -> int:
         "dataset_profile": args.dataset_profile,
         "dataset_dir": dataset_dir,
         "dataset_hash": tree_sha256(collect_jsonl_paths(dataset_dir)),
+        "job_fingerprint_identity": {
+            "bases": split_manifest["fingerprint_bases"],
+            "preference_set_hash": split_manifest["preference_set_hash"],
+            "golden_fixture": split_manifest["golden_fixture"],
+            "golden_fixture_sha256": split_manifest["golden_fixture_sha256"],
+            "golden_fingerprint_set_sha256": split_manifest["golden_fingerprint_set_sha256"],
+            "train_fingerprints": split_manifest["train_fingerprints"],
+            "val_fingerprints": split_manifest["val_fingerprints"],
+            "confirmed_promotion_fingerprints": split_manifest["confirmed_promotion_fingerprints"],
+            "quarantined_fingerprints": split_manifest["quarantined_fingerprints"],
+        },
         "git_sha": current_git_sha(),
         "seed": args.seed,
         "max_seq_length": args.max_seq_length,

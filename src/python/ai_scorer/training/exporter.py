@@ -3,8 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import random
 
+from src.python.ai_scorer.training.dataset_split import (
+    DEFAULT_SPLIT_MANIFEST,
+    load_split_manifest,
+    validate_current_golden,
+    write_split_manifest,
+)
 from src.python.ai_scorer.training.schema import TrainingCase, load_cases, validate_cases
 
 
@@ -30,34 +35,13 @@ def _to_chat_record(case: TrainingCase, strip_system: bool = False) -> dict:
         "messages": messages,
         "meta": {
             "case_id": case.case_id,
-            "source_job_id": case.source_job_id,
+            "job_fingerprint": case.job_fingerprint,
+            "fingerprint_basis": case.fingerprint_basis,
             "preference_key": case.preference_key,
             "preference_guidance": case.preference_guidance,
             "snippet_count": len(case.relevant_snippets),
         },
     }
-
-
-def _split_cases(
-    cases: list[TrainingCase],
-    seed: int,
-    val_ratio: float,
-) -> tuple[list[TrainingCase], list[TrainingCase]]:
-    if val_ratio <= 0 or val_ratio >= 1:
-        raise ValueError("val_ratio must satisfy: 0 < val_ratio < 1")
-
-    source_job_ids = sorted({case.source_job_id for case in cases})
-    if len(source_job_ids) < 2:
-        raise ValueError("At least two distinct source_job_id values are required for train/val splitting")
-
-    random.Random(seed).shuffle(source_job_ids)
-    n_val_jobs = round(len(source_job_ids) * val_ratio)
-    n_val_jobs = max(1, min(len(source_job_ids) - 1, n_val_jobs))
-    val_job_ids = set(source_job_ids[:n_val_jobs])
-
-    train = [case for case in cases if case.source_job_id not in val_job_ids]
-    val = [case for case in cases if case.source_job_id in val_job_ids]
-    return train, val
 
 
 def _write_jsonl(records: list[dict], path: str) -> None:
@@ -69,19 +53,30 @@ def _write_jsonl(records: list[dict], path: str) -> None:
 def export_jsonl_splits(
     cases: list[TrainingCase],
     output_dir: str,
-    seed: int,
-    val_ratio: float,
+    split_manifest: dict,
     strip_system: bool = False,
 ) -> dict:
     labeled = _labeled_cases_only(cases)
     if not labeled:
         raise ValueError("No labeled cases available for export")
 
-    train_cases, val_cases = _split_cases(
-        labeled,
-        seed=seed,
-        val_ratio=val_ratio,
-    )
+    golden_errors = validate_current_golden(split_manifest)
+    if golden_errors:
+        raise ValueError("Stale golden metadata: " + "; ".join(golden_errors))
+
+    train_fingerprints = set(split_manifest["train_fingerprints"])
+    val_fingerprints = set(split_manifest["val_fingerprints"])
+    excluded_fingerprints = set(split_manifest["promotion_exclusion_fingerprints"])
+    known_fingerprints = train_fingerprints | val_fingerprints | excluded_fingerprints
+    unknown = sorted({case.job_fingerprint for case in labeled} - known_fingerprints)
+    if unknown:
+        raise ValueError(f"Labeled cases contain {len(unknown)} fingerprints absent from the split manifest")
+
+    train_cases = [case for case in labeled if case.job_fingerprint in train_fingerprints]
+    val_cases = [case for case in labeled if case.job_fingerprint in val_fingerprints]
+    excluded_cases = [case for case in labeled if case.job_fingerprint in excluded_fingerprints]
+    if not train_cases or not val_cases:
+        raise ValueError("Split manifest must select non-empty train and validation cases")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -95,31 +90,39 @@ def export_jsonl_splits(
     if os.path.isfile(stale_test_path):
         os.remove(stale_test_path)
 
-    total = len(labeled)
-    train_job_count = len({case.source_job_id for case in train_cases})
-    val_job_count = len({case.source_job_id for case in val_cases})
+    exported_total = len(train_cases) + len(val_cases)
 
     summary = {
-        "total_labeled": len(labeled),
+        "total_label_inventory": len(labeled),
+        "total_exported": exported_total,
+        "excluded": len(excluded_cases),
         "train": len(train_cases),
         "val": len(val_cases),
-        "train_source_jobs": train_job_count,
-        "val_source_jobs": val_job_count,
-        "seed": seed,
-        "requested_val_ratio": val_ratio,
-        "actual_train_ratio": len(train_cases) / total,
-        "actual_val_ratio": len(val_cases) / total,
-        "split_unit": "source_job_id",
+        "train_job_fingerprints": sorted({case.job_fingerprint for case in train_cases}),
+        "val_job_fingerprints": sorted({case.job_fingerprint for case in val_cases}),
+        "excluded_job_fingerprints": sorted({case.job_fingerprint for case in excluded_cases}),
+        "train_fingerprint_count": len(train_fingerprints),
+        "val_fingerprint_count": len(val_fingerprints),
+        "seed": split_manifest["seed"],
+        "requested_val_ratio": split_manifest["requested_val_ratio"],
+        "actual_train_ratio": len(train_cases) / exported_total,
+        "actual_val_ratio": len(val_cases) / exported_total,
+        "split_unit": "job_fingerprint",
+        "fingerprint_bases": split_manifest["fingerprint_bases"],
         "strip_system_prompt": strip_system,
     }
     summary_path = os.path.join(output_dir, "summary.json")
     with open(summary_path, "w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=False)
 
+    output_manifest_path = os.path.join(output_dir, "split-manifest.json")
+    write_split_manifest(split_manifest, output_manifest_path)
+
     return {
         "train": train_path,
         "val": val_path,
         "summary": summary_path,
+        "split_manifest": output_manifest_path,
     }
 
 
@@ -127,8 +130,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Export labeled training cases to chat JSONL")
     parser.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     parser.add_argument("--output-dir", default="src/python/ai_scorer/training/data/export")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--val-ratio", type=float, default=0.1)
+    parser.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
     parser.add_argument("--strip-system-prompt", action="store_true", help="Remove system prompt from messages (embed at fine-tuning instead)")
     args = parser.parse_args(argv)
 
@@ -143,8 +145,7 @@ def main(argv: list[str] | None = None) -> None:
     paths = export_jsonl_splits(
         cases,
         output_dir=args.output_dir,
-        seed=args.seed,
-        val_ratio=args.val_ratio,
+        split_manifest=load_split_manifest(args.split_manifest),
         strip_system=args.strip_system_prompt,
     )
     print("[training.export] wrote files:")

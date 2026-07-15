@@ -80,6 +80,8 @@ def _label_case(case: EvalCase, ollama_client, model_name: str) -> EvalCase:
 
     return EvalCase(
         case_id=case.case_id,
+        job_fingerprint=case.job_fingerprint,
+        fingerprint_basis=case.fingerprint_basis,
         title=case.title,
         description=case.description,
         location=case.location,

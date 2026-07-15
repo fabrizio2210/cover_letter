@@ -5,11 +5,6 @@ import os
 
 from src.python.ai_scorer.training.schema import TrainingCase, dump_cases, load_cases, validate_cases
 
-try:
-    from src.python.ai_scorer.ai_scorer import parse_ollama_response
-except ImportError:
-    from ai_scorer import parse_ollama_response  # type: ignore[no-redef]
-
 
 def _build_gemini_model(model_name: str):
     api_token = os.environ.get("GEMINI_TOKEN")
@@ -24,6 +19,7 @@ def _build_gemini_model(model_name: str):
 
 def _label_case(model_name: str, case: TrainingCase) -> tuple[int | None, bool]:
     import google.generativeai as genai
+    from src.python.ai_scorer.ai_scorer import parse_ollama_response
 
     configured = genai.GenerativeModel(
         model_name,
@@ -42,30 +38,72 @@ def _label_case(model_name: str, case: TrainingCase) -> tuple[int | None, bool]:
     return score, True
 
 
-def label_cases(cases: list[TrainingCase], model_name: str) -> list[TrainingCase]:
-    _build_gemini_model(model_name)
+def _reuse_key(case: TrainingCase) -> tuple[str, ...]:
+    return (
+        case.job_fingerprint,
+        case.fingerprint_basis,
+        case.preference_key,
+        case.preference_guidance,
+        case.system_prompt,
+        case.user_prompt,
+    )
+
+
+def _with_label(case: TrainingCase, score: int | None, available: bool) -> TrainingCase:
+    return TrainingCase(
+        case_id=case.case_id,
+        job_fingerprint=case.job_fingerprint,
+        fingerprint_basis=case.fingerprint_basis,
+        title=case.title,
+        location=case.location,
+        preference_key=case.preference_key,
+        preference_guidance=case.preference_guidance,
+        relevant_snippets=case.relevant_snippets,
+        system_prompt=case.system_prompt,
+        user_prompt=case.user_prompt,
+        label_score=score,
+        label_available=available,
+        schema_version=case.schema_version,
+    )
+
+
+def label_cases(
+    cases: list[TrainingCase],
+    model_name: str,
+    *,
+    reusable_cases: list[TrainingCase] | None = None,
+    allow_paid_calls: bool = False,
+) -> list[TrainingCase]:
+    reusable = {
+        _reuse_key(case): case
+        for case in (reusable_cases or [])
+        if case.label_available is not None
+    }
+    reusable_count = sum(1 for case in cases if _reuse_key(case) in reusable)
+    paid_count = len(cases) - reusable_count
+    print(f"[training.label] reusable={reusable_count} paid_required={paid_count}")
+    if paid_count and not allow_paid_calls:
+        raise RuntimeError(
+            f"{paid_count} cases require Gemini; rerun with --allow-paid-calls after reviewing the counts"
+        )
+    if paid_count:
+        _build_gemini_model(model_name)
+
     output: list[TrainingCase] = []
 
     for idx, case in enumerate(cases, start=1):
-        score, available = _label_case(model_name, case)
-        labeled = TrainingCase(
-            case_id=case.case_id,
-            source_job_id=case.source_job_id,
-            title=case.title,
-            location=case.location,
-            preference_key=case.preference_key,
-            preference_guidance=case.preference_guidance,
-            relevant_snippets=case.relevant_snippets,
-            system_prompt=case.system_prompt,
-            user_prompt=case.user_prompt,
-            label_score=score,
-            label_available=available,
-            schema_version=case.schema_version,
-        )
+        reused = reusable.get(_reuse_key(case))
+        if reused is not None:
+            score, available = reused.label_score, bool(reused.label_available)
+            source = "reused"
+        else:
+            score, available = _label_case(model_name, case)
+            source = "gemini"
+        labeled = _with_label(case, score, available)
         output.append(labeled)
         print(
             f"[training.label] {idx}/{len(cases)} case={case.case_id} "
-            f"score={'N/A' if not available else score}"
+            f"score={'N/A' if not available else score} source={source}"
         )
 
     return output
@@ -76,6 +114,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/candidates.json")
     parser.add_argument("--output", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
+    parser.add_argument("--reuse-labels", default="")
+    parser.add_argument("--allow-paid-calls", action="store_true")
     args = parser.parse_args(argv)
 
     cases = load_cases(args.input)
@@ -86,7 +126,13 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  - {err}")
         raise SystemExit(2)
 
-    labeled = label_cases(cases, model_name=args.model)
+    reusable_cases = load_cases(args.reuse_labels) if args.reuse_labels else []
+    labeled = label_cases(
+        cases,
+        model_name=args.model,
+        reusable_cases=reusable_cases,
+        allow_paid_calls=args.allow_paid_calls,
+    )
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     dump_cases(labeled, args.output)
     print(f"[training.label] done -> {args.output}")

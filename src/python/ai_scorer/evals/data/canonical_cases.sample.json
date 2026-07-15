@@ -2,7 +2,7 @@
   {
     "case_id": "sample_remote_1",
     "source": {
-      "job_id": "sample-1",
+      "job_fingerprint": "jdfp:v1:description:b9320dc65428b88fd1c6d4fe0d3cb7e4dcf620a5a8c6705ad182fbfff4bb104a",
       "db": "cover_letter_global",
       "extracted_at": "2026-05-14T00:00:00Z"
     },
@@ -32,7 +32,7 @@
   {
     "case_id": "sample_remote_na_1",
     "source": {
-      "job_id": "sample-2",
+      "job_fingerprint": "jdfp:v1:description:4786183a45755ca57189a9c63e99eb96ec1011081125600993ce10c1c4e4d256",
       "db": "cover_letter_global",
       "extracted_at": "2026-05-14T00:00:00Z"
     },

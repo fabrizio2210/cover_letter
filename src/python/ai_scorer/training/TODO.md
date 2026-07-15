@@ -5,9 +5,11 @@ should be addressed before relying on a fine-tuned model for promotion.
 
 ## Required actions
 
-1. Split by `source_job_id` before expanding jobs into preferences, and exclude
-   every job ID used by the promotion fixtures from the training and validation
-   pool.
+1. **Implemented:** identify jobs by versioned job-description fingerprint,
+   exclude confirmed and ambiguous promotion matches, split fingerprints before
+   expanding future jobs into preferences, and enforce the persisted split at
+   export, preflight, and training startup. The 500 paid legacy labels remain
+   stored; 320 eligible cases are currently exported.
 
 2. **Implemented, pending controlled validation:** use Qwen's native chat
    template, EOS/end-of-turn supervision, answer-preserving truncation, and
@@ -32,29 +34,18 @@ should be addressed before relying on a fine-tuned model for promotion.
 6. Fix packaging paths and enforce consistent prompt profiles across dataset
    export, training, GGUF/Ollama packaging, and runtime inference.
 
-## Promotion-fixture contamination
+## Promotion-fixture isolation
 
-The canonical promotion set is not currently independent from the training
-pool. Of its 53 cases, 12 cases share job descriptions with the labeled
-training data. These cases span seven distinct `source_job_id` values.
+The canonical promotion set contains 53 cases across 25 complete-description
+fingerprints. Mongo IDs were not reliable across the servers used to create the
+datasets, so they have been removed from maintained schemas and artifacts.
 
-Although the preferences and expected labels are not necessarily identical,
-the model can still see the same underlying job descriptions during training.
-This can inflate promotion results and makes the 53 cases unsuitable as a
-strictly untouched final gate.
-
-Before regenerating train and validation splits:
-
-1. Collect every `provenance.source_job_id` from the canonical promotion
-   fixtures.
-2. Remove matching jobs from the candidate training pool before expanding them
-   into preference cases.
-3. Split the remaining jobs into train and validation sets by `source_job_id`.
-4. Add a preflight check that fails if any source job appears in more than one
-   of train, validation, or promotion.
-
-With the current data, excluding the seven overlapping jobs would remove 70 of
-the 500 labeled cases because each job was expanded across ten preferences.
+The paid legacy dataset contains 500 labeled cases across 30 unique partial
+description fingerprints. Reconciliation against the golden descriptions found
+13 confirmed promotion overlaps and quarantined five additional ambiguous
+fingerprints. All 180 affected cases remain in the paid label inventory but are
+excluded from train and validation exports. The remaining 12 eligible
+fingerprints currently produce 300 training and 20 validation cases.
 
 ## Recommended train/validation design
 
@@ -63,14 +54,14 @@ sets. The canonical 53 cases serve as the external promotion test and must not
 be used for training, validation, checkpoint selection, early stopping, or
 label generation.
 
-1. Exclude promotion-fixture jobs first.
+1. Exclude confirmed and quarantined promotion fingerprints first.
 2. Split approximately 85-90% of the remaining unique jobs into training and
    10-15% into validation.
-3. Expand each partition into preference examples only after the job-level
+3. Expand each partition into preference examples only after the fingerprint-level
    split.
-4. Store the job IDs and dataset hash in the run manifest.
+4. Store the job fingerprints and dataset hash in the run manifest.
 5. Fail preflight validation if train, validation, and promotion contain any
-   overlapping `source_job_id` values.
+   overlapping job fingerprints.
 
 Exact row counts such as 450/50 are less important than keeping all examples
 derived from a job in one partition.
@@ -176,7 +167,7 @@ metrics are still improving at epoch 6.
 
 ## Promotion-suite improvements
 
-The 53 promotion cases represent only 25 source jobs, so the observations are
+The 53 promotion cases represent only 25 unique job fingerprints, so the observations are
 correlated and the effective sample size is smaller than 53. Expand the suite
 with more unique jobs and preferences that resemble production traffic. Keep
 the suite hidden from dataset generation and routine checkpoint selection.

@@ -53,13 +53,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafa",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "ebd3f8b8-10be-492d-bfc9-47381a1439ee",
@@ -75,13 +76,14 @@
         "empty_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1969b9d42292667e955",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:title-location:d7888f15b9db8ad8465323298d65360870d5a649fb0e16b9726b84875fff480e",
+      "fingerprint_basis": "title-location"
     },
     {
       "case_id": "5c8c1656-2803-4943-9ea4-7457cd8270a0",
@@ -97,13 +99,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9636",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "06b4b6e3-02fc-4f28-8837-120d8524b4e2",
@@ -119,13 +122,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafa",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "58100555-a484-4c6b-8f2f-8c0928257c06",
@@ -141,13 +145,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9636",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:0e322f85408551e55dce4e4f9a8b2553bfd4c28599b290c7b7c7daca580541e9",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "ba1c66f1-1dd0-40ec-8515-77ee58709123",
@@ -163,13 +168,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963d",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:43f91cb64879b60b61025f834631ccfecfd855b54c6b5d01931f1d669e22d8d6",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "b8566194-f6b4-4bee-a64f-ad0afef528f4",
@@ -185,13 +191,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3b040a7947106af54c16",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:797791cd6873b08a5a624f248b1051cbe9c076600eea74d5fa6a32c7a90e3852",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "b4da1a51-4256-44b2-ba07-498a14fb2880",
@@ -207,13 +214,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963d",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:43f91cb64879b60b61025f834631ccfecfd855b54c6b5d01931f1d669e22d8d6",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "8bcd11f5-ab1c-4fc7-86dc-9af94e8ee5d6",
@@ -229,13 +237,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f965c",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:056af9d4ef261b1c506fb73f097b1d635c31e9c815023f7c464567286754be8a",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "9e681de3-cdd9-43cf-bb82-3070f8819aa6",
@@ -250,13 +259,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3b040a7947106af54c12",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:5f3913e0127a3f25c8c8f1d4b45ff1eead5b1196b478f3639a1dca39891ce778",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "5ae20a76-1f8b-48e6-ad20-2df5d70fbbcf",
@@ -272,13 +282,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3b040a7947106af54c16",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:797791cd6873b08a5a624f248b1051cbe9c076600eea74d5fa6a32c7a90e3852",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "d9a7bf36-0031-4165-b9d4-5920ee1320cd",
@@ -294,13 +305,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9664",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "4c2539fe-a3a4-486b-9917-7bc7f4d85a0a",
@@ -316,13 +328,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafe",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "b07a21c3-1702-4891-8636-d09ae19912c0",
@@ -338,13 +351,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9664",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:3abe4970874332e331aa0ab88cbe110d3a2392a01f3cbce033c2f73cfe836ccc",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "b6592c50-2561-4247-814d-28dfe3972be4",
@@ -360,13 +374,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafe",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "e2d2150e-5ce0-40b7-af76-a57850291ebc",
@@ -381,13 +396,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9669",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:078f5f5f4a9a0638924709d8fca367ad26d365335b5de3860a038c0a61bb2e0e",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "506fdfc7-2777-4e42-9dbe-78fd5e9143d0",
@@ -403,13 +419,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3b040a7947106af54c15",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:4ae7506623a7cafb90e54752d143c8092a6832dc36c23aa38e0935b9592c1366",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "023e99ea-31fc-4226-9618-4594a7a60596",
@@ -425,13 +442,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f969f",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "5a466d15-40af-48ac-bb76-7a9a5fa04b3b",
@@ -447,13 +465,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f969f",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "cdd40056-d26b-4b52-915a-37436881a04f",
@@ -469,13 +488,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f969f",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "130765cf-999f-4694-b8d6-2b6dbd0bef23",
@@ -491,13 +511,14 @@
         "rich_description",
         "hybrid_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3b040a7947106af54c13",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:0d01f66a073828d6d2a6706f1f135b24d043f56f0a503005a163260124cf0825",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "c55d0c7b-c4e0-4a62-b7c5-871b1b9f977e",
@@ -512,13 +533,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f96a0",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:274f849f2a2f6dbe1520b55021c5a4d086855b71132c4b1751fedc0bfbd1c905",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "7ab4d10d-b7a9-4479-b0d9-a76c08cbfa79",
@@ -534,13 +556,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f96a0",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:274f849f2a2f6dbe1520b55021c5a4d086855b71132c4b1751fedc0bfbd1c905",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "d185d7d7-f9c5-4be9-a07b-66405f95db21",
@@ -556,13 +579,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f96a1",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:64fd371e5122d4fa8f7ace4fb77eb91e0fa27e6852b30524f37592762ef19b42",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "d701347c-37cc-469d-b32b-a952a942a133",
@@ -578,13 +602,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f96a1",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:64fd371e5122d4fa8f7ace4fb77eb91e0fa27e6852b30524f37592762ef19b42",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "c7c04ca3-c4fb-4178-a037-bf06024c4365",
@@ -600,13 +625,14 @@
         "medium_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1afa55f2100bb6f96a1",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:64fd371e5122d4fa8f7ace4fb77eb91e0fa27e6852b30524f37592762ef19b42",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "4e4f6f94-26a8-4e2f-af39-00aff18f58da",
@@ -622,13 +648,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1ada55f2100bb6f9635",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "da7cfaee-159a-4dea-aed6-b14427fd4332",
@@ -644,13 +671,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1ada55f2100bb6f9635",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "d46f6010-d14d-423a-9bc1-7d8a5cbaabb7",
@@ -666,13 +694,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1ada55f2100bb6f9635",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:93b9d2baea0791d09010b820f0bdba54653346b61fba239be9367a09468afafb",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "63f345f7-ee46-4904-8449-0f77d495dbfe",
@@ -688,13 +717,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9637",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:6efa752d39149c77870082f04a466d7562056b9c140337ad5320d521a53d891a",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "65551c87-5596-47eb-9c74-2051259ace27",
@@ -710,13 +740,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafe",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "0a31198a-4af8-4cd7-ad4d-e522e90550ea",
@@ -732,13 +763,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9637",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:6efa752d39149c77870082f04a466d7562056b9c140337ad5320d521a53d891a",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "484010a2-46f7-4954-8e1c-5befdd58e3ef",
@@ -754,13 +786,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9638",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:3d9e9d825996b58bc788f8997cb87eff7706c33846cfbaf9eeecb589c1ecf263",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "59d5513d-a6ba-4cb1-9a9c-51d65a2a9f5b",
@@ -776,13 +809,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9638",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:3d9e9d825996b58bc788f8997cb87eff7706c33846cfbaf9eeecb589c1ecf263",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "75cc7a83-133e-4226-a3ad-bc7453050aa0",
@@ -798,13 +832,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9638",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:3d9e9d825996b58bc788f8997cb87eff7706c33846cfbaf9eeecb589c1ecf263",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "dcf62c94-06b7-4e46-bcb8-d9425fbfc592",
@@ -820,13 +855,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9639",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:260354e7a8bb960af1acbc9ab8e0dae7626eb5c1334c59022869f456b544fceb",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "5eadbacf-5ddb-4789-a182-f508e96282e8",
@@ -842,13 +878,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f9639",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:260354e7a8bb960af1acbc9ab8e0dae7626eb5c1334c59022869f456b544fceb",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "0fdca6b6-1ad9-4eef-800a-4bfbc00f85de",
@@ -864,13 +901,14 @@
         "empty_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a0c3aeb84569b3799808520",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd",
+      "fingerprint_basis": "title-location"
     },
     {
       "case_id": "6afbbb1d-9c21-453d-a380-384e3e0c9538",
@@ -886,13 +924,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963a",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "e60661d4-d441-4cd4-b740-601402d683a7",
@@ -908,13 +947,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963a",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "fdea13bf-a902-4ba0-9343-8f27d1810571",
@@ -930,13 +970,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963a",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:238feb3dd84b70150809a5c803b4d16c6ba071edab80015573f97e478318107f",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "feb0a0fc-07b2-4ea4-aa67-c2b4adba5016",
@@ -952,13 +993,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963b",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:8637c82c583e55a94ef5854d2b1f5bcb5da45c7b90df6b26840cdd28f1dc98df",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "72546508-3ed5-4e33-9a20-67b1f31b8394",
@@ -974,13 +1016,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963b",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:8637c82c583e55a94ef5854d2b1f5bcb5da45c7b90df6b26840cdd28f1dc98df",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "97b1faf6-5b10-42ed-ba37-dc72ef377238",
@@ -996,13 +1039,14 @@
         "medium_description",
         "onsite_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafa",
         "extracted_at": "2026-05-23T15:00:58.931672+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:084ed2b42a5d9e4679fe8262bb4d554fd5fba86eeea96c55cf599eff0235c766",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "633b1a3c-2a3d-4103-b62d-d83eda5c00b4",
@@ -1018,13 +1062,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963c",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "be5d4a2f-00a5-4394-a956-0d1a82b7ec45",
@@ -1040,13 +1085,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963c",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "ae3b1919-b02a-4ba1-8a7e-0a96b92c5b58",
@@ -1062,13 +1108,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963c",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:89d38e0dadd7f299b5cfc659238e14455edfb5a026e08f7da4d3ae50dd705aa1",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "f6c9faff-5349-4ab7-981e-81a8fc3f5597",
@@ -1084,13 +1131,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963e",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "a0a52a0a-6b01-468f-8986-93517ce6f463",
@@ -1106,13 +1154,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963e",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "d6ec0c4d-68ed-4291-a340-3f498e8b226f",
@@ -1128,13 +1177,14 @@
         "rich_description",
         "remote_location"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a05f1aea55f2100bb6f963e",
         "extracted_at": "2026-05-14T17:02:32.319977+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:6302404bd6601d9142589b7b1d1c818477eae4a97bbaebcfae42fc74ba50c2f3",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "job_6a11adf8e6aac02df259fafb_remote",
@@ -1149,13 +1199,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafb",
         "extracted_at": "2026-05-23T13:47:17.546109+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "job_6a11adf8e6aac02df259fafb_backend",
@@ -1170,13 +1221,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafb",
         "extracted_at": "2026-05-23T13:47:17.546109+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
+      "fingerprint_basis": "description"
     },
     {
       "case_id": "job_6a11adf8e6aac02df259fafb_coding",
@@ -1191,13 +1243,14 @@
       "tags": [
         "rich_description"
       ],
-      "schema_version": "1",
+      "schema_version": "2",
       "provenance": {
         "source_db": "cover_letter_global",
-        "source_job_id": "6a11adf8e6aac02df259fafb",
         "extracted_at": "2026-05-23T14:06:44.825976+00:00",
         "extractor_version": "1"
-      }
+      },
+      "job_fingerprint": "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
+      "fingerprint_basis": "description"
     }
   ]
 }

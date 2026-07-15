@@ -12,11 +12,18 @@ from src.python.ai_scorer.evals.schema import (
     validate_case,
     validate_fixtures,
 )
+from src.python.ai_scorer.job_fingerprint import description_fingerprint
+
+
+_TEST_FINGERPRINT, _TEST_BASIS = description_fingerprint("Build backend systems for remote teams.")
+_EMPTY_FINGERPRINT, _EMPTY_BASIS = description_fingerprint("", title="", location="")
 
 
 def _valid_scored_case(**overrides) -> EvalCase:
     defaults = dict(
         case_id=new_case_id(),
+        job_fingerprint=_TEST_FINGERPRINT,
+        fingerprint_basis=_TEST_BASIS,
         title="Platform Engineer",
         description="Build backend systems for remote teams.",
         location="Remote",
@@ -34,6 +41,8 @@ def _valid_scored_case(**overrides) -> EvalCase:
 def _valid_na_case(**overrides) -> EvalCase:
     defaults = dict(
         case_id=new_case_id(),
+        job_fingerprint=_EMPTY_FINGERPRINT,
+        fingerprint_basis=_EMPTY_BASIS,
         title="",
         description="",
         location="",

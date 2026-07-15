@@ -16,23 +16,32 @@ This package creates supervised fine-tuning datasets for `ai_scorer`.
 ```bash
 python -m src.python.ai_scorer.training.cli generate-preferences
 python -m src.python.ai_scorer.training.cli extract --limit 50
-python -m src.python.ai_scorer.training.cli label --model gemini-3.5-flash
-python -m src.python.ai_scorer.training.cli export --val-ratio 0.1
+python -m src.python.ai_scorer.training.cli label \
+  --reuse-labels src/python/ai_scorer/training/data/proposed/labeled.json
+python -m src.python.ai_scorer.training.cli export
 ```
 
 Default outputs:
 - `src/python/ai_scorer/training/data/proposed/candidates.json`
 - `src/python/ai_scorer/training/data/proposed/labeled.json`
+- `src/python/ai_scorer/training/data/proposed/split-manifest.json`
 - `src/python/ai_scorer/training/data/export/{train,val}.jsonl`
 
-Gemini labeling requires `GEMINI_TOKEN` in environment.
+Gemini labeling requires `GEMINI_TOKEN` and the explicit
+`--allow-paid-calls` flag. Exact reusable labels are copied before any paid
+calls are considered, and the CLI reports the paid case count before stopping.
 
-Dataset export creates a 90/10 train/validation split by `source_job_id` by
-default. All preference cases for the same source job stay in one split, so
-validation measures performance on jobs that were not present during training.
-The validation ratio must be greater than zero and less than one. The canonical
-53-case scorer evaluation remains the separate final promotion gate; there is
-no internal test split.
+Jobs are identified by versioned job-description fingerprints rather than
+database IDs. Future extraction excludes golden fingerprints and creates a
+deterministic train/validation split before expanding preferences. Export only
+consumes that persisted assignment. All preference cases for the same
+fingerprint stay in one split. The canonical 53-case scorer evaluation remains
+the separate final promotion gate; there is no internal test split.
+
+The current paid dataset predates full-description fingerprints. Its 500 labels
+are preserved with a `legacy-partial` fingerprint computed from the union of
+stored snippets. Confirmed golden overlaps and ambiguous matches remain in the
+label inventory but are withheld from training exports.
 
 ## Fine-tuning and packaging workflow
 
@@ -68,8 +77,9 @@ python3 -m src.python.ai_scorer.training.cli preflight --dataset-profile no-syst
 ```
 
 Checks include role order, assistant labels (`0..5` or `N/A`), empty content,
-non-empty train/validation splits, duplicate `case_id` values, and
-`source_job_id` leakage across splits.
+non-empty train/validation splits, duplicate `case_id` values, persisted split
+assignments, stale golden metadata, and fingerprint leakage across train,
+validation, and promotion exclusions.
 
 ### 2) Runtime detection
 

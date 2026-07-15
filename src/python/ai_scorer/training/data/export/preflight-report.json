@@ -1,23 +1,25 @@
 {
   "dataset_dir": "src/python/ai_scorer/training/data/export",
-  "total_records": 500,
+  "total_records": 320,
   "split_reports": [
     {
       "split": "train",
       "path": "src/python/ai_scorer/training/data/export/train.jsonl",
-      "count": 450,
+      "count": 300,
       "critical_errors": [],
       "warnings": []
     },
     {
       "split": "val",
       "path": "src/python/ai_scorer/training/data/export/val.jsonl",
-      "count": 50,
+      "count": 20,
       "critical_errors": [],
       "warnings": []
     }
   ],
   "duplicate_case_ids": [],
-  "overlapping_source_job_ids": [],
+  "overlapping_job_fingerprints": [],
+  "promotion_overlap_fingerprints": [],
+  "manifest_errors": [],
   "critical_error_count": 0
 }

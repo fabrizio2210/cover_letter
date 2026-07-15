@@ -35,7 +35,11 @@ PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli extract \
   --output src/python/ai_scorer/evals/data/proposed/candidates.json
 ```
 
-The extractor writes an unlabeled candidate file. It uses the same case fields as the canonical schema, but `expected_score_available` and `expected_score` are left unset until review.
+The extractor writes an unlabeled candidate file. It fingerprints the normalized
+job description and does not retain a database job ID. Duplicate description
+fingerprints are collapsed before preference expansion. It uses the same case
+fields as the canonical schema, but `expected_score_available` and
+`expected_score` are left unset until review.
 
 ## 2) Review and promote to canonical fixtures
 
