@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import os
 
+from src.python.ai_scorer.scoring_prompt import SCORING_SYSTEM_INSTRUCTION
 from src.python.ai_scorer.training.dataset_split import (
     DEFAULT_PROMOTION_FIXTURES,
     DEFAULT_SPLIT_MANIFEST,
@@ -401,7 +402,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_package.add_argument("--convert-script", default="")
     p_package.add_argument("--quant", default="q4_k_m")
     p_package.add_argument("--ollama-tag", required=True)
-    p_package.add_argument("--system-prompt", default="You are an AI scorer. Return only a score from 0 to 5 or N/A.")
+    p_package.add_argument("--system-prompt", default=SCORING_SYSTEM_INSTRUCTION)
     p_package.add_argument("--skip-ollama-create", action="store_true")
 
     p_gate = sub.add_parser("eval-gate", help="Run existing scorer eval as promotion gate")

@@ -285,6 +285,7 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertIsNotNone(client.last_messages)
         if client.last_messages is None:
             self.fail("Expected Ollama messages to be captured")
+        system_text = client.last_messages[0]["content"]
         prompt_text = client.last_messages[1]["content"]
         self.assertIn("Preference Guidance:", prompt_text)
         self.assertIn("Job Title:", prompt_text)
@@ -298,7 +299,7 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertNotIn("Candidate Identity Description:", prompt_text)
         self.assertNotIn("Preference Key:", prompt_text)
         self.assertNotIn("Preference Weight:", prompt_text)
-        self.assertIn("or N/A", prompt_text)
+        self.assertIn("or N/A", system_text)
 
     def test_score_preference_parses_na_response(self):
         client = FakeOllamaClient(

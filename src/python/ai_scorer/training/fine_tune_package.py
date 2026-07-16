@@ -7,6 +7,7 @@ import subprocess
 import sys
 from textwrap import dedent
 
+from src.python.ai_scorer.scoring_prompt import SCORING_SYSTEM_INSTRUCTION
 from src.python.ai_scorer.training.fine_tune_manifest import now_epoch, write_manifest
 
 
@@ -126,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--convert-script", default=os.environ.get("LLAMA_CPP_CONVERT_SCRIPT", ""))
     parser.add_argument("--quant", default="q4_k_m")
     parser.add_argument("--ollama-tag", required=True)
-    parser.add_argument("--system-prompt", default="You are an AI scorer. Return only a score from 0 to 5 or N/A.")
+    parser.add_argument("--system-prompt", default=SCORING_SYSTEM_INSTRUCTION)
     parser.add_argument("--skip-ollama-create", action="store_true")
     args = parser.parse_args(argv)
 

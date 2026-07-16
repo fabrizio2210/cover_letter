@@ -6,6 +6,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from src.python.ai_scorer.scoring_prompt import SCORING_SYSTEM_INSTRUCTION
+from src.python.ai_scorer.training.fine_tune_package import _write_modelfile
 from src.python.ai_scorer.training.fine_tune_train import (
     LOSS_MODES,
     _CausalLMCollator,
@@ -173,6 +175,25 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
         forwarded = train_main.call_args.args[0]
         self.assertEqual(forwarded[forwarded.index("--cpu-threads") + 1], "22")
         self.assertEqual(forwarded[forwarded.index("--cpu-interop-threads") + 1], "1")
+
+    def test_package_defaults_to_runtime_scoring_instruction(self):
+        args = build_parser().parse_args(
+            ["package", "--run-dir", "run", "--ollama-tag", "scorer:test"]
+        )
+
+        self.assertEqual(args.system_prompt, SCORING_SYSTEM_INSTRUCTION)
+
+    def test_modelfile_embeds_runtime_scoring_instruction(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "Modelfile")
+            _write_modelfile(path, "model-f16.gguf", SCORING_SYSTEM_INSTRUCTION)
+
+            with open(path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+
+        self.assertIn(f'SYSTEM """{SCORING_SYSTEM_INSTRUCTION}"""', content)
 
     def test_configures_torch_openmp_and_mkl_threads(self):
         state = {"threads": 96, "interop_threads": 96}
