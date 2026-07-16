@@ -8,3 +8,4 @@ __pycache__/
 # AI scorer eval working data (not committed; canonical fixtures are in data/canonical/)
 src/python/ai_scorer/evals/data/proposed/
 eval-results/
+src/python/ai_scorer/training/data/proposed/job-pool*.json

@@ -12,7 +12,7 @@ from src.python.ai_scorer.job_fingerprint import (
     legacy_partial_fingerprint,
     validate_fingerprint,
 )
-from src.python.ai_scorer.training.extractor import prepare_training_jobs
+from src.python.ai_scorer.training.extractor import prepare_job_pool, prepare_training_jobs
 from src.python.ai_scorer.training.labeler import label_cases
 from src.python.ai_scorer.training.migrate_job_fingerprints import (
     build_legacy_groups,
@@ -227,6 +227,34 @@ class JobFingerprintTests(unittest.TestCase):
         self.assertEqual(len(train), 1)
         self.assertEqual(len(val), 1)
         self.assertTrue(set(train).isdisjoint(val))
+
+    def test_job_pool_is_reproducible_deduplicated_and_keeps_full_descriptions(self):
+        golden, _ = description_fingerprint("Golden description")
+        docs = [
+            {"title": "Two", "description": "Second full description", "location": "Remote"},
+            {"title": "Golden", "description": "Golden description", "location": "Remote"},
+            {"title": "Duplicate B", "description": "First full description", "location": "B"},
+            {"title": "Duplicate A", "description": "First full description", "location": "A"},
+        ]
+
+        first, stats = prepare_job_pool(
+            docs,
+            limit=500,
+            promotion_fingerprints={golden},
+        )
+        second, _ = prepare_job_pool(
+            list(reversed(docs)),
+            limit=500,
+            promotion_fingerprints={golden},
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 2)
+        self.assertEqual({job["description"] for job in first}, {"First full description", "Second full description"})
+        self.assertEqual(stats["fetched_document_count"], 4)
+        self.assertEqual(stats["promotion_excluded_document_count"], 1)
+        self.assertEqual(stats["duplicate_eligible_document_count"], 1)
+        self.assertEqual(stats["sampled_job_count"], 2)
 
     def test_changed_prompt_is_not_reused_without_paid_call_approval(self):
         fingerprint, basis = description_fingerprint("Job description")

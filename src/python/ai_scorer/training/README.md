@@ -21,6 +21,23 @@ python -m src.python.ai_scorer.training.cli label \
 python -m src.python.ai_scorer.training.cli export
 ```
 
+To build a reusable, unlabeled pool of normalized job descriptions without
+expanding preferences or changing the current split manifest:
+
+```bash
+python -m src.python.ai_scorer.training.cli extract \
+  --mongo-uri 'mongodb://root:develop@127.0.0.1:27017/' \
+  --jobs-only \
+  --limit 500 \
+  --job-pool-output src/python/ai_scorer/training/data/proposed/job-pool.json
+```
+
+This path makes no Gemini calls. It removes MongoDB IDs, deduplicates by the
+normalized description fingerprint, excludes canonical golden fingerprints,
+and uses deterministic length-stratified sampling. The pool retains full
+normalized descriptions so preferences can be selected or changed before paid
+labeling.
+
 Default outputs:
 - `src/python/ai_scorer/training/data/proposed/candidates.json`
 - `src/python/ai_scorer/training/data/proposed/labeled.json`

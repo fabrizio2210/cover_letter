@@ -61,32 +61,33 @@ def _cmd_generate_preferences(args: argparse.Namespace) -> int:
 def _cmd_extract(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.extractor import main as extract_main
 
-    extract_main(
-        [
-            "--mongo-uri",
-            args.mongo_uri,
-            "--global-db",
-            args.global_db,
-            "--output",
-            args.output,
-            "--preferences",
-            args.preferences,
-            "--limit",
-            str(args.limit),
-            "--seed-count",
-            str(args.seed_count),
-            "--seed",
-            str(args.seed),
-            "--split-seed",
-            str(args.split_seed),
-            "--val-ratio",
-            str(args.val_ratio),
-            "--promotion-fixtures",
-            args.promotion_fixtures,
-            "--split-manifest",
-            args.split_manifest,
-        ]
-    )
+    extract_args = [
+        "--mongo-uri",
+        args.mongo_uri,
+        "--global-db",
+        args.global_db,
+        "--output",
+        args.output,
+        "--preferences",
+        args.preferences,
+        "--limit",
+        str(args.limit),
+        "--seed-count",
+        str(args.seed_count),
+        "--seed",
+        str(args.seed),
+        "--split-seed",
+        str(args.split_seed),
+        "--val-ratio",
+        str(args.val_ratio),
+        "--promotion-fixtures",
+        args.promotion_fixtures,
+        "--split-manifest",
+        args.split_manifest,
+    ]
+    if args.jobs_only:
+        extract_args.extend(["--jobs-only", "--job-pool-output", args.job_pool_output])
+    extract_main(extract_args)
     return 0
 
 
@@ -312,6 +313,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument("--val-ratio", type=float, default=0.1)
     p_extract.add_argument("--promotion-fixtures", default=DEFAULT_PROMOTION_FIXTURES)
     p_extract.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_extract.add_argument(
+        "--jobs-only",
+        action="store_true",
+        help="Write a reusable job-description pool; do not expand preferences or update the split manifest",
+    )
+    p_extract.add_argument(
+        "--job-pool-output",
+        default="src/python/ai_scorer/training/data/proposed/job-pool.json",
+    )
 
     p_label = sub.add_parser("label", help="Label extracted cases with Gemini")
     p_label.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/candidates.json")
