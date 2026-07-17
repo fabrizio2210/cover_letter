@@ -151,6 +151,30 @@ python3 -m src.python.ai_scorer.training.cli train \
   --run-id qwen25-keep-system-r1
 ```
 
+Training defaults to `--sampling-mode job-preference-balanced`. Before model
+loading, exact duplicate inputs are collapsed in the derived training view. If
+their labels conflict, a strict majority is used; ties are withheld and
+reported. The source JSONL and paid-label inventory are never changed. Each
+epoch then selects one example per `(job fingerprint, preference key)` and
+rotates through alternative prompts deterministically across epochs. This gives
+every job equal per-preference exposure while still using oversized groups over
+time.
+
+Audit the current schedule without loading a model:
+
+```bash
+python -m src.python.ai_scorer.training.cli balance-audit
+```
+
+Use `--sampling-mode all` only for an intentional unbalanced baseline. The run
+manifest and `training_balance.json` record the sampling mode, conflict
+resolution, effective records per epoch, and rotation coverage.
+
+Future paid labeling should add new full-description job fingerprints and may
+introduce preferences aligned with production and golden coverage, including
+remote work, coding, and backend/infrastructure. Labeling remains a separate,
+explicit paid step; balance auditing and training make no external API calls.
+
 For CPU training, `--cpu-threads` explicitly configures PyTorch intra-op
 parallelism and the matching `OMP_NUM_THREADS` and `MKL_NUM_THREADS` values.
 It also defaults OpenMP to `OMP_DYNAMIC=FALSE`, `OMP_PROC_BIND=spread`, and

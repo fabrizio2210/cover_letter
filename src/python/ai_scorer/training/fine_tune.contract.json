@@ -7,6 +7,17 @@
   "preferred_stack": "unsloth+trl",
   "hardware_profile": "cpu-only",
   "system_prompt_policy": "keep-system",
+  "training_sampling": {
+    "default_mode": "job-preference-balanced",
+    "balance_unit": [
+      "job_fingerprint",
+      "preference_key"
+    ],
+    "samples_per_unit_per_epoch": 1,
+    "alternative_policy": "deterministic-epoch-rotation",
+    "exact_input_conflict_policy": "strict-majority-withhold-ties",
+    "source_label_policy": "immutable"
+  },
   "promotion_gate": "existing-scorer-eval",
   "packaging": {
     "merge_hf": true,

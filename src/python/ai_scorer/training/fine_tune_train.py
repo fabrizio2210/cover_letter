@@ -17,6 +17,12 @@ from src.python.ai_scorer.training.fine_tune_manifest import (
 from src.python.ai_scorer.training.fine_tune_preflight import run_preflight
 from src.python.ai_scorer.training.fine_tune_runtime import detect_runtime
 from src.python.ai_scorer.training.dataset_split import load_split_manifest
+from src.python.ai_scorer.training.training_balance import (
+    BALANCED_MODE,
+    SAMPLING_MODES,
+    RotatingGroupSampler,
+    build_balanced_training_plan,
+)
 
 
 def _resolve_dataset_dir(profile: str, override: str) -> str:
@@ -245,6 +251,8 @@ def _train_cpu_transformers(
     max_seq_length: int,
     seed: int,
     loss_mode: str,
+    sampling_mode: str,
+    samples_per_job_preference: int,
     resume_from_checkpoint: str,
 ) -> dict:
     try:
@@ -295,8 +303,18 @@ def _train_cpu_transformers(
     )
     model = get_peft_model(model, lora_config)
 
-    train_rows = _read_jsonl(train_path)
+    source_train_rows = _read_jsonl(train_path)
     val_rows = _read_jsonl(val_path)
+
+    balance_plan = None
+    train_rows = source_train_rows
+    if sampling_mode == BALANCED_MODE:
+        balance_plan = build_balanced_training_plan(
+            source_train_rows,
+            seed=seed,
+            samples_per_group=samples_per_job_preference,
+        )
+        train_rows = balance_plan.rows
 
     train_ds = _TextDataset(train_rows, tokenizer, max_seq_length, loss_mode)
     val_ds = _TextDataset(val_rows, tokenizer, max_seq_length, loss_mode)
@@ -320,13 +338,24 @@ def _train_cpu_transformers(
         remove_unused_columns=False,
     )
 
-    trainer = Trainer(
+    class _BalancedTrainer(Trainer):
+        def __init__(self, *trainer_args, balance_sampler=None, **trainer_kwargs):
+            self._balance_sampler = balance_sampler
+            super().__init__(*trainer_args, **trainer_kwargs)
+
+        def _get_train_sampler(self, train_dataset=None):
+            if self._balance_sampler is not None:
+                return self._balance_sampler
+            return super()._get_train_sampler(train_dataset)
+
+    trainer = _BalancedTrainer(
         model=model,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=collator,
         processing_class=tokenizer,
+        balance_sampler=RotatingGroupSampler(balance_plan) if balance_plan is not None else None,
     )
 
     resume = resume_from_checkpoint if resume_from_checkpoint else None
@@ -335,7 +364,19 @@ def _train_cpu_transformers(
     tokenizer.save_pretrained(output_dir)
 
     metrics = dict(result.metrics)
-    metrics.update({"train_records": len(train_rows), "val_records": len(val_rows)})
+    metrics.update(
+        {
+            "source_train_records": len(source_train_rows),
+            "resolved_train_records": len(train_rows),
+            "effective_train_records_per_epoch": (
+                balance_plan.report["effective_records_per_epoch"]
+                if balance_plan is not None
+                else len(train_rows)
+            ),
+            "val_records": len(val_rows),
+            "sampling_mode": sampling_mode,
+        }
+    )
     return metrics
 
 
@@ -355,6 +396,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-steps", type=int, default=200)
     parser.add_argument("--num-train-epochs", type=int, default=1)
     parser.add_argument("--loss-mode", choices=LOSS_MODES, default="response-only")
+    parser.add_argument("--sampling-mode", choices=SAMPLING_MODES, default=BALANCED_MODE)
+    parser.add_argument("--samples-per-job-preference", type=_positive_int, default=1)
     parser.add_argument(
         "--cpu-threads",
         type=_positive_int,
@@ -400,6 +443,24 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = os.path.join(args.output_root, "runs", run_id)
     os.makedirs(run_dir, exist_ok=True)
 
+    source_train_rows = _read_jsonl(train_path)
+    if args.sampling_mode == BALANCED_MODE:
+        balance_report = build_balanced_training_plan(
+            source_train_rows,
+            seed=args.seed,
+            samples_per_group=args.samples_per_job_preference,
+        ).report
+    else:
+        balance_report = {
+            "mode": "all",
+            "seed": args.seed,
+            "source_record_count": len(source_train_rows),
+            "resolved_record_count": len(source_train_rows),
+            "effective_records_per_epoch": len(source_train_rows),
+        }
+    balance_report_path = os.path.join(run_dir, "training_balance.json")
+    write_manifest(balance_report_path, balance_report)
+
     manifest_path = os.path.join(run_dir, "run_manifest.json")
     pre_manifest = {
         "run_id": run_id,
@@ -422,6 +483,7 @@ def main(argv: list[str] | None = None) -> int:
             "val_fingerprints": split_manifest["val_fingerprints"],
             "confirmed_promotion_fingerprints": split_manifest["confirmed_promotion_fingerprints"],
             "quarantined_fingerprints": split_manifest["quarantined_fingerprints"],
+            "applied_fingerprint_mappings": split_manifest.get("applied_fingerprint_mappings", []),
         },
         "git_sha": current_git_sha(),
         "seed": args.seed,
@@ -432,6 +494,14 @@ def main(argv: list[str] | None = None) -> int:
         "max_steps": 5 if args.smoke_run else args.max_steps,
         "num_train_epochs": args.num_train_epochs,
         "loss_mode": args.loss_mode,
+        "sampling_mode": args.sampling_mode,
+        "samples_per_job_preference": args.samples_per_job_preference,
+        "training_balance": {
+            key: value
+            for key, value in balance_report.items()
+            if key not in {"conflicts", "fingerprint_contributions"}
+        },
+        "training_balance_report": balance_report_path,
         "resume_from_checkpoint": args.resume_from_checkpoint,
         "started_at_epoch": now_epoch(),
     }
@@ -453,6 +523,8 @@ def main(argv: list[str] | None = None) -> int:
         max_seq_length=args.max_seq_length,
         seed=args.seed,
         loss_mode=args.loss_mode,
+        sampling_mode=args.sampling_mode,
+        samples_per_job_preference=args.samples_per_job_preference,
         resume_from_checkpoint=args.resume_from_checkpoint,
     )
 

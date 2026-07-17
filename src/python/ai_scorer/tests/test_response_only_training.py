@@ -17,6 +17,7 @@ from src.python.ai_scorer.training.fine_tune_train import (
     _encode_response_only,
     _encode_training_example,
 )
+from src.python.ai_scorer.training.training_balance import BALANCED_MODE, SAMPLING_MODES
 from src.python.ai_scorer.training.cli import _cmd_train, build_parser
 
 
@@ -158,6 +159,17 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
                 args = parser.parse_args(["train", "--loss-mode", loss_mode])
                 self.assertEqual(args.loss_mode, loss_mode)
 
+    def test_cli_defaults_to_balanced_sampling_and_allows_unbalanced_baseline(self):
+        parser = build_parser()
+
+        default_args = parser.parse_args(["train"])
+        self.assertEqual(default_args.sampling_mode, BALANCED_MODE)
+        self.assertEqual(default_args.samples_per_job_preference, 1)
+        self.assertEqual(SAMPLING_MODES, ("job-preference-balanced", "all"))
+
+        baseline = parser.parse_args(["train", "--sampling-mode", "all"])
+        self.assertEqual(baseline.sampling_mode, "all")
+
     def test_cli_accepts_explicit_cpu_thread_counts(self):
         args = build_parser().parse_args(
             ["train", "--cpu-threads", "22", "--cpu-interop-threads", "1"]
@@ -175,6 +187,11 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
         forwarded = train_main.call_args.args[0]
         self.assertEqual(forwarded[forwarded.index("--cpu-threads") + 1], "22")
         self.assertEqual(forwarded[forwarded.index("--cpu-interop-threads") + 1], "1")
+        self.assertEqual(forwarded[forwarded.index("--sampling-mode") + 1], BALANCED_MODE)
+        self.assertEqual(
+            forwarded[forwarded.index("--samples-per-job-preference") + 1],
+            "1",
+        )
 
     def test_package_defaults_to_runtime_scoring_instruction(self):
         args = build_parser().parse_args(

@@ -8,6 +8,7 @@ Subcommands:
   migrate-fingerprints  — Migrate existing paid labels to fingerprint identity
   reconcile-job-pool    — Dry-run paid-label reconciliation against full descriptions
   apply-job-pool-reconciliation — Apply explicitly reviewed fingerprint mappings
+  balance-audit         — Audit job/preference-balanced training exposure
   preflight             — Validate exported JSONL dataset integrity
   detect-runtime        — Detect CUDA/CPU fine-tuning runtime path
   train                 — Launch fine-tuning run with manifests/checkpoints
@@ -33,6 +34,7 @@ from src.python.ai_scorer.training.dataset_split import (
     DEFAULT_SPLIT_MANIFEST,
 )
 from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
+from src.python.ai_scorer.training.training_balance import BALANCED_MODE, SAMPLING_MODES
 from src.python.ai_scorer.training.preferences import (
     default_preferences_path,
     ensure_seed_preferences,
@@ -220,6 +222,27 @@ def _cmd_detect_runtime(args: argparse.Namespace) -> int:
     return runtime_main(runtime_args)
 
 
+def _cmd_balance_audit(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.training_balance import main as balance_main
+
+    dataset_dir = _resolve_dataset_dir(args.dataset_profile, args.dataset_dir)
+    output = args.output or os.path.join(dataset_dir, "balance-report.json")
+    return balance_main(
+        [
+            "--train-jsonl",
+            os.path.join(dataset_dir, "train.jsonl"),
+            "--output",
+            output,
+            "--seed",
+            str(args.seed),
+            "--samples-per-job-preference",
+            str(args.samples_per_job_preference),
+            "--preview-epochs",
+            str(args.preview_epochs),
+        ]
+    )
+
+
 def _cmd_train(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.fine_tune_train import main as train_main
 
@@ -250,6 +273,10 @@ def _cmd_train(args: argparse.Namespace) -> int:
         str(args.num_train_epochs),
         "--loss-mode",
         args.loss_mode,
+        "--sampling-mode",
+        args.sampling_mode,
+        "--samples-per-job-preference",
+        str(args.samples_per_job_preference),
         "--cpu-interop-threads",
         str(args.cpu_interop_threads),
     ]
@@ -449,6 +476,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_runtime = sub.add_parser("detect-runtime", help="Detect CUDA/CPU fine-tuning runtime path")
     p_runtime.add_argument("--output", default="")
 
+    p_balance = sub.add_parser(
+        "balance-audit",
+        help="Audit deterministic job/preference-balanced training exposure",
+    )
+    p_balance.add_argument("--dataset-profile", choices=["keep-system", "no-system"], default="keep-system")
+    p_balance.add_argument("--dataset-dir", default="")
+    p_balance.add_argument("--output", default="")
+    p_balance.add_argument("--seed", type=int, default=42)
+    p_balance.add_argument("--samples-per-job-preference", type=int, default=1)
+    p_balance.add_argument(
+        "--preview-epochs",
+        type=int,
+        default=0,
+        help="Epochs to preview; defaults to one complete alternative-coverage window",
+    )
+
     p_train = sub.add_parser("train", help="Launch fine-tuning run with manifests")
     p_train.add_argument("--base-model-ollama", default="qwen2.5:1.5b")
     p_train.add_argument("--base-model-hf", default="Qwen/Qwen2.5-1.5B-Instruct")
@@ -468,6 +511,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=LOSS_MODES,
         default="response-only",
         help="Training labels: assistant response only (experimental default) or all chat tokens",
+    )
+    p_train.add_argument(
+        "--sampling-mode",
+        choices=SAMPLING_MODES,
+        default=BALANCED_MODE,
+        help="Balance each job/preference group per epoch, or train on all exported rows",
+    )
+    p_train.add_argument(
+        "--samples-per-job-preference",
+        type=int,
+        default=1,
+        help="Alternatives selected from each job/preference group per epoch in balanced mode",
     )
     p_train.add_argument(
         "--cpu-threads",
@@ -524,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
         "apply-job-pool-reconciliation": _cmd_apply_job_pool_reconciliation,
         "preflight": _cmd_preflight,
         "detect-runtime": _cmd_detect_runtime,
+        "balance-audit": _cmd_balance_audit,
         "train": _cmd_train,
         "merge": _cmd_merge,
         "package": _cmd_package,

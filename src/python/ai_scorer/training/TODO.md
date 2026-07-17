@@ -9,7 +9,7 @@ should be addressed before relying on a fine-tuned model for promotion.
    exclude confirmed and ambiguous promotion matches, split fingerprints before
    expanding future jobs into preferences, and enforce the persisted split at
    export, preflight, and training startup. The 500 paid legacy labels remain
-   stored; 320 eligible cases are currently exported.
+   stored; 330 eligible cases are currently exported.
 
 2. **Implemented, pending controlled validation:** use Qwen's native chat
    template, EOS/end-of-turn supervision, answer-preserving truncation, and
@@ -27,9 +27,12 @@ should be addressed before relying on a fine-tuned model for promotion.
    metrics by preference and by seen/unseen job. The canonical 53-case
    promotion set should remain separate from the internal validation set.
 
-5. Expand and balance the dataset, record teacher-model provenance, set
-   deterministic labeling parameters, and add retry and incremental checkpoint
-   support to the labeling workflow.
+5. **Partially implemented:** the default trainer now equalizes exposure per
+   `(job fingerprint, preference key)` and rotates retained alternatives across
+   epochs without changing the paid-label inventory. Expand the dataset with
+   genuinely diverse high-score and boundary examples, record teacher-model
+   provenance, set deterministic labeling parameters, and add retry and
+   incremental checkpoint support to the labeling workflow.
 
 6. Fix packaging paths and enforce consistent prompt profiles across dataset
    export, training, GGUF/Ollama packaging, and runtime inference.
@@ -40,12 +43,12 @@ The canonical promotion set contains 53 cases across 25 complete-description
 fingerprints. Mongo IDs were not reliable across the servers used to create the
 datasets, so they have been removed from maintained schemas and artifacts.
 
-The paid legacy dataset contains 500 labeled cases across 30 unique partial
-description fingerprints. Reconciliation against the golden descriptions found
-13 confirmed promotion overlaps and quarantined five additional ambiguous
-fingerprints. All 180 affected cases remain in the paid label inventory but are
-excluded from train and validation exports. The remaining 12 eligible
-fingerprints currently produce 300 training and 20 validation cases.
+The paid legacy dataset contains 500 labeled cases across 30 original job
+descriptions. Reconciliation against full descriptions found 13 confirmed
+promotion overlaps and quarantined four additional ambiguous fingerprints.
+All affected cases remain in the paid label inventory but are excluded from
+train and validation exports. The remaining 13 eligible fingerprints currently
+produce 310 training and 20 validation cases.
 
 ## Recommended train/validation design
 
@@ -93,6 +96,14 @@ is the most common promotion label. Before further long runs:
    Weighted sampling or oversampling is only a temporary fallback.
 6. Record teacher model, version, prompt, temperature, seed, and labeling
    timestamp, and review a sample manually for rubric consistency.
+
+The current balanced schedule is a temporary correction for repeated legacy
+jobs. It resolves exact duplicate model inputs only in a derived training view,
+then exposes at most one alternative per `(job fingerprint, preference key)`
+per epoch by default. On the current 310-row train export this yields 110 rows
+per epoch and reduces score 0 from 52.6% of source rows to 28.2% in epoch zero.
+It does not manufacture missing evidence: score 5 still has only one independent
+training example, so diverse paid labeling remains required before promotion.
 
 ## Training objective
 
