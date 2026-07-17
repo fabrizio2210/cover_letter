@@ -50,7 +50,7 @@ class JobFingerprintTests(unittest.TestCase):
             self.assertEqual(case.job_fingerprint, expected)
             self.assertEqual(case.fingerprint_basis, basis)
 
-    def test_migrated_paid_inventory_keeps_all_500_labels(self):
+    def test_expanded_paid_inventory_keeps_all_labels(self):
         labeled_path = (
             _AI_SCORER_ROOT
             / "training"
@@ -61,8 +61,8 @@ class JobFingerprintTests(unittest.TestCase):
         cases = load_cases(str(labeled_path))
 
         self.assertEqual(validate_cases(cases), [])
-        self.assertEqual(len(cases), 500)
-        self.assertEqual(len({case.job_fingerprint for case in cases}), 30)
+        self.assertEqual(len(cases), 853)
+        self.assertEqual(len({case.job_fingerprint for case in cases}), 293)
         self.assertTrue(all(case.label_available is not None for case in cases))
         self.assertNotIn("source_job_id", labeled_path.read_text(encoding="utf-8"))
 

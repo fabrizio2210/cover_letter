@@ -8,8 +8,9 @@ should be addressed before relying on a fine-tuned model for promotion.
 1. **Implemented:** identify jobs by versioned job-description fingerprint,
    exclude confirmed and ambiguous promotion matches, split fingerprints before
    expanding future jobs into preferences, and enforce the persisted split at
-   export, preflight, and training startup. The 500 paid legacy labels remain
-   stored; 330 eligible cases are currently exported.
+   export, preflight, and training startup. All 500 paid legacy labels remain
+   stored alongside 353 newly labeled full-description cases; 683 eligible
+   cases are currently exported.
 
 2. **Implemented, pending controlled validation:** use Qwen's native chat
    template, EOS/end-of-turn supervision, answer-preserving truncation, and
@@ -30,12 +31,13 @@ should be addressed before relying on a fine-tuned model for promotion.
 5. **Partially implemented:** the default trainer now equalizes exposure per
    `(job fingerprint, preference key)` and rotates retained alternatives across
    epochs without changing the paid-label inventory. A separate deterministic
-   queue now proposes 353 likely-score-5 cases across 263 full-description jobs,
-   using only the ten preferences in `training_preferences.seed.json`; these
-   remain unlabeled until an explicit paid call. Promotion fixtures contribute
-   only job fingerprints to exclude. After labeling, add boundary examples,
-   record teacher-model provenance, set deterministic labeling parameters, and
-   add retry and incremental checkpoint support to the labeling workflow.
+   queue produced 353 independently labeled cases across 263 full-description
+   jobs, using only the ten preferences in `training_preferences.seed.json`.
+   The labels are merged without changing any of the original 500 labels, and
+   the new jobs have persisted train/validation assignments. Promotion fixtures
+   contribute only job fingerprints to exclude. Next, add boundary examples,
+   complete teacher-model provenance, set deterministic labeling parameters,
+   and add retry and incremental checkpoint support to the labeling workflow.
 
 6. Fix packaging paths and enforce consistent prompt profiles across dataset
    export, training, GGUF/Ollama packaging, and runtime inference.
@@ -50,8 +52,10 @@ The paid legacy dataset contains 500 labeled cases across 30 original job
 descriptions. Reconciliation against full descriptions found 13 confirmed
 promotion overlaps and quarantined four additional ambiguous fingerprints.
 All affected cases remain in the paid label inventory but are excluded from
-train and validation exports. The remaining 13 eligible fingerprints currently
-produce 310 training and 20 validation cases.
+train and validation exports. The 13 eligible legacy fingerprints produce 310
+training and 20 validation cases. The native full-description expansion adds
+321 training and 32 validation cases, for current totals of 631 and 52 across
+247 training and 29 validation fingerprints.
 
 ## Recommended train/validation design
 
@@ -74,21 +78,21 @@ derived from a job in one partition.
 
 ## Dataset distribution and coverage
 
-The response-only 12-epoch run used a training distribution that differs
-substantially from the promotion set:
+The current leakage-free training export has the following source distribution:
 
 | Score | Training count | Training share | Promotion count | Promotion share |
 | --- | ---: | ---: | ---: | ---: |
-| 0 | 185 | 41.1% | 10 | 18.9% |
-| 1 | 65 | 14.4% | 0 | 0.0% |
-| 2 | 75 | 16.7% | 6 | 11.3% |
-| 3 | 61 | 13.6% | 8 | 15.1% |
-| 4 | 30 | 6.7% | 10 | 18.9% |
-| 5 | 7 | 1.6% | 16 | 30.2% |
-| N/A | 27 | 6.0% | 3 | 5.7% |
+| 0 | 163 | 25.8% | 10 | 18.9% |
+| 1 | 41 | 6.5% | 0 | 0.0% |
+| 2 | 50 | 7.9% | 6 | 11.3% |
+| 3 | 65 | 10.3% | 8 | 15.1% |
+| 4 | 231 | 36.6% | 10 | 18.9% |
+| 5 | 61 | 9.7% | 16 | 30.2% |
+| N/A | 20 | 3.2% | 3 | 5.7% |
 
-This makes avoiding score 5 a rational training outcome even though score 5
-is the most common promotion label. Before further long runs:
+The expansion materially improves scores 4 and 5, but now overrepresents score
+4 and still undersupplies score 5 relative to the promotion set. Before further
+long runs:
 
 1. Add diverse, independently sourced examples for scores 4 and 5.
 2. Add hard boundary examples for 2 versus 3 and 3 versus 4.
@@ -103,10 +107,11 @@ is the most common promotion label. Before further long runs:
 The current balanced schedule is a temporary correction for repeated legacy
 jobs. It resolves exact duplicate model inputs only in a derived training view,
 then exposes at most one alternative per `(job fingerprint, preference key)`
-per epoch by default. On the current 310-row train export this yields 110 rows
-per epoch and reduces score 0 from 52.6% of source rows to 28.2% in epoch zero.
-It does not manufacture missing evidence: score 5 still has only one independent
-training example, so diverse paid labeling remains required before promotion.
+per epoch by default. On the current 631-row train export this yields 404 rows
+per epoch. Epoch zero contains 55 score-5 examples, a material improvement over
+the previous single independent score-5 example, but score 4 accounts for 212
+of 404 examples. Further collection should target genuine 2/3, 3/4, and 4/5
+boundaries rather than more obvious score-4 matches.
 
 ## Training objective
 

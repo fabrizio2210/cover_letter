@@ -484,6 +484,9 @@ def main(argv: list[str] | None = None) -> int:
             "confirmed_promotion_fingerprints": split_manifest["confirmed_promotion_fingerprints"],
             "quarantined_fingerprints": split_manifest["quarantined_fingerprints"],
             "applied_fingerprint_mappings": split_manifest.get("applied_fingerprint_mappings", []),
+            "native_description_fingerprints": split_manifest.get(
+                "native_description_fingerprints", []
+            ),
         },
         "git_sha": current_git_sha(),
         "seed": args.seed,

@@ -64,7 +64,7 @@ Review these files before paying for labels:
 - `src/python/ai_scorer/training/data/proposed/high-score-candidates.json`
 - `src/python/ai_scorer/training/data/proposed/high-score-candidate-report.json`
 
-When ready, label this queue independently so the current 500-label inventory
+When ready, label this queue independently so the original 500-label inventory
 is not overwritten:
 
 ```bash
@@ -75,8 +75,29 @@ python -m src.python.ai_scorer.training.cli label \
 ```
 
 Do not export the new queue by itself. After labeling, inspect its actual score
-distribution, then merge the accepted cases into the maintained inventory and
-assign their full-description fingerprints to train/validation.
+distribution and combine the old and new labeled cases in
+`data/proposed/merged-labeled.json`. Validate the merge without changing the
+maintained artifacts:
+
+```bash
+python -m src.python.ai_scorer.training.cli merge-labeled-expansion
+```
+
+The dry run refuses changed base labels, non-seed preferences, stale golden
+metadata, candidate/label mismatches, and fingerprints already known to the
+persisted split. Review `data/proposed/labeled-expansion-merge-plan.json`, then
+apply that validated expansion and record the exact Gemini model if known:
+
+```bash
+python -m src.python.ai_scorer.training.cli merge-labeled-expansion \
+  --teacher-model '<exact-gemini-model>' \
+  --apply
+```
+
+Omit `--teacher-model` rather than guessing; the receipt will explicitly mark
+labeling provenance as incomplete. Applying preserves the old split, assigns
+only new full-description fingerprints, stages all maintained artifacts before
+replacement, and writes `data/proposed/labeled-expansion-merge-receipt.json`.
 
 Reconcile the preserved paid-label inventory against the complete pool without
 changing any training artifact:
@@ -125,10 +146,12 @@ consumes that persisted assignment. All preference cases for the same
 fingerprint stay in one split. The canonical 53-case scorer evaluation remains
 the separate final promotion gate; there is no internal test split.
 
-The current paid dataset predates full-description fingerprints. Its 500 labels
-are preserved with a `legacy-partial` fingerprint computed from the union of
-stored snippets. Confirmed golden overlaps and ambiguous matches remain in the
-label inventory but are withheld from training exports.
+The original paid dataset predates full-description fingerprints. Its 500
+labels remain preserved, mostly with a `legacy-partial` fingerprint computed
+from the union of stored snippets. The maintained inventory now also contains
+353 labels across 263 native full-description fingerprints. Confirmed golden
+overlaps and ambiguous legacy matches remain in the label inventory but are
+withheld from training exports.
 
 ## Fine-tuning and packaging workflow
 

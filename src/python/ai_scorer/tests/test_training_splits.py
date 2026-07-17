@@ -234,6 +234,20 @@ class TrainingSplitTests(unittest.TestCase):
 
             self.assertEqual(manifest["fingerprint_bases"], ["description", "legacy-partial"])
 
+            native_full, _ = description_fingerprint("Native full description")
+            native_manifest = build_split_manifest(
+                train_fingerprints=[legacy, native_full],
+                val_fingerprints=[validation_legacy],
+                golden_fingerprints=[golden],
+                seed=42,
+                val_ratio=0.1,
+                golden_fixture_path=str(golden_path),
+                golden_case_count=1,
+                native_description_fingerprints=[native_full],
+            )
+
+            self.assertEqual(native_manifest["native_description_fingerprints"], [native_full])
+
 
 if __name__ == "__main__":
     unittest.main()

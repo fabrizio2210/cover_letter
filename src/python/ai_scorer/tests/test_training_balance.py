@@ -117,13 +117,13 @@ class TrainingBalanceTests(unittest.TestCase):
             preview_epochs=19,
         )
 
-        self.assertEqual(report["source_record_count"], 310)
-        self.assertEqual(report["resolved_record_count"], 290)
-        self.assertEqual(report["duplicate_exact_input_group_count"], 10)
-        self.assertEqual(report["conflicting_exact_input_group_count"], 8)
-        self.assertEqual(report["unresolved_tie_group_count"], 0)
-        self.assertEqual(report["balance_group_count"], 110)
-        self.assertEqual(report["effective_records_per_epoch"], 110)
+        self.assertEqual(report["source_record_count"], 631)
+        self.assertEqual(report["resolved_record_count"], 584)
+        self.assertEqual(report["duplicate_exact_input_group_count"], 36)
+        self.assertEqual(report["conflicting_exact_input_group_count"], 9)
+        self.assertEqual(report["unresolved_tie_group_count"], 1)
+        self.assertEqual(report["balance_group_count"], 404)
+        self.assertEqual(report["effective_records_per_epoch"], 404)
         self.assertEqual(report["epochs_to_cover_all_alternatives"], 19)
 
 

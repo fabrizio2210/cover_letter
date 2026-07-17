@@ -4,6 +4,7 @@ Subcommands:
   generate-preferences  — Generate or refresh fixed 10-preference seed set
   extract               — Build prompt-ready training cases from MongoDB
   mine-high-score-candidates — Propose unpaid, likely-score-5 labeling cases
+  merge-labeled-expansion — Merge reviewed labels and extend the persisted job split
   label                 — Label cases with Gemini
   export                — Export labeled cases into chat JSONL splits
   migrate-fingerprints  — Migrate existing paid labels to fingerprint identity
@@ -145,6 +146,34 @@ def _cmd_label(args: argparse.Namespace) -> int:
         label_args.append("--overwrite-labels")
     label_main(label_args)
     return 0
+
+
+def _cmd_merge_labeled_expansion(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.merge_labeled_expansion import main as merge_main
+
+    merge_args = [
+        "--candidates",
+        args.candidates,
+        "--labeled",
+        args.labeled,
+        "--expansion-candidates",
+        args.expansion_candidates,
+        "--merged-labeled",
+        args.merged_labeled,
+        "--split-manifest",
+        args.split_manifest,
+        "--preferences",
+        args.preferences,
+        "--report-out",
+        args.report_out,
+        "--receipt-out",
+        args.receipt_out,
+        "--teacher-model",
+        args.teacher_model,
+    ]
+    if args.apply:
+        merge_args.append("--apply")
+    return merge_main(merge_args)
 
 
 def _cmd_export(args: argparse.Namespace) -> int:
@@ -465,6 +494,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="Relabel every input case, ignoring input and reusable labels",
     )
 
+    p_merge_expansion = sub.add_parser(
+        "merge-labeled-expansion",
+        help="Validate and merge a labeled full-description expansion",
+    )
+    p_merge_expansion.add_argument(
+        "--candidates",
+        default="src/python/ai_scorer/training/data/proposed/candidates.json",
+    )
+    p_merge_expansion.add_argument(
+        "--labeled",
+        default="src/python/ai_scorer/training/data/proposed/labeled.json",
+    )
+    p_merge_expansion.add_argument(
+        "--expansion-candidates",
+        default="src/python/ai_scorer/training/data/proposed/high-score-candidates.json",
+    )
+    p_merge_expansion.add_argument(
+        "--merged-labeled",
+        default="src/python/ai_scorer/training/data/proposed/merged-labeled.json",
+    )
+    p_merge_expansion.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_merge_expansion.add_argument("--preferences", default=default_preferences_path())
+    p_merge_expansion.add_argument(
+        "--report-out",
+        default="src/python/ai_scorer/training/data/proposed/labeled-expansion-merge-plan.json",
+    )
+    p_merge_expansion.add_argument(
+        "--receipt-out",
+        default="src/python/ai_scorer/training/data/proposed/labeled-expansion-merge-receipt.json",
+    )
+    p_merge_expansion.add_argument("--teacher-model", default="unrecorded")
+    p_merge_expansion.add_argument("--apply", action="store_true")
+
     p_export = sub.add_parser("export", help="Export labeled cases into chat JSONL splits")
     p_export.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
     p_export.add_argument("--output-dir", default="src/python/ai_scorer/training/data/export")
@@ -641,6 +703,7 @@ def main(argv: list[str] | None = None) -> int:
         "extract": _cmd_extract,
         "mine-high-score-candidates": _cmd_mine_high_score_candidates,
         "label": _cmd_label,
+        "merge-labeled-expansion": _cmd_merge_labeled_expansion,
         "export": _cmd_export,
         "migrate-fingerprints": _cmd_migrate_fingerprints,
         "reconcile-job-pool": _cmd_reconcile_job_pool,

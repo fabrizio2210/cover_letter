@@ -1,0 +1,51 @@
+{
+  "receipt_schema_version": "1",
+  "source_report": {
+    "path": "src/python/ai_scorer/training/data/proposed/labeled-expansion-merge-plan.json",
+    "sha256": "2871175d532a57dd65b4a0630378ff173bdaa8c27f528688e721e7155136d113"
+  },
+  "teacher_model": "unrecorded",
+  "labeling_provenance_complete": false,
+  "summary": {
+    "base_candidate_count": 500,
+    "base_labeled_count": 500,
+    "expansion_case_count": 353,
+    "merged_labeled_count": 853,
+    "preserved_base_label_count": 500,
+    "changed_base_label_count": 0,
+    "new_job_fingerprint_count": 263,
+    "new_train_fingerprint_count": 236,
+    "new_val_fingerprint_count": 27,
+    "combined_train_fingerprint_count": 247,
+    "combined_val_fingerprint_count": 29,
+    "expected_train_case_count": 631,
+    "expected_val_case_count": 52,
+    "expected_excluded_case_count": 170,
+    "expansion_label_distribution": {
+      "1": 1,
+      "2": 4,
+      "3": 45,
+      "4": 236,
+      "5": 67
+    },
+    "combined_label_distribution": {
+      "0": 200,
+      "1": 81,
+      "2": 84,
+      "3": 112,
+      "4": 272,
+      "5": 74,
+      "N/A": 30
+    }
+  },
+  "before": {
+    "candidates_sha256": "dc74fc80cd4ec18897b4f34caed95ce0cd986bf0364b0713a90bbd5b222374d0",
+    "labeled_sha256": "4bf4e7d64333337a2ea7b5d88e43553ed8e183b65488c58e1917b3cef158196c",
+    "split_manifest_sha256": "717a69a21ee1387dff8fe986d5720455b471a4c3b2b95674b61f18bbbd93b688"
+  },
+  "after": {
+    "candidates_sha256": "3c05e111d4bbeb9989e6daf059ddd6fa9a4f11df325af0fc807b94ba4ce78c4c",
+    "labeled_sha256": "5592fd1ec6a97a525e88c25cdd6cee8c686991a72b43b542a802caf06e750a0e",
+    "split_manifest_sha256": "fb1aa10d28f001aa86c2f29bbfc99d1c71479d254865ab8f572fb17880c71716"
+  }
+}

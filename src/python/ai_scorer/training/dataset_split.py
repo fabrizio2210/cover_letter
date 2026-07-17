@@ -53,12 +53,14 @@ def build_split_manifest(
     preference_set_hash: str = "",
     reconciliation: list[dict] | None = None,
     applied_fingerprint_mappings: list[dict] | None = None,
+    native_description_fingerprints: Iterable[str] = (),
 ) -> dict:
     train = sorted(set(train_fingerprints))
     val = sorted(set(val_fingerprints))
     golden = sorted(set(golden_fingerprints))
     confirmed = sorted(set(confirmed_promotion_fingerprints))
     quarantined = sorted(set(quarantined_fingerprints))
+    native = sorted(set(native_description_fingerprints))
     excluded = sorted(set(golden) | set(confirmed) | set(quarantined))
 
     manifest = {
@@ -79,6 +81,7 @@ def build_split_manifest(
         "val_fingerprints": val,
         "reconciliation": reconciliation or [],
         "applied_fingerprint_mappings": applied_fingerprint_mappings or [],
+        "native_description_fingerprints": native,
     }
     errors = validate_split_manifest(manifest)
     if errors:
@@ -171,13 +174,33 @@ def validate_split_manifest(manifest: dict) -> list[str]:
         if not isinstance(mapping.get("source_report_sha256"), str) or len(mapping["source_report_sha256"]) != 64:
             errors.append(f"{where}.source_report_sha256 must be a SHA-256 digest")
 
+    raw_native = manifest.get("native_description_fingerprints", [])
+    if not isinstance(raw_native, list):
+        errors.append("native_description_fingerprints must be an array")
+        raw_native = []
+    native: set[str] = set()
+    for index, fingerprint in enumerate(raw_native):
+        where = f"native_description_fingerprints[{index}]"
+        error = validate_fingerprint(fingerprint, DESCRIPTION_BASIS)
+        if error:
+            errors.append(f"{where}: {error}")
+        elif fingerprint in native:
+            errors.append(f"{where} is duplicated")
+        else:
+            native.add(fingerprint)
+        if isinstance(fingerprint, str) and fingerprint not in assigned:
+            errors.append(f"{where} is not assigned to train or validation")
+    if native & mapping_full:
+        errors.append("native description fingerprints overlap reviewed legacy mappings")
+
     if LEGACY_PARTIAL_BASIS in actual_bases and len(actual_bases) > 1:
         assigned_full = {fingerprint for fingerprint in assigned if fingerprint_basis(fingerprint) == DESCRIPTION_BASIS}
-        unmapped_full = assigned_full - mapping_full
+        unmapped_full = assigned_full - mapping_full - native
         if unmapped_full:
             errors.append(
                 "legacy-partial fingerprints can mix with description fingerprints only through "
-                f"reviewed mappings; unmapped description fingerprints: {len(unmapped_full)}"
+                "reviewed mappings or declared native additions; "
+                f"unclassified description fingerprints: {len(unmapped_full)}"
             )
     return errors
 
