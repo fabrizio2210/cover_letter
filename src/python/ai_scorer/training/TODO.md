@@ -29,10 +29,13 @@ should be addressed before relying on a fine-tuned model for promotion.
 
 5. **Partially implemented:** the default trainer now equalizes exposure per
    `(job fingerprint, preference key)` and rotates retained alternatives across
-   epochs without changing the paid-label inventory. Expand the dataset with
-   genuinely diverse high-score and boundary examples, record teacher-model
-   provenance, set deterministic labeling parameters, and add retry and
-   incremental checkpoint support to the labeling workflow.
+   epochs without changing the paid-label inventory. A separate deterministic
+   queue now proposes 353 likely-score-5 cases across 263 full-description jobs,
+   using only the ten preferences in `training_preferences.seed.json`; these
+   remain unlabeled until an explicit paid call. Promotion fixtures contribute
+   only job fingerprints to exclude. After labeling, add boundary examples,
+   record teacher-model provenance, set deterministic labeling parameters, and
+   add retry and incremental checkpoint support to the labeling workflow.
 
 6. Fix packaging paths and enforce consistent prompt profiles across dataset
    export, training, GGUF/Ollama packaging, and runtime inference.

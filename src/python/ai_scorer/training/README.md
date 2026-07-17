@@ -38,6 +38,46 @@ and uses deterministic length-stratified sampling. The pool retains full
 normalized descriptions so preferences can be selected or changed before paid
 labeling.
 
+Mine a separate queue of likely-score-5 cases from that full-description pool:
+
+```bash
+python -m src.python.ai_scorer.training.cli mine-high-score-candidates
+```
+
+The selection reads only the ten maintained preferences and their guidance from
+`data/training_preferences.seed.json`. It proposes at most 40 high-confidence
+cases per preference, keeps strict evidence thresholds when the pool contains
+fewer matches, limits a job to two selected preferences, and caps reuse of
+identical evidence. Promotion fixtures are consulted only to exclude overlapping
+job fingerprints; their preference keys, guidance, scores, and rationales do not
+influence selection. Lexical score-5 estimates are recorded only in the review
+report, while candidate labels remain null.
+
+For the current 644-job pool this produces 353 cases across 263 jobs. Product
+delivery, API design, and data pipelines have 25, 29, and 19 high-confidence
+matches respectively; the other seven seed preferences each have 40. The
+smaller groups are intentional—the miner does not weaken its evidence rules just
+to spend the labeling budget.
+
+Review these files before paying for labels:
+
+- `src/python/ai_scorer/training/data/proposed/high-score-candidates.json`
+- `src/python/ai_scorer/training/data/proposed/high-score-candidate-report.json`
+
+When ready, label this queue independently so the current 500-label inventory
+is not overwritten:
+
+```bash
+python -m src.python.ai_scorer.training.cli label \
+  --input src/python/ai_scorer/training/data/proposed/high-score-candidates.json \
+  --output src/python/ai_scorer/training/data/proposed/high-score-labeled.json \
+  --allow-paid-calls
+```
+
+Do not export the new queue by itself. After labeling, inspect its actual score
+distribution, then merge the accepted cases into the maintained inventory and
+assign their full-description fingerprints to train/validation.
+
 Reconcile the preserved paid-label inventory against the complete pool without
 changing any training artifact:
 

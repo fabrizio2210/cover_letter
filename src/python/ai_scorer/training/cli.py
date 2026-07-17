@@ -3,6 +3,7 @@
 Subcommands:
   generate-preferences  — Generate or refresh fixed 10-preference seed set
   extract               — Build prompt-ready training cases from MongoDB
+  mine-high-score-candidates — Propose unpaid, likely-score-5 labeling cases
   label                 — Label cases with Gemini
   export                — Export labeled cases into chat JSONL splits
   migrate-fingerprints  — Migrate existing paid labels to fingerprint identity
@@ -94,6 +95,35 @@ def _cmd_extract(args: argparse.Namespace) -> int:
         extract_args.extend(["--jobs-only", "--job-pool-output", args.job_pool_output])
     extract_main(extract_args)
     return 0
+
+
+def _cmd_mine_high_score_candidates(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.high_score_candidates import main as high_score_main
+
+    return high_score_main(
+        [
+            "--job-pool",
+            args.job_pool,
+            "--preferences",
+            args.preferences,
+            "--output",
+            args.output,
+            "--report-out",
+            args.report_out,
+            "--target-per-preference",
+            str(args.target_per_preference),
+            "--max-preferences-per-job",
+            str(args.max_preferences_per_job),
+            "--max-evidence-reuse",
+            str(args.max_evidence_reuse),
+            "--exclude-cases",
+            args.exclude_cases,
+            "--split-manifest",
+            args.split_manifest,
+            "--promotion-fixtures",
+            args.promotion_fixtures,
+        ]
+    )
 
 
 def _cmd_label(args: argparse.Namespace) -> int:
@@ -391,6 +421,36 @@ def build_parser() -> argparse.ArgumentParser:
         default="src/python/ai_scorer/training/data/proposed/job-pool.json",
     )
 
+    p_high_score = sub.add_parser(
+        "mine-high-score-candidates",
+        help="Propose unpaid, likely-score-5 cases from the full-description job pool",
+    )
+    p_high_score.add_argument(
+        "--job-pool",
+        default="src/python/ai_scorer/training/data/proposed/job-pool.json",
+    )
+    p_high_score.add_argument(
+        "--preferences",
+        default=default_preferences_path(),
+    )
+    p_high_score.add_argument(
+        "--output",
+        default="src/python/ai_scorer/training/data/proposed/high-score-candidates.json",
+    )
+    p_high_score.add_argument(
+        "--report-out",
+        default="src/python/ai_scorer/training/data/proposed/high-score-candidate-report.json",
+    )
+    p_high_score.add_argument("--target-per-preference", type=int, default=40)
+    p_high_score.add_argument("--max-preferences-per-job", type=int, default=2)
+    p_high_score.add_argument("--max-evidence-reuse", type=int, default=2)
+    p_high_score.add_argument(
+        "--exclude-cases",
+        default="src/python/ai_scorer/training/data/proposed/labeled.json",
+    )
+    p_high_score.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_high_score.add_argument("--promotion-fixtures", default=DEFAULT_PROMOTION_FIXTURES)
+
     p_label = sub.add_parser("label", help="Label extracted cases with Gemini")
     p_label.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/candidates.json")
     p_label.add_argument("--output", default="src/python/ai_scorer/training/data/proposed/labeled.json")
@@ -572,6 +632,7 @@ def main(argv: list[str] | None = None) -> int:
     dispatch = {
         "generate-preferences": _cmd_generate_preferences,
         "extract": _cmd_extract,
+        "mine-high-score-candidates": _cmd_mine_high_score_candidates,
         "label": _cmd_label,
         "export": _cmd_export,
         "migrate-fingerprints": _cmd_migrate_fingerprints,
