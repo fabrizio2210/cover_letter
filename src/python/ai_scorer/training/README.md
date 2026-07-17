@@ -218,14 +218,26 @@ python3 -m src.python.ai_scorer.training.cli train \
   --run-id qwen25-keep-system-r1
 ```
 
-Training defaults to `--sampling-mode job-preference-balanced`. Before model
+Training defaults to `--sampling-mode label-preference-balanced`. Before model
 loading, exact duplicate inputs are collapsed in the derived training view. If
 their labels conflict, a strict majority is used; ties are withheld and
-reported. The source JSONL and paid-label inventory are never changed. Each
-epoch then selects one example per `(job fingerprint, preference key)` and
-rotates through alternative prompts deterministically across epochs. This gives
-every job equal per-preference exposure while still using oversized groups over
-time.
+reported. The source JSONL and paid-label inventory are never changed.
+
+The sampler derives the largest feasible equal quota for numeric scores 0–5,
+reserving one scarce job/preference group so alternatives can rotate. N/A has a
+separate 5% target. A deterministic minimum-cost assignment spreads each
+label's quota across preferences, never selects two alternatives from the same
+`(job fingerprint, preference key)` in one epoch, and prioritizes cases and
+preference buckets with the least prior exposure. Surplus cases rotate across
+epochs instead of being deleted or duplicated.
+
+For the current export, score 2 is the limiting class with 16 distinct
+job/preference groups. The automatic schedule therefore uses 15 examples for
+each numeric score and 3 N/A examples: 93 records per epoch with identical
+label shares in every epoch. Use `--samples-per-label` to request a smaller
+explicit numeric quota, or `--na-share` to change the separate N/A target.
+The audit verifies that all 584 conflict-resolved records receive exposure
+within the current 40-epoch deterministic rotation window.
 
 Audit the current schedule without loading a model:
 
@@ -233,9 +245,11 @@ Audit the current schedule without loading a model:
 python -m src.python.ai_scorer.training.cli balance-audit
 ```
 
-Use `--sampling-mode all` only for an intentional unbalanced baseline. The run
-manifest and `training_balance.json` record the sampling mode, conflict
-resolution, effective records per epoch, and rotation coverage.
+Use `--sampling-mode job-preference-balanced` to reproduce the previous
+job/preference-only schedule, or `--sampling-mode all` for an intentional
+unbalanced baseline. The run manifest and `training_balance.json` record the
+sampling mode, quotas, conflict resolution, per-epoch distributions, and
+rotation coverage.
 
 Future paid labeling should add new full-description job fingerprints and may
 introduce preferences aligned with production and golden coverage, including

@@ -28,9 +28,10 @@ should be addressed before relying on a fine-tuned model for promotion.
    metrics by preference and by seen/unseen job. The canonical 53-case
    promotion set should remain separate from the internal validation set.
 
-5. **Partially implemented:** the default trainer now equalizes exposure per
-   `(job fingerprint, preference key)` and rotates retained alternatives across
-   epochs without changing the paid-label inventory. A separate deterministic
+5. **Partially implemented:** the default trainer now gives scores 0–5 equal
+   per-epoch exposure, keeps N/A on a separate target, spreads selections across
+   preferences, and rotates retained alternatives without changing the paid-label
+   inventory. A separate deterministic
    queue produced 353 independently labeled cases across 263 full-description
    jobs, using only the ten preferences in `training_preferences.seed.json`.
    The labels are merged without changing any of the original 500 labels, and
@@ -104,13 +105,15 @@ long runs:
 6. Record teacher model, version, prompt, temperature, seed, and labeling
    timestamp, and review a sample manually for rubric consistency.
 
-The current balanced schedule is a temporary correction for repeated legacy
-jobs. It resolves exact duplicate model inputs only in a derived training view,
-then exposes at most one alternative per `(job fingerprint, preference key)`
-per epoch by default. On the current 631-row train export this yields 404 rows
-per epoch. Epoch zero contains 55 score-5 examples, a material improvement over
-the previous single independent score-5 example, but score 4 accounts for 212
-of 404 examples. Further collection should target genuine 2/3, 3/4, and 4/5
+The current balanced schedule resolves exact duplicate model inputs only in a
+derived training view, then exposes at most one alternative per `(job
+fingerprint, preference key)` per epoch. Score 2 is the limiting class with 16
+distinct groups, so the automatic schedule reserves one group for rotation and
+selects 15 examples for every numeric score plus 3 N/A examples. Every epoch
+therefore has 93 records and the same numeric-label shares; excess score-0 and
+score-4 cases rotate across epochs, and the audit verifies complete exposure of
+all 584 conflict-resolved records within 40 epochs. Further collection should
+increase genuine score-2 group diversity and target 2/3, 3/4, and 4/5
 boundaries rather than more obvious score-4 matches.
 
 ## Training objective

@@ -165,7 +165,12 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
         default_args = parser.parse_args(["train"])
         self.assertEqual(default_args.sampling_mode, BALANCED_MODE)
         self.assertEqual(default_args.samples_per_job_preference, 1)
-        self.assertEqual(SAMPLING_MODES, ("job-preference-balanced", "all"))
+        self.assertEqual(default_args.samples_per_label, 0)
+        self.assertEqual(default_args.na_share, 0.05)
+        self.assertEqual(
+            SAMPLING_MODES,
+            ("label-preference-balanced", "job-preference-balanced", "all"),
+        )
 
         baseline = parser.parse_args(["train", "--sampling-mode", "all"])
         self.assertEqual(baseline.sampling_mode, "all")
@@ -192,6 +197,8 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
             forwarded[forwarded.index("--samples-per-job-preference") + 1],
             "1",
         )
+        self.assertEqual(forwarded[forwarded.index("--samples-per-label") + 1], "0")
+        self.assertEqual(forwarded[forwarded.index("--na-share") + 1], "0.05")
 
     def test_cli_forwards_explicit_label_overwrite_flag(self):
         args = build_parser().parse_args(["label", "--overwrite-labels"])

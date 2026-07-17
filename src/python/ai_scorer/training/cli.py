@@ -36,7 +36,11 @@ from src.python.ai_scorer.training.dataset_split import (
     DEFAULT_SPLIT_MANIFEST,
 )
 from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
-from src.python.ai_scorer.training.training_balance import BALANCED_MODE, SAMPLING_MODES
+from src.python.ai_scorer.training.training_balance import (
+    BALANCED_MODE,
+    DEFAULT_NA_SHARE,
+    SAMPLING_MODES,
+)
 from src.python.ai_scorer.training.preferences import (
     default_preferences_path,
     ensure_seed_preferences,
@@ -296,8 +300,14 @@ def _cmd_balance_audit(args: argparse.Namespace) -> int:
             output,
             "--seed",
             str(args.seed),
+            "--sampling-mode",
+            args.sampling_mode,
             "--samples-per-job-preference",
             str(args.samples_per_job_preference),
+            "--samples-per-label",
+            str(args.samples_per_label),
+            "--na-share",
+            str(args.na_share),
             "--preview-epochs",
             str(args.preview_epochs),
         ]
@@ -338,6 +348,10 @@ def _cmd_train(args: argparse.Namespace) -> int:
         args.sampling_mode,
         "--samples-per-job-preference",
         str(args.samples_per_job_preference),
+        "--samples-per-label",
+        str(args.samples_per_label),
+        "--na-share",
+        str(args.na_share),
         "--cpu-interop-threads",
         str(args.cpu_interop_threads),
     ]
@@ -613,7 +627,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_balance.add_argument("--dataset-dir", default="")
     p_balance.add_argument("--output", default="")
     p_balance.add_argument("--seed", type=int, default=42)
+    p_balance.add_argument(
+        "--sampling-mode",
+        choices=SAMPLING_MODES[:-1],
+        default=BALANCED_MODE,
+    )
     p_balance.add_argument("--samples-per-job-preference", type=int, default=1)
+    p_balance.add_argument("--samples-per-label", type=int, default=0)
+    p_balance.add_argument("--na-share", type=float, default=DEFAULT_NA_SHARE)
     p_balance.add_argument(
         "--preview-epochs",
         type=int,
@@ -645,13 +666,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--sampling-mode",
         choices=SAMPLING_MODES,
         default=BALANCED_MODE,
-        help="Balance each job/preference group per epoch, or train on all exported rows",
+        help="Balance labels and preferences, use legacy job/preference balance, or train on all rows",
     )
     p_train.add_argument(
         "--samples-per-job-preference",
         type=int,
         default=1,
         help="Alternatives selected from each job/preference group per epoch in balanced mode",
+    )
+    p_train.add_argument(
+        "--samples-per-label",
+        type=int,
+        default=0,
+        help="Numeric records per score and epoch; 0 uses the largest feasible rotating quota",
+    )
+    p_train.add_argument(
+        "--na-share",
+        type=float,
+        default=DEFAULT_NA_SHARE,
+        help="Target N/A share for label-balanced sampling",
     )
     p_train.add_argument(
         "--cpu-threads",

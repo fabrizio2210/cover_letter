@@ -19,6 +19,7 @@ from src.python.ai_scorer.training.fine_tune_runtime import detect_runtime
 from src.python.ai_scorer.training.dataset_split import load_split_manifest
 from src.python.ai_scorer.training.training_balance import (
     BALANCED_MODE,
+    DEFAULT_NA_SHARE,
     SAMPLING_MODES,
     RotatingGroupSampler,
     build_balanced_training_plan,
@@ -56,6 +57,13 @@ def _positive_int(value: str) -> int:
     parsed = int(value)
     if parsed <= 0:
         raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
+
+
+def _fraction(value: str) -> float:
+    parsed = float(value)
+    if parsed < 0 or parsed >= 1:
+        raise argparse.ArgumentTypeError("must satisfy: 0 <= value < 1")
     return parsed
 
 
@@ -253,6 +261,8 @@ def _train_cpu_transformers(
     loss_mode: str,
     sampling_mode: str,
     samples_per_job_preference: int,
+    samples_per_label: int,
+    na_share: float,
     resume_from_checkpoint: str,
 ) -> dict:
     try:
@@ -308,11 +318,14 @@ def _train_cpu_transformers(
 
     balance_plan = None
     train_rows = source_train_rows
-    if sampling_mode == BALANCED_MODE:
+    if sampling_mode != "all":
         balance_plan = build_balanced_training_plan(
             source_train_rows,
             seed=seed,
             samples_per_group=samples_per_job_preference,
+            samples_per_label=samples_per_label,
+            na_share=na_share,
+            mode=sampling_mode,
         )
         train_rows = balance_plan.rows
 
@@ -399,6 +412,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sampling-mode", choices=SAMPLING_MODES, default=BALANCED_MODE)
     parser.add_argument("--samples-per-job-preference", type=_positive_int, default=1)
     parser.add_argument(
+        "--samples-per-label",
+        type=int,
+        default=0,
+        help="Numeric records per score and epoch; 0 uses the largest feasible rotating quota",
+    )
+    parser.add_argument("--na-share", type=_fraction, default=DEFAULT_NA_SHARE)
+    parser.add_argument(
         "--cpu-threads",
         type=_positive_int,
         default=0,
@@ -444,11 +464,14 @@ def main(argv: list[str] | None = None) -> int:
     os.makedirs(run_dir, exist_ok=True)
 
     source_train_rows = _read_jsonl(train_path)
-    if args.sampling_mode == BALANCED_MODE:
+    if args.sampling_mode != "all":
         balance_report = build_balanced_training_plan(
             source_train_rows,
             seed=args.seed,
             samples_per_group=args.samples_per_job_preference,
+            samples_per_label=args.samples_per_label,
+            na_share=args.na_share,
+            mode=args.sampling_mode,
         ).report
     else:
         balance_report = {
@@ -499,6 +522,8 @@ def main(argv: list[str] | None = None) -> int:
         "loss_mode": args.loss_mode,
         "sampling_mode": args.sampling_mode,
         "samples_per_job_preference": args.samples_per_job_preference,
+        "samples_per_label": args.samples_per_label,
+        "na_share": args.na_share,
         "training_balance": {
             key: value
             for key, value in balance_report.items()
@@ -528,6 +553,8 @@ def main(argv: list[str] | None = None) -> int:
         loss_mode=args.loss_mode,
         sampling_mode=args.sampling_mode,
         samples_per_job_preference=args.samples_per_job_preference,
+        samples_per_label=args.samples_per_label,
+        na_share=args.na_share,
         resume_from_checkpoint=args.resume_from_checkpoint,
     )
 
