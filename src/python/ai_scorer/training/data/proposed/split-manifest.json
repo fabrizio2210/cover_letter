@@ -3,6 +3,7 @@
   "seed": 42,
   "requested_val_ratio": 0.1,
   "fingerprint_bases": [
+    "description",
     "legacy-partial"
   ],
   "preference_set_hash": "d4c75d148e5bf9158400633434f57f2de1ec927aba7d7094fd133e2d3f60723d",
@@ -53,7 +54,6 @@
     "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd"
   ],
   "quarantined_fingerprints": [
-    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
     "jdfp:v1:legacy-partial:7e12254ea532ac499be480e11484f87b6e186deb2ffb2ebad4012d69d96827ba",
     "jdfp:v1:legacy-partial:cdbd81e307e130527edb23ebdd26dc438e80039a2dbd48a1edc01f61e73ccfaa",
     "jdfp:v1:legacy-partial:daa881bcd1a5e5c72629e7b242b8dd7a1097579dfa019a7052d1996b878eaf52",
@@ -83,7 +83,6 @@
     "jdfp:v1:description:a02175a2bcb31bd07847b4b0fd7cadd286cd02ee07df1300a9bea9de0794f164",
     "jdfp:v1:description:a5e58deb10551e1756dde95c266a82ce995589b73f3b7d0d31de952208127426",
     "jdfp:v1:description:bdae96d5cbb74d788b119c143a90cc5397719c448c6c4e24e8378c08ebd77b11",
-    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
     "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
     "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
     "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
@@ -104,9 +103,10 @@
     "jdfp:v1:title-location:d7888f15b9db8ad8465323298d65360870d5a649fb0e16b9726b84875fff480e"
   ],
   "train_fingerprints": [
+    "jdfp:v1:description:421cd2466f5906778f2c961f495bb15511068710a65adf360b78603a7b9f51c4",
+    "jdfp:v1:description:752a921f6cda760fe8cd7c7f07bf6c70ed55a0fd4a9577b8a9d106b631c8a301",
     "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
     "jdfp:v1:legacy-partial:1ed51d81238a6ba594a8e3c8c2d4c52c2c47f64135b70c0a39d62b062d518916",
-    "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
     "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
     "jdfp:v1:legacy-partial:7ae42213c390a5a08f3f0b782c22e4f0c50ab912647255707892808297c6e80e",
     "jdfp:v1:legacy-partial:b8eada57dff41e18be5fb1f96ecc0f654d64660d951770e7695744c9bfd75cdb",
@@ -116,7 +116,7 @@
     "jdfp:v1:legacy-partial:f93bbca2fcdae7674f3838ae50b7a6019806c942c3ccc74c3f87bf613ea572d2"
   ],
   "val_fingerprints": [
-    "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+    "jdfp:v1:description:bf35b4933807f29ebf4618d6d4608553bb7f1a64d9f534548ec75c1bb668c741",
     "jdfp:v1:legacy-partial:b9412eebc358beddd28f1352d111d70fbe7744dc7061d18bc36aa4d0159f7ab1"
   ],
   "reconciliation": [
@@ -151,7 +151,10 @@
           "location_equal": false,
           "substantive_match": false
         }
-      ]
+      ],
+      "applied_full_fingerprint": "jdfp:v1:description:752a921f6cda760fe8cd7c7f07bf6c70ed55a0fd4a9577b8a9d106b631c8a301",
+      "applied_split": "train",
+      "mapping_source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de"
     },
     {
       "job_fingerprint": "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
@@ -299,7 +302,10 @@
       "snippet_count": 12,
       "status": "eligible",
       "reason": "no meaningful golden overlap found",
-      "evidence": []
+      "evidence": [],
+      "applied_full_fingerprint": "jdfp:v1:description:421cd2466f5906778f2c961f495bb15511068710a65adf360b78603a7b9f51c4",
+      "applied_split": "train",
+      "mapping_source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de"
     },
     {
       "job_fingerprint": "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
@@ -498,7 +504,10 @@
       "snippet_count": 14,
       "status": "eligible",
       "reason": "no meaningful golden overlap found",
-      "evidence": []
+      "evidence": [],
+      "applied_full_fingerprint": "jdfp:v1:description:bf35b4933807f29ebf4618d6d4608553bb7f1a64d9f534548ec75c1bb668c741",
+      "applied_split": "val",
+      "mapping_source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de"
     },
     {
       "job_fingerprint": "jdfp:v1:legacy-partial:b0b279ab9837a7e8c7f96b8bd643395967601feaa92649023d57e9f578d652db",
@@ -795,6 +804,34 @@
           "substantive_match": false
         }
       ]
+    }
+  ],
+  "applied_fingerprint_mappings": [
+    {
+      "legacy_fingerprint": "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
+      "full_fingerprint": "jdfp:v1:description:752a921f6cda760fe8cd7c7f07bf6c70ed55a0fd4a9577b8a9d106b631c8a301",
+      "assigned_split": "train",
+      "paid_case_count": 10,
+      "source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de",
+      "review_flags": [
+        "previously_quarantined"
+      ]
+    },
+    {
+      "legacy_fingerprint": "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
+      "full_fingerprint": "jdfp:v1:description:421cd2466f5906778f2c961f495bb15511068710a65adf360b78603a7b9f51c4",
+      "assigned_split": "train",
+      "paid_case_count": 10,
+      "source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de",
+      "review_flags": []
+    },
+    {
+      "legacy_fingerprint": "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+      "full_fingerprint": "jdfp:v1:description:bf35b4933807f29ebf4618d6d4608553bb7f1a64d9f534548ec75c1bb668c741",
+      "assigned_split": "val",
+      "paid_case_count": 10,
+      "source_report_sha256": "0487151beea4d507f0668f0509a2a4013fc043f2240f33c407a070749855d4de",
+      "review_flags": []
     }
   ]
 }

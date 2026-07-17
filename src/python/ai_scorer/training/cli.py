@@ -6,6 +6,8 @@ Subcommands:
   label                 — Label cases with Gemini
   export                — Export labeled cases into chat JSONL splits
   migrate-fingerprints  — Migrate existing paid labels to fingerprint identity
+  reconcile-job-pool    — Dry-run paid-label reconciliation against full descriptions
+  apply-job-pool-reconciliation — Apply explicitly reviewed fingerprint mappings
   preflight             — Validate exported JSONL dataset integrity
   detect-runtime        — Detect CUDA/CPU fine-tuning runtime path
   train                 — Launch fine-tuning run with manifests/checkpoints
@@ -18,6 +20,7 @@ Usage:
   python -m src.python.ai_scorer.training.cli extract
   python -m src.python.ai_scorer.training.cli label
   python -m src.python.ai_scorer.training.cli export
+  python -m src.python.ai_scorer.training.cli reconcile-job-pool
 """
 from __future__ import annotations
 
@@ -125,6 +128,44 @@ def _cmd_export(args: argparse.Namespace) -> int:
         export_args.append("--strip-system-prompt")
     export_main(export_args)
     return 0
+
+
+def _cmd_reconcile_job_pool(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.reconcile_job_pool import main as reconcile_main
+
+    return reconcile_main(
+        [
+            "--job-pool",
+            args.job_pool,
+            "--labeled",
+            args.labeled,
+            "--split-manifest",
+            args.split_manifest,
+            "--report-out",
+            args.report_out,
+            "--markdown-out",
+            args.markdown_out,
+        ]
+    )
+
+
+def _cmd_apply_job_pool_reconciliation(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.reconcile_job_pool import apply_main
+
+    return apply_main(
+        [
+            "--report",
+            args.report,
+            "--candidates",
+            args.candidates,
+            "--labeled",
+            args.labeled,
+            "--split-manifest",
+            args.split_manifest,
+            "--receipt-out",
+            args.receipt_out,
+        ]
+    )
 
 
 def _cmd_migrate_fingerprints(args: argparse.Namespace) -> int:
@@ -361,6 +402,50 @@ def build_parser() -> argparse.ArgumentParser:
     p_migrate.add_argument("--report-out", default="")
     p_migrate.add_argument("--apply", action="store_true")
 
+    p_reconcile = sub.add_parser(
+        "reconcile-job-pool",
+        help="Dry-run paid-label reconciliation against a full job-description pool",
+    )
+    p_reconcile.add_argument(
+        "--job-pool",
+        default="src/python/ai_scorer/training/data/proposed/job-pool.json",
+    )
+    p_reconcile.add_argument(
+        "--labeled",
+        default="src/python/ai_scorer/training/data/proposed/labeled.json",
+    )
+    p_reconcile.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_reconcile.add_argument(
+        "--report-out",
+        default="src/python/ai_scorer/training/data/proposed/job-pool-reconciliation.json",
+    )
+    p_reconcile.add_argument(
+        "--markdown-out",
+        default="src/python/ai_scorer/training/data/proposed/job-pool-reconciliation.md",
+    )
+
+    p_apply_reconciliation = sub.add_parser(
+        "apply-job-pool-reconciliation",
+        help="Apply mappings from an unchanged, reviewed job-pool reconciliation report",
+    )
+    p_apply_reconciliation.add_argument(
+        "--report",
+        default="src/python/ai_scorer/training/data/proposed/job-pool-reconciliation.json",
+    )
+    p_apply_reconciliation.add_argument(
+        "--candidates",
+        default="src/python/ai_scorer/training/data/proposed/candidates.json",
+    )
+    p_apply_reconciliation.add_argument(
+        "--labeled",
+        default="src/python/ai_scorer/training/data/proposed/labeled.json",
+    )
+    p_apply_reconciliation.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST)
+    p_apply_reconciliation.add_argument(
+        "--receipt-out",
+        default="src/python/ai_scorer/training/data/proposed/job-pool-reconciliation-apply.json",
+    )
+
     p_runtime = sub.add_parser("detect-runtime", help="Detect CUDA/CPU fine-tuning runtime path")
     p_runtime.add_argument("--output", default="")
 
@@ -435,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
         "label": _cmd_label,
         "export": _cmd_export,
         "migrate-fingerprints": _cmd_migrate_fingerprints,
+        "reconcile-job-pool": _cmd_reconcile_job_pool,
+        "apply-job-pool-reconciliation": _cmd_apply_job_pool_reconciliation,
         "preflight": _cmd_preflight,
         "detect-runtime": _cmd_detect_runtime,
         "train": _cmd_train,

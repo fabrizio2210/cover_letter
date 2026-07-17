@@ -6,6 +6,7 @@ import os
 from collections.abc import Iterable
 
 from src.python.ai_scorer.job_fingerprint import (
+    DESCRIPTION_BASIS,
     LEGACY_PARTIAL_BASIS,
     fingerprint_basis,
     stable_json_hash,
@@ -51,6 +52,7 @@ def build_split_manifest(
     golden_case_count: int,
     preference_set_hash: str = "",
     reconciliation: list[dict] | None = None,
+    applied_fingerprint_mappings: list[dict] | None = None,
 ) -> dict:
     train = sorted(set(train_fingerprints))
     val = sorted(set(val_fingerprints))
@@ -76,6 +78,7 @@ def build_split_manifest(
         "train_fingerprints": train,
         "val_fingerprints": val,
         "reconciliation": reconciliation or [],
+        "applied_fingerprint_mappings": applied_fingerprint_mappings or [],
     }
     errors = validate_split_manifest(manifest)
     if errors:
@@ -134,8 +137,48 @@ def validate_split_manifest(manifest: dict) -> list[str]:
     actual_bases = sorted({fingerprint_basis(item) for item in train | val})
     if manifest.get("fingerprint_bases") != actual_bases:
         errors.append("fingerprint_bases does not match the train/validation fingerprints")
+    raw_mappings = manifest.get("applied_fingerprint_mappings", [])
+    if not isinstance(raw_mappings, list):
+        errors.append("applied_fingerprint_mappings must be an array")
+        raw_mappings = []
+
+    mapping_legacy: set[str] = set()
+    mapping_full: set[str] = set()
+    assigned = train | val
+    for index, mapping in enumerate(raw_mappings):
+        where = f"applied_fingerprint_mappings[{index}]"
+        if not isinstance(mapping, dict):
+            errors.append(f"{where} must be an object")
+            continue
+        legacy = mapping.get("legacy_fingerprint")
+        full = mapping.get("full_fingerprint")
+        if not isinstance(legacy, str) or validate_fingerprint(legacy, LEGACY_PARTIAL_BASIS):
+            errors.append(f"{where}.legacy_fingerprint must be a valid legacy-partial fingerprint")
+        elif legacy in mapping_legacy:
+            errors.append(f"{where}.legacy_fingerprint is duplicated")
+        else:
+            mapping_legacy.add(legacy)
+        if not isinstance(full, str) or validate_fingerprint(full, DESCRIPTION_BASIS):
+            errors.append(f"{where}.full_fingerprint must be a valid description fingerprint")
+        elif full in mapping_full:
+            errors.append(f"{where}.full_fingerprint is duplicated")
+        else:
+            mapping_full.add(full)
+        if isinstance(legacy, str) and legacy in (assigned | excluded):
+            errors.append(f"{where}.legacy_fingerprint remains assigned or excluded")
+        if isinstance(full, str) and full not in assigned:
+            errors.append(f"{where}.full_fingerprint is not assigned to train or validation")
+        if not isinstance(mapping.get("source_report_sha256"), str) or len(mapping["source_report_sha256"]) != 64:
+            errors.append(f"{where}.source_report_sha256 must be a SHA-256 digest")
+
     if LEGACY_PARTIAL_BASIS in actual_bases and len(actual_bases) > 1:
-        errors.append("legacy-partial fingerprints cannot be mixed with another basis")
+        assigned_full = {fingerprint for fingerprint in assigned if fingerprint_basis(fingerprint) == DESCRIPTION_BASIS}
+        unmapped_full = assigned_full - mapping_full
+        if unmapped_full:
+            errors.append(
+                "legacy-partial fingerprints can mix with description fingerprints only through "
+                f"reviewed mappings; unmapped description fingerprints: {len(unmapped_full)}"
+            )
     return errors
 
 

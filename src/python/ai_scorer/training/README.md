@@ -38,6 +38,32 @@ and uses deterministic length-stratified sampling. The pool retains full
 normalized descriptions so preferences can be selected or changed before paid
 labeling.
 
+Reconcile the preserved paid-label inventory against the complete pool without
+changing any training artifact:
+
+```bash
+python -m src.python.ai_scorer.training.cli reconcile-job-pool
+```
+
+The command validates and hashes its inputs, recomputes pool fingerprints,
+rejects golden overlap, and writes both JSON and Markdown reports under
+`src/python/ai_scorer/training/data/proposed/`. A mapping is proposed only when
+all stored snippets occur in exactly one full description and both normalized
+title and location agree. Ambiguous and proposed matches remain unchanged until
+separately reviewed.
+
+After reviewing the proposed mappings, apply exactly that unchanged report:
+
+```bash
+python -m src.python.ai_scorer.training.cli apply-job-pool-reconciliation
+```
+
+The apply command refuses stale reports, validates candidate/label alignment,
+stages all three source artifacts before replacement, preserves existing split
+assignments, records newly recovered groups without reshuffling, and writes an
+apply receipt. A mixed legacy/full manifest is accepted only when every full
+fingerprint is backed by one of these reviewed mappings.
+
 Default outputs:
 - `src/python/ai_scorer/training/data/proposed/candidates.json`
 - `src/python/ai_scorer/training/data/proposed/labeled.json`

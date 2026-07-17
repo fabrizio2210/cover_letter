@@ -11,6 +11,7 @@ from src.python.ai_scorer.training.fine_tune_manifest import collect_jsonl_paths
 from src.python.ai_scorer.training.fine_tune_preflight import run_preflight
 from src.python.ai_scorer.job_fingerprint import (
     description_fingerprint,
+    legacy_partial_fingerprint,
     partition_fingerprints,
 )
 from src.python.ai_scorer.training.schema import TrainingCase
@@ -192,6 +193,46 @@ class TrainingSplitTests(unittest.TestCase):
             collected = collect_jsonl_paths(str(dataset_dir))
 
             self.assertEqual([Path(path).name for path in collected], ["train.jsonl", "val.jsonl"])
+
+    def test_mixed_fingerprint_bases_require_reviewed_mappings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            golden_path = root / "golden.json"
+            golden = _write_golden(golden_path)
+            legacy, _, _ = legacy_partial_fingerprint(["Legacy evidence"])
+            validation_legacy, _, _ = legacy_partial_fingerprint(["Validation legacy evidence"])
+            mapped_legacy, _, _ = legacy_partial_fingerprint(["Mapped legacy evidence"])
+            full, _ = description_fingerprint("Mapped full description")
+
+            with self.assertRaisesRegex(ValueError, "reviewed mappings"):
+                build_split_manifest(
+                    train_fingerprints=[legacy, full],
+                    val_fingerprints=[validation_legacy],
+                    golden_fingerprints=[golden],
+                    seed=42,
+                    val_ratio=0.1,
+                    golden_fixture_path=str(golden_path),
+                    golden_case_count=1,
+                )
+
+            manifest = build_split_manifest(
+                train_fingerprints=[legacy, full],
+                val_fingerprints=[validation_legacy],
+                golden_fingerprints=[golden],
+                seed=42,
+                val_ratio=0.1,
+                golden_fixture_path=str(golden_path),
+                golden_case_count=1,
+                applied_fingerprint_mappings=[
+                    {
+                        "legacy_fingerprint": mapped_legacy,
+                        "full_fingerprint": full,
+                        "source_report_sha256": "a" * 64,
+                    }
+                ],
+            )
+
+            self.assertEqual(manifest["fingerprint_bases"], ["description", "legacy-partial"])
 
 
 if __name__ == "__main__":

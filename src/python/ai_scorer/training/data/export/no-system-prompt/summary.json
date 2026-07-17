@@ -1,13 +1,14 @@
 {
   "total_label_inventory": 500,
-  "total_exported": 320,
-  "excluded": 180,
-  "train": 300,
+  "total_exported": 330,
+  "excluded": 170,
+  "train": 310,
   "val": 20,
   "train_job_fingerprints": [
+    "jdfp:v1:description:421cd2466f5906778f2c961f495bb15511068710a65adf360b78603a7b9f51c4",
+    "jdfp:v1:description:752a921f6cda760fe8cd7c7f07bf6c70ed55a0fd4a9577b8a9d106b631c8a301",
     "jdfp:v1:legacy-partial:1e4c7a87d89bebd7267f9ffcb0a953cbddd1988ee478ab8b2270a1268a06bc21",
     "jdfp:v1:legacy-partial:1ed51d81238a6ba594a8e3c8c2d4c52c2c47f64135b70c0a39d62b062d518916",
-    "jdfp:v1:legacy-partial:5a6105a631b2d15817ea6985211d352f200d128be7a3db799ea4132265d0c69e",
     "jdfp:v1:legacy-partial:6b392684bd7dc480577e5931376408c346780fa68a1607d344c376fbe5bcfd9e",
     "jdfp:v1:legacy-partial:7ae42213c390a5a08f3f0b782c22e4f0c50ab912647255707892808297c6e80e",
     "jdfp:v1:legacy-partial:b8eada57dff41e18be5fb1f96ecc0f654d64660d951770e7695744c9bfd75cdb",
@@ -17,11 +18,10 @@
     "jdfp:v1:legacy-partial:f93bbca2fcdae7674f3838ae50b7a6019806c942c3ccc74c3f87bf613ea572d2"
   ],
   "val_job_fingerprints": [
-    "jdfp:v1:legacy-partial:926c4e3ea13d5a00e54badba3e959e1efabf64a44dad2bef4018c7577f489006",
+    "jdfp:v1:description:bf35b4933807f29ebf4618d6d4608553bb7f1a64d9f534548ec75c1bb668c741",
     "jdfp:v1:legacy-partial:b9412eebc358beddd28f1352d111d70fbe7744dc7061d18bc36aa4d0159f7ab1"
   ],
   "excluded_job_fingerprints": [
-    "jdfp:v1:legacy-partial:19e842c181588eaa42d18b1665fe087f8a1929f093bd3012b496c675f9f8bea6",
     "jdfp:v1:legacy-partial:33206e171f98f7a386818cb91779ddbeccb4e2d275849687fede0a59c92ecb47",
     "jdfp:v1:legacy-partial:3f345e897862c67705760daa17fa04153d6bf72c36ed8928af6fa39c9ff02f7c",
     "jdfp:v1:legacy-partial:53f1692ef047594c5f231ced0bb6a24d12eea54444962fb53d41a24fcc7c7b03",
@@ -40,14 +40,15 @@
     "jdfp:v1:legacy-partial:f90f666b5ee39f3c93e85d499bc7be3fdb1a9125f75723a7a818b0a50fef4ee7",
     "jdfp:v1:title-location:6f9d365ae648ded3a39f9ef8815ef111ffbb3f75b2fbb4e65e64dd79620606bd"
   ],
-  "train_fingerprint_count": 10,
+  "train_fingerprint_count": 11,
   "val_fingerprint_count": 2,
   "seed": 42,
   "requested_val_ratio": 0.1,
-  "actual_train_ratio": 0.9375,
-  "actual_val_ratio": 0.0625,
+  "actual_train_ratio": 0.9393939393939394,
+  "actual_val_ratio": 0.06060606060606061,
   "split_unit": "job_fingerprint",
   "fingerprint_bases": [
+    "description",
     "legacy-partial"
   ],
   "strip_system_prompt": true

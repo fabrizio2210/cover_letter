@@ -9,3 +9,4 @@ __pycache__/
 src/python/ai_scorer/evals/data/proposed/
 eval-results/
 src/python/ai_scorer/training/data/proposed/job-pool*.json
+src/python/ai_scorer/training/data/proposed/job-pool-reconciliation.md

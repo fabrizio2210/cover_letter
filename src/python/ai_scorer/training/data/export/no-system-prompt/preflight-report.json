@@ -1,11 +1,11 @@
 {
   "dataset_dir": "src/python/ai_scorer/training/data/export/no-system-prompt",
-  "total_records": 320,
+  "total_records": 330,
   "split_reports": [
     {
       "split": "train",
       "path": "src/python/ai_scorer/training/data/export/no-system-prompt/train.jsonl",
-      "count": 300,
+      "count": 310,
       "critical_errors": [],
       "warnings": []
     },
