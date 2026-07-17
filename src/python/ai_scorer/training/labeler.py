@@ -73,15 +73,29 @@ def label_cases(
     *,
     reusable_cases: list[TrainingCase] | None = None,
     allow_paid_calls: bool = False,
+    overwrite_labels: bool = False,
 ) -> list[TrainingCase]:
-    reusable = {
-        _reuse_key(case): case
-        for case in (reusable_cases or [])
-        if case.label_available is not None
-    }
-    reusable_count = sum(1 for case in cases if _reuse_key(case) in reusable)
-    paid_count = len(cases) - reusable_count
-    print(f"[training.label] reusable={reusable_count} paid_required={paid_count}")
+    reusable = (
+        {}
+        if overwrite_labels
+        else {
+            _reuse_key(case): case
+            for case in (reusable_cases or [])
+            if case.label_available is not None
+        }
+    )
+    preserved_count = 0 if overwrite_labels else sum(
+        case.label_available is not None for case in cases
+    )
+    reusable_count = 0 if overwrite_labels else sum(
+        case.label_available is None and _reuse_key(case) in reusable
+        for case in cases
+    )
+    paid_count = len(cases) - preserved_count - reusable_count
+    print(
+        f"[training.label] preserved={preserved_count} reusable={reusable_count} "
+        f"paid_required={paid_count} overwrite_labels={str(overwrite_labels).lower()}"
+    )
     if paid_count and not allow_paid_calls:
         raise RuntimeError(
             f"{paid_count} cases require Gemini; rerun with --allow-paid-calls after reviewing the counts"
@@ -92,8 +106,11 @@ def label_cases(
     output: list[TrainingCase] = []
 
     for idx, case in enumerate(cases, start=1):
-        reused = reusable.get(_reuse_key(case))
-        if reused is not None:
+        reused = reusable.get(_reuse_key(case)) if case.label_available is None else None
+        if not overwrite_labels and case.label_available is not None:
+            score, available = case.label_score, bool(case.label_available)
+            source = "preserved"
+        elif reused is not None:
             score, available = reused.label_score, bool(reused.label_available)
             source = "reused"
         else:
@@ -116,6 +133,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
     parser.add_argument("--reuse-labels", default="")
     parser.add_argument("--allow-paid-calls", action="store_true")
+    parser.add_argument(
+        "--overwrite-labels",
+        action="store_true",
+        help="Relabel every input case with Gemini, ignoring input and reusable labels",
+    )
     args = parser.parse_args(argv)
 
     cases = load_cases(args.input)
@@ -132,6 +154,7 @@ def main(argv: list[str] | None = None) -> None:
         model_name=args.model,
         reusable_cases=reusable_cases,
         allow_paid_calls=args.allow_paid_calls,
+        overwrite_labels=args.overwrite_labels,
     )
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     dump_cases(labeled, args.output)

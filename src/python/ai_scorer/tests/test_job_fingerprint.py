@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from src.python.ai_scorer.evals.schema import load_fixtures, validate_fixtures
 from src.python.ai_scorer.job_fingerprint import (
@@ -203,6 +204,88 @@ class JobFingerprintTests(unittest.TestCase):
         result = label_cases([candidate], "unused", reusable_cases=[reusable], allow_paid_calls=False)
 
         self.assertEqual(result[0].label_score, 5)
+        self.assertTrue(result[0].label_available)
+
+    def test_existing_numeric_and_na_input_labels_are_preserved_by_default(self):
+        fingerprint, basis = description_fingerprint("Job description")
+        numeric = TrainingCase(
+            case_id="numeric",
+            job_fingerprint=fingerprint,
+            fingerprint_basis=basis,
+            title="Engineer",
+            location="Remote",
+            preference_key="coding",
+            preference_guidance="Coding",
+            relevant_snippets=["Code"],
+            system_prompt="System",
+            user_prompt="Numeric user prompt",
+            label_score=5,
+            label_available=True,
+        )
+        unavailable = TrainingCase(
+            **{
+                **numeric.__dict__,
+                "case_id": "unavailable",
+                "user_prompt": "N/A user prompt",
+                "label_score": None,
+                "label_available": False,
+            }
+        )
+
+        with patch(
+            "src.python.ai_scorer.training.labeler._label_case"
+        ) as paid_label:
+            result = label_cases([numeric, unavailable], "unused", allow_paid_calls=False)
+
+        paid_label.assert_not_called()
+        self.assertEqual(result[0].label_score, 5)
+        self.assertTrue(result[0].label_available)
+        self.assertIsNone(result[1].label_score)
+        self.assertFalse(result[1].label_available)
+
+    def test_overwrite_labels_requires_paid_approval_and_relabels(self):
+        fingerprint, basis = description_fingerprint("Job description")
+        labeled = TrainingCase(
+            case_id="existing",
+            job_fingerprint=fingerprint,
+            fingerprint_basis=basis,
+            title="Engineer",
+            location="Remote",
+            preference_key="coding",
+            preference_guidance="Coding",
+            relevant_snippets=["Code"],
+            system_prompt="System",
+            user_prompt="User",
+            label_score=5,
+            label_available=True,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "1 cases require Gemini"):
+            label_cases(
+                [labeled],
+                "unused",
+                allow_paid_calls=False,
+                overwrite_labels=True,
+            )
+
+        with (
+            patch("src.python.ai_scorer.training.labeler._build_gemini_model") as build_model,
+            patch(
+                "src.python.ai_scorer.training.labeler._label_case",
+                return_value=(2, True),
+            ) as paid_label,
+        ):
+            result = label_cases(
+                [labeled],
+                "test-model",
+                reusable_cases=[labeled],
+                allow_paid_calls=True,
+                overwrite_labels=True,
+            )
+
+        build_model.assert_called_once_with("test-model")
+        paid_label.assert_called_once_with("test-model", labeled)
+        self.assertEqual(result[0].label_score, 2)
         self.assertTrue(result[0].label_available)
 
     def test_future_extraction_excludes_and_splits_before_expansion(self):

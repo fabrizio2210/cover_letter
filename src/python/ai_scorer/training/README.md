@@ -113,6 +113,10 @@ Default outputs:
 Gemini labeling requires `GEMINI_TOKEN` and the explicit
 `--allow-paid-calls` flag. Exact reusable labels are copied before any paid
 calls are considered, and the CLI reports the paid case count before stopping.
+Labels already present in the input—including N/A labels—are preserved by
+default and take precedence over `--reuse-labels`. Relabeling is possible only
+with the additional explicit `--overwrite-labels` flag; in that mode all input
+and reusable labels are ignored and every case counts as a paid call.
 
 Jobs are identified by versioned job-description fingerprints rather than
 database IDs. Future extraction excludes golden fingerprints and creates a

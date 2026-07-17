@@ -18,7 +18,7 @@ from src.python.ai_scorer.training.fine_tune_train import (
     _encode_training_example,
 )
 from src.python.ai_scorer.training.training_balance import BALANCED_MODE, SAMPLING_MODES
-from src.python.ai_scorer.training.cli import _cmd_train, build_parser
+from src.python.ai_scorer.training.cli import _cmd_label, _cmd_train, build_parser
 
 
 class _FakeQwenTokenizer:
@@ -192,6 +192,17 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
             forwarded[forwarded.index("--samples-per-job-preference") + 1],
             "1",
         )
+
+    def test_cli_forwards_explicit_label_overwrite_flag(self):
+        args = build_parser().parse_args(["label", "--overwrite-labels"])
+
+        with patch(
+            "src.python.ai_scorer.training.labeler.main",
+            return_value=None,
+        ) as label_main:
+            self.assertEqual(_cmd_label(args), 0)
+
+        self.assertIn("--overwrite-labels", label_main.call_args.args[0])
 
     def test_package_defaults_to_runtime_scoring_instruction(self):
         args = build_parser().parse_args(

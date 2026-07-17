@@ -141,6 +141,8 @@ def _cmd_label(args: argparse.Namespace) -> int:
         label_args.extend(["--reuse-labels", args.reuse_labels])
     if args.allow_paid_calls:
         label_args.append("--allow-paid-calls")
+    if args.overwrite_labels:
+        label_args.append("--overwrite-labels")
     label_main(label_args)
     return 0
 
@@ -457,6 +459,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_label.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash"))
     p_label.add_argument("--reuse-labels", default="")
     p_label.add_argument("--allow-paid-calls", action="store_true")
+    p_label.add_argument(
+        "--overwrite-labels",
+        action="store_true",
+        help="Relabel every input case, ignoring input and reusable labels",
+    )
 
     p_export = sub.add_parser("export", help="Export labeled cases into chat JSONL splits")
     p_export.add_argument("--input", default="src/python/ai_scorer/training/data/proposed/labeled.json")
