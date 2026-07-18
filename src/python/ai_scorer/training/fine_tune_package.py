@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 import sys
-from textwrap import dedent
 
 from src.python.ai_scorer.scoring_prompt import SCORING_SYSTEM_INSTRUCTION
 from src.python.ai_scorer.training.fine_tune_manifest import now_epoch, write_manifest
@@ -102,13 +101,15 @@ def _quantize_gguf(input_gguf: str, output_gguf: str, quant: str, convert_script
 
 
 def _write_modelfile(modelfile_path: str, gguf_filename: str, system_prompt: str) -> None:
-    content = dedent(
-        f"""
-        FROM ./{gguf_filename}
-        PARAMETER temperature 0
-        SYSTEM \"\"\"{system_prompt}\"\"\"
-        """
-    ).strip() + "\n"
+    # Build directives explicitly at column zero. ``textwrap.dedent`` cannot
+    # safely normalize this template because a multiline system prompt can
+    # contain unindented lines, causing Ollama to silently ignore the indented
+    # PARAMETER and SYSTEM directives that follow FROM.
+    content = (
+        f"FROM ./{gguf_filename}\n"
+        "PARAMETER temperature 0\n"
+        f'SYSTEM """{system_prompt}"""\n'
+    )
     with open(modelfile_path, "w", encoding="utf-8") as handle:
         handle.write(content)
 
@@ -116,7 +117,11 @@ def _write_modelfile(modelfile_path: str, gguf_filename: str, system_prompt: str
 def _ollama_create(tag: str, modelfile_path: str, working_dir: str) -> None:
     if shutil.which("ollama") is None:
         raise RuntimeError("ollama CLI not found in PATH")
-    _run(["ollama", "create", tag, "-f", modelfile_path], cwd=working_dir)
+    # ``subprocess.run`` resolves command arguments after changing to ``cwd``.
+    # Package paths may be relative to the caller's working directory, so make
+    # the Modelfile absolute before asking ``_run`` to change directories.
+    absolute_modelfile_path = os.path.abspath(modelfile_path)
+    _run(["ollama", "create", tag, "-f", absolute_modelfile_path], cwd=working_dir)
 
 
 def main(argv: list[str] | None = None) -> int:

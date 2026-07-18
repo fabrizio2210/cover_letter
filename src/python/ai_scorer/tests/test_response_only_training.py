@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from src.python.ai_scorer.scoring_prompt import SCORING_SYSTEM_INSTRUCTION
-from src.python.ai_scorer.training.fine_tune_package import _write_modelfile
+from src.python.ai_scorer.training.fine_tune_package import _ollama_create, _write_modelfile
 from src.python.ai_scorer.training.fine_tune_train import (
     LOSS_MODES,
     _CausalLMCollator,
@@ -228,7 +228,29 @@ class TrainingLossModeEncodingTests(unittest.TestCase):
             with open(path, "r", encoding="utf-8") as handle:
                 content = handle.read()
 
-        self.assertIn(f'SYSTEM """{SCORING_SYSTEM_INSTRUCTION}"""', content)
+            self.assertIn(f'SYSTEM """{SCORING_SYSTEM_INSTRUCTION}"""', content)
+            self.assertTrue(content.startswith("FROM ./model-f16.gguf\n"))
+            self.assertIn("\nPARAMETER temperature 0\nSYSTEM \"\"\"", content)
+
+    def test_ollama_create_resolves_modelfile_before_changing_directory(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            modelfile_path = os.path.join(directory, "Modelfile")
+            relative_modelfile_path = os.path.relpath(modelfile_path)
+
+            with patch(
+                "src.python.ai_scorer.training.fine_tune_package.shutil.which",
+                return_value="/usr/bin/ollama",
+            ), patch(
+                "src.python.ai_scorer.training.fine_tune_package._run"
+            ) as run:
+                _ollama_create("scorer:test", relative_modelfile_path, directory)
+
+            run.assert_called_once_with(
+                ["ollama", "create", "scorer:test", "-f", os.path.abspath(modelfile_path)],
+                cwd=directory,
+            )
 
     def test_configures_torch_openmp_and_mkl_threads(self):
         state = {"threads": 96, "interop_threads": 96}
