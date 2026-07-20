@@ -65,7 +65,7 @@
     {
       "case_id": "ebd3f8b8-10be-492d-bfc9-47381a1439ee",
       "title": "Frontend Platform Engineer, JavaScript Infrastructure 2 days ago Fully Remote",
-      "description": "",
+      "description": "We are looking for a Frontend Platform Engineer to improve the shared JavaScript infrastructure used by our product teams. You will build and maintain TypeScript and React tooling, monorepo workflows, build and test pipelines, dependency management, frontend observability, and browser performance tooling. You will partner with frontend teams to establish standards and make application development faster and more reliable. This role is focused on the frontend ecosystem and developer experience rather than backend services, distributed systems, or cloud infrastructure.",
       "location": "Remote",
       "preference_key": "backend_infra",
       "preference_guidance": "Strong preference for backend, infrastructure, or platform engineering roles. Frontend-only roles are not a good fit.",
@@ -73,7 +73,6 @@
       "expected_score_available": true,
       "rationale": "[model=gpt-5] score=3 available=True because it is platform-oriented but explicitly frontend-leaning, so backend/infra fit is only partial.",
       "tags": [
-        "empty_description",
         "remote_location"
       ],
       "schema_version": "2",
@@ -890,7 +889,7 @@
     {
       "case_id": "0fdca6b6-1ad9-4eef-800a-4bfbc00f85de",
       "title": "Frontend Platform Engineer, JavaScript Infrastructure 5 days ago Fully Remote",
-      "description": "",
+      "description": "We are looking for a Frontend Platform Engineer to improve the shared JavaScript infrastructure used by our product teams. You will build and maintain TypeScript and React tooling, monorepo workflows, build and test pipelines, dependency management, frontend observability, and browser performance tooling. You will partner with frontend teams to establish standards and make application development faster and more reliable. This role is focused on the frontend ecosystem and developer experience rather than backend services, distributed systems, or cloud infrastructure.",
       "location": "Remote",
       "preference_key": "backend_infra",
       "preference_guidance": "Prefers backend engineering work",
@@ -898,7 +897,6 @@
       "expected_score_available": true,
       "rationale": "[model=gpt-5] score=0 available=True because this is not a backend/infrastructure engineering role, so it strongly mismatches the backend/infra preference.",
       "tags": [
-        "empty_description",
         "remote_location"
       ],
       "schema_version": "2",
