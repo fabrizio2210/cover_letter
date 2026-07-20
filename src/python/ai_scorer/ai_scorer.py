@@ -1,3 +1,4 @@
+import copy
 import json
 import math
 import os
@@ -32,11 +33,39 @@ _SCORING_STATUS_BSON: dict[int, str] = {
 TERMINAL_PROGRESS_STATUSES = {"completed", "failed"}
 
 DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+SECONDARY_EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5-Q"
 SNIPPET_TOP_K = 2
+SNIPPET_CANDIDATE_K = 10
+SNIPPET_RETRIEVER_K = 20
+SNIPPET_RERANKED_TOP_K = 2
+SNIPPET_PROBE_K = 6
 SNIPPET_WINDOW_SIZE = 1
+DEFAULT_QUERY_EXPANSION_MODEL = "qwen2.5:1.5b"
+DEFAULT_RERANKING_MODEL = "jinaai/jina-reranker-v1-tiny-en"
+DEFAULT_EVIDENCE_SELECTOR_MODEL = "qwen2.5:3b"
+DEFAULT_METADATA_NORMALIZATION_MODEL = "qwen2.5:1.5b"
+DEFAULT_CANDIDATE_QUERY_PREFIX = ""
 
 _EMBEDDING_MODEL_CACHE = {}
 _EMBEDDING_MODEL_CACHE_LOCK = threading.Lock()
+_QUERY_EXPANSION_CACHE: dict[tuple[str, ...], str] = {}
+_QUERY_EXPANSION_CACHE_LOCK = threading.Lock()
+_LOCATION_NORMALIZATION_CACHE: dict[tuple[str, str], str] = {}
+_LOCATION_NORMALIZATION_CACHE_LOCK = threading.Lock()
+_TITLE_NORMALIZATION_CACHE: dict[tuple[str, str], str] = {}
+_TITLE_NORMALIZATION_CACHE_LOCK = threading.Lock()
+_PREFERENCE_NORMALIZATION_CACHE: dict[tuple[str, ...], str] = {}
+_PREFERENCE_NORMALIZATION_CACHE_LOCK = threading.Lock()
+_PREFERENCE_FRAGMENT_CACHE: dict[tuple[str, ...], bool] = {}
+_PREFERENCE_FRAGMENT_CACHE_LOCK = threading.Lock()
+_PREFERENCE_EVIDENCE_SCOPE_CACHE: dict[tuple[str, str], str] = {}
+_PREFERENCE_EVIDENCE_SCOPE_CACHE_LOCK = threading.Lock()
+_CONTRASTIVE_QUERY_CACHE: dict[tuple[str, str], tuple[str, str]] = {}
+_CONTRASTIVE_QUERY_CACHE_LOCK = threading.Lock()
+_RERANKING_MODEL_CACHE = {}
+_RERANKING_MODEL_CACHE_LOCK = threading.Lock()
+_LATE_INTERACTION_MODEL_CACHE = {}
+_LATE_INTERACTION_MODEL_CACHE_LOCK = threading.Lock()
 
 
 def scoring_status_to_bson(status: int) -> str:
@@ -497,6 +526,141 @@ def resolve_embedding_model_name() -> str:
     return configured or DEFAULT_EMBEDDING_MODEL
 
 
+def resolve_candidate_embedding_model_name() -> str:
+    configured = str(os.environ.get("CANDIDATE_EMBEDDING_MODEL", "") or "").strip()
+    return configured or resolve_embedding_model_name()
+
+
+def resolve_candidate_query_prefix() -> str:
+    return str(
+        os.environ.get("CANDIDATE_QUERY_PREFIX", DEFAULT_CANDIDATE_QUERY_PREFIX)
+        or ""
+    )
+
+
+def resolve_evidence_fusion_mode() -> str:
+    return str(os.environ.get("EVIDENCE_FUSION_MODE", "") or "").strip()
+
+
+def resolve_candidate_retrieval_mode() -> str:
+    return str(os.environ.get("CANDIDATE_RETRIEVAL_MODE", "") or "").strip()
+
+
+def resolve_evidence_selection_mode() -> str:
+    return str(os.environ.get("EVIDENCE_SELECTION_MODE", "") or "").strip()
+
+
+def resolve_evidence_view_routing_mode() -> str:
+    return str(os.environ.get("EVIDENCE_VIEW_ROUTING", "") or "").strip()
+
+
+def resolve_evidence_scope_routing_mode() -> str:
+    return str(os.environ.get("EVIDENCE_SCOPE_ROUTING", "") or "").strip()
+
+
+def resolve_final_order_routing_mode() -> str:
+    return str(os.environ.get("FINAL_ORDER_ROUTING", "") or "").strip()
+
+
+def resolve_scoring_options() -> dict[str, Any]:
+    configured_temperature = str(
+        os.environ.get("SCORING_TEMPERATURE", "") or ""
+    ).strip()
+    options: dict[str, Any] = {
+        "temperature": float(configured_temperature) if configured_temperature else 0
+    }
+    configured_seed = str(os.environ.get("SCORING_SEED", "") or "").strip()
+    if configured_seed:
+        options["seed"] = int(configured_seed)
+    return options
+
+
+def should_normalize_job_location() -> bool:
+    return str(os.environ.get("NORMALIZE_JOB_LOCATION", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_normalize_job_title() -> bool:
+    return str(os.environ.get("NORMALIZE_JOB_TITLE", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_render_explicit_remote_location() -> bool:
+    return str(os.environ.get("EXPLICIT_REMOTE_LOCATION", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_normalize_preference_guidance() -> bool:
+    return str(os.environ.get("NORMALIZE_PREFERENCE_GUIDANCE", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_use_scorer_pointwise_reranking() -> bool:
+    return str(os.environ.get("SCORER_POINTWISE_RERANK", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_use_scorer_pointwise_reranking_cascade() -> bool:
+    return str(
+        os.environ.get("SCORER_POINTWISE_RERANK_CASCADE", "") or ""
+    ).lower() in {"1", "true", "yes"}
+
+
+def should_rerank_with_job_context() -> bool:
+    return str(os.environ.get("RERANK_WITH_JOB_CONTEXT", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def should_preserve_candidate_order() -> bool:
+    return str(os.environ.get("PRESERVE_CANDIDATE_ORDER", "") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def fuse_raw_and_reranked_snippets(
+    raw_snippets: list[str],
+    reranked_snippets: list[str],
+    top_k: int = SNIPPET_RERANKED_TOP_K,
+) -> list[str]:
+    """Reserve one result for each retrieval view, then fill without duplicates."""
+    ordered = (
+        raw_snippets[:1]
+        + reranked_snippets[:1]
+        + reranked_snippets[1:]
+        + raw_snippets[1:]
+    )
+    selected: list[str] = []
+    seen: set[str] = set()
+    for snippet in ordered:
+        if not snippet or snippet in seen:
+            continue
+        seen.add(snippet)
+        selected.append(snippet)
+        if len(selected) >= max(0, top_k):
+            break
+    return selected
+
+
 def build_embedding_model(model_name: str):
     try:
         from fastembed import TextEmbedding
@@ -623,6 +787,77 @@ def generate_hybrid_chunks(text: str, window_size: int = SNIPPET_WINDOW_SIZE) ->
     return ordered_chunks
 
 
+def generate_heading_contextual_chunks(text: str) -> list[str]:
+    """Attach the nearest source section heading to each atomic evidence unit."""
+    if not text:
+        return []
+
+    normalized_text = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized_text = re.sub(r"\s*•\s+", "\n• ", normalized_text)
+    normalized_text = re.sub(r"\s*[—–-]\s+", "\n- ", normalized_text)
+
+    contextual_chunks: list[str] = []
+    seen: set[str] = set()
+    current_heading = ""
+    buffered_lines: list[str] = []
+
+    def clean_heading(value: str) -> str:
+        cleaned = re.sub(r"^#+\s*", "", value).strip()
+        cleaned = re.sub(r"^\*\*(.*?)\*\*$", r"\1", cleaned).strip()
+        return cleaned.rstrip(":").strip()
+
+    def append_content(value: str):
+        cleaned = re.sub(r"\s+", " ", value).strip()
+        if not cleaned:
+            return
+        parts = re.split(
+            r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[\.!?])\s",
+            cleaned,
+        )
+        for part in parts:
+            evidence = part.strip()
+            if not evidence:
+                continue
+            contextual = (
+                f"Section: {current_heading}\nEvidence: {evidence}"
+                if current_heading
+                else evidence
+            )
+            if contextual not in seen:
+                seen.add(contextual)
+                contextual_chunks.append(contextual)
+
+    def flush_buffer():
+        if buffered_lines:
+            append_content(" ".join(buffered_lines))
+            buffered_lines.clear()
+
+    for raw_line in normalized_text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            flush_buffer()
+            continue
+
+        heading_candidate = clean_heading(line)
+        is_markdown_heading = line.startswith("#")
+        is_bold_heading = bool(re.fullmatch(r"\*\*.+:?\*\*", line))
+        is_plain_heading = line.endswith(":") and len(line.split()) <= 12
+        if is_markdown_heading or is_bold_heading or is_plain_heading:
+            flush_buffer()
+            current_heading = heading_candidate
+            continue
+
+        is_bullet = bool(re.match(r"^([-*•]|\d+[.)])\s+", line))
+        if is_bullet:
+            flush_buffer()
+            append_content(re.sub(r"^([-*•]|\d+[.)])\s+", "", line).strip())
+        else:
+            buffered_lines.append(line)
+
+    flush_buffer()
+    return contextual_chunks
+
+
 def get_top_snippets(
     embedding_model,
     chunks: list[str],
@@ -643,14 +878,22 @@ def get_top_snippets(
     return selected
 
 
-def retrieve_relevant_snippets(job_description: str, preference_guidance: str) -> list[str]:
+def retrieve_relevant_snippets(
+    job_description: str,
+    preference_guidance: str,
+    top_k: int = SNIPPET_TOP_K,
+    model_name: str | None = None,
+    exclude_heading_only: bool = False,
+) -> list[str]:
     if not job_description:
         return []
 
-    model_name = resolve_embedding_model_name()
+    model_name = model_name or resolve_embedding_model_name()
     embedding_model = get_embedding_model(model_name)
 
     chunks = generate_hybrid_chunks(job_description, window_size=SNIPPET_WINDOW_SIZE)
+    if exclude_heading_only:
+        chunks = [chunk for chunk in chunks if not is_heading_only_chunk(chunk)]
     if not chunks:
         return []
 
@@ -663,8 +906,789 @@ def retrieve_relevant_snippets(job_description: str, preference_guidance: str) -
         chunks,
         cached_vectors,
         preference_guidance,
-        top_k=SNIPPET_TOP_K,
+        top_k=top_k,
     )
+
+
+def is_heading_only_chunk(chunk: str) -> bool:
+    """Return whether an atomic chunk is formatting-only section metadata."""
+    value = str(chunk or "").strip()
+    if not value:
+        return True
+    if re.fullmatch(r"#{1,6}\s+[^\n]+", value):
+        return True
+    if value.startswith("**") and value.count("**") == 2 and (
+        value.endswith("**") or value.endswith("**:")
+    ):
+        return True
+    return value.endswith(":") and len(value.split()) <= 12
+
+
+def retrieve_heading_contextual_snippets(
+    job_description: str,
+    preference_guidance: str,
+    top_k: int = SNIPPET_TOP_K,
+    model_name: str | None = None,
+) -> list[str]:
+    if not job_description:
+        return []
+    model_name = model_name or resolve_embedding_model_name()
+    embedding_model = get_embedding_model(model_name)
+    chunks = generate_heading_contextual_chunks(job_description)
+    if not chunks:
+        return []
+    cached_vectors = [_vector_to_float_list(vector) for vector in embedding_model.embed(chunks)]
+    if not cached_vectors:
+        return []
+    return get_top_snippets(
+        embedding_model,
+        chunks,
+        cached_vectors,
+        preference_guidance,
+        top_k=top_k,
+    )
+
+
+def retrieve_bm25_snippets(
+    job_description: str,
+    query: str,
+    top_k: int = SNIPPET_CANDIDATE_K,
+) -> list[str]:
+    """Rank atomic source chunks with standard BM25 lexical relevance."""
+    chunks = generate_hybrid_chunks(job_description, window_size=SNIPPET_WINDOW_SIZE)
+    query_terms = re.findall(r"[a-z0-9]+", query.lower())
+    if not chunks or not query_terms:
+        return []
+
+    documents = [re.findall(r"[a-z0-9]+", chunk.lower()) for chunk in chunks]
+    document_count = len(documents)
+    average_length = sum(len(document) for document in documents) / document_count
+    document_frequency: dict[str, int] = {}
+    for document in documents:
+        for term in set(document):
+            document_frequency[term] = document_frequency.get(term, 0) + 1
+
+    k1 = 1.5
+    b = 0.75
+    scores: list[tuple[int, float]] = []
+    for index, document in enumerate(documents):
+        term_frequency: dict[str, int] = {}
+        for term in document:
+            term_frequency[term] = term_frequency.get(term, 0) + 1
+        length_normalization = 1 - b + b * len(document) / max(average_length, 1.0)
+        score = 0.0
+        for term in query_terms:
+            frequency = term_frequency.get(term, 0)
+            if frequency == 0:
+                continue
+            frequency_in_corpus = document_frequency.get(term, 0)
+            inverse_document_frequency = math.log(
+                1 + (document_count - frequency_in_corpus + 0.5) / (frequency_in_corpus + 0.5)
+            )
+            score += inverse_document_frequency * (
+                frequency * (k1 + 1) / (frequency + k1 * length_normalization)
+            )
+        scores.append((index, score))
+
+    ranked = sorted(scores, key=lambda item: (-item[1], item[0]))
+    return [chunks[index] for index, _ in ranked[: max(0, top_k)]]
+
+
+def reciprocal_rank_fusion(
+    ranked_lists: list[list[str]],
+    top_k: int = SNIPPET_CANDIDATE_K,
+    rank_constant: int = 60,
+) -> list[str]:
+    """Fuse ranked source passages without comparing retriever score scales."""
+    scores: dict[str, float] = {}
+    first_seen: dict[str, int] = {}
+    order = 0
+    for ranked in ranked_lists:
+        for rank, snippet in enumerate(ranked, start=1):
+            if snippet not in first_seen:
+                first_seen[snippet] = order
+                order += 1
+            scores[snippet] = scores.get(snippet, 0.0) + 1.0 / (rank_constant + rank)
+    ranked_snippets = sorted(scores, key=lambda snippet: (-scores[snippet], first_seen[snippet]))
+    return ranked_snippets[: max(0, top_k)]
+
+
+def resolve_query_expansion_model_name() -> str:
+    configured = str(os.environ.get("QUERY_EXPANSION_MODEL", "") or "").strip()
+    return configured or DEFAULT_QUERY_EXPANSION_MODEL
+
+
+def expand_retrieval_query(
+    ollama_client,
+    preference_guidance: str,
+) -> str:
+    """Expand terse preference guidance into a semantic retrieval query."""
+    expansion_model = resolve_query_expansion_model_name()
+    expansion_profile = str(
+        os.environ.get("QUERY_EXPANSION_PROFILE", "") or ""
+    ).strip()
+    cache_key = (expansion_model, expansion_profile, preference_guidance)
+    with _QUERY_EXPANSION_CACHE_LOCK:
+        cached = _QUERY_EXPANSION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    system_instruction = (
+        "Rewrite a candidate job preference as one concise semantic search "
+        "query for retrieving evidence from a job description. Include "
+        "relevant role titles, duties, technologies, synonyms, and both "
+        "supporting and contradicting phrases when useful. Preserve the "
+        "preference's meaning and intensity. Do not evaluate any job and do "
+        "not assign a score. Return one JSON object with exactly one string "
+        "field named search_query."
+    )
+    if expansion_profile == "responsibility_evidence":
+        system_instruction = (
+            "Transform one candidate job preference into one compact semantic "
+            "search query made of language likely to appear in a job posting as "
+            "direct evidence for or against that criterion. Preserve its exact "
+            "strength, exclusivity, and qualifiers. Prioritize core "
+            "responsibilities, day-to-day work, role scope, work conditions, and "
+            "explicit opposite or limiting language. Avoid generic company claims "
+            "and generic candidate qualifications or skill lists unless the "
+            "preference itself is about a qualification. Do not evaluate a job, "
+            "invent job facts, or assign a score. Return one JSON object with "
+            "exactly one string field named search_query."
+        )
+
+    messages = [
+        {
+            "role": "system",
+            "content": system_instruction,
+        },
+        {
+            "role": "user",
+            "content": f"Preference Guidance: {preference_guidance}\n",
+        },
+    ]
+
+    response = ollama_client.chat(
+        model=expansion_model,
+        messages=messages,
+        format="json",
+        options={"temperature": 0},
+    )
+    content = extract_ollama_content(response)
+    payload = json.loads(content)
+    if not isinstance(payload, dict):
+        raise ValueError("Query expansion response is not a JSON object")
+
+    expanded_query = str(payload.get("search_query", "") or "").strip()
+    if not expanded_query:
+        raise ValueError("Query expansion response is missing search_query")
+    with _QUERY_EXPANSION_CACHE_LOCK:
+        _QUERY_EXPANSION_CACHE[cache_key] = expanded_query
+    return expanded_query
+
+
+def normalize_job_location(ollama_client, raw_location: str) -> str:
+    """Map free-form location metadata to the scorer's trained vocabulary."""
+    model_name = (
+        str(os.environ.get("METADATA_NORMALIZATION_MODEL", "") or "").strip()
+        or DEFAULT_METADATA_NORMALIZATION_MODEL
+    )
+    cache_key = (model_name, raw_location)
+    with _LOCATION_NORMALIZATION_CACHE_LOCK:
+        cached = _LOCATION_NORMALIZATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    response = ollama_client.chat(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Normalize one raw job-location value for a work-arrangement "
+                    "evaluator. Return exactly one of remote, hybrid, onsite, or "
+                    "unknown. Preserve the explicitly stated work arrangement. A "
+                    "remote role restricted to a country or region is still remote. "
+                    "Use unknown when the value is blank or does not state a work "
+                    "arrangement. Do not infer from any information outside the raw "
+                    "value. Return one JSON object with exactly one string field named "
+                    "normalized_location."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Raw Job Location: {raw_location}\n",
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    if not isinstance(payload, dict):
+        raise ValueError("Location normalization response is not a JSON object")
+    normalized = str(payload.get("normalized_location", "") or "").strip().lower()
+    if normalized not in {"remote", "hybrid", "onsite", "unknown"}:
+        raise ValueError(f"Location normalizer returned invalid value: {normalized!r}")
+    with _LOCATION_NORMALIZATION_CACHE_LOCK:
+        _LOCATION_NORMALIZATION_CACHE[cache_key] = normalized
+    return normalized
+
+
+def preference_guidance_needs_rewrite(ollama_client, raw_guidance: str) -> bool:
+    """Detect incomplete linguistic form without interpreting the criterion."""
+    model_name = str(
+        os.environ.get("PREFERENCE_NORMALIZATION_MODEL", "") or ""
+    ).strip() or "qwen2.5:7b"
+    cache_key = (model_name, "referent_only_v1", raw_guidance)
+    with _PREFERENCE_FRAGMENT_CACHE_LOCK:
+        cached = _PREFERENCE_FRAGMENT_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    response = ollama_client.chat(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Classify only whether one candidate-preference string contains "
+                    "an impersonal pronoun or demonstrative whose referent is missing. "
+                    "Set needs_rewrite=true for an unresolved form such as 'It "
+                    "requires Y' or 'This involves Y'. Set needs_rewrite=false for "
+                    "concise preference-field forms such as 'Prefers X' or 'Strong "
+                    "preference for X', as well as complete declarative or first-person "
+                    "statements. Do not interpret the criterion, "
+                    "paraphrase it, evaluate a job, or assign a score. Return one JSON "
+                    "object with exactly one boolean field named needs_rewrite."
+                ),
+            },
+            {
+                "role": "user",
+                "content": "Preference Guidance: Prefers quiet work environments\n",
+            },
+            {"role": "assistant", "content": '{"needs_rewrite":false}'},
+            {
+                "role": "user",
+                "content": "Preference Guidance: It requires frequent travel\n",
+            },
+            {"role": "assistant", "content": '{"needs_rewrite":true}'},
+            {
+                "role": "user",
+                "content": "Preference Guidance: Strong preference for quiet offices\n",
+            },
+            {"role": "assistant", "content": '{"needs_rewrite":false}'},
+            {
+                "role": "user",
+                "content": f"Preference Guidance: {raw_guidance}\n",
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    decision = payload.get("needs_rewrite") if isinstance(payload, dict) else None
+    if type(decision) is not bool:
+        raise ValueError("Preference fragment classifier returned invalid output")
+    with _PREFERENCE_FRAGMENT_CACHE_LOCK:
+        _PREFERENCE_FRAGMENT_CACHE[cache_key] = decision
+    return decision
+
+
+def classify_preference_evidence_scope(ollama_client, preference_guidance: str) -> str:
+    """Classify whether structured location metadata can decide a criterion."""
+    model_name = str(
+        os.environ.get("EVIDENCE_SCOPE_MODEL", "") or ""
+    ).strip() or "qwen2.5:7b"
+    cache_key = (model_name, preference_guidance)
+    with _PREFERENCE_EVIDENCE_SCOPE_CACHE_LOCK:
+        cached = _PREFERENCE_EVIDENCE_SCOPE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    response = ollama_client.chat(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Classify which source is necessary to evaluate one candidate job "
+                    "preference. Return location_metadata only when the criterion is "
+                    "solely about work arrangement or geographic location and an "
+                    "explicit job-location field can directly support or contradict it. "
+                    "Return description for criteria about role family, duties, "
+                    "technologies, intensity, culture, quality, or any other content "
+                    "requiring title or description evidence. Do not evaluate a job or "
+                    "assign a score. Return one JSON object with exactly one string "
+                    "field named evidence_scope whose value is location_metadata or "
+                    "description."
+                ),
+            },
+            {
+                "role": "user",
+                "content": "Preference Guidance: Prefers fully remote work\n",
+            },
+            {"role": "assistant", "content": '{"evidence_scope":"location_metadata"}'},
+            {
+                "role": "user",
+                "content": "Preference Guidance: Wants roles in Amsterdam or remote\n",
+            },
+            {"role": "assistant", "content": '{"evidence_scope":"location_metadata"}'},
+            {
+                "role": "user",
+                "content": "Preference Guidance: Prefers hands-on implementation work\n",
+            },
+            {"role": "assistant", "content": '{"evidence_scope":"description"}'},
+            {
+                "role": "user",
+                "content": "Preference Guidance: Prefers backend roles over frontend roles\n",
+            },
+            {"role": "assistant", "content": '{"evidence_scope":"description"}'},
+            {
+                "role": "user",
+                "content": f"Preference Guidance: {preference_guidance}\n",
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    scope = payload.get("evidence_scope") if isinstance(payload, dict) else None
+    if scope not in {"location_metadata", "description"}:
+        raise ValueError("Preference evidence-scope classifier returned invalid output")
+    with _PREFERENCE_EVIDENCE_SCOPE_CACHE_LOCK:
+        _PREFERENCE_EVIDENCE_SCOPE_CACHE[cache_key] = scope
+    return scope
+
+
+def normalize_preference_guidance(ollama_client, raw_guidance: str) -> str:
+    """Canonicalize impersonal preference fragments without changing criteria."""
+    if re.match(r"^\s*(?:I\b|My\b)", raw_guidance, flags=re.IGNORECASE) or re.search(
+        r"\bme\b", raw_guidance, flags=re.IGNORECASE
+    ):
+        return raw_guidance
+    if not re.match(r"^\s*(?:it|this|that)\b", raw_guidance, flags=re.IGNORECASE):
+        return raw_guidance
+    if not preference_guidance_needs_rewrite(ollama_client, raw_guidance):
+        return raw_guidance
+    model_name = str(
+        os.environ.get("PREFERENCE_NORMALIZATION_MODEL", "") or ""
+    ).strip() or "qwen2.5:7b"
+    cache_key = (model_name, "guarded_first_person_v1", raw_guidance)
+    with _PREFERENCE_NORMALIZATION_CACHE_LOCK:
+        cached = _PREFERENCE_NORMALIZATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    response = ollama_client.chat(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Rewrite one candidate preference with an unresolved impersonal "
+                    "referent as one natural first-person criterion about the desired "
+                    "role. The output MUST begin with the word 'I'. Make only the "
+                    "implicit role referent explicit. Preserve exactly "
+                    "the stated criterion, intensity, acceptable alternatives, "
+                    "exclusions, and qualifiers. Resolve only grammatical perspective "
+                    "or an impersonal pronoun; do not add role titles, duties, "
+                    "technologies, synonyms, examples, exceptions, opposite "
+                    "conditions, or new semantic detail. Do not evaluate a job or "
+                    "assign a score. Return one JSON object with exactly one string "
+                    "field named normalized_guidance."
+                ),
+            },
+            {
+                "role": "user",
+                "content": "Preference Guidance: Prefers quiet work environments\n",
+            },
+            {
+                "role": "assistant",
+                "content": '{"normalized_guidance":"I prefer quiet work environments"}',
+            },
+            {
+                "role": "user",
+                "content": "Preference Guidance: It requires frequent travel\n",
+            },
+            {
+                "role": "assistant",
+                "content": '{"normalized_guidance":"I prefer roles that require frequent travel"}',
+            },
+            {
+                "role": "user",
+                "content": f"Preference Guidance: {raw_guidance}\n",
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    if not isinstance(payload, dict):
+        raise ValueError("Preference normalizer response is not a JSON object")
+    normalized = str(payload.get("normalized_guidance", "") or "").strip()
+    if not normalized:
+        raise ValueError("Preference normalizer returned empty guidance")
+    with _PREFERENCE_NORMALIZATION_CACHE_LOCK:
+        _PREFERENCE_NORMALIZATION_CACHE[cache_key] = normalized
+    return normalized
+
+
+def normalize_job_title(ollama_client, raw_title: str) -> str:
+    """Remove appended job-feed metadata while preserving the role title."""
+    model_name = (
+        str(os.environ.get("TITLE_NORMALIZATION_MODEL", "") or "").strip()
+        or "qwen2.5:7b"
+    )
+    cache_key = (model_name, raw_title)
+    with _TITLE_NORMALIZATION_CACHE_LOCK:
+        cached = _TITLE_NORMALIZATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    response = ollama_client.chat(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Extract the job role title from one raw job-title value. Remove "
+                    "only obvious appended scraping or job-feed metadata such as "
+                    "relative posting age (for example \"2 days ago\"), work-"
+                    "arrangement badges (for example \"Fully Remote\" or \"Hybrid\"), "
+                    "geographic location, salary, or application status. Preserve the "
+                    "role title's original wording, seniority, specialization, "
+                    "punctuation, abbreviations, and capitalization byte-for-byte "
+                    "whenever no such appended metadata is present. Do not paraphrase, "
+                    "expand abbreviations, classify the role, or use outside "
+                    "information. Return one JSON object with exactly one string field "
+                    "named normalized_title."
+                ),
+            },
+            {"role": "user", "content": f"Raw Job Title: {raw_title}\n"},
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    if not isinstance(payload, dict):
+        raise ValueError("Title normalization response is not a JSON object")
+    normalized = str(payload.get("normalized_title", "") or "").strip()
+    if not normalized:
+        raise ValueError("Title normalizer returned an empty title")
+    with _TITLE_NORMALIZATION_CACHE_LOCK:
+        _TITLE_NORMALIZATION_CACHE[cache_key] = normalized
+    return normalized
+
+
+def expand_contrastive_retrieval_queries(
+    ollama_client,
+    preference_guidance: str,
+) -> tuple[str, str]:
+    """Create separate semantic queries for supporting and conflicting evidence."""
+    expansion_model = resolve_query_expansion_model_name()
+    cache_key = (expansion_model, preference_guidance)
+    with _CONTRASTIVE_QUERY_CACHE_LOCK:
+        cached = _CONTRASTIVE_QUERY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    response = ollama_client.chat(
+        model=expansion_model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Generate two concise semantic search queries for retrieving "
+                    "verbatim evidence about one candidate job preference. The support "
+                    "query should describe explicit job language that would strongly and "
+                    "centrally satisfy the preference. The conflict query should describe "
+                    "explicit opposite conditions, constraints, or role language showing "
+                    "that the preference is contradicted or only incidental. Preserve the "
+                    "preference's meaning and intensity. Include relevant role titles, "
+                    "duties, technologies, and synonyms when useful. Do not evaluate any "
+                    "job or assign a score. Return one JSON object with exactly two string "
+                    "fields: support_query and conflict_query."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Preference Guidance: {preference_guidance}\n",
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    if not isinstance(payload, dict):
+        raise ValueError("Contrastive query expansion response is not a JSON object")
+    support_query = str(payload.get("support_query", "") or "").strip()
+    conflict_query = str(payload.get("conflict_query", "") or "").strip()
+    if not support_query or not conflict_query:
+        raise ValueError("Contrastive query expansion is missing a query")
+    expanded = (support_query, conflict_query)
+    with _CONTRASTIVE_QUERY_CACHE_LOCK:
+        _CONTRASTIVE_QUERY_CACHE[cache_key] = expanded
+    return expanded
+
+
+def resolve_reranking_model_name() -> str:
+    configured = str(os.environ.get("RERANKING_MODEL", "") or "").strip()
+    return configured or DEFAULT_RERANKING_MODEL
+
+
+def resolve_late_interaction_reranking_model_name() -> str:
+    return str(os.environ.get("LATE_INTERACTION_RERANK_MODEL", "") or "").strip()
+
+
+def build_reranking_model(model_name: str):
+    try:
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+    except Exception as exc:
+        raise RuntimeError(f"fastembed cross-encoder import failed: {exc}") from exc
+    return TextCrossEncoder(model_name=model_name)
+
+
+def get_reranking_model(model_name: str):
+    with _RERANKING_MODEL_CACHE_LOCK:
+        cached = _RERANKING_MODEL_CACHE.get(model_name)
+        if cached is not None:
+            return cached
+        created = build_reranking_model(model_name)
+        _RERANKING_MODEL_CACHE[model_name] = created
+        return created
+
+
+def rerank_scoring_snippets(
+    preference_guidance: str,
+    candidate_snippets: list[str],
+    top_k: int = SNIPPET_TOP_K,
+) -> list[str]:
+    if not preference_guidance or not candidate_snippets:
+        return []
+    model = get_reranking_model(resolve_reranking_model_name())
+    scores = [float(score) for score in model.rerank(preference_guidance, candidate_snippets)]
+    ranked = sorted(range(len(scores)), key=lambda index: scores[index], reverse=True)
+    return [candidate_snippets[index] for index in ranked[: max(0, top_k)]]
+
+
+def get_late_interaction_model(model_name: str):
+    with _LATE_INTERACTION_MODEL_CACHE_LOCK:
+        cached = _LATE_INTERACTION_MODEL_CACHE.get(model_name)
+        if cached is not None:
+            return cached
+        try:
+            from fastembed import LateInteractionTextEmbedding
+        except Exception as exc:
+            raise RuntimeError(f"fastembed late-interaction import failed: {exc}") from exc
+        created = LateInteractionTextEmbedding(model_name=model_name)
+        _LATE_INTERACTION_MODEL_CACHE[model_name] = created
+        return created
+
+
+def late_interaction_rerank_scoring_snippets(
+    preference_guidance: str,
+    candidate_snippets: list[str],
+    model_name: str,
+    top_k: int = SNIPPET_RERANKED_TOP_K,
+) -> list[str]:
+    """Rank source passages with standard ColBERT token-level MaxSim."""
+    if not preference_guidance or not candidate_snippets:
+        return []
+    model = get_late_interaction_model(model_name)
+    query_embedding = next(model.query_embed([preference_guidance]))
+    passage_embeddings = list(model.passage_embed(candidate_snippets))
+    scores = []
+    for index, passage_embedding in enumerate(passage_embeddings):
+        token_similarities = query_embedding @ passage_embedding.T
+        score = float(token_similarities.max(axis=1).sum())
+        scores.append((index, score))
+    scores.sort(key=lambda item: (-item[1], item[0]))
+    return [candidate_snippets[index] for index, _ in scores[: max(0, top_k)]]
+
+
+def select_scoring_snippets_with_llm(
+    ollama_client,
+    preference_guidance: str,
+    candidate_snippets: list[str],
+    job_title: str = "",
+    job_location: str = "",
+    top_k: int = SNIPPET_TOP_K,
+) -> list[str]:
+    """Select a jointly diagnostic evidence set from the complete description."""
+    selection_count = min(max(0, top_k), len(candidate_snippets))
+    if not preference_guidance or selection_count == 0:
+        return []
+
+    indexed_candidates = "\n".join(
+        f"{index}: {snippet}" for index, snippet in enumerate(candidate_snippets)
+    )
+    response = ollama_client.chat(
+        model=(
+            str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
+            or DEFAULT_EVIDENCE_SELECTOR_MODEL
+        ),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Select a jointly diagnostic set of verbatim job-description "
+                    "fragments for a separate preference scorer. Cover the clearest "
+                    "direct support or contradiction and, when possible, evidence "
+                    "showing whether the preference is a core or repeated role feature "
+                    "rather than an incidental mention. Prefer concrete duties, work "
+                    "conditions, requirements, and technologies over headings, generic "
+                    "employer language, and application boilerplate. Use the title and "
+                    "location only as context. You must select the requested number of "
+                    "distinct zero-based evidence indices; never abstain, score the job, "
+                    "rewrite evidence, or invent text. Return one JSON object with "
+                    "exactly one array field named selected_indices."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Preference Guidance: {preference_guidance}\n"
+                    f"Job Title: {job_title}\n"
+                    f"Job Location: {job_location}\n"
+                    f"Select exactly {selection_count} indices.\n"
+                    f"Evidence fragments:\n{indexed_candidates}\n"
+                ),
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    indices = payload.get("selected_indices") if isinstance(payload, dict) else None
+    if not isinstance(indices, list) or len(indices) != selection_count:
+        raise ValueError(f"Selector returned invalid indices: {indices!r}")
+    if any(type(index) is not int for index in indices):
+        raise ValueError(f"Selector returned non-integer indices: {indices!r}")
+    if len(set(indices)) != selection_count or any(
+        index < 0 or index >= len(candidate_snippets) for index in indices
+    ):
+        raise ValueError(f"Selector returned out-of-range or duplicate indices: {indices!r}")
+    return [candidate_snippets[index] for index in indices]
+
+
+def select_scoring_snippets_with_compact_llm(
+    ollama_client,
+    preference_guidance: str,
+    candidate_snippets: list[str],
+    job_title: str = "",
+    job_location: str = "",
+    top_k: int = SNIPPET_TOP_K,
+) -> list[str]:
+    """Select diagnostic source passages with a compact extractive contract."""
+    selection_count = min(max(0, top_k), len(candidate_snippets))
+    if not preference_guidance or selection_count == 0:
+        return []
+    candidates = "\n".join(
+        f"{index}: {snippet}" for index, snippet in enumerate(candidate_snippets)
+    )
+    response = ollama_client.chat(
+        model=(
+            str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
+            or DEFAULT_EVIDENCE_SELECTOR_MODEL
+        ),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    f"Choose exactly {selection_count} job-evidence fragments most "
+                    "diagnostic of whether the candidate preference is satisfied. "
+                    "Prefer explicit central support or contradiction over vague, "
+                    "generic, or administrative text. Indices are zero-based. Do not "
+                    "score the job, rewrite evidence, or invent text. Return JSON only "
+                    "with one field: selected_indices."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Preference: {preference_guidance}\n"
+                    f"Job title: {job_title}\n"
+                    f"Job location: {job_location}\n"
+                    f"Evidence fragments:\n{candidates}\n"
+                ),
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    content = extract_ollama_content(response).strip()
+    indices = None
+    try:
+        payload = json.loads(content)
+        if isinstance(payload, dict):
+            indices = payload.get("selected_indices")
+        elif isinstance(payload, list):
+            indices = payload
+    except json.JSONDecodeError:
+        array_matches = re.findall(r"\[\s*\d+(?:\s*,\s*\d+)*\s*\]", content)
+        if array_matches:
+            parsed_array = json.loads(array_matches[-1])
+            if isinstance(parsed_array, list):
+                indices = parsed_array
+    if not isinstance(indices, list) or len(indices) != selection_count:
+        raise ValueError(f"Compact selector returned invalid indices: {indices!r}")
+    if any(type(index) is not int for index in indices):
+        raise ValueError(f"Compact selector returned non-integer indices: {indices!r}")
+    if len(set(indices)) != selection_count or any(
+        index < 0 or index >= len(candidate_snippets) for index in indices
+    ):
+        raise ValueError(
+            f"Compact selector returned out-of-range or duplicate indices: {indices!r}"
+        )
+    return [candidate_snippets[index] for index in indices]
+
+
+def select_evidence_view_with_llm(
+    ollama_client,
+    preference_guidance: str,
+    job_title: str,
+    job_location: str,
+    focused_snippets: list[str],
+    complete_description: str,
+) -> str:
+    """Choose focused or global source context without producing an assessment."""
+    focused_block = "\n".join(f"- {snippet}" for snippet in focused_snippets)
+    response = ollama_client.chat(
+        model=(
+            str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
+            or DEFAULT_EVIDENCE_SELECTOR_MODEL
+        ),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Choose which source-evidence view is more reliable for a separate "
+                    "job-preference scorer. The focused view contains the passages with "
+                    "highest query relevance; the global view contains the complete job "
+                    "description. Choose focused when the title, location, or focused "
+                    "passages provide explicit decisive support or conflict and unrelated "
+                    "global text would dilute it. Choose global when the preference depends "
+                    "on the overall balance, frequency, centrality, hands-on scope, or "
+                    "limitations across duties and the focused passages alone could "
+                    "misrepresent that. Do not assess the fit, assign a score, summarize, "
+                    "or invent evidence. Return one JSON object with exactly one string "
+                    "field named evidence_view whose value is focused or global."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Preference Guidance: {preference_guidance}\n"
+                    f"Job Title: {job_title}\n"
+                    f"Job Location: {job_location}\n\n"
+                    f"Focused view:\n{focused_block}\n\n"
+                    f"Global view:\n{complete_description}\n"
+                ),
+            },
+        ],
+        format="json",
+        options={"temperature": 0},
+    )
+    payload = json.loads(extract_ollama_content(response))
+    selected_view = payload.get("evidence_view") if isinstance(payload, dict) else None
+    if selected_view not in {"focused", "global"}:
+        raise ValueError(f"Evidence-view selector returned invalid view: {selected_view!r}")
+    return selected_view
 
 
 def build_prompt(job, company, identity, preference, snippets=None, include_system_prompt=True):
@@ -801,41 +1825,19 @@ def resolve_scoring_context(job_descriptions_col, companies_col, identities_col,
     return (job_doc, company_doc, identity_doc, enabled_preferences), None
 
 
-def score_preference(
+def request_preference_score(
     ollama_client,
     model_name,
-    test_mode,
     job_id,
     preference,
     job_doc,
     company_doc,
     identity_doc,
+    relevant_snippets,
+    stage,
 ):
     preference_key = get_field(preference, "key", "")
-    preference_guidance = str(get_field(preference, "guidance", "") or get_field(preference, "label", ""))
-    job_description = normalize_description_markdown(get_field(job_doc, "description", ""))
-
-    relevant_snippets = []
-    try:
-        relevant_snippets = retrieve_relevant_snippets(job_description, preference_guidance)
-    except Exception as exc:
-        print(
-            "warn: Failed to retrieve embedding snippets: "
-            + safe_json_dump(
-                {
-                    "job_id": job_id,
-                    "preference_key": preference_key,
-                    "error": str(exc),
-                }
-            )
-        )
-
-    if test_mode:
-        return {"score": stable_test_score(job_id, preference_key), "score_available": True}
-
-    # Check if system prompt should be included (default: true for backward compatibility)
     include_system_prompt = os.environ.get("EVAL_WITH_SYSTEM_PROMPT", "true").lower() in ("true", "1", "yes")
-
     system_instruction, user_prompt = build_prompt(
         job_doc,
         company_doc,
@@ -845,25 +1847,26 @@ def score_preference(
         include_system_prompt=include_system_prompt,
     )
 
-    # Build message list, filtering system message if disabled
     messages = []
     if include_system_prompt and system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     messages.append({"role": "user", "content": user_prompt})
 
+    scoring_options = resolve_scoring_options()
     request_payload = {
         "job_id": job_id,
         "preference_key": preference_key,
+        "stage": stage,
         "model": model_name,
         "messages": messages,
-        "options": {"temperature": 0},
+        "options": scoring_options,
     }
     print(f"debug: Ollama request: {safe_json_dump(request_payload)}")
 
     response = ollama_client.chat(
         model=model_name,
         messages=messages,
-        options={"temperature": 0},
+        options=scoring_options,
     )
     print(
         "debug: Ollama response: "
@@ -871,6 +1874,7 @@ def score_preference(
             {
                 "job_id": job_id,
                 "preference_key": preference_key,
+                "stage": stage,
                 "response": response,
             }
         )
@@ -883,6 +1887,7 @@ def score_preference(
             {
                 "job_id": job_id,
                 "preference_key": preference_key,
+                "stage": stage,
                 "content": content,
             }
         )
@@ -897,6 +1902,7 @@ def score_preference(
                 {
                     "job_id": job_id,
                     "preference_key": preference_key,
+                    "stage": stage,
                     "parse_strategy": parse_strategy,
                 }
             )
@@ -933,6 +1939,7 @@ def score_preference(
             {
                 "job_id": job_id,
                 "preference_key": preference_key,
+                "stage": stage,
                 "score": score,
                 "score_available": True,
                 "parse_strategy": parse_strategy,
@@ -941,6 +1948,561 @@ def score_preference(
     )
 
     return {"score": score, "score_available": True}
+
+
+def request_preference_score_with_confidence(
+    ollama_client,
+    model_name: str,
+    preference,
+    job_doc,
+    company_doc,
+    identity_doc,
+    relevant_snippets: list[str],
+) -> tuple[dict[str, Any], float]:
+    """Return a canonical direct score and its greedy first-token confidence."""
+    system_instruction, user_prompt = build_prompt(
+        job_doc,
+        company_doc,
+        identity_doc,
+        preference,
+        snippets=relevant_snippets,
+        include_system_prompt=True,
+    )
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": user_prompt})
+    response = ollama_client._client.post(
+        "/api/chat",
+        json={
+            "model": model_name,
+            "messages": messages,
+            "stream": False,
+            "logprobs": True,
+            "top_logprobs": 20,
+            "options": {"temperature": 0},
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    content = str(payload.get("message", {}).get("content", "") or "")
+    score, available, parse_strategy = parse_ollama_response(content)
+    first_logprobs = payload.get("logprobs") or []
+    confidence = (
+        float(first_logprobs[0].get("logprob", float("-inf")))
+        if first_logprobs
+        else float("-inf")
+    )
+    if available is False:
+        return {"score": 0, "score_available": False}, confidence
+    if score is None or score < 0 or score > 5:
+        raise ValueError(
+            "Invalid confidence-scoring response: "
+            + safe_json_dump(
+                {
+                    "parse_reason": parse_strategy,
+                    "content": content,
+                    "payload": payload,
+                }
+            )
+        )
+    return {"score": score, "score_available": True}, confidence
+
+
+def pointwise_rerank_scoring_snippets(
+    ollama_client,
+    model_name: str,
+    job_id: str,
+    preference,
+    job_doc,
+    company_doc,
+    identity_doc,
+    candidate_snippets: list[str],
+    top_k: int = SNIPPET_RERANKED_TOP_K,
+    preserve_input_order: bool = False,
+) -> list[str]:
+    """Use the final scorer's canonical judgment as a pointwise passage ranker."""
+    reranking_model_name = (
+        str(os.environ.get("POINTWISE_RERANKER_MODEL", "") or "").strip()
+        or model_name
+    )
+    use_logprob_expectation = str(
+        os.environ.get("POINTWISE_USE_LOGPROBS", "") or ""
+    ).lower() in {"1", "true", "yes"}
+    ranked_candidates: list[tuple[float, int, str]] = []
+    for index, snippet in enumerate(candidate_snippets[:SNIPPET_PROBE_K]):
+        if use_logprob_expectation:
+            rank_score = request_preference_score_expectation(
+                ollama_client,
+                reranking_model_name,
+                preference,
+                job_doc,
+                company_doc,
+                identity_doc,
+                [snippet],
+            )
+        else:
+            result = request_preference_score(
+                ollama_client,
+                reranking_model_name,
+                job_id,
+                preference,
+                job_doc,
+                company_doc,
+                identity_doc,
+                [snippet],
+                f"pointwise_evidence_{index}",
+            )
+            rank_score = (
+                float(result.get("score", 0) or 0)
+                if result.get("score_available") is not False
+                else -1.0
+            )
+        sort_score = rank_score
+        if str(os.environ.get("POINTWISE_RANK_MODE", "") or "").strip() == "extremity":
+            sort_score = abs(rank_score - 2.5) if rank_score >= 0.0 else -1.0
+        ranked_candidates.append((sort_score, index, snippet))
+
+    ranked_candidates.sort(key=lambda item: (-item[0], item[1]))
+    selected = ranked_candidates[: max(0, top_k)]
+    if preserve_input_order:
+        selected.sort(key=lambda item: item[1])
+    return [item[2] for item in selected]
+
+
+def request_preference_score_expectation(
+    ollama_client,
+    model_name: str,
+    preference,
+    job_doc,
+    company_doc,
+    identity_doc,
+    relevant_snippets: list[str],
+) -> float:
+    """Return the scorer's continuous first-token ordinal expectation."""
+    system_instruction, user_prompt = build_prompt(
+        job_doc,
+        company_doc,
+        identity_doc,
+        preference,
+        snippets=relevant_snippets,
+        include_system_prompt=True,
+    )
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": user_prompt})
+    response = ollama_client._client.post(
+        "/api/chat",
+        json={
+            "model": model_name,
+            "messages": messages,
+            "stream": False,
+            "logprobs": True,
+            "top_logprobs": 20,
+            "options": {"temperature": 0},
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    content = str(payload.get("message", {}).get("content", "") or "")
+    score, available, _ = parse_ollama_response(content)
+    if available is False:
+        return -1.0
+    first_token = (payload.get("logprobs") or [{}])[0]
+    alternatives = first_token.get("top_logprobs", [])
+    probabilities: dict[int, float] = {}
+    for alternative in alternatives:
+        token = str(alternative.get("token", "") or "")
+        if token in {"0", "1", "2", "3", "4", "5"}:
+            probabilities[int(token)] = math.exp(float(alternative["logprob"]))
+    mass = sum(probabilities.values())
+    if mass > 0.0:
+        return sum(label * probability for label, probability in probabilities.items()) / mass
+    if score is None:
+        raise ValueError(f"Pointwise logprob response has no ordinal score: {payload!r}")
+    return float(score)
+
+
+def score_preference(
+    ollama_client,
+    model_name,
+    test_mode,
+    job_id,
+    preference,
+    job_doc,
+    company_doc,
+    identity_doc,
+):
+    preference_key = get_field(preference, "key", "")
+    preference_guidance = str(get_field(preference, "guidance", "") or get_field(preference, "label", ""))
+    if test_mode:
+        return {"score": stable_test_score(job_id, preference_key), "score_available": True}
+
+    job_description = normalize_description_markdown(
+        get_field(job_doc, "description", "")
+    )
+    normalize_title = should_normalize_job_title()
+    scoring_preference = preference
+    scoring_job_doc = job_doc
+    if (
+        should_normalize_job_location() or normalize_title
+    ) and isinstance(job_doc, dict):
+        scoring_job_doc = dict(job_doc)
+    if normalize_title and isinstance(job_doc, dict):
+        try:
+            scoring_job_doc["title"] = normalize_job_title(
+                ollama_client,
+                str(get_field(job_doc, "title", "") or ""),
+            )
+        except Exception as exc:
+            print(
+                "warn: Failed to normalize job-title metadata: "
+                + safe_json_dump(
+                    {
+                        "job_id": job_id,
+                        "preference_key": preference_key,
+                        "error": str(exc),
+                    }
+                )
+            )
+    if should_normalize_job_location() and isinstance(job_doc, dict):
+        try:
+            normalized_location = normalize_job_location(
+                ollama_client,
+                str(get_field(job_doc, "location", "") or ""),
+            )
+            if (
+                normalized_location == "remote"
+                and should_render_explicit_remote_location()
+            ):
+                normalized_location = "fully remote"
+            scoring_job_doc["location"] = normalized_location
+        except Exception as exc:
+            print(
+                "warn: Failed to normalize job-location metadata: "
+                + safe_json_dump(
+                    {
+                        "job_id": job_id,
+                        "preference_key": preference_key,
+                        "error": str(exc),
+                    }
+                )
+            )
+
+    baseline_snippets: list[str] = []
+    try:
+        baseline_snippets = retrieve_relevant_snippets(
+            job_description,
+            preference_guidance,
+            top_k=SNIPPET_TOP_K,
+        )
+    except Exception as exc:
+        print(
+            "warn: Failed to retrieve baseline scoring evidence: "
+            + safe_json_dump(
+                {
+                    "job_id": job_id,
+                    "preference_key": preference_key,
+                    "error": str(exc),
+                }
+            )
+        )
+
+    initial_result = request_preference_score(
+        ollama_client,
+        model_name,
+        job_id,
+        preference,
+        scoring_job_doc,
+        company_doc,
+        identity_doc,
+        baseline_snippets,
+        "availability",
+    )
+    if initial_result.get("score_available") is False:
+        return initial_result
+
+    if should_normalize_preference_guidance():
+        try:
+            normalized_guidance = normalize_preference_guidance(
+                ollama_client,
+                preference_guidance,
+            )
+            scoring_preference = copy.deepcopy(preference)
+            if isinstance(scoring_preference, dict):
+                scoring_preference["guidance"] = normalized_guidance
+            else:
+                setattr(scoring_preference, "guidance", normalized_guidance)
+        except Exception as exc:
+            print(
+                "warn: Failed to normalize preference guidance: "
+                + safe_json_dump(
+                    {
+                        "job_id": job_id,
+                        "preference_key": preference_key,
+                        "error": str(exc),
+                    }
+                )
+            )
+
+    evidence_scope = ""
+    if resolve_evidence_scope_routing_mode() == "llm":
+        try:
+            evidence_scope = classify_preference_evidence_scope(
+                ollama_client,
+                preference_guidance,
+            )
+        except Exception as exc:
+            print(
+                "warn: Failed to classify preference evidence scope: "
+                + safe_json_dump(
+                    {
+                        "job_id": job_id,
+                        "preference_key": preference_key,
+                        "error": str(exc),
+                    }
+                )
+            )
+            evidence_scope = "description"
+    try:
+        retrieval_query = expand_retrieval_query(ollama_client, preference_guidance)
+        candidate_query = resolve_candidate_query_prefix() + retrieval_query
+        if resolve_candidate_retrieval_mode() == "raw_plus_expanded_query":
+            candidate_query = preference_guidance + "\n" + candidate_query
+        expanded_candidates = retrieve_relevant_snippets(
+            job_description,
+            candidate_query,
+            top_k=SNIPPET_CANDIDATE_K,
+            model_name=resolve_candidate_embedding_model_name(),
+            exclude_heading_only=(evidence_scope == "description"),
+        )
+        candidates = expanded_candidates
+        if resolve_candidate_retrieval_mode() == "raw_only":
+            candidates = retrieve_relevant_snippets(
+                job_description,
+                preference_guidance,
+                top_k=SNIPPET_CANDIDATE_K,
+                model_name=resolve_candidate_embedding_model_name(),
+            )
+        elif resolve_candidate_retrieval_mode() == "raw_expanded_rrf":
+            raw_candidates = retrieve_relevant_snippets(
+                job_description,
+                preference_guidance,
+                top_k=SNIPPET_CANDIDATE_K,
+                model_name=resolve_candidate_embedding_model_name(),
+            )
+            candidates = reciprocal_rank_fusion(
+                [raw_candidates, expanded_candidates],
+                top_k=SNIPPET_CANDIDATE_K,
+            )
+        reranking_query = preference_guidance
+        if should_rerank_with_job_context():
+            reranking_query = (
+                f"Preference Guidance: {preference_guidance}\n"
+                f"Job Title: {get_field(scoring_job_doc, 'title', '')}\n"
+                f"Job Location: {get_field(scoring_job_doc, 'location', '')}\n"
+            )
+        late_interaction_model = resolve_late_interaction_reranking_model_name()
+        if resolve_evidence_view_routing_mode() == "confidence":
+            jina_snippets = rerank_scoring_snippets(
+                reranking_query,
+                candidates,
+                top_k=SNIPPET_RERANKED_TOP_K,
+            )
+            pointwise_snippets = pointwise_rerank_scoring_snippets(
+                ollama_client,
+                model_name,
+                job_id,
+                preference,
+                scoring_job_doc,
+                company_doc,
+                identity_doc,
+                candidates,
+                top_k=SNIPPET_RERANKED_TOP_K,
+            )
+            jina_result, jina_confidence = request_preference_score_with_confidence(
+                ollama_client,
+                model_name,
+                preference,
+                scoring_job_doc,
+                company_doc,
+                identity_doc,
+                jina_snippets,
+            )
+            pointwise_result, pointwise_confidence = (
+                request_preference_score_with_confidence(
+                    ollama_client,
+                    model_name,
+                    preference,
+                    scoring_job_doc,
+                    company_doc,
+                    identity_doc,
+                    pointwise_snippets,
+                )
+            )
+            return (
+                pointwise_result
+                if pointwise_confidence > jina_confidence
+                else jina_result
+            )
+        if resolve_evidence_selection_mode() == "compact_llm":
+            try:
+                reranked_snippets = select_scoring_snippets_with_compact_llm(
+                    ollama_client,
+                    preference_guidance,
+                    candidates,
+                    job_title=str(get_field(scoring_job_doc, "title", "") or ""),
+                    job_location=str(get_field(scoring_job_doc, "location", "") or ""),
+                    top_k=SNIPPET_RERANKED_TOP_K,
+                )
+            except Exception as selector_exc:
+                print(
+                    "warn: Compact evidence selector failed; using cross-encoder: "
+                    + safe_json_dump(
+                        {
+                            "job_id": job_id,
+                            "preference_key": preference_key,
+                            "error": str(selector_exc),
+                        }
+                    )
+                )
+                reranked_snippets = rerank_scoring_snippets(
+                    reranking_query,
+                    candidates,
+                    top_k=SNIPPET_RERANKED_TOP_K,
+                )
+        elif late_interaction_model:
+            reranked_snippets = late_interaction_rerank_scoring_snippets(
+                reranking_query,
+                candidates,
+                model_name=late_interaction_model,
+                top_k=SNIPPET_RERANKED_TOP_K,
+            )
+        elif (
+            should_use_scorer_pointwise_reranking_cascade()
+            or evidence_scope == "location_metadata"
+        ):
+            shortlist = rerank_scoring_snippets(
+                reranking_query,
+                candidates,
+                top_k=4,
+            )
+            reranked_snippets = pointwise_rerank_scoring_snippets(
+                ollama_client,
+                model_name,
+                job_id,
+                preference,
+                scoring_job_doc,
+                company_doc,
+                identity_doc,
+                shortlist,
+                top_k=SNIPPET_RERANKED_TOP_K,
+                preserve_input_order=True,
+            )
+        elif should_use_scorer_pointwise_reranking():
+            reranked_snippets = pointwise_rerank_scoring_snippets(
+                ollama_client,
+                model_name,
+                job_id,
+                preference,
+                scoring_job_doc,
+                company_doc,
+                identity_doc,
+                candidates,
+                top_k=SNIPPET_RERANKED_TOP_K,
+            )
+        else:
+            reranked_snippets = rerank_scoring_snippets(
+                reranking_query,
+                candidates,
+                top_k=SNIPPET_RERANKED_TOP_K,
+            )
+        if should_preserve_candidate_order():
+            selected_snippets = set(reranked_snippets)
+            reranked_snippets = [
+                snippet for snippet in candidates if snippet in selected_snippets
+            ][:SNIPPET_RERANKED_TOP_K]
+    except Exception as exc:
+        print(
+            "warn: Failed to expand or rerank scoring evidence: "
+            + safe_json_dump(
+                {
+                    "job_id": job_id,
+                    "preference_key": preference_key,
+                    "error": str(exc),
+                }
+            )
+        )
+        return initial_result
+
+    if not reranked_snippets:
+        return initial_result
+    final_snippets = reranked_snippets
+    if resolve_evidence_fusion_mode() == "raw_and_reranked":
+        final_snippets = fuse_raw_and_reranked_snippets(
+            baseline_snippets,
+            reranked_snippets,
+            top_k=SNIPPET_RERANKED_TOP_K,
+        )
+    if (
+        resolve_evidence_view_routing_mode() == "confidence_global"
+        and job_description
+    ):
+        focused_result, focused_confidence = request_preference_score_with_confidence(
+            ollama_client,
+            model_name,
+            scoring_preference,
+            scoring_job_doc,
+            company_doc,
+            identity_doc,
+            final_snippets,
+        )
+        global_result, global_confidence = request_preference_score_with_confidence(
+            ollama_client,
+            model_name,
+            scoring_preference,
+            scoring_job_doc,
+            company_doc,
+            identity_doc,
+            [job_description],
+        )
+        return (
+            global_result
+            if global_confidence > focused_confidence
+            else focused_result
+        )
+    if resolve_final_order_routing_mode() == "confidence" and len(final_snippets) >= 2:
+        forward_result, forward_confidence = request_preference_score_with_confidence(
+            ollama_client,
+            model_name,
+            scoring_preference,
+            scoring_job_doc,
+            company_doc,
+            identity_doc,
+            final_snippets,
+        )
+        reverse_result, reverse_confidence = request_preference_score_with_confidence(
+            ollama_client,
+            model_name,
+            scoring_preference,
+            scoring_job_doc,
+            company_doc,
+            identity_doc,
+            list(reversed(final_snippets)),
+        )
+        return reverse_result if reverse_confidence > forward_confidence else forward_result
+    return request_preference_score(
+        ollama_client,
+        model_name,
+        job_id,
+        scoring_preference,
+        scoring_job_doc,
+        company_doc,
+        identity_doc,
+        final_snippets,
+        "expanded_query_cross_encoder_final",
+    )
 
 
 def build_preference_score_doc(preference, score_result):
