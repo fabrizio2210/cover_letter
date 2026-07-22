@@ -1,10 +1,12 @@
 FROM golang:1.25-alpine
 
+ARG AIR_VERSION=v1.67.1
+
 WORKDIR /app/cmd/api
 
 # Install git (required for go mod download) and Air for live reloading
-RUN apk add --no-cache git 
-RUN go install github.com/air-verse/air@latest
+RUN apk add --no-cache git
+RUN go install "github.com/air-verse/air@${AIR_VERSION}"
 
 ENV CGO_ENABLED=0
 
