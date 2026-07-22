@@ -2,14 +2,16 @@
 set -euo pipefail
 
 readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
+readonly DEFAULT_AUXILIARY_MODEL="qwen2.5:1.5b"
 
 image_reference="${1:-}"
 model_name="${2:-$DEFAULT_MODEL_NAME}"
+auxiliary_model="${3:-$DEFAULT_AUXILIARY_MODEL}"
 startup_timeout_seconds="${OLLAMA_SMOKE_STARTUP_TIMEOUT_SECONDS:-120}"
 inference_timeout_seconds="${OLLAMA_SMOKE_INFERENCE_TIMEOUT_SECONDS:-600}"
 
 if [[ -z "$image_reference" ]]; then
-  echo "Usage: scripts/smoke-ollama-image.sh <image-reference> [model-name]" >&2
+  echo "Usage: scripts/smoke-ollama-image.sh <image-reference> [model-name] [auxiliary-model]" >&2
   exit 2
 fi
 
@@ -43,10 +45,12 @@ if [[ -z "$model_list" ]]; then
 fi
 
 printf '%s\n' "$model_list"
-if ! printf '%s\n' "$model_list" | awk 'NR > 1 {print $1}' | grep -Fx "$model_name" >/dev/null; then
-  echo "Expected model is not installed: $model_name" >&2
-  exit 1
-fi
+for expected_model in "$model_name" "$auxiliary_model"; do
+  if ! printf '%s\n' "$model_list" | awk 'NR > 1 {print $1}' | grep -Fx "$expected_model" >/dev/null; then
+    echo "Expected model is not installed: $expected_model" >&2
+    exit 1
+  fi
+done
 
 model_details="$(docker exec \
   --env OLLAMA_HOST=127.0.0.1:11434 \

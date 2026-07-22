@@ -1,9 +1,9 @@
 # Custom Ollama runtime
 
-Production uses a custom Ollama image containing the promoted scorer model. The
-model is distributed through Docker Hub as a data-only OCI image so the
-Raspberry Pi does not need access to local training artifacts or an Ollama model
-registry at deployment time.
+Production uses a custom Ollama image containing the promoted scorer model and
+the `qwen2.5:1.5b` auxiliary model used by the Attempt 103 scorer setup. The
+promoted model is distributed through Docker Hub as a data-only OCI image so the
+Raspberry Pi does not need access to local training artifacts.
 
 ## Publish a model artifact
 
@@ -40,8 +40,9 @@ Buildx is available only as a standalone binary, set `BUILDX_BIN` to its path.
 option. On the ARM64 Raspberry Pi, Docker selects the ARM64 manifest of both the
 data-only model image and the pinned Ollama runtime image.
 
-The resulting `coverletter-ollama` image starts `ollama serve` directly. It
-must never run `ollama pull` during container startup.
+The build adds `qwen2.5:1.5b` to the copied promoted model store. The resulting
+`coverletter-ollama` image starts `ollama serve` directly and never runs
+`ollama pull` during container startup.
 
 ## Update the model
 

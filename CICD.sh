@@ -23,6 +23,7 @@ STACK_NAME="${STACK_NAME:-coverletter}"
 STACK_FILE="${STACK_FILE:-docker/prod/stack.yml}"
 DEPLOY_TAG="${DEPLOY_TAG:-${PROMOTE_TAGS%% *}}"
 readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
+readonly OLLAMA_AUXILIARY_MODEL="qwen2.5:1.5b"
 # Updated only by the explicit model-publication workflow documented in
 # docker/ollama/README.md. This reference must remain immutable and must not be
 # replaced by an environment-controlled tag.
@@ -122,10 +123,12 @@ export E2E_WORKFLOW1_COMPOSE_FILE="${E2E_WORKFLOW1_COMPOSE_FILE:-tests/e2e/docke
 
 # Service images
 build_candidate_image "coverletter-ollama" "docker/ollama/Dockerfile" \
-  --build-arg "MODEL_IMAGE=$OLLAMA_MODEL_IMAGE"
+  --build-arg "MODEL_IMAGE=$OLLAMA_MODEL_IMAGE" \
+  --build-arg "AUXILIARY_MODEL=$OLLAMA_AUXILIARY_MODEL"
 bash scripts/smoke-ollama-image.sh \
   "$DOCKER_ORG/coverletter-ollama@${CANDIDATE_DIGESTS[coverletter-ollama]}" \
-  "$OLLAMA_MODEL_NAME"
+  "$OLLAMA_MODEL_NAME" \
+  "$OLLAMA_AUXILIARY_MODEL"
 build_candidate_image "coverletter-api" "docker/x86_64/Dockerfile-api"
 build_candidate_image "coverletter-ai" "docker/x86_64/Dockerfile-ai"
 build_candidate_image "coverletter-ai-scorer" "docker/x86_64/Dockerfile-ai-scorer"
