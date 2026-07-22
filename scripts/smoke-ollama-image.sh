@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
+readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
 
 image_reference="${1:-}"
 model_name="${2:-$DEFAULT_MODEL_NAME}"
@@ -52,11 +52,6 @@ model_details="$(docker exec \
   --env OLLAMA_HOST=127.0.0.1:11434 \
   "$container_id" ollama show "$model_name")"
 printf '%s\n' "$model_details"
-
-if ! printf '%s\n' "$model_details" | grep -Eq 'quantization[[:space:]]+F16'; then
-  echo "Expected the packaged model to use F16 quantization" >&2
-  exit 1
-fi
 
 prompt="Preference Guidance: Remote work is required. Job Title: Remote Platform Engineer. Job Location: remote. Relevant Context Snippets: This is a fully remote position."
 response="$(timeout "$inference_timeout_seconds" docker exec \
