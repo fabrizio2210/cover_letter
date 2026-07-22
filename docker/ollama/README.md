@@ -17,9 +17,9 @@ bash scripts/publish-ollama-model.sh
 
 The default publication contains:
 
-- `ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16`
+- `ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m`
 - image tag
-  `fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-f16`
+  `fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-q4_k_m`
 - OCI manifests for `linux/amd64` and `linux/arm64`
 
 The command prints an immutable `name@sha256:...` reference when the push
