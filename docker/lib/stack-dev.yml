@@ -44,19 +44,6 @@ services:
     networks:
       - backends
 
-  telegram-bot:
-    image: fabrizio2210/coverletter-telegram-bot-dev
-    restart: always
-    environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      MONGO_HOST: "mongodb://root:develop@mongo:27017/"
-      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
-      REDIS_HOST: redis_cover_letter
-    volumes:
-      - ../../:/app
-    networks:
-      - backends
-
   ai-querier:
     image: fabrizio2210/coverletter-ai-querier-dev
     restart: always

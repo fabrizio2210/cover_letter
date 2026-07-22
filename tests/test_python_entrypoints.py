@@ -53,21 +53,6 @@ def discover_python_docker_entrypoints():
     return entrypoints
 
 
-def import_command(target):
-    # The Telegram dependency currently installed by the combined local test
-    # environment is incompatible with Python 3.12. Stub that external API so
-    # this smoke test can still validate the entrypoint's repository imports.
-    bootstrap = ""
-    if target == "src.python.telegram_bot.telegram_bot":
-        bootstrap = (
-            "from unittest.mock import MagicMock; "
-            "sys.modules['telegram'] = MagicMock(); "
-            "sys.modules['telegram.ext'] = MagicMock(); "
-        )
-
-    return f"{bootstrap}importlib.import_module({target!r})"
-
-
 class PythonEntrypointTests(unittest.TestCase):
     def test_compose_python_entrypoints_use_package_mode(self):
         for runtime_file in COMPOSE_RUNTIME_FILES:
@@ -95,7 +80,7 @@ class PythonEntrypointTests(unittest.TestCase):
 
         for target, dockerfiles in declarations.items():
             with self.subTest(dockerfiles=dockerfiles, target=target):
-                statement = import_command(target)
+                statement = f"importlib.import_module({target!r})"
                 result = subprocess.run(
                     [
                         sys.executable,

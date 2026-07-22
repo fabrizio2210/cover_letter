@@ -6,22 +6,6 @@ services:
     networks:
       - traefik_backends
 
-  telegram-bot:
-    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-telegram-bot:${DEPLOY_TAG:-x86_64}
-    command:
-      - /bin/sh
-      - -c
-      - export BOT_TOKEN="$$(cat /run/secrets/COVERLETTER_BOT_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.telegram_bot.telegram_bot
-    restart: always
-    environment:
-      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS}
-      REDIS_HOST: redis_cover_letter
-    secrets:
-      - COVERLETTER_BOT_TOKEN
-      - COVERLETTER_MONGO_PASSWORD
-    networks:
-      - traefik_backends
-
   ai-querier:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai:${DEPLOY_TAG:-x86_64}
     command:
@@ -326,8 +310,6 @@ volumes:
       device: ":/mnt/HDD/docker/coverletter/mongo_data"
 
 secrets:
-  COVERLETTER_BOT_TOKEN:
-    external: true
   COVERLETTER_GEMINI_TOKEN:
     external: true
   COVERLETTER_ADMIN_PASSWORD:

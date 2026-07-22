@@ -107,7 +107,6 @@ build_candidate_image "coverletter-ai" "docker/x86_64/Dockerfile-ai"
 build_candidate_image "coverletter-ai-scorer" "docker/x86_64/Dockerfile-ai-scorer"
 build_candidate_image "coverletter-web-crawler" "docker/x86_64/Dockerfile-web-crawler"
 build_candidate_image "coverletter-frontend" "docker/x86_64/Dockerfile-frontend"
-build_candidate_image "coverletter-telegram-bot" "docker/x86_64/Dockerfile-bot"
 build_candidate_image "coverletter-crawler-4dayweek" "docker/x86_64/Dockerfile-crawler-4dayweek"
 build_candidate_image "coverletter-crawler-ats-job-extraction" "docker/x86_64/Dockerfile-crawler-ats-job-extraction"
 build_candidate_image "coverletter-crawler-hackernews" "docker/x86_64/Dockerfile-crawler-hackernews"
@@ -155,7 +154,6 @@ promote_candidate_image "coverletter-ai" "${CANDIDATE_DIGESTS[coverletter-ai]}"
 promote_candidate_image "coverletter-ai-scorer" "${CANDIDATE_DIGESTS[coverletter-ai-scorer]}"
 promote_candidate_image "coverletter-web-crawler" "${CANDIDATE_DIGESTS[coverletter-web-crawler]}"
 promote_candidate_image "coverletter-frontend" "${CANDIDATE_DIGESTS[coverletter-frontend]}"
-promote_candidate_image "coverletter-telegram-bot" "${CANDIDATE_DIGESTS[coverletter-telegram-bot]}"
 promote_candidate_image "coverletter-crawler-4dayweek" "${CANDIDATE_DIGESTS[coverletter-crawler-4dayweek]}"
 promote_candidate_image "coverletter-crawler-ats-job-extraction" "${CANDIDATE_DIGESTS[coverletter-crawler-ats-job-extraction]}"
 promote_candidate_image "coverletter-crawler-hackernews" "${CANDIDATE_DIGESTS[coverletter-crawler-hackernews]}"
@@ -178,14 +176,14 @@ if [ "${DEPLOY:-0}" == "1" ]; then
     exit 2
   fi
 
-  for required_secret in COVERLETTER_BOT_TOKEN COVERLETTER_GEMINI_TOKEN COVERLETTER_ADMIN_PASSWORD COVERLETTER_AUTH_USERS_JSON COVERLETTER_ADMIN_JWT_SECRET COVERLETTER_JWT_SECRET COVERLETTER_SERPER_API_KEY COVERLETTER_MONGO_PASSWORD; do
+  for required_secret in COVERLETTER_GEMINI_TOKEN COVERLETTER_ADMIN_PASSWORD COVERLETTER_AUTH_USERS_JSON COVERLETTER_ADMIN_JWT_SECRET COVERLETTER_JWT_SECRET COVERLETTER_SERPER_API_KEY COVERLETTER_MONGO_PASSWORD; do
     assert_swarm_secret_exists "$required_secret"
   done
 
   export DOCKER_ORG
   export DEPLOY_TAG
 
-  docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+  docker stack deploy --prune --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
   docker stack services "$STACK_NAME"
 else
   echo "Skipping stack deployment: DEPLOY is not set to 1"

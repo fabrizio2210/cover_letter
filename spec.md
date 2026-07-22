@@ -96,10 +96,6 @@ See [AI Querier Specification](src/python/ai_querier/SPEC.md) for refinement beh
 Once the user is satisfied with a cover letter, they can queue it for delivery to the selected recipient. The backend prepares the final HTML email body and enqueues it for asynchronous sending via SMTP.
 See [Backend API Specification](src/go/cmd/api/SPEC.md) for queue contract details.
 
-### MVP and experiment
-
-Initially the application was developed with a Telegram bot to avoid dealing with frontend display. Now, we want to implement a full web frontend.
-
 ## Structure of the data
 
 The persistence model is split between one global database and one database per user.
