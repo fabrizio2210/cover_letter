@@ -3,11 +3,18 @@
 #############
 # Environment
 
-if [ $(uname -m) = "x86_64" ] ; then
-  arch="x86_64"
-else
-  arch="armv7hf"
-fi
+case "$(uname -m)" in
+  x86_64)
+    arch="x86_64"
+    ;;
+  aarch64|arm64)
+    arch="arm64"
+    ;;
+  *)
+    echo "Unsupported build architecture: $(uname -m)"
+    exit 2
+    ;;
+esac
 
 DOCKER_ORG="${DOCKER_ORG:-fabrizio2210}"
 CANDIDATE_TAG="${CANDIDATE_TAG:-candidate-${CI_COMMIT_SHA:-$(git rev-parse --short HEAD)}}"
@@ -15,6 +22,11 @@ PROMOTE_TAGS="${PROMOTE_TAGS:-$arch}"
 STACK_NAME="${STACK_NAME:-coverletter}"
 STACK_FILE="${STACK_FILE:-docker/prod/stack.yml}"
 DEPLOY_TAG="${DEPLOY_TAG:-${PROMOTE_TAGS%% *}}"
+readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
+# Updated only by the explicit model-publication workflow documented in
+# docker/ollama/README.md. This reference must remain immutable and must not be
+# replaced by an environment-controlled tag.
+readonly OLLAMA_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model@sha256:ffdc9330119f76a5534645655059948ae5426a5efb127fbe1bf9b27daabbe23f"
 
 if [ -z "$DEPLOY_TAG" ] ; then
   DEPLOY_TAG="$arch"
@@ -28,8 +40,10 @@ declare -A CANDIDATE_DIGESTS
 build_candidate_image() {
   local image="$1"
   local dockerfile="$2"
+  shift 2
+  local -a extra_build_args=("$@")
   local tag="$DOCKER_ORG/$image:$CANDIDATE_TAG-$arch"
-  docker buildx build --cache-from type=registry,ref=$DOCKER_ORG/$image:$arch --push -t "$tag" -f "$dockerfile" .
+  docker buildx build --cache-from type=registry,ref=$DOCKER_ORG/$image:$arch --push -t "$tag" -f "$dockerfile" "${extra_build_args[@]}" .
 
   local digest
   digest="$(docker buildx imagetools inspect "$tag" | awk '/^Digest:/ {print $2; exit}')"
@@ -88,6 +102,11 @@ EOF
   fi
 fi
 
+if ! docker buildx imagetools inspect "$OLLAMA_MODEL_IMAGE" >/dev/null; then
+  echo "Pinned Ollama model image is unavailable: $OLLAMA_MODEL_IMAGE"
+  exit 2
+fi
+
 ##################
 # BUILD BASE IMAGE
 if [ "$MANUAL_TRIGGER" == "1" ]; then
@@ -102,6 +121,11 @@ export E2E_COMPOSE_FILE="${E2E_COMPOSE_FILE:-tests/e2e/docker-compose.candidate.
 export E2E_WORKFLOW1_COMPOSE_FILE="${E2E_WORKFLOW1_COMPOSE_FILE:-tests/e2e/docker-compose.workflow1.yml}"
 
 # Service images
+build_candidate_image "coverletter-ollama" "docker/ollama/Dockerfile" \
+  --build-arg "MODEL_IMAGE=$OLLAMA_MODEL_IMAGE"
+bash scripts/smoke-ollama-image.sh \
+  "$DOCKER_ORG/coverletter-ollama@${CANDIDATE_DIGESTS[coverletter-ollama]}" \
+  "$OLLAMA_MODEL_NAME"
 build_candidate_image "coverletter-api" "docker/x86_64/Dockerfile-api"
 build_candidate_image "coverletter-ai" "docker/x86_64/Dockerfile-ai"
 build_candidate_image "coverletter-ai-scorer" "docker/x86_64/Dockerfile-ai-scorer"
@@ -149,6 +173,7 @@ bash scripts/test-gate.sh --mode full
 ########################
 # PROMOTE ALL CANDIDATES (unconditional, after tests pass)
 echo "[ci] Promoting all candidate images to $PROMOTE_TAGS"
+promote_candidate_image "coverletter-ollama" "${CANDIDATE_DIGESTS[coverletter-ollama]}"
 promote_candidate_image "coverletter-api" "${CANDIDATE_DIGESTS[coverletter-api]}"
 promote_candidate_image "coverletter-ai" "${CANDIDATE_DIGESTS[coverletter-ai]}"
 promote_candidate_image "coverletter-ai-scorer" "${CANDIDATE_DIGESTS[coverletter-ai-scorer]}"

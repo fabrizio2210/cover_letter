@@ -33,20 +33,19 @@ services:
       REDIS_PORT: 6379
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       OLLAMA_HOST: "http://ollama:11434"
-      OLLAMA_MODEL: qwen2.5:1.5b
+      OLLAMA_MODEL: ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16
       AI_SCORER_TEST_MODE: 0
-      AI_SCORER_OLLAMA_PARALLELISM: 2
+      AI_SCORER_OLLAMA_PARALLELISM: 1
     secrets:
       - COVERLETTER_MONGO_PASSWORD
     networks:
       - traefik_backends
 
   ollama:
-    image: ollama/ollama:latest
-    entrypoint: ["/bin/sh", "-c", "OLLAMA_HOST=0.0.0.0:11434 ollama serve & sleep 10 && ollama pull qwen2.5:1.5b && wait"]
+    image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ollama:${DEPLOY_TAG:-arm64}
     restart: always
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '3.0'

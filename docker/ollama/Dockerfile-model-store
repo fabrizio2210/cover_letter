@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+
+FROM scratch
+
+ARG MODEL_NAME
+ARG MODEL_MANIFEST_SHA256
+
+LABEL org.opencontainers.image.title="The Curator Ollama model store" \
+      org.opencontainers.image.description="Architecture-neutral Ollama model-store artifact" \
+      io.coverletter.ollama.model.name="${MODEL_NAME}" \
+      io.coverletter.ollama.model.manifest.sha256="${MODEL_MANIFEST_SHA256}"
+
+COPY models/ /models/

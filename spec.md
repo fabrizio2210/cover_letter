@@ -81,6 +81,12 @@ The scoring flow is handled by a dedicated `ai_scorer` worker service. `ai_score
 
 When crawl progress or scoring progress reaches a terminal state, the Job Discovery view refreshes the job list automatically so newly discovered jobs and updated scoring fields are visible without a manual page reload.
 
+Production Ollama packaging:
+- production uses the promoted `ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16` model baked into the `coverletter-ollama` service image;
+- the registered Ollama model store is published separately as a data-only, architecture-neutral OCI image and consumed by the native deployment build through an immutable digest committed in `CICD.sh`;
+- the production container must start `ollama serve` without downloading or rebuilding the model;
+- Raspberry Pi builds run natively on ARM64 and use the `arm64` deployment tag.
+
 #### Prepare Cover Letters
 
 After a job description has been reviewed and ranked as interesting, the system can prepare a cover letter using the candidate identity, the company context, and the job description itself. Recipient/contact management can still exist as a later step for delivery, but the application process now starts from the job description rather than from a known email address.
