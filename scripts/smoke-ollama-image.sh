@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
+readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
 readonly DEFAULT_AUXILIARY_MODEL="qwen2.5:1.5b"
 
 image_reference="${1:-}"

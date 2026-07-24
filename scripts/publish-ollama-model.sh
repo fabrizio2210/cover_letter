@@ -123,5 +123,6 @@ if [[ ! "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   exit 2
 fi
 
-echo "[model-publish] Commit this immutable reference in CICD.sh:"
+echo "[model-publish] Set OLLAMA_MODEL_NAME=$model_name and use this immutable"
+echo "[model-publish] OLLAMA_MODEL_IMAGE in CICD.sh and docker/lib/createLocalDevStack.sh:"
 echo "${model_image%%:*}@$image_digest"

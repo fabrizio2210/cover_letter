@@ -14,14 +14,80 @@ LOCAL_DEV_SCRIPT = (
 DEV_OLLAMA_DOCKERFILE = (
     REPO_ROOT / "docker/ollama/Dockerfile-dev"
 ).read_text()
+OLLAMA_SMOKE_SCRIPT = (
+    REPO_ROOT / "scripts/smoke-ollama-image.sh"
+).read_text()
+OLLAMA_PUBLISH_SCRIPT = (
+    REPO_ROOT / "scripts/publish-ollama-model.sh"
+).read_text()
 
 
 class OllamaPackagingTests(unittest.TestCase):
+    def _extract_single_required(self, pattern, content, source):
+        matches = re.findall(pattern, content, re.MULTILINE)
+        self.assertEqual(
+            1,
+            len(matches),
+            f"Expected exactly one model selector in {source}, got {matches}",
+        )
+        return matches[0]
+
     def test_cicd_uses_native_architecture_without_platform_override(self):
         self.assertIn('aarch64|arm64)', CICD)
         self.assertIn('arch="arm64"', CICD)
         self.assertNotIn('--platform', CICD)
         self.assertNotIn('armv7hf', CICD)
+
+    def test_model_name_is_synchronized_across_deployment_sources(self):
+        selectors = {
+            "CICD.sh": self._extract_single_required(
+                r'^readonly OLLAMA_MODEL_NAME="([^"]+)"$', CICD, "CICD.sh"
+            ),
+            "docker/lib/createLocalDevStack.sh": self._extract_single_required(
+                r'^readonly OLLAMA_MODEL_NAME="([^"]+)"$',
+                LOCAL_DEV_SCRIPT,
+                "docker/lib/createLocalDevStack.sh",
+            ),
+            "docker/prod/stack.yml": self._extract_single_required(
+                r"^\s+OLLAMA_MODEL:\s+(\S+)\s*$",
+                PRODUCTION_STACK,
+                "docker/prod/stack.yml",
+            ),
+            "docker/lib/stack-dev.yml": self._extract_single_required(
+                r"^\s+OLLAMA_MODEL:\s+(\S+)\s*$",
+                DEV_STACK,
+                "docker/lib/stack-dev.yml",
+            ),
+            "scripts/smoke-ollama-image.sh": self._extract_single_required(
+                r'^readonly DEFAULT_MODEL_NAME="([^"]+)"$',
+                OLLAMA_SMOKE_SCRIPT,
+                "scripts/smoke-ollama-image.sh",
+            ),
+            "scripts/publish-ollama-model.sh": self._extract_single_required(
+                r'^readonly DEFAULT_MODEL_NAME="([^"]+)"$',
+                OLLAMA_PUBLISH_SCRIPT,
+                "scripts/publish-ollama-model.sh",
+            ),
+        }
+
+        self.assertEqual(
+            1,
+            len(set(selectors.values())),
+            f"Model selectors are inconsistent: {selectors}",
+        )
+
+        publisher_image = self._extract_single_required(
+            r'^readonly DEFAULT_MODEL_IMAGE="([^"]+)"$',
+            OLLAMA_PUBLISH_SCRIPT,
+            "scripts/publish-ollama-model.sh",
+        )
+        publisher_model_tag = selectors[
+            "scripts/publish-ollama-model.sh"
+        ].rpartition(":")[2]
+        publisher_image_tag = publisher_image.rpartition(":")[2]
+        self.assertTrue(publisher_model_tag, "Publisher model name has no tag")
+        self.assertTrue(publisher_image_tag, "Publisher image has no tag")
+        self.assertEqual(publisher_model_tag, publisher_image_tag)
 
     def test_model_artifact_is_pinned_by_registry_digest(self):
         match = re.search(
@@ -54,11 +120,6 @@ class OllamaPackagingTests(unittest.TestCase):
             PRODUCTION_STACK,
         )
         self.assertIn(
-            'OLLAMA_MODEL: '
-            'ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m',
-            PRODUCTION_STACK,
-        )
-        self.assertIn(
             'QUERY_EXPANSION_MODEL: qwen2.5:1.5b', PRODUCTION_STACK
         )
         self.assertIn(
@@ -86,19 +147,10 @@ class OllamaPackagingTests(unittest.TestCase):
         dev_model_image = re.search(
             r'readonly OLLAMA_MODEL_IMAGE="([^"]+)"', LOCAL_DEV_SCRIPT
         )
-        cicd_model_name = re.search(
-            r'readonly OLLAMA_MODEL_NAME="([^"]+)"', CICD
-        )
-        dev_model_name = re.search(
-            r'readonly OLLAMA_MODEL_NAME="([^"]+)"', LOCAL_DEV_SCRIPT
-        )
 
         self.assertIsNotNone(cicd_model_image)
         self.assertIsNotNone(dev_model_image)
-        self.assertIsNotNone(cicd_model_name)
-        self.assertIsNotNone(dev_model_name)
         self.assertEqual(cicd_model_image.group(1), dev_model_image.group(1))
-        self.assertEqual(cicd_model_name.group(1), dev_model_name.group(1))
         self.assertIn(
             '--file docker/ollama/Dockerfile-dev', LOCAL_DEV_SCRIPT
         )
@@ -137,11 +189,6 @@ class OllamaPackagingTests(unittest.TestCase):
     def test_dev_stack_uses_the_prepared_runtime_without_mutating_it(self):
         self.assertIn(
             'image: fabrizio2210/coverletter-ollama-dev', DEV_STACK
-        )
-        self.assertIn(
-            'OLLAMA_MODEL: '
-            'ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m',
-            DEV_STACK,
         )
         self.assertIn('QUERY_EXPANSION_MODEL: qwen2.5:1.5b', DEV_STACK)
         self.assertIn('METADATA_NORMALIZATION_MODEL: qwen2.5:1.5b', DEV_STACK)

@@ -22,12 +22,12 @@ PROMOTE_TAGS="${PROMOTE_TAGS:-$arch}"
 STACK_NAME="${STACK_NAME:-coverletter}"
 STACK_FILE="${STACK_FILE:-docker/prod/stack.yml}"
 DEPLOY_TAG="${DEPLOY_TAG:-${PROMOTE_TAGS%% *}}"
-readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
+readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
 readonly OLLAMA_AUXILIARY_MODEL="qwen2.5:1.5b"
 # Updated only by the explicit model-publication workflow documented in
 # docker/ollama/README.md. This reference must remain immutable and must not be
 # replaced by an environment-controlled tag.
-readonly OLLAMA_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model@sha256:48deacc73a31698d25f224b368815decb396b27e6da80bf7a10d89ffe5083965"
+readonly OLLAMA_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model@sha256:ffdc9330119f76a5534645655059948ae5426a5efb127fbe1bf9b27daabbe23f"
 
 if [ -z "$DEPLOY_TAG" ] ; then
   DEPLOY_TAG="$arch"

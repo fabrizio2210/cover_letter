@@ -54,7 +54,7 @@ services:
       REDIS_PORT: 6379
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       OLLAMA_HOST: "http://ollama:11434"
-      OLLAMA_MODEL: ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m
+      OLLAMA_MODEL: ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16
       QUERY_EXPANSION_MODEL: qwen2.5:1.5b
       METADATA_NORMALIZATION_MODEL: qwen2.5:1.5b
       NORMALIZE_JOB_LOCATION: "true"

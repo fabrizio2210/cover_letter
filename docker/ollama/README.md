@@ -17,14 +17,17 @@ bash scripts/publish-ollama-model.sh
 
 The default publication contains:
 
-- `ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m`
+- `ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16`
 - image tag
-  `fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-q4_k_m`
+  `fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-f16`
 - OCI manifests for `linux/amd64` and `linux/arm64`
 
 The command prints an immutable `name@sha256:...` reference when the push
-finishes. Commit that complete reference as `OLLAMA_MODEL_IMAGE` in `CICD.sh`.
-Do not deploy from the mutable model tag.
+finishes. Commit that complete reference as `OLLAMA_MODEL_IMAGE` in both
+`CICD.sh` and `docker/lib/createLocalDevStack.sh`. Keep their
+`OLLAMA_MODEL_NAME` values aligned with the model selectors in
+`docker/prod/stack.yml`, `docker/lib/stack-dev.yml`, and
+`scripts/smoke-ollama-image.sh`. Do not deploy from the mutable model tag.
 
 The publisher disables generated provenance attestations for this data-only
 image so identical model-store content produces a stable multi-platform index
@@ -48,6 +51,11 @@ The build adds `qwen2.5:1.5b` to the copied promoted model store. The resulting
 
 1. Register and evaluate the new model locally.
 2. Publish its clean model-store image.
-3. Copy the printed immutable image reference into `CICD.sh`.
-4. Commit the change and run `CICD.sh`.
-5. Let the native candidate smoke test pass before promotion and deployment.
+3. Copy the printed immutable image reference into `CICD.sh` and
+   `docker/lib/createLocalDevStack.sh`.
+4. Update `OLLAMA_MODEL_NAME` in both build scripts, `OLLAMA_MODEL` in both
+   stack files, and `DEFAULT_MODEL_NAME` in the smoke script.
+5. Update the publisher defaults and this document when the default model name
+   changes.
+6. Run the packaging tests, commit the change, and run `CICD.sh`.
+7. Let the native candidate smoke test pass before promotion and deployment.

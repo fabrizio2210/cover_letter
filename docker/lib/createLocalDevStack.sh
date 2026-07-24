@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
-readonly OLLAMA_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model@sha256:48deacc73a31698d25f224b368815decb396b27e6da80bf7a10d89ffe5083965"
+readonly OLLAMA_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
+readonly OLLAMA_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model@sha256:ffdc9330119f76a5534645655059948ae5426a5efb127fbe1bf9b27daabbe23f"
 readonly OLLAMA_AUXILIARY_MODEL="qwen2.5:1.5b"
 readonly OLLAMA_DEV_IMAGE="fabrizio2210/coverletter-ollama-dev"
 
