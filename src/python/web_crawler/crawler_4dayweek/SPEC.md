@@ -14,8 +14,6 @@ The `crawler_4dayweek` package discovers and extracts job listings from [4daywee
 
 This package must apply identity role filtering before job persistence, using the same matching rule as `crawler_ats_job_extraction` and `crawler_levelsfyi`.
 
-Repository note: only this package spec is present in the current workspace snapshot. Workflow and worker implementation files referenced below are not present here, so code-level changes are blocked until those files are available.
-
 ---
 
 ## 2. Runtime and Entry Point
@@ -56,7 +54,7 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 - Parse `WorkflowDispatchMessage` from the input queue; drop malformed messages.
 - Validate `user_id` on input payload and derive per-user DB name as `cover_letter_<user_id>`.
-- Discover job URLs from the 4dayweek sitemap or list-page fallback (see section 5).
+- Discover jobs from the 4dayweek v2 API or list-page fallback (see section 5).
 - Deduplicate discovered URLs before extraction.
 - For each job URL: extract job and company details using JSON-LD then DOM fallback (see section 6).
 - Resolve or create company in `companies` using canonicalized company name.
@@ -70,18 +68,18 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ## 5. Job URL Discovery
 
-### 5.1 Preferred Strategy: Sitemap Traversal
+### 5.1 Preferred Strategy: API Pagination
 
-1. Fetch `https://4dayweek.io/sitemap.xml`.
-2. Resolve nested sitemaps if present.
-3. Extract URLs matching the job pattern: `https://4dayweek.io/remote-job/{job-title-slug}-{id}`
-4. Deduplicate URLs before extraction.
+1. Fetch `https://4dayweek.io/api/v2/jobs` with `page` and `limit` parameters.
+2. Continue until the response has `has_more = false`.
+3. Extract each job from the current API fields, including `work_arrangement` and `locations`.
+4. Deduplicate jobs by canonical source URL before returning them.
 
 ### 5.2 Fallback Strategy: List-Page Crawl
 
 - Start from `https://4dayweek.io/jobs`.
-- Use headless browser only if required by client-side pagination or infinite scroll.
-- Capture job detail URLs from loaded content or intercepted XHR payloads.
+- Follow page links and capture `/job/` or `/remote-job/` detail URLs.
+- Parse each detail page according to section 6.
 
 ---
 
@@ -89,8 +87,9 @@ Inherited from `CrawlerConfig`. Relevant subset:
 
 ### 6.1 Extraction Order
 
-1. Prefer JSON-LD in `<script type="application/ld+json">` with `JobPosting` schema.
-2. Fall back to DOM parsing when JSON-LD is absent or incomplete.
+1. Prefer the v2 API payload during normal discovery.
+2. For HTML fallback pages, prefer JSON-LD in `<script type="application/ld+json">` with `JobPosting` schema.
+3. Fall back to DOM parsing when JSON-LD is absent or incomplete.
 
 ### 6.2 Minimum Extraction Targets
 
@@ -101,10 +100,22 @@ Inherited from `CrawlerConfig`. Relevant subset:
 - Salary or compensation when present
 - Canonical job URL
 
-### 6.3 `external_job_id` Strategy
+### 6.3 Location Normalization
 
-- **Primary**: parse the terminal numeric id from the job URL pattern `...-{id}`.
-- **Fallback**: if the numeric id cannot be parsed, use a stable hash of the canonical `source_url` path.
+- Treat `work_arrangement = "remote"` as remote even when legacy `is_remote` is absent.
+- Read string-valued geographic data from `locations`, ordering entries whose `is_primary` value is the boolean `true` first and removing duplicates; use `region` when `state` is unusable and `continent` only when no country, state, region, or city is available.
+- Store geographically restricted remote jobs as `Remote (Country or Continent A, Country or Continent B)`.
+- Store unrestricted remote jobs as `Remote`.
+- Store non-remote locations as `City, State, Country`, separated by semicolons when multiple locations exist.
+- Continue accepting legacy `remote_allowed` and `office_locations` fields for compatibility; remote office restrictions retain their full `City, State, Country` precision.
+- Treat current entries without usable string-valued geography as absent so valid legacy data can still be used.
+- For JSON-LD, accept bare `JobPosting` types and types that resolve to the schema.org namespace, including mapped compact IRIs; ignore foreign namespaces.
+- Derive JSON-LD remote restrictions only from `applicantLocationRequirements`; use `jobLocation` for non-remote physical locations.
+
+### 6.4 `external_job_id` Strategy
+
+- **Primary**: parse the terminal alphanumeric id from the job URL pattern `...-{id}`.
+- **Fallback**: if the id cannot be parsed, use a stable hash of the canonical `source_url` path.
 - This key must remain stable across recrawls for deduplication.
 
 ---
@@ -154,8 +165,7 @@ Same semantics as `crawler_ats_job_extraction`. See that package's SPEC section 
 
 ## 10. Editing Guardrails
 
-- Extraction logic lives in `../sources/`; add new parsing helpers there.
+- 4dayweek API and HTML extraction logic lives in `fourdayweek.py`.
 - The `platform` value stored in MongoDB must remain `"4dayweek"` to match `external_job_id` dedup semantics.
-- Add role filtering to this workflow implementation once `workflow.py` and `worker.py` are available in the workspace.
 - `CRAWLER_REFERER` must be included in HTTP request headers for 4dayweek requests to reduce bot blocking.
-- `external_job_id` derivation (section 6.3) must remain stable; do not change the primary parsing strategy without migrating existing records.
+- `external_job_id` derivation (section 6.4) must remain stable; do not change the primary parsing strategy without migrating existing records.

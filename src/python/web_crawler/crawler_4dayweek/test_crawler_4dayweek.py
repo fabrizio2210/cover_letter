@@ -115,6 +115,7 @@ def _make_card(
     external_id="job-1",
     source_url="https://4dayweek.io/job/software-engineer-at-acme-81d43928",
     role="software engineer",
+    location="Remote",
 ):
     return FourDayWeekJobCard(
         job_title=title,
@@ -123,7 +124,7 @@ def _make_card(
         external_job_id=external_id,
         role=role,
         description="Build systems.",
-        location="Remote",
+        location=location,
         company_domain="acme.test",
     )
 
@@ -135,7 +136,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": []}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         progress_events = []
@@ -145,6 +146,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             _make_config(),
             identity_id,
             progress_callback=lambda completed, estimated, message: progress_events.append((completed, estimated, message)),
+            identity_database=db,
         )
 
         self.assertEqual(result.discovered_count, 0)
@@ -157,18 +159,29 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         fake_adapter = Mock()
-        fake_adapter.discover_jobs.return_value = [_make_card(external_id="81d43928")]
+        fake_adapter.discover_jobs.return_value = [
+            _make_card(external_id="81d43928", location="Remote (United States)")
+        ]
 
         with patch("src.python.web_crawler.crawler_4dayweek.workflow.FourDayWeekAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_4dayweek.workflow.upsert_companies", return_value=(1, 0, [str(company_oid)])):
-            result = workflow_module.run_crawler_4dayweek(db, _make_config(), identity_id)
+            result = workflow_module.run_crawler_4dayweek(
+                db,
+                _make_config(),
+                identity_id,
+                identity_database=db,
+            )
 
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.new_company_ids, [str(company_oid)])
+        self.assertEqual(
+            db["job-descriptions"].docs[0]["location"],
+            "Remote (United States)",
+        )
 
     def test_run_crawler_4dayweek_does_not_mark_existing_company_as_new(self):
         identity_id = str(ObjectId())
@@ -177,7 +190,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme", "name": "Acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         fake_adapter = Mock()
@@ -185,7 +198,12 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_4dayweek.workflow.FourDayWeekAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_4dayweek.workflow.upsert_companies", return_value=(0, 1, [str(company_oid)])):
-            result = workflow_module.run_crawler_4dayweek(db, _make_config(), identity_id)
+            result = workflow_module.run_crawler_4dayweek(
+                db,
+                _make_config(),
+                identity_id,
+                identity_database=db,
+            )
 
         self.assertEqual(result.inserted_count, 1)
         self.assertEqual(result.new_company_ids, [])
@@ -197,7 +215,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["designer"]}]),
                 "companies": FakeCollection(docs=[{"_id": company_oid, "canonical_name": "acme", "name": "Acme"}]),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         fake_adapter = Mock()
@@ -207,7 +225,12 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             patch("src.python.web_crawler.crawler_4dayweek.workflow.FourDayWeekAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_4dayweek.workflow.upsert_companies", return_value=(0, 1, [str(company_oid)])), \
             patch("src.python.web_crawler.crawler_4dayweek.workflow._upsert_job") as mock_upsert:
-            result = workflow_module.run_crawler_4dayweek(db, _make_config(), identity_id)
+            result = workflow_module.run_crawler_4dayweek(
+                db,
+                _make_config(),
+                identity_id,
+                identity_database=db,
+            )
 
         mock_upsert.assert_not_called()
         self.assertEqual(result.skipped_count, 1)
@@ -223,7 +246,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         fake_adapter = Mock()
@@ -233,7 +256,12 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
 
         with self.assertLogs("src.python.web_crawler.crawler_4dayweek.workflow", level="DEBUG") as captured_logs:
             with patch("src.python.web_crawler.crawler_4dayweek.workflow.FourDayWeekAdapter", return_value=fake_adapter):
-                result = workflow_module.run_crawler_4dayweek(db, _make_config(), identity_id)
+                result = workflow_module.run_crawler_4dayweek(
+                    db,
+                    _make_config(),
+                    identity_id,
+                    identity_database=db,
+                )
 
         self.assertEqual(result.skipped_count, 1)
         self.assertEqual(result.inserted_count, 0)
@@ -249,7 +277,7 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
             {
                 "identities": FakeCollection(docs=[{"_id": ObjectId(identity_id), "roles": ["software engineer"]}]),
                 "companies": FakeCollection(),
-                "jobs": FakeCollection(),
+                "job-descriptions": FakeCollection(),
             }
         )
         fake_adapter = Mock()
@@ -258,7 +286,12 @@ class Crawler4DayWeekWorkflowTests(unittest.TestCase):
         with self.assertLogs("src.python.web_crawler.crawler_4dayweek.workflow", level="DEBUG") as captured_logs, \
             patch("src.python.web_crawler.crawler_4dayweek.workflow.FourDayWeekAdapter", return_value=fake_adapter), \
             patch("src.python.web_crawler.crawler_4dayweek.workflow.upsert_companies", return_value=(1, 0, [str(company_oid)])):
-            result = workflow_module.run_crawler_4dayweek(db, _make_config(), identity_id)
+            result = workflow_module.run_crawler_4dayweek(
+                db,
+                _make_config(),
+                identity_id,
+                identity_database=db,
+            )
 
         self.assertEqual(result.inserted_count, 1)
         self.assertTrue(
@@ -275,6 +308,7 @@ class Crawler4DayWeekWorkerTests(unittest.TestCase):
             "workflow_run_id": "workflow-1",
             "workflow_id": "crawler_4dayweek",
             "identity_id": str(ObjectId()),
+            "user_id": "user-1",
             "trigger_kind": "public_crawl",
             "attempt": 1,
         }
@@ -282,6 +316,7 @@ class Crawler4DayWeekWorkerTests(unittest.TestCase):
 
         with patch("src.python.web_crawler.crawler_4dayweek.worker._connect_redis", return_value=fake_redis), \
             patch("src.python.web_crawler.crawler_4dayweek.worker.get_database", return_value=FakeDatabase()), \
+            patch("src.python.web_crawler.crawler_4dayweek.worker.get_user_database", return_value=FakeDatabase()), \
             patch(
                 "src.python.web_crawler.crawler_4dayweek.worker.run_crawler_4dayweek",
                 return_value=WorkflowResult(new_company_ids=[str(ObjectId())]),
