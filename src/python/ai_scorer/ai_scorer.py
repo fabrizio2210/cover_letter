@@ -86,6 +86,13 @@ def get_field(obj, field_name, default_value: Any = ""):
     return getattr(obj, field_name, default_value)
 
 
+def set_field(obj, field_name, value):
+    if isinstance(obj, dict):
+        obj[field_name] = value
+        return
+    setattr(obj, field_name, value)
+
+
 def get_message_id(value):
     if isinstance(value, dict):
         return to_string_id(value.get("_id") if value.get("_id") is not None else value.get("id"))
@@ -2143,17 +2150,20 @@ def score_preference(
         get_field(job_doc, "description", "")
     )
     normalize_title = should_normalize_job_title()
+    normalize_location = should_normalize_job_location()
     scoring_preference = preference
     scoring_job_doc = job_doc
-    if (
-        should_normalize_job_location() or normalize_title
-    ) and isinstance(job_doc, dict):
-        scoring_job_doc = dict(job_doc)
-    if normalize_title and isinstance(job_doc, dict):
+    if normalize_location or normalize_title:
+        scoring_job_doc = copy.deepcopy(job_doc)
+    if normalize_title:
         try:
-            scoring_job_doc["title"] = normalize_job_title(
-                ollama_client,
-                str(get_field(job_doc, "title", "") or ""),
+            set_field(
+                scoring_job_doc,
+                "title",
+                normalize_job_title(
+                    ollama_client,
+                    str(get_field(job_doc, "title", "") or ""),
+                ),
             )
         except Exception as exc:
             print(
@@ -2166,7 +2176,7 @@ def score_preference(
                     }
                 )
             )
-    if should_normalize_job_location() and isinstance(job_doc, dict):
+    if normalize_location:
         try:
             normalized_location = normalize_job_location(
                 ollama_client,
@@ -2177,7 +2187,7 @@ def score_preference(
                 and should_render_explicit_remote_location()
             ):
                 normalized_location = "fully remote"
-            scoring_job_doc["location"] = normalized_location
+            set_field(scoring_job_doc, "location", normalized_location)
         except Exception as exc:
             print(
                 "warn: Failed to normalize job-location metadata: "

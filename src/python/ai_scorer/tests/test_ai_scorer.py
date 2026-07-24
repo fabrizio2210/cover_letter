@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 from bson import ObjectId
 
@@ -20,6 +22,8 @@ if "ollama" not in sys.modules:
     setattr(fake_ollama, "Client", _StubClient)
     sys.modules["ollama"] = fake_ollama
 
+from src.python.ai_scorer import ai_scorer as ai_scorer_module
+from src.python.ai_scorer import common_pb2
 from src.python.ai_scorer.ai_scorer import (
     ScoringRunManager,
     build_prompt,
@@ -99,6 +103,27 @@ class FakeOllamaClient:
     def chat(self, model, messages, options):
         self.last_messages = messages
         return self.response
+
+
+class LocationNormalizingOllamaClient:
+    def __init__(self, normalization_error=None):
+        self.normalization_error = normalization_error
+        self.calls = []
+
+    def chat(self, model, messages, options, format=None):
+        self.calls.append(
+            {
+                "model": model,
+                "messages": messages,
+                "options": options,
+                "format": format,
+            }
+        )
+        if model == "metadata-model":
+            if self.normalization_error is not None:
+                raise self.normalization_error
+            return {"message": {"content": '{"normalized_location":"remote"}'}}
+        return {"message": {"content": "N/A"}}
 
 
 class AiScorerUnitTests(unittest.TestCase):
@@ -324,6 +349,120 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertFalse(score_result.get("score_available"))
         self.assertEqual(score_result.get("score"), 0)
 
+    def test_score_preference_normalizes_dict_and_protobuf_locations_equally(self):
+        environment = {
+            "NORMALIZE_JOB_LOCATION": "true",
+            "EXPLICIT_REMOTE_LOCATION": "true",
+            "METADATA_NORMALIZATION_MODEL": "metadata-model",
+        }
+        jobs = {
+            "dict": {
+                "title": "Platform Engineer",
+                "description": "",
+                "location": "Remote - EU",
+            },
+            "protobuf": common_pb2.Job(
+                title="Platform Engineer",
+                description="",
+                location="Remote - EU",
+            ),
+        }
+        scoring_prompts = {}
+
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(
+                ai_scorer_module,
+                "retrieve_relevant_snippets",
+                return_value=[],
+            ),
+        ):
+            for representation, job in jobs.items():
+                with self.subTest(representation=representation):
+                    ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+                    client = LocationNormalizingOllamaClient()
+
+                    score_result = score_preference(
+                        ollama_client=client,
+                        model_name="scorer-model",
+                        test_mode=False,
+                        job_id="job-1",
+                        preference={
+                            "key": "remote",
+                            "guidance": "I prefer remote work",
+                            "weight": 1,
+                            "enabled": True,
+                        },
+                        job_doc=job,
+                        company_doc={},
+                        identity_doc={},
+                    )
+
+                    self.assertFalse(score_result.get("score_available"))
+                    self.assertEqual(
+                        [call["model"] for call in client.calls],
+                        ["metadata-model", "scorer-model"],
+                    )
+                    scoring_prompt = client.calls[-1]["messages"][-1]["content"]
+                    self.assertIn("Job Location: fully remote", scoring_prompt)
+                    self.assertEqual(
+                        ai_scorer_module.get_field(job, "location"),
+                        "Remote - EU",
+                    )
+                    scoring_prompts[representation] = scoring_prompt
+
+        ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+        self.assertEqual(scoring_prompts["dict"], scoring_prompts["protobuf"])
+
+    def test_protobuf_location_normalization_failure_uses_original_location(self):
+        job = common_pb2.Job(
+            title="Platform Engineer",
+            description="",
+            location="Remote - EU",
+        )
+        client = LocationNormalizingOllamaClient(
+            normalization_error=RuntimeError("normalizer unavailable")
+        )
+        environment = {
+            "NORMALIZE_JOB_LOCATION": "true",
+            "EXPLICIT_REMOTE_LOCATION": "true",
+            "METADATA_NORMALIZATION_MODEL": "metadata-model",
+        }
+
+        ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(
+                ai_scorer_module,
+                "retrieve_relevant_snippets",
+                return_value=[],
+            ),
+        ):
+            score_result = score_preference(
+                ollama_client=client,
+                model_name="scorer-model",
+                test_mode=False,
+                job_id="job-1",
+                preference={
+                    "key": "remote",
+                    "guidance": "I prefer remote work",
+                    "weight": 1,
+                    "enabled": True,
+                },
+                job_doc=job,
+                company_doc={},
+                identity_doc={},
+            )
+
+        self.assertFalse(score_result.get("score_available"))
+        self.assertEqual(
+            [call["model"] for call in client.calls],
+            ["metadata-model", "scorer-model"],
+        )
+        scoring_prompt = client.calls[-1]["messages"][-1]["content"]
+        self.assertIn("Job Location: Remote - EU", scoring_prompt)
+        self.assertEqual(job.location, "Remote - EU")
+
     def test_compute_and_persist_aggregate_updates_score_document(self):
         job_id = ObjectId()
         identity_id = ObjectId()
@@ -499,6 +638,89 @@ class AiScorerUnitTests(unittest.TestCase):
         for score in preference_scores:
             self.assertIn("scored_at", score)
             self.assertTrue(score.get("score_available", False))
+
+    def test_process_scoring_job_normalizes_protobuf_location(self):
+        field_id = ObjectId()
+        company_id = ObjectId()
+        job_id = ObjectId()
+        identity_id = ObjectId()
+        job_doc = {
+            "_id": job_id,
+            "company": company_id,
+            "title": "Platform Engineer",
+            "description": "",
+            "location": "Remote - EU",
+            "platform": "lever",
+        }
+        jobs = FakeCollection(docs=[job_doc])
+        companies = FakeCollection(
+            docs=[
+                {
+                    "_id": company_id,
+                    "field": field_id,
+                    "name": "Acme",
+                    "description": "Infrastructure company",
+                }
+            ]
+        )
+        identities = FakeCollection(
+            docs=[
+                {
+                    "_id": identity_id,
+                    "field": field_id,
+                    "name": "Fab",
+                    "description": "Platform profile",
+                    "preferences": [
+                        {
+                            "key": "remote",
+                            "guidance": "I prefer remote work",
+                            "weight": 1,
+                            "enabled": True,
+                        }
+                    ],
+                }
+            ]
+        )
+        score_docs = FakeCollection()
+        client = LocationNormalizingOllamaClient()
+        scoring_run_manager = ScoringRunManager(jobs, companies, score_docs)
+        environment = {
+            "NORMALIZE_JOB_LOCATION": "true",
+            "EXPLICIT_REMOTE_LOCATION": "true",
+            "METADATA_NORMALIZATION_MODEL": "metadata-model",
+        }
+
+        ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(
+                ai_scorer_module,
+                "retrieve_relevant_snippets",
+                return_value=[],
+            ),
+        ):
+            process_scoring_job(
+                job_id=str(job_id),
+                job_descriptions_col=jobs,
+                companies_col=companies,
+                identities_col=identities,
+                job_preference_scores_col=score_docs,
+                redis_client=FakeRedisClient(),
+                scoring_progress_channel="scoring_progress_channel",
+                scoring_run_manager=scoring_run_manager,
+                ollama_client=client,
+                model_name="scorer-model",
+                test_mode=False,
+                identity_id=str(identity_id),
+            )
+
+        self.assertEqual(
+            [call["model"] for call in client.calls],
+            ["metadata-model", "scorer-model"],
+        )
+        scoring_prompt = client.calls[-1]["messages"][-1]["content"]
+        self.assertIn("Job Location: fully remote", scoring_prompt)
+        self.assertEqual(job_doc["location"], "Remote - EU")
 
     def test_process_scoring_job_rescore_updates_single_doc(self):
         field_id = ObjectId()
