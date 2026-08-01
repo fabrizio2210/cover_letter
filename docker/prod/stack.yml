@@ -1,8 +1,14 @@
 version: '3.4'
 
+x-portainer-access-labels: &portainer-access-labels
+  io.portainer.accesscontrol.users: coverletter-mcp
+
 services:
   redis_cover_letter:
     image: redis:7.4-bookworm
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -18,6 +24,9 @@ services:
     secrets:
       - COVERLETTER_GEMINI_TOKEN
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -46,6 +55,9 @@ services:
       AI_SCORER_OLLAMA_PARALLELISM: 1
     secrets:
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -54,6 +66,8 @@ services:
     restart: always
     deploy:
       replicas: 1
+      labels:
+        <<: *portainer-access-labels
       resources:
         limits:
           cpus: '3.0'
@@ -81,6 +95,9 @@ services:
     secrets:
       - COVERLETTER_SERPER_API_KEY
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -100,6 +117,9 @@ services:
     secrets:
       - COVERLETTER_SERPER_API_KEY
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -118,6 +138,9 @@ services:
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
     secrets:
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -138,6 +161,9 @@ services:
     secrets:
       - COVERLETTER_SERPER_API_KEY
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -158,6 +184,9 @@ services:
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -179,6 +208,9 @@ services:
       CRAWLER_REFERER: "https://4dayweek.io/jobs"
     secrets:
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -202,6 +234,8 @@ services:
       - traefik_backends
     deploy:
       replicas: 4
+      labels:
+        <<: *portainer-access-labels
 
   enrichment-retiring-jobs:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-enrichment-retiring-jobs:${DEPLOY_TAG:-x86_64}
@@ -217,6 +251,9 @@ services:
       JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
     secrets:
       - COVERLETTER_MONGO_PASSWORD
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -232,6 +269,9 @@ services:
       - COVERLETTER_MONGO_PASSWORD
     volumes:
       - mongo_data:/data/db
+    deploy:
+      labels:
+        <<: *portainer-access-labels
     networks:
       - traefik_backends
 
@@ -244,6 +284,7 @@ services:
     restart: always
     deploy:
       labels: 
+        <<: *portainer-access-labels
         traefik.port: 80
         traefik.enable: "true"
         traefik.coverletter-mongoexpress.rule: "Host(`coverletter-mongo-express`)  && PathPrefix(`/`)"
@@ -282,6 +323,7 @@ services:
       - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
+        <<: *portainer-access-labels
         traefik.enable: "true"
         # 1. Define the Rate Limit Middleware
         traefik.http.middlewares.coverletter-limit-login.ratelimit.average: 1
@@ -302,6 +344,7 @@ services:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-frontend:${DEPLOY_TAG:-x86_64}
     deploy:
       labels:
+        <<: *portainer-access-labels
         traefik.enable: "true"
         traefik.http.routers.coverletter_frontend.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/`)"
         traefik.http.services.coverletter_frontend-service.loadbalancer.server.port: 80
