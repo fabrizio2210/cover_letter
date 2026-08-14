@@ -99,9 +99,13 @@ class FakeOllamaClient:
     def __init__(self, response):
         self.response = response
         self.last_messages = None
+        self.last_options = None
+        self.last_think = None
 
-    def chat(self, model, messages, options):
+    def chat(self, model, messages, options, think=None):
         self.last_messages = messages
+        self.last_options = options
+        self.last_think = think
         return self.response
 
 
@@ -124,6 +128,28 @@ class LocationNormalizingOllamaClient:
                 raise self.normalization_error
             return {"message": {"content": '{"normalized_location":"remote"}'}}
         return {"message": {"content": "N/A"}}
+
+
+class FakeRawResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload
+
+
+class FakeRawOllamaClient:
+    def __init__(self, payload):
+        self._client = self
+        self.response = FakeRawResponse(payload)
+        self.requests = []
+
+    def post(self, path, json):
+        self.requests.append({"path": path, "json": json})
+        return self.response
 
 
 class AiScorerUnitTests(unittest.TestCase):
@@ -325,6 +351,39 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertNotIn("Preference Key:", prompt_text)
         self.assertNotIn("Preference Weight:", prompt_text)
         self.assertIn("or N/A", system_text)
+
+    def test_score_preference_passes_configured_generation_controls(self):
+        client = FakeOllamaClient({"message": {"content": "4"}})
+
+        with patch.dict(
+            os.environ,
+            {"SCORING_NUM_PREDICT": "8", "SCORING_THINK": "false"},
+            clear=True,
+        ):
+            score_result = score_preference(
+                ollama_client=client,
+                model_name="qwen3.5:2b-q4_K_M",
+                test_mode=False,
+                job_id="507f1f77bcf86cd799439011",
+                preference={
+                    "key": "remote",
+                    "guidance": "Remote",
+                    "weight": 1,
+                    "enabled": True,
+                },
+                job_doc={
+                    "title": "Engineer",
+                    "description": "desc",
+                    "location": "EU",
+                    "platform": "ashby",
+                },
+                company_doc={"name": "Acme", "description": "Infra"},
+                identity_doc={"name": "Fab", "description": "Platform"},
+            )
+
+        self.assertEqual(score_result.get("score"), 4)
+        self.assertEqual(client.last_options, {"temperature": 0, "num_predict": 8})
+        self.assertIs(client.last_think, False)
 
     def test_score_preference_parses_na_response(self):
         client = FakeOllamaClient(
@@ -1235,6 +1294,122 @@ class WorkerPoolConfigTests(unittest.TestCase):
         self.assertEqual(parse_worker_pool_size("not-a-number"), 1)
         self.assertEqual(parse_worker_pool_size("0"), 1)
         self.assertEqual(parse_worker_pool_size("-4"), 1)
+
+
+class ScoringOptionsTests(unittest.TestCase):
+    def test_resolve_scoring_options_uses_existing_defaults(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                ai_scorer_module.resolve_scoring_options(),
+                {"temperature": 0},
+            )
+
+    def test_resolve_scoring_options_accepts_generation_limit(self):
+        environment = {
+            "SCORING_TEMPERATURE": "0.25",
+            "SCORING_SEED": "7",
+            "SCORING_NUM_PREDICT": "8",
+        }
+
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertEqual(
+                ai_scorer_module.resolve_scoring_options(),
+                {"temperature": 0.25, "seed": 7, "num_predict": 8},
+            )
+
+    def test_resolve_scoring_options_rejects_non_positive_generation_limit(self):
+        with patch.dict(
+            os.environ,
+            {"SCORING_NUM_PREDICT": "0"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "must be greater than zero"):
+                ai_scorer_module.resolve_scoring_options()
+
+
+class ScoringThinkTests(unittest.TestCase):
+    def test_resolve_scoring_think_defaults_to_unspecified(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(ai_scorer_module.resolve_scoring_think())
+
+    def test_resolve_scoring_think_accepts_boolean_values(self):
+        values = (("true", True), ("1", True), ("false", False), ("0", False))
+        for value, expected in values:
+            with self.subTest(value=value), patch.dict(
+                os.environ,
+                {"SCORING_THINK": value},
+                clear=True,
+            ):
+                self.assertIs(ai_scorer_module.resolve_scoring_think(), expected)
+
+    def test_resolve_scoring_think_rejects_invalid_value(self):
+        with patch.dict(
+            os.environ,
+            {"SCORING_THINK": "sometimes"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "must be true or false"):
+                ai_scorer_module.resolve_scoring_think()
+
+
+class RawScoringRequestTests(unittest.TestCase):
+    def test_alternate_scoring_paths_apply_generation_controls(self):
+        payload = {
+            "message": {"content": "4"},
+            "logprobs": [
+                {
+                    "logprob": -0.1,
+                    "top_logprobs": [{"token": "4", "logprob": -0.1}],
+                }
+            ],
+        }
+        scorers = (
+            ai_scorer_module.request_preference_score_with_confidence,
+            ai_scorer_module.request_preference_score_expectation,
+        )
+
+        for scorer in scorers:
+            with self.subTest(scorer=scorer.__name__):
+                client = FakeRawOllamaClient(payload)
+                with patch.dict(
+                    os.environ,
+                    {"SCORING_NUM_PREDICT": "8", "SCORING_THINK": "false"},
+                    clear=True,
+                ):
+                    scorer(
+                        client,
+                        "qwen3.5:2b-q4_K_M",
+                        {"key": "remote", "guidance": "Remote"},
+                        {"title": "Engineer", "description": "desc"},
+                        {},
+                        {},
+                        ["Remote role"],
+                    )
+
+                self.assertEqual(len(client.requests), 1)
+                request = client.requests[0]
+                self.assertEqual(request["path"], "/api/chat")
+                self.assertEqual(
+                    request["json"]["options"],
+                    {"temperature": 0, "num_predict": 8},
+                )
+                self.assertIs(request["json"]["think"], False)
+                self.assertIs(request["json"]["logprobs"], True)
+                self.assertEqual(request["json"]["top_logprobs"], 20)
+
+    def test_raw_payload_preserves_legacy_temperature_and_seed_behavior(self):
+        with patch.dict(
+            os.environ,
+            {"SCORING_TEMPERATURE": "0.75", "SCORING_SEED": "7"},
+            clear=True,
+        ):
+            payload = ai_scorer_module.build_raw_scoring_chat_payload(
+                "scorer-model",
+                [{"role": "user", "content": "score this"}],
+            )
+
+        self.assertEqual(payload["options"], {"temperature": 0})
+        self.assertNotIn("think", payload)
 
 
 if __name__ == "__main__":

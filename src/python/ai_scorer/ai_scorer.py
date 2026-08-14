@@ -569,6 +569,18 @@ def resolve_final_order_routing_mode() -> str:
     return str(os.environ.get("FINAL_ORDER_ROUTING", "") or "").strip()
 
 
+def resolve_scoring_num_predict() -> int | None:
+    configured_num_predict = str(
+        os.environ.get("SCORING_NUM_PREDICT", "") or ""
+    ).strip()
+    if not configured_num_predict:
+        return None
+    num_predict = int(configured_num_predict)
+    if num_predict <= 0:
+        raise ValueError("SCORING_NUM_PREDICT must be greater than zero")
+    return num_predict
+
+
 def resolve_scoring_options() -> dict[str, Any]:
     configured_temperature = str(
         os.environ.get("SCORING_TEMPERATURE", "") or ""
@@ -579,7 +591,41 @@ def resolve_scoring_options() -> dict[str, Any]:
     configured_seed = str(os.environ.get("SCORING_SEED", "") or "").strip()
     if configured_seed:
         options["seed"] = int(configured_seed)
+    num_predict = resolve_scoring_num_predict()
+    if num_predict is not None:
+        options["num_predict"] = num_predict
     return options
+
+
+def resolve_scoring_think() -> bool | None:
+    configured_think = str(os.environ.get("SCORING_THINK", "") or "").strip().lower()
+    if not configured_think:
+        return None
+    if configured_think in {"1", "true", "yes"}:
+        return True
+    if configured_think in {"0", "false", "no"}:
+        return False
+    raise ValueError("SCORING_THINK must be true or false")
+
+
+def build_raw_scoring_chat_payload(
+    model_name: str,
+    messages: list[dict[str, str]],
+) -> dict[str, Any]:
+    options: dict[str, Any] = {"temperature": 0}
+    num_predict = resolve_scoring_num_predict()
+    if num_predict is not None:
+        options["num_predict"] = num_predict
+    payload: dict[str, Any] = {
+        "model": model_name,
+        "messages": messages,
+        "stream": False,
+        "options": options,
+    }
+    scoring_think = resolve_scoring_think()
+    if scoring_think is not None:
+        payload["think"] = scoring_think
+    return payload
 
 
 def should_normalize_job_location() -> bool:
@@ -1860,6 +1906,7 @@ def request_preference_score(
     messages.append({"role": "user", "content": user_prompt})
 
     scoring_options = resolve_scoring_options()
+    scoring_think = resolve_scoring_think()
     request_payload = {
         "job_id": job_id,
         "preference_key": preference_key,
@@ -1868,13 +1915,18 @@ def request_preference_score(
         "messages": messages,
         "options": scoring_options,
     }
+    if scoring_think is not None:
+        request_payload["think"] = scoring_think
     print(f"debug: Ollama request: {safe_json_dump(request_payload)}")
 
-    response = ollama_client.chat(
-        model=model_name,
-        messages=messages,
-        options=scoring_options,
-    )
+    chat_kwargs = {
+        "model": model_name,
+        "messages": messages,
+        "options": scoring_options,
+    }
+    if scoring_think is not None:
+        chat_kwargs["think"] = scoring_think
+    response = ollama_client.chat(**chat_kwargs)
     print(
         "debug: Ollama response: "
         + safe_json_dump(
@@ -1979,16 +2031,16 @@ def request_preference_score_with_confidence(
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     messages.append({"role": "user", "content": user_prompt})
-    response = ollama_client._client.post(
-        "/api/chat",
-        json={
-            "model": model_name,
-            "messages": messages,
-            "stream": False,
+    request_payload = build_raw_scoring_chat_payload(model_name, messages)
+    request_payload.update(
+        {
             "logprobs": True,
             "top_logprobs": 20,
-            "options": {"temperature": 0},
-        },
+        }
+    )
+    response = ollama_client._client.post(
+        "/api/chat",
+        json=request_payload,
     )
     response.raise_for_status()
     payload = response.json()
@@ -2099,16 +2151,16 @@ def request_preference_score_expectation(
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     messages.append({"role": "user", "content": user_prompt})
-    response = ollama_client._client.post(
-        "/api/chat",
-        json={
-            "model": model_name,
-            "messages": messages,
-            "stream": False,
+    request_payload = build_raw_scoring_chat_payload(model_name, messages)
+    request_payload.update(
+        {
             "logprobs": True,
             "top_logprobs": 20,
-            "options": {"temperature": 0},
-        },
+        }
+    )
+    response = ollama_client._client.post(
+        "/api/chat",
+        json=request_payload,
     )
     response.raise_for_status()
     payload = response.json()

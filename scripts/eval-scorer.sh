@@ -15,6 +15,8 @@
 #   EVAL_FIXTURES             Path to canonical fixture file
 #   EVAL_OUTPUT_DIR           Output directory for artifacts (default: eval-results)
 #   EVAL_WITH_SYSTEM_PROMPT   Include system prompt in eval (default: true)
+#   SCORING_NUM_PREDICT       Optional maximum output tokens per scoring request
+#   SCORING_THINK             Optional true/false thinking mode for scoring requests
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
