@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from src.python.ai_scorer.evals import schema
 from src.python.ai_scorer.evals.schema import (
     EvalCase,
     dump_fixtures,
     load_fixtures,
     new_case_id,
+    update_fixture_reference,
     validate_case,
     validate_fixtures,
 )
@@ -161,6 +166,37 @@ class TestFixtureSerialization(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             load_fixtures(path)
+
+    def test_reference_update_atomically_preserves_other_content(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "canonical.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "meta": {
+                            "fixture_model": "human-reviewed",
+                            "reference_metrics": {"old": True},
+                            "custom": "preserved",
+                        },
+                        "cases": [{"case_id": "case-1"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            original_replace = os.replace
+            with patch.object(schema.os, "replace", wraps=original_replace) as replace:
+                update_fixture_reference(
+                    str(path),
+                    {"total": 1},
+                    {"model": "reference"},
+                )
+            updated = json.loads(path.read_text(encoding="utf-8"))
+
+        replace.assert_called_once()
+        self.assertEqual(updated["meta"]["format_version"], "4")
+        self.assertEqual(updated["meta"]["custom"], "preserved")
+        self.assertEqual(updated["meta"]["reference_metrics"], {"total": 1})
+        self.assertEqual(updated["cases"], [{"case_id": "case-1"}])
 
 
 if __name__ == "__main__":

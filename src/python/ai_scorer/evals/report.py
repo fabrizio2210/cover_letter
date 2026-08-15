@@ -52,6 +52,10 @@ def write_summary(
     candidate_metrics,
     regression,
     reference_metrics_dict: Optional[dict] = None,
+    run_configuration: Optional[dict] = None,
+    reference_run: Optional[dict] = None,
+    gate_status: str = "evaluated",
+    reference_refreshed: bool = False,
 ) -> str:
     """Write summary.json; returns its path."""
     cm_dict = _metrics_to_dict(candidate_metrics)
@@ -80,13 +84,17 @@ def write_summary(
         "fixture_count": fixture_count,
         "candidate_model": candidate_model,
         "run_at": run_at,
+        "run_configuration": run_configuration or {},
+        "reference_run": reference_run or {},
+        "reference_refreshed": reference_refreshed,
         "candidate_metrics": cm_dict,
         "golden_metrics": {
             "score_distribution": _golden_score_distribution(cases),
         },
         "timing": timing,
         "regression": {
-            "passed": regression.passed,
+            "status": gate_status,
+            "passed": regression.passed if gate_status == "evaluated" else None,
             "reasons": regression.reasons,
             "exact_accuracy": candidate_metrics.exact_accuracy,
             "na_f1": candidate_metrics.na_f1,
@@ -141,6 +149,10 @@ def write_report(
     cases,
     candidate_results: list,
     reference_metrics_dict: Optional[dict] = None,
+    run_configuration: Optional[dict] = None,
+    reference_run: Optional[dict] = None,
+    gate_status: str = "evaluated",
+    reference_refreshed: bool = False,
 ) -> str:
     """Write report.md; returns its path."""
     cm = candidate_metrics
@@ -152,17 +164,66 @@ def write_report(
         f"**Fixtures:** {fixture_source} ({fixture_count} cases)",
         f"**Fixture model (golden):** `{fixture_model}`",
         f"**Candidate model:** `{candidate_model}`",
+        f"**Evaluation profile:** `{(run_configuration or {}).get('profile', '(unknown)')}`",
+        f"**Pipeline fingerprint:** `{(run_configuration or {}).get('pipeline_fingerprint', '(unknown)')}`",
         "",
         "## Regression Gate",
         "",
     ]
 
-    if regression.passed:
-        lines.append("**PASSED** — candidate meets all regression thresholds.")
-    else:
-        lines.append("**FAILED** — candidate violated one or more thresholds:")
+    if reference_refreshed:
+        lines.append("**REFRESHED**: candidate metrics became the stored reference.")
+    elif gate_status == "skipped":
+        lines.append("**SKIPPED**: pipeline configuration differs from the stored reference.")
         for reason in regression.reasons:
             lines.append(f"- {reason}")
+    elif regression.passed:
+        lines.append("**PASSED**: candidate meets all regression thresholds.")
+    else:
+        lines.append("**FAILED**: candidate violated one or more thresholds:")
+        for reason in regression.reasons:
+            lines.append(f"- {reason}")
+    lines.append("")
+
+    configuration = run_configuration or {}
+    pipeline = configuration.get("pipeline", {})
+    implementation = configuration.get("implementation", {})
+    stored_reference = reference_run or {}
+    lines += [
+        "## Pipeline Configuration",
+        "",
+        f"**Profile version:** `{configuration.get('profile_version', '(unknown)')}`",
+        f"**Implementation version:** `{implementation.get('version', '(unknown)')}`",
+        f"**Fixture fingerprint:** `{configuration.get('fixture_fingerprint', '(unknown)')}`",
+        f"**Reference model:** `{stored_reference.get('model', '(unknown)')}`",
+        f"**Reference fingerprint:** `{stored_reference.get('pipeline_fingerprint', '(unknown)')}`",
+        f"**Reference metrics fingerprint:** `{stored_reference.get('metrics_fingerprint', '(unknown)')}`",
+        "",
+        "| Setting | Effective value |",
+        "|---|---|",
+    ]
+    for key in sorted(pipeline):
+        lines.append(f"| `{key}` | `{pipeline[key]}` |")
+    lines.append("")
+
+    lines += [
+        "### Retrieval implementation",
+        "",
+        "| Setting | Value |",
+        "|---|---|",
+    ]
+    for key, value in sorted(implementation.get("retrieval", {}).items()):
+        lines.append(f"| `{key}` | `{value}` |")
+    lines.append("")
+
+    lines += [
+        "### Scoring source hashes",
+        "",
+        "| Source | SHA-256 |",
+        "|---|---|",
+    ]
+    for source, digest in sorted(implementation.get("source_sha256", {}).items()):
+        lines.append(f"| `{source}` | `{digest}` |")
     lines.append("")
 
     lines += [

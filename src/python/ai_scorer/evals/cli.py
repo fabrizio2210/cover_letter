@@ -14,9 +14,27 @@ Usage (from repo root):
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime
 import os
 import sys
+
+from src.python.ai_scorer.evals.profile import (
+    PRODUCTION_PROFILE_NAME,
+    PRODUCTION_REFERENCE_MODEL,
+    apply_profile,
+    build_run_configuration,
+    fixture_fingerprint,
+    metrics_fingerprint,
+    reference_configuration_mismatches,
+)
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = str(os.environ.get(name, "") or "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes"}
 
 # ---------------------------------------------------------------------------
 # Subcommand: extract
@@ -54,29 +72,106 @@ def _cmd_label(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def _cmd_eval(args: argparse.Namespace) -> int:
-    from src.python.ai_scorer.evals.metrics import EvalMetrics, compute_metrics, check_regression
+    apply_profile(args.profile)
+    run_configuration = build_run_configuration(args.profile, args.candidate)
+    default_profile_environment: dict[str, str] = {}
+    apply_profile(args.profile, default_profile_environment)
+    default_profile_configuration = build_run_configuration(
+        args.profile,
+        args.candidate,
+        default_profile_environment,
+    )
+
+    if args.refresh_reference and (
+        run_configuration["pipeline_fingerprint"]
+        != default_profile_configuration["pipeline_fingerprint"]
+    ):
+        print("[eval] ERROR: reference refresh requires the unmodified production profile")
+        return 2
+    if args.refresh_reference and args.candidate != PRODUCTION_REFERENCE_MODEL:
+        print(
+            "[eval] ERROR: reference refresh requires the promoted model: "
+            f"{PRODUCTION_REFERENCE_MODEL}"
+        )
+        return 2
+
+    from src.python.ai_scorer.evals.metrics import (
+        EvalMetrics,
+        RegressionResult,
+        check_regression,
+        compute_metrics,
+    )
     from src.python.ai_scorer.evals.report import write_per_case, write_report, write_summary
     from src.python.ai_scorer.evals.runner import run_eval
-    from src.python.ai_scorer.evals.schema import load_fixtures, load_fixture_meta, validate_fixtures
+    from src.python.ai_scorer.evals.schema import (
+        load_fixture_meta,
+        load_fixtures,
+        update_fixture_reference,
+        validate_fixtures,
+    )
 
-    # Load and validate canonical fixtures
-    cases = load_fixtures(args.fixtures)
+    # Load and validate canonical fixtures and reference metadata.
+    try:
+        cases = load_fixtures(args.fixtures)
+        fixture_meta = load_fixture_meta(args.fixtures)
+    except (KeyError, OSError, TypeError, ValueError) as exc:
+        print(f"[eval] ERROR: failed to load fixtures: {exc}")
+        return 2
     errors = validate_fixtures(cases)
     if errors:
         print("[eval] ERROR: fixture validation failed:")
         for e in errors:
             print(f"  {e}")
         return 2
+    current_fixture_fingerprint = fixture_fingerprint(cases)
+    run_configuration["fixture_fingerprint"] = current_fixture_fingerprint
 
     # Load fixture metadata (v2 format) to get fixture_model and reference_metrics
-    fixture_meta = load_fixture_meta(args.fixtures)
     fixture_model = fixture_meta.fixture_model if fixture_meta else "(unknown)"
     reference_metrics_dict = fixture_meta.reference_metrics if fixture_meta else {}
+    reference_run = fixture_meta.reference_run if fixture_meta else {}
+    configuration_mismatches = reference_configuration_mismatches(
+        reference_run,
+        run_configuration,
+        current_fixture_fingerprint,
+        reference_metrics_dict,
+    )
+    configuration_matches = not configuration_mismatches
+
+    if (
+        not args.refresh_reference
+        and not configuration_matches
+        and not args.allow_profile_mismatch
+    ):
+        print("[eval] ERROR: stored reference pipeline does not match this run")
+        print(
+            "[eval] Stored fingerprint: "
+            f"{reference_run.get('pipeline_fingerprint', '(missing)')}"
+        )
+        print(
+            "[eval] Current fingerprint: "
+            f"{run_configuration['pipeline_fingerprint']}"
+        )
+        for mismatch in configuration_mismatches:
+            print(f"[eval]   {mismatch}")
+        print(
+            "[eval] Refresh the promoted-model reference, or use "
+            "--allow-profile-mismatch for an ungated experiment."
+        )
+        return 2
 
     print(f"[eval] Loaded {len(cases)} canonical cases from {args.fixtures}")
     print(f"[eval] Fixture model (golden): {fixture_model}")
     print(f"[eval] Candidate model       : {args.candidate}")
     print(f"[eval] Ollama host           : {args.ollama_host}")
+    print(f"[eval] Evaluation profile    : {args.profile}")
+    print(
+        "[eval] Pipeline fingerprint : "
+        f"{run_configuration['pipeline_fingerprint']}"
+    )
+    print(f"[eval] Fixture fingerprint  : {current_fixture_fingerprint}")
+    for key, value in sorted(run_configuration["pipeline"].items()):
+        print(f"[eval]   {key}={value}")
 
     # --- Candidate run ---
     print(f"\n[eval] Running candidate ({args.candidate}) against golden set ...")
@@ -89,8 +184,40 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 
     candidate_metrics = compute_metrics(candidate_results)
 
+    run_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    reference_refreshed = False
+    gate_status = "evaluated"
+
+    if args.refresh_reference and candidate_metrics.errored:
+        print(
+            "[eval] ERROR: refusing to refresh reference metrics after "
+            f"{candidate_metrics.errored} errored cases"
+        )
+        return 2
+
+    if args.refresh_reference:
+        reference_metrics_dict = dataclasses.asdict(candidate_metrics)
+        reference_run = {
+            "profile": run_configuration["profile"],
+            "profile_version": run_configuration["profile_version"],
+            "pipeline": run_configuration["pipeline"],
+            "implementation": run_configuration["implementation"],
+            "pipeline_fingerprint": run_configuration["pipeline_fingerprint"],
+            "fixture_fingerprint": current_fixture_fingerprint,
+            "metrics_fingerprint": metrics_fingerprint(reference_metrics_dict),
+            "model": args.candidate,
+            "run_at": run_at,
+        }
+        update_fixture_reference(
+            args.fixtures,
+            reference_metrics_dict,
+            reference_run,
+        )
+        reference_refreshed = True
+        gate_status = "refreshed"
+        configuration_matches = True
+
     # Build reference EvalMetrics from stored fixture metadata (no second model run).
-    # Falls back to zero metrics when fixture has no reference (old v1 bare-array format).
     reference_metrics = EvalMetrics(
         total=reference_metrics_dict.get("total", 0),
         errored=reference_metrics_dict.get("errored", 0),
@@ -106,10 +233,19 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         total_latency_ms=reference_metrics_dict.get("total_latency_ms"),
     )
 
-    regression = check_regression(reference_metrics, candidate_metrics)
+    if not configuration_matches and args.allow_profile_mismatch and not args.refresh_reference:
+        gate_status = "skipped"
+        regression = RegressionResult(
+            passed=False,
+            reasons=[
+                "Stored and current pipeline fingerprints differ; metrics are "
+                "exploratory and were not evaluated by the regression gate."
+            ],
+        )
+    else:
+        regression = check_regression(reference_metrics, candidate_metrics)
 
     # --- Artifacts ---
-    run_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     os.makedirs(args.output_dir, exist_ok=True)
 
     summary_path = write_summary(
@@ -123,6 +259,10 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         candidate_metrics=candidate_metrics,
         regression=regression,
         reference_metrics_dict=reference_metrics_dict,
+        run_configuration=run_configuration,
+        reference_run=reference_run,
+        gate_status=gate_status,
+        reference_refreshed=reference_refreshed,
     )
     per_case_path = write_per_case(
         output_dir=args.output_dir,
@@ -141,6 +281,10 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         cases=cases,
         candidate_results=candidate_results,
         reference_metrics_dict=reference_metrics_dict,
+        run_configuration=run_configuration,
+        reference_run=reference_run,
+        gate_status=gate_status,
+        reference_refreshed=reference_refreshed,
     )
 
     print(f"\n[eval] Artifacts written to {args.output_dir}:")
@@ -154,6 +298,12 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     print(f"  na_f1          : {cm.na_f1:.3f}")
     print(f"  mean_abs_error : {cm.mean_abs_error:.3f}")
 
+    if reference_refreshed:
+        print("\n[eval] Reference metrics: REFRESHED")
+        return 0
+    if gate_status == "skipped":
+        print("\n[eval] Regression gate: SKIPPED (configuration mismatch)")
+        return 2
     if regression.passed:
         print("\n[eval] Regression gate: PASSED")
         return 0
@@ -226,8 +376,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_eval.add_argument(
         "--candidate",
-        default=os.environ.get("EVAL_CANDIDATE_MODEL", "qwen2.5:1.5b"),
-        help="Candidate model name (default: EVAL_CANDIDATE_MODEL env or qwen2.5:1.5b)",
+        default=os.environ.get("EVAL_CANDIDATE_MODEL", PRODUCTION_REFERENCE_MODEL),
+        help="Candidate model name (default: EVAL_CANDIDATE_MODEL or promoted model)",
     )
     p_eval.add_argument(
         "--fixtures",
@@ -243,6 +393,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose", "-v",
         action="store_true",
         help="Print per-case scoring progress",
+    )
+    p_eval.add_argument(
+        "--profile",
+        choices=[PRODUCTION_PROFILE_NAME],
+        default=os.environ.get("EVAL_PROFILE", PRODUCTION_PROFILE_NAME),
+        help="Scoring pipeline profile (default: production)",
+    )
+    p_eval.add_argument(
+        "--allow-profile-mismatch",
+        action="store_true",
+        default=_env_flag("EVAL_ALLOW_PROFILE_MISMATCH"),
+        help="Run an ungated experiment when pipeline and reference differ",
+    )
+    p_eval.add_argument(
+        "--refresh-reference",
+        action="store_true",
+        default=_env_flag("EVAL_REFRESH_REFERENCE"),
+        help="Replace stored reference metrics with this candidate run",
     )
 
     return parser

@@ -18,6 +18,28 @@ from pymongo import ASCENDING, MongoClient
 
 from . import common_pb2
 from .description_normalization import normalize_description_markdown
+from .scoring_config import (
+    BM25_B,
+    BM25_K1,
+    DEFAULT_CANDIDATE_QUERY_PREFIX,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EVIDENCE_SCOPE_MODEL,
+    DEFAULT_EVIDENCE_SELECTOR_MODEL,
+    DEFAULT_METADATA_NORMALIZATION_MODEL,
+    DEFAULT_PREFERENCE_NORMALIZATION_MODEL,
+    DEFAULT_QUERY_EXPANSION_MODEL,
+    DEFAULT_RERANKING_MODEL,
+    DEFAULT_TITLE_NORMALIZATION_MODEL,
+    SECONDARY_EMBEDDING_MODEL,
+    SNIPPET_CANDIDATE_K,
+    SNIPPET_PROBE_K,
+    SNIPPET_POINTWISE_CASCADE_K,
+    SNIPPET_RERANKED_TOP_K,
+    SNIPPET_RETRIEVER_K,
+    SNIPPET_RRF_RANK_CONSTANT,
+    SNIPPET_TOP_K,
+    SNIPPET_WINDOW_SIZE,
+)
 from .scoring_prompt import SCORING_SYSTEM_INSTRUCTION
 
 
@@ -31,20 +53,6 @@ _SCORING_STATUS_BSON: dict[int, str] = {
 
 
 TERMINAL_PROGRESS_STATUSES = {"completed", "failed"}
-
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-SECONDARY_EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5-Q"
-SNIPPET_TOP_K = 2
-SNIPPET_CANDIDATE_K = 10
-SNIPPET_RETRIEVER_K = 20
-SNIPPET_RERANKED_TOP_K = 2
-SNIPPET_PROBE_K = 6
-SNIPPET_WINDOW_SIZE = 1
-DEFAULT_QUERY_EXPANSION_MODEL = "qwen2.5:1.5b"
-DEFAULT_RERANKING_MODEL = "jinaai/jina-reranker-v1-tiny-en"
-DEFAULT_EVIDENCE_SELECTOR_MODEL = "qwen2.5:3b"
-DEFAULT_METADATA_NORMALIZATION_MODEL = "qwen2.5:1.5b"
-DEFAULT_CANDIDATE_QUERY_PREFIX = ""
 
 _EMBEDDING_MODEL_CACHE = {}
 _EMBEDDING_MODEL_CACHE_LOCK = threading.Lock()
@@ -608,6 +616,35 @@ def resolve_scoring_think() -> bool | None:
     raise ValueError("SCORING_THINK must be true or false")
 
 
+def resolve_auxiliary_think() -> bool | None:
+    configured_think = str(
+        os.environ.get("AUXILIARY_THINK", "") or ""
+    ).strip().lower()
+    if not configured_think:
+        return None
+    if configured_think in {"1", "true", "yes"}:
+        return True
+    if configured_think in {"0", "false", "no"}:
+        return False
+    raise ValueError("AUXILIARY_THINK must be true or false")
+
+
+def build_auxiliary_chat_kwargs(
+    model_name: str,
+    messages: list[dict[str, str]],
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "model": model_name,
+        "messages": messages,
+        "format": "json",
+        "options": {"temperature": 0},
+    }
+    auxiliary_think = resolve_auxiliary_think()
+    if auxiliary_think is not None:
+        kwargs["think"] = auxiliary_think
+    return kwargs
+
+
 def build_raw_scoring_chat_payload(
     model_name: str,
     messages: list[dict[str, str]],
@@ -1021,14 +1058,16 @@ def retrieve_bm25_snippets(
         for term in set(document):
             document_frequency[term] = document_frequency.get(term, 0) + 1
 
-    k1 = 1.5
-    b = 0.75
     scores: list[tuple[int, float]] = []
     for index, document in enumerate(documents):
         term_frequency: dict[str, int] = {}
         for term in document:
             term_frequency[term] = term_frequency.get(term, 0) + 1
-        length_normalization = 1 - b + b * len(document) / max(average_length, 1.0)
+        length_normalization = (
+            1
+            - BM25_B
+            + BM25_B * len(document) / max(average_length, 1.0)
+        )
         score = 0.0
         for term in query_terms:
             frequency = term_frequency.get(term, 0)
@@ -1039,7 +1078,8 @@ def retrieve_bm25_snippets(
                 1 + (document_count - frequency_in_corpus + 0.5) / (frequency_in_corpus + 0.5)
             )
             score += inverse_document_frequency * (
-                frequency * (k1 + 1) / (frequency + k1 * length_normalization)
+                frequency * (BM25_K1 + 1)
+                / (frequency + BM25_K1 * length_normalization)
             )
         scores.append((index, score))
 
@@ -1050,7 +1090,7 @@ def retrieve_bm25_snippets(
 def reciprocal_rank_fusion(
     ranked_lists: list[list[str]],
     top_k: int = SNIPPET_CANDIDATE_K,
-    rank_constant: int = 60,
+    rank_constant: int = SNIPPET_RRF_RANK_CONSTANT,
 ) -> list[str]:
     """Fuse ranked source passages without comparing retriever score scales."""
     scores: dict[str, float] = {}
@@ -1121,10 +1161,7 @@ def expand_retrieval_query(
     ]
 
     response = ollama_client.chat(
-        model=expansion_model,
-        messages=messages,
-        format="json",
-        options={"temperature": 0},
+        **build_auxiliary_chat_kwargs(expansion_model, messages)
     )
     content = extract_ollama_content(response)
     payload = json.loads(content)
@@ -1152,8 +1189,7 @@ def normalize_job_location(ollama_client, raw_location: str) -> str:
         return cached
 
     response = ollama_client.chat(
-        model=model_name,
-        messages=[
+        **build_auxiliary_chat_kwargs(model_name, [
             {
                 "role": "system",
                 "content": (
@@ -1171,9 +1207,7 @@ def normalize_job_location(ollama_client, raw_location: str) -> str:
                 "role": "user",
                 "content": f"Raw Job Location: {raw_location}\n",
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     if not isinstance(payload, dict):
@@ -1190,15 +1224,14 @@ def preference_guidance_needs_rewrite(ollama_client, raw_guidance: str) -> bool:
     """Detect incomplete linguistic form without interpreting the criterion."""
     model_name = str(
         os.environ.get("PREFERENCE_NORMALIZATION_MODEL", "") or ""
-    ).strip() or "qwen2.5:7b"
+    ).strip() or DEFAULT_PREFERENCE_NORMALIZATION_MODEL
     cache_key = (model_name, "referent_only_v1", raw_guidance)
     with _PREFERENCE_FRAGMENT_CACHE_LOCK:
         cached = _PREFERENCE_FRAGMENT_CACHE.get(cache_key)
     if cached is not None:
         return cached
     response = ollama_client.chat(
-        model=model_name,
-        messages=[
+        **build_auxiliary_chat_kwargs(model_name, [
             {
                 "role": "system",
                 "content": (
@@ -1232,9 +1265,7 @@ def preference_guidance_needs_rewrite(ollama_client, raw_guidance: str) -> bool:
                 "role": "user",
                 "content": f"Preference Guidance: {raw_guidance}\n",
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     decision = payload.get("needs_rewrite") if isinstance(payload, dict) else None
@@ -1249,15 +1280,14 @@ def classify_preference_evidence_scope(ollama_client, preference_guidance: str) 
     """Classify whether structured location metadata can decide a criterion."""
     model_name = str(
         os.environ.get("EVIDENCE_SCOPE_MODEL", "") or ""
-    ).strip() or "qwen2.5:7b"
+    ).strip() or DEFAULT_EVIDENCE_SCOPE_MODEL
     cache_key = (model_name, preference_guidance)
     with _PREFERENCE_EVIDENCE_SCOPE_CACHE_LOCK:
         cached = _PREFERENCE_EVIDENCE_SCOPE_CACHE.get(cache_key)
     if cached is not None:
         return cached
     response = ollama_client.chat(
-        model=model_name,
-        messages=[
+        **build_auxiliary_chat_kwargs(model_name, [
             {
                 "role": "system",
                 "content": (
@@ -1297,9 +1327,7 @@ def classify_preference_evidence_scope(ollama_client, preference_guidance: str) 
                 "role": "user",
                 "content": f"Preference Guidance: {preference_guidance}\n",
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     scope = payload.get("evidence_scope") if isinstance(payload, dict) else None
@@ -1322,15 +1350,14 @@ def normalize_preference_guidance(ollama_client, raw_guidance: str) -> str:
         return raw_guidance
     model_name = str(
         os.environ.get("PREFERENCE_NORMALIZATION_MODEL", "") or ""
-    ).strip() or "qwen2.5:7b"
+    ).strip() or DEFAULT_PREFERENCE_NORMALIZATION_MODEL
     cache_key = (model_name, "guarded_first_person_v1", raw_guidance)
     with _PREFERENCE_NORMALIZATION_CACHE_LOCK:
         cached = _PREFERENCE_NORMALIZATION_CACHE.get(cache_key)
     if cached is not None:
         return cached
     response = ollama_client.chat(
-        model=model_name,
-        messages=[
+        **build_auxiliary_chat_kwargs(model_name, [
             {
                 "role": "system",
                 "content": (
@@ -1367,9 +1394,7 @@ def normalize_preference_guidance(ollama_client, raw_guidance: str) -> str:
                 "role": "user",
                 "content": f"Preference Guidance: {raw_guidance}\n",
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     if not isinstance(payload, dict):
@@ -1386,7 +1411,7 @@ def normalize_job_title(ollama_client, raw_title: str) -> str:
     """Remove appended job-feed metadata while preserving the role title."""
     model_name = (
         str(os.environ.get("TITLE_NORMALIZATION_MODEL", "") or "").strip()
-        or "qwen2.5:7b"
+        or DEFAULT_TITLE_NORMALIZATION_MODEL
     )
     cache_key = (model_name, raw_title)
     with _TITLE_NORMALIZATION_CACHE_LOCK:
@@ -1394,8 +1419,7 @@ def normalize_job_title(ollama_client, raw_title: str) -> str:
     if cached is not None:
         return cached
     response = ollama_client.chat(
-        model=model_name,
-        messages=[
+        **build_auxiliary_chat_kwargs(model_name, [
             {
                 "role": "system",
                 "content": (
@@ -1413,9 +1437,7 @@ def normalize_job_title(ollama_client, raw_title: str) -> str:
                 ),
             },
             {"role": "user", "content": f"Raw Job Title: {raw_title}\n"},
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     if not isinstance(payload, dict):
@@ -1441,8 +1463,7 @@ def expand_contrastive_retrieval_queries(
         return cached
 
     response = ollama_client.chat(
-        model=expansion_model,
-        messages=[
+        **build_auxiliary_chat_kwargs(expansion_model, [
             {
                 "role": "system",
                 "content": (
@@ -1462,9 +1483,7 @@ def expand_contrastive_retrieval_queries(
                 "role": "user",
                 "content": f"Preference Guidance: {preference_guidance}\n",
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     if not isinstance(payload, dict):
@@ -1570,12 +1589,12 @@ def select_scoring_snippets_with_llm(
     indexed_candidates = "\n".join(
         f"{index}: {snippet}" for index, snippet in enumerate(candidate_snippets)
     )
-    response = ollama_client.chat(
-        model=(
+    selector_model = (
             str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
             or DEFAULT_EVIDENCE_SELECTOR_MODEL
-        ),
-        messages=[
+    )
+    response = ollama_client.chat(
+        **build_auxiliary_chat_kwargs(selector_model, [
             {
                 "role": "system",
                 "content": (
@@ -1602,9 +1621,7 @@ def select_scoring_snippets_with_llm(
                     f"Evidence fragments:\n{indexed_candidates}\n"
                 ),
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     indices = payload.get("selected_indices") if isinstance(payload, dict) else None
@@ -1634,12 +1651,12 @@ def select_scoring_snippets_with_compact_llm(
     candidates = "\n".join(
         f"{index}: {snippet}" for index, snippet in enumerate(candidate_snippets)
     )
-    response = ollama_client.chat(
-        model=(
+    selector_model = (
             str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
             or DEFAULT_EVIDENCE_SELECTOR_MODEL
-        ),
-        messages=[
+    )
+    response = ollama_client.chat(
+        **build_auxiliary_chat_kwargs(selector_model, [
             {
                 "role": "system",
                 "content": (
@@ -1660,9 +1677,7 @@ def select_scoring_snippets_with_compact_llm(
                     f"Evidence fragments:\n{candidates}\n"
                 ),
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     content = extract_ollama_content(response).strip()
     indices = None
@@ -1701,12 +1716,12 @@ def select_evidence_view_with_llm(
 ) -> str:
     """Choose focused or global source context without producing an assessment."""
     focused_block = "\n".join(f"- {snippet}" for snippet in focused_snippets)
-    response = ollama_client.chat(
-        model=(
+    selector_model = (
             str(os.environ.get("EVIDENCE_SELECTOR_MODEL", "") or "").strip()
             or DEFAULT_EVIDENCE_SELECTOR_MODEL
-        ),
-        messages=[
+    )
+    response = ollama_client.chat(
+        **build_auxiliary_chat_kwargs(selector_model, [
             {
                 "role": "system",
                 "content": (
@@ -1733,9 +1748,7 @@ def select_evidence_view_with_llm(
                     f"Global view:\n{complete_description}\n"
                 ),
             },
-        ],
-        format="json",
-        options={"temperature": 0},
+        ])
     )
     payload = json.loads(extract_ollama_content(response))
     selected_view = payload.get("evidence_view") if isinstance(payload, dict) else None
@@ -2448,7 +2461,7 @@ def score_preference(
             shortlist = rerank_scoring_snippets(
                 reranking_query,
                 candidates,
-                top_k=4,
+                top_k=SNIPPET_POINTWISE_CASCADE_K,
             )
             reranked_snippets = pointwise_rerank_scoring_snippets(
                 ollama_client,

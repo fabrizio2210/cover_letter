@@ -7,14 +7,16 @@ Candidate/proposed fixtures live in data/proposed/ and are gitignored.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 from src.python.ai_scorer.job_fingerprint import fingerprint_basis, validate_fingerprint
 
 SCHEMA_VERSION = "2"
-FIXTURE_FORMAT_VERSION = "2"
+FIXTURE_FORMAT_VERSION = "4"
 EXTRACTOR_VERSION = "1"
 
 
@@ -22,13 +24,14 @@ EXTRACTOR_VERSION = "1"
 class FixtureMeta:
     """Metadata stored at the top of a canonical fixture file (v2 format).
 
-    fixture_model   — the model name used when labeling / validating these cases.
-    reference_metrics — EvalMetrics-compatible dict computed from that model run;
-                        used as the regression baseline so no second model run is
-                        needed at eval time.
+    fixture_model     The model name used when labeling or validating these cases.
+    reference_metrics
+                      EvalMetrics-compatible dict from the promoted reference run.
+    reference_run     Model and pipeline provenance for the reference metrics.
     """
     fixture_model: str
     reference_metrics: dict  # keys mirror EvalMetrics fields
+    reference_run: dict = field(default_factory=dict)
     format_version: str = FIXTURE_FORMAT_VERSION
 
 
@@ -175,9 +178,18 @@ def load_fixture_meta(path: str) -> Optional[FixtureMeta]:
         raw = json.load(f)
     if isinstance(raw, dict) and "meta" in raw:
         m = raw["meta"]
+        if not isinstance(m, dict):
+            raise ValueError("Fixture meta must be a JSON object")
+        reference_metrics = m.get("reference_metrics", {})
+        if not isinstance(reference_metrics, dict):
+            raise ValueError("Fixture reference_metrics must be a JSON object")
+        reference_run = m.get("reference_run", {})
+        if not isinstance(reference_run, dict):
+            raise ValueError("Fixture reference_run must be a JSON object")
         return FixtureMeta(
             fixture_model=m.get("fixture_model", ""),
-            reference_metrics=m.get("reference_metrics", {}),
+            reference_metrics=reference_metrics,
+            reference_run=reference_run,
             format_version=m.get("format_version", FIXTURE_FORMAT_VERSION),
         )
     return None
@@ -198,3 +210,45 @@ def dump_fixtures(cases: list, path: str, meta: Optional[FixtureMeta] = None) ->
         data = [asdict(c) for c in cases]
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def update_fixture_reference(
+    path: str,
+    reference_metrics: dict,
+    reference_run: dict,
+) -> None:
+    """Replace reference-run metadata while preserving cases and other metadata."""
+    with open(path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    if not isinstance(raw, dict) or not isinstance(raw.get("meta"), dict):
+        raise ValueError("Reference refresh requires a canonical {meta, cases} fixture")
+    raw["meta"]["reference_metrics"] = reference_metrics
+    raw["meta"]["reference_run"] = reference_run
+    raw["meta"]["format_version"] = FIXTURE_FORMAT_VERSION
+    absolute_path = os.path.abspath(path)
+    directory = os.path.dirname(absolute_path)
+    original_mode = os.stat(absolute_path).st_mode & 0o777
+    temporary_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = temporary_file.name
+            json.dump(raw, temporary_file, indent=2, ensure_ascii=False)
+            temporary_file.write("\n")
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.chmod(temporary_path, original_mode)
+        os.replace(temporary_path, absolute_path)
+        temporary_path = ""
+    finally:
+        if temporary_path:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass

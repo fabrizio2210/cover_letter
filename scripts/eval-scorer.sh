@@ -11,27 +11,40 @@
 #
 # Environment variables:
 #   OLLAMA_HOST               Ollama base URL (default: http://localhost:11434)
-#   EVAL_CANDIDATE_MODEL      Candidate model to test (default: qwen2.5:1.5b)
+#   EVAL_CANDIDATE_MODEL      Candidate model to test (default: promoted model)
 #   EVAL_FIXTURES             Path to canonical fixture file
 #   EVAL_OUTPUT_DIR           Output directory for artifacts (default: eval-results)
+#   EVAL_PROFILE              Pipeline profile (default: production)
 #   EVAL_WITH_SYSTEM_PROMPT   Include system prompt in eval (default: true)
+#   EVAL_ALLOW_PROFILE_MISMATCH
+#                             Allow an ungated experiment with different settings
+#   EVAL_REFRESH_REFERENCE    Replace canonical reference metrics with this run
 #   SCORING_NUM_PREDICT       Optional maximum output tokens per scoring request
 #   SCORING_THINK             Optional true/false thinking mode for scoring requests
+#   AUXILIARY_THINK           Optional true/false thinking mode for helper requests
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
-EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-qwen2.5:1.5b}}"
+DEFAULT_CANDIDATE_MODEL="$(
+    PYTHONPATH="$REPO_ROOT" python3 -c \
+        'from src.python.ai_scorer.scoring_config import PRODUCTION_SCORER_MODEL; print(PRODUCTION_SCORER_MODEL)'
+)"
+EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-$DEFAULT_CANDIDATE_MODEL}}"
 EVAL_FIXTURES="${2:-${EVAL_FIXTURES:-src/python/ai_scorer/evals/data/canonical/v1.json}}"
 EVAL_OUTPUT_DIR="${EVAL_OUTPUT_DIR:-eval-results}"
+EVAL_PROFILE="${EVAL_PROFILE:-production}"
 EVAL_WITH_SYSTEM_PROMPT="${EVAL_WITH_SYSTEM_PROMPT:-true}"
+EVAL_ALLOW_PROFILE_MISMATCH="${EVAL_ALLOW_PROFILE_MISMATCH:-false}"
+EVAL_REFRESH_REFERENCE="${EVAL_REFRESH_REFERENCE:-false}"
 
 echo "[eval-scorer] Candidate model: $EVAL_CANDIDATE_MODEL"
 echo "[eval-scorer] Fixtures       : $EVAL_FIXTURES"
 echo "[eval-scorer] Ollama host    : $OLLAMA_HOST"
 echo "[eval-scorer] Output dir     : $EVAL_OUTPUT_DIR"
+echo "[eval-scorer] Profile        : $EVAL_PROFILE"
 echo "[eval-scorer] System prompt  : $EVAL_WITH_SYSTEM_PROMPT"
 
 if [[ ! -f "$EVAL_FIXTURES" ]]; then
@@ -58,13 +71,25 @@ if [[ ! -f "$EVAL_FIXTURES" ]]; then
     exit 1
 fi
 
+eval_args=(
+    --ollama-host "$OLLAMA_HOST"
+    --candidate "$EVAL_CANDIDATE_MODEL"
+    --fixtures "$EVAL_FIXTURES"
+    --output-dir "$EVAL_OUTPUT_DIR"
+    --profile "$EVAL_PROFILE"
+    --verbose
+)
+
+if [[ "$EVAL_ALLOW_PROFILE_MISMATCH" =~ ^(1|true|yes)$ ]]; then
+    eval_args+=(--allow-profile-mismatch)
+fi
+if [[ "$EVAL_REFRESH_REFERENCE" =~ ^(1|true|yes)$ ]]; then
+    eval_args+=(--refresh-reference)
+fi
+
 EVAL_WITH_SYSTEM_PROMPT="$EVAL_WITH_SYSTEM_PROMPT" \
 PYTHONPATH="$REPO_ROOT" python3 -m src.python.ai_scorer.evals.cli eval \
-    --ollama-host "$OLLAMA_HOST" \
-    --candidate   "$EVAL_CANDIDATE_MODEL" \
-    --fixtures    "$EVAL_FIXTURES" \
-    --output-dir  "$EVAL_OUTPUT_DIR" \
-    --verbose
+    "${eval_args[@]}"
 
 echo ""
 echo "[eval-scorer] Artifacts in $EVAL_OUTPUT_DIR/"

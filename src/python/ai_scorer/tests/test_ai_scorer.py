@@ -37,6 +37,7 @@ from src.python.ai_scorer.ai_scorer import (
     process_scoring_job,
     resolve_scoring_context,
 )
+from src.python.ai_scorer.evals.profile import PRODUCTION_REFERENCE_MODEL, apply_profile
 
 
 class FakeCollection:
@@ -128,6 +129,40 @@ class LocationNormalizingOllamaClient:
                 raise self.normalization_error
             return {"message": {"content": '{"normalized_location":"remote"}'}}
         return {"message": {"content": "N/A"}}
+
+
+class ProductionPipelineOllamaClient:
+    def __init__(self, evidence_scope="description"):
+        self.calls = []
+        self.evidence_scope = evidence_scope
+
+    def chat(self, model, messages, options, format=None, think=None):
+        self.calls.append(
+            {
+                "model": model,
+                "messages": messages,
+                "options": options,
+                "format": format,
+                "think": think,
+            }
+        )
+        if format != "json":
+            return {"message": {"content": "4"}}
+
+        instruction = messages[0]["content"]
+        if instruction.startswith("Normalize one raw job-location"):
+            content = '{"normalized_location":"remote"}'
+        elif instruction.startswith("Classify only whether"):
+            content = '{"needs_rewrite":true}'
+        elif instruction.startswith("Rewrite one candidate preference"):
+            content = '{"normalized_guidance":"I prefer roles with a lot of coding"}'
+        elif instruction.startswith("Classify which source"):
+            content = f'{{"evidence_scope":"{self.evidence_scope}"}}'
+        elif instruction.startswith("Rewrite a candidate job preference"):
+            content = '{"search_query":"software implementation coding duties"}'
+        else:
+            raise AssertionError(f"Unexpected auxiliary instruction: {instruction}")
+        return {"message": {"content": content}}
 
 
 class FakeRawResponse:
@@ -384,6 +419,125 @@ class AiScorerUnitTests(unittest.TestCase):
         self.assertEqual(score_result.get("score"), 4)
         self.assertEqual(client.last_options, {"temperature": 0, "num_predict": 8})
         self.assertIs(client.last_think, False)
+
+    def test_production_profile_exercises_complete_scoring_pipeline(self):
+        client = ProductionPipelineOllamaClient()
+
+        with (
+            patch.dict(os.environ, {"AUXILIARY_THINK": "false"}, clear=True),
+            patch.object(
+                ai_scorer_module,
+                "retrieve_relevant_snippets",
+                return_value=["Build and maintain backend services."],
+            ),
+            patch.object(
+                ai_scorer_module,
+                "rerank_scoring_snippets",
+                return_value=["Build and maintain backend services."],
+            ),
+        ):
+            apply_profile("production")
+            ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+            ai_scorer_module._PREFERENCE_FRAGMENT_CACHE.clear()
+            ai_scorer_module._PREFERENCE_NORMALIZATION_CACHE.clear()
+            ai_scorer_module._PREFERENCE_EVIDENCE_SCOPE_CACHE.clear()
+            ai_scorer_module._QUERY_EXPANSION_CACHE.clear()
+
+            score_result = score_preference(
+                ollama_client=client,
+                model_name="scorer-model",
+                test_mode=False,
+                job_id="job-1",
+                preference={
+                    "key": "coding",
+                    "guidance": "It requires a lot of coding",
+                    "weight": 1,
+                    "enabled": True,
+                },
+                job_doc={
+                    "title": "Backend Engineer",
+                    "description": "Build and maintain backend services.",
+                    "location": "Remote - EU",
+                },
+                company_doc={},
+                identity_doc={},
+            )
+
+        self.assertEqual(score_result.get("score"), 4)
+        self.assertEqual(
+            [call["model"] for call in client.calls],
+            [
+                "qwen2.5:1.5b",
+                "scorer-model",
+                "qwen2.5:1.5b",
+                "qwen2.5:1.5b",
+                "qwen2.5:1.5b",
+                "qwen2.5:1.5b",
+                "scorer-model",
+            ],
+        )
+        auxiliary_calls = [call for call in client.calls if call["format"] == "json"]
+        self.assertTrue(auxiliary_calls)
+        self.assertTrue(all(call["think"] is False for call in auxiliary_calls))
+        final_prompt = client.calls[-1]["messages"][-1]["content"]
+        self.assertIn("Preference Guidance: I prefer roles with a lot of coding", final_prompt)
+        self.assertIn("Job Location: fully remote", final_prompt)
+
+    def test_production_profile_pins_pointwise_routing_to_promoted_model(self):
+        client = ProductionPipelineOllamaClient(
+            evidence_scope="location_metadata",
+        )
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(
+                ai_scorer_module,
+                "retrieve_relevant_snippets",
+                return_value=["The role is fully remote."],
+            ),
+            patch.object(
+                ai_scorer_module,
+                "rerank_scoring_snippets",
+                return_value=["The role is fully remote."],
+            ),
+        ):
+            apply_profile("production")
+            ai_scorer_module._LOCATION_NORMALIZATION_CACHE.clear()
+            ai_scorer_module._PREFERENCE_FRAGMENT_CACHE.clear()
+            ai_scorer_module._PREFERENCE_NORMALIZATION_CACHE.clear()
+            ai_scorer_module._PREFERENCE_EVIDENCE_SCOPE_CACHE.clear()
+            ai_scorer_module._QUERY_EXPANSION_CACHE.clear()
+
+            score_preference(
+                ollama_client=client,
+                model_name="candidate-model",
+                test_mode=False,
+                job_id="job-1",
+                preference={
+                    "key": "remote",
+                    "guidance": "Prefers fully remote work",
+                    "weight": 1,
+                    "enabled": True,
+                },
+                job_doc={
+                    "title": "Backend Engineer",
+                    "description": "The role is fully remote.",
+                    "location": "Remote",
+                },
+                company_doc={},
+                identity_doc={},
+            )
+
+        scoring_models = [
+            call["model"] for call in client.calls if call["format"] is None
+        ]
+        self.assertEqual(scoring_models[0], "candidate-model")
+        self.assertEqual(scoring_models[-1], "candidate-model")
+        self.assertIn(
+            PRODUCTION_REFERENCE_MODEL,
+            scoring_models[1:-1],
+        )
+        self.assertNotIn("candidate-model", scoring_models[1:-1])
 
     def test_score_preference_parses_na_response(self):
         client = FakeOllamaClient(
