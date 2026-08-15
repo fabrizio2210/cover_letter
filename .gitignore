@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *$py.class
 .venv/
+.venv-xpu/
 
 # AI scorer eval working data (not committed; canonical fixtures are in data/canonical/)
 src/python/ai_scorer/evals/data/proposed/

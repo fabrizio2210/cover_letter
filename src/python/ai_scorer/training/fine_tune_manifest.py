@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -51,3 +52,20 @@ def write_manifest(path: str, payload: dict[str, Any]) -> None:
 
 def now_epoch() -> int:
     return int(time.time())
+
+
+def collect_training_package_versions() -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for package in (
+        "torch",
+        "transformers",
+        "peft",
+        "trl",
+        "accelerate",
+        "datasets",
+    ):
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = "not-installed"
+    return versions

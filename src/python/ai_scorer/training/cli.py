@@ -12,8 +12,9 @@ Subcommands:
   apply-job-pool-reconciliation — Apply explicitly reviewed fingerprint mappings
   balance-audit         — Audit job/preference-balanced training exposure
   preflight             — Validate exported JSONL dataset integrity
-  detect-runtime        — Detect CUDA/CPU fine-tuning runtime path
+  detect-runtime        — Detect CUDA/XPU/CPU fine-tuning runtime path
   train                 — Launch fine-tuning run with manifests/checkpoints
+  validate-checkpoints  - Evaluate checkpoints on the disjoint validation split
   merge                 — Merge adapter into full HF weights
   package               — Convert to GGUF and package Ollama model
   eval-gate             — Run scorer eval gate for promotion
@@ -36,6 +37,10 @@ from src.python.ai_scorer.training.dataset_split import (
     DEFAULT_SPLIT_MANIFEST,
 )
 from src.python.ai_scorer.training.fine_tune_train import LOSS_MODES
+from src.python.ai_scorer.training.fine_tune_models import (
+    DEFAULT_MODEL_PROFILE,
+    MODEL_PROFILE_NAMES,
+)
 from src.python.ai_scorer.training.training_balance import (
     BALANCED_MODE,
     DEFAULT_NA_SHARE,
@@ -318,10 +323,8 @@ def _cmd_train(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.fine_tune_train import main as train_main
 
     train_args = [
-        "--base-model-ollama",
-        args.base_model_ollama,
-        "--base-model-hf",
-        args.base_model_hf,
+        "--model-profile",
+        args.model_profile,
         "--dataset-profile",
         args.dataset_profile,
         "--dataset-dir",
@@ -355,6 +358,12 @@ def _cmd_train(args: argparse.Namespace) -> int:
         "--cpu-interop-threads",
         str(args.cpu_interop_threads),
     ]
+    if args.base_model_ollama:
+        train_args.extend(["--base-model-ollama", args.base_model_ollama])
+    if args.base_model_hf:
+        train_args.extend(["--base-model-hf", args.base_model_hf])
+    if args.base_model_revision:
+        train_args.extend(["--base-model-revision", args.base_model_revision])
     if args.cpu_threads:
         train_args.extend(["--cpu-threads", str(args.cpu_threads)])
     if args.run_id:
@@ -369,17 +378,38 @@ def _cmd_train(args: argparse.Namespace) -> int:
 def _cmd_merge(args: argparse.Namespace) -> int:
     from src.python.ai_scorer.training.fine_tune_merge import main as merge_main
 
-    merge_args = [
-        "--base-model-hf",
-        args.base_model_hf,
-        "--run-dir",
-        args.run_dir,
-    ]
+    merge_args = ["--run-dir", args.run_dir]
+    if args.model_profile:
+        merge_args.extend(["--model-profile", args.model_profile])
+    if args.base_model_hf:
+        merge_args.extend(["--base-model-hf", args.base_model_hf])
+    if args.base_model_revision:
+        merge_args.extend(["--base-model-revision", args.base_model_revision])
     if args.adapter_dir:
         merge_args.extend(["--adapter-dir", args.adapter_dir])
     if args.merged_dir:
         merge_args.extend(["--merged-dir", args.merged_dir])
     return merge_main(merge_args)
+
+
+def _cmd_validate_checkpoints(args: argparse.Namespace) -> int:
+    from src.python.ai_scorer.training.fine_tune_validate import main as validate_main
+
+    validate_args = [
+        "--run-dir",
+        args.run_dir,
+        "--dataset-dir",
+        args.dataset_dir,
+        "--max-new-tokens",
+        str(args.max_new_tokens),
+    ]
+    if args.model_profile:
+        validate_args.extend(["--model-profile", args.model_profile])
+    if args.base_model_hf:
+        validate_args.extend(["--base-model-hf", args.base_model_hf])
+    if args.base_model_revision:
+        validate_args.extend(["--base-model-revision", args.base_model_revision])
+    return validate_main(validate_args)
 
 
 def _cmd_package(args: argparse.Namespace) -> int:
@@ -616,7 +646,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="src/python/ai_scorer/training/data/proposed/job-pool-reconciliation-apply.json",
     )
 
-    p_runtime = sub.add_parser("detect-runtime", help="Detect CUDA/CPU fine-tuning runtime path")
+    p_runtime = sub.add_parser(
+        "detect-runtime",
+        help="Detect CUDA/XPU/CPU fine-tuning runtime path",
+    )
     p_runtime.add_argument("--output", default="")
 
     p_balance = sub.add_parser(
@@ -643,8 +676,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p_train = sub.add_parser("train", help="Launch fine-tuning run with manifests")
-    p_train.add_argument("--base-model-ollama", default="qwen2.5:1.5b")
-    p_train.add_argument("--base-model-hf", default="Qwen/Qwen2.5-1.5B-Instruct")
+    p_train.add_argument(
+        "--model-profile",
+        choices=MODEL_PROFILE_NAMES,
+        default=DEFAULT_MODEL_PROFILE,
+    )
+    p_train.add_argument("--base-model-ollama", default="")
+    p_train.add_argument("--base-model-hf", default="")
+    p_train.add_argument("--base-model-revision", default="")
     p_train.add_argument("--dataset-profile", choices=["keep-system", "no-system"], default="keep-system")
     p_train.add_argument("--dataset-dir", default="")
     p_train.add_argument("--output-root", default="src/python/ai_scorer/training/artifacts")
@@ -702,10 +741,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_train.add_argument("--smoke-run", action="store_true")
 
     p_merge = sub.add_parser("merge", help="Merge LoRA adapters into full HF weights")
-    p_merge.add_argument("--base-model-hf", default="Qwen/Qwen2.5-1.5B-Instruct")
+    p_merge.add_argument("--model-profile", choices=MODEL_PROFILE_NAMES, default="")
+    p_merge.add_argument("--base-model-hf", default="")
+    p_merge.add_argument("--base-model-revision", default="")
     p_merge.add_argument("--run-dir", required=True)
     p_merge.add_argument("--adapter-dir", default="")
     p_merge.add_argument("--merged-dir", default="")
+
+    p_validate = sub.add_parser(
+        "validate-checkpoints",
+        help="Evaluate checkpoints on the disjoint validation split",
+    )
+    p_validate.add_argument("--run-dir", required=True)
+    p_validate.add_argument(
+        "--dataset-dir",
+        default="",
+        help="Override the dataset directory recorded in run_manifest.json",
+    )
+    p_validate.add_argument("--model-profile", choices=MODEL_PROFILE_NAMES, default="")
+    p_validate.add_argument("--base-model-hf", default="")
+    p_validate.add_argument("--base-model-revision", default="")
+    p_validate.add_argument("--max-new-tokens", type=int, default=8)
 
     p_package = sub.add_parser("package", help="Convert merged model to GGUF and package for Ollama")
     p_package.add_argument("--run-dir", required=True)
@@ -745,6 +801,7 @@ def main(argv: list[str] | None = None) -> int:
         "detect-runtime": _cmd_detect_runtime,
         "balance-audit": _cmd_balance_audit,
         "train": _cmd_train,
+        "validate-checkpoints": _cmd_validate_checkpoints,
         "merge": _cmd_merge,
         "package": _cmd_package,
         "eval-gate": _cmd_eval_gate,

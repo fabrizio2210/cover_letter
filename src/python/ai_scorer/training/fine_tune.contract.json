@@ -1,11 +1,51 @@
 {
-  "base_model": {
-    "ollama_tag": "qwen2.5:1.5b",
-    "hf_id": "Qwen/Qwen2.5-1.5B-Instruct"
+  "default_model_profile": "qwen25-1.5b",
+  "model_profiles": {
+    "qwen25-1.5b": {
+      "ollama_tag": "qwen2.5:1.5b",
+      "hf_id": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+      "loader": "auto-causal-lm",
+      "torch_dtype": "bfloat16",
+      "attention_implementation": "",
+      "thinking": false,
+      "lora_target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    },
+    "qwen35-2b": {
+      "ollama_tag": "qwen3.5:2b",
+      "hf_id": "Qwen/Qwen3.5-2B",
+      "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+      "loader": "qwen3.5-text-causal-lm",
+      "torch_dtype": "bfloat16",
+      "attention_implementation": "eager",
+      "thinking": false,
+      "lora_target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "in_proj_qkv",
+        "in_proj_z",
+        "in_proj_a",
+        "in_proj_b",
+        "out_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    }
   },
-  "training_method": "qlora",
-  "preferred_stack": "unsloth+trl",
-  "hardware_profile": "cpu-only",
+  "training_method": "lora",
+  "preferred_stack": "transformers+peft",
+  "hardware_profile": "cuda-or-intel-xpu-with-cpu-fallback",
   "system_prompt_policy": "keep-system",
   "training_sampling": {
     "default_mode": "label-preference-balanced",

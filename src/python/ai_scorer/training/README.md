@@ -155,9 +155,20 @@ withheld from training exports.
 
 ## Fine-tuning and packaging workflow
 
-The training package includes an end-to-end fine-tuning workflow for qwen2.5:1.5b
-with a preferred CUDA path (`unsloth + trl`) and a CPU fallback path
-(`transformers + peft`). Runtime path selection is automatic.
+The training package includes an end-to-end fine-tuning workflow for the
+`qwen25-1.5b` and `qwen35-2b` model profiles. CUDA, Intel XPU, and CPU all use
+the same `transformers + peft` LoRA implementation, and runtime device
+selection is automatic. The default remains `qwen25-1.5b` for compatibility.
+
+Qwen3.5 training starts from the original `Qwen/Qwen3.5-2B` Hugging Face
+checkpoint, pinned to the Hugging Face revision recorded in
+`fine_tune.contract.json`. The Ollama `qwen3.5:2b` and
+`qwen3.5:2b-q4_K_M` tags are quantized inference artifacts and are not training
+inputs. The Qwen3.5 profile loads only the text causal-language-model tower,
+disables thinking in its chat template, and applies LoRA to its full-attention,
+linear-attention, and MLP projections. It uses eager full attention because
+PyTorch XPU's SDPA primitive is not reliable for this hybrid model; the Gated
+DeltaNet layers are unchanged.
 
 Training examples are always formatted with Qwen's native chat template. The
 `--loss-mode` option selects which non-padding tokens contribute to the loss:
@@ -197,6 +208,25 @@ validation, and promotion exclusions.
 python3 -m src.python.ai_scorer.training.cli detect-runtime
 ```
 
+Intel Arc training requires an XPU build of PyTorch and the Intel Level Zero
+and OpenCL compute runtimes. Keep it isolated from the ordinary CPU virtual
+environment:
+
+```bash
+python3 -m venv .venv-xpu
+.venv-xpu/bin/python -m pip install torch==2.8.0 \
+  --index-url https://download.pytorch.org/whl/xpu
+.venv-xpu/bin/python -m pip install \
+  -r src/python/ai_scorer/training/requirements-training.txt
+```
+
+Install the current Ubuntu Intel compute runtime following the
+[Intel client GPU instructions](https://dgpu-docs.intel.com/installation-guides/installing-packages-from-the-intel-ppa.html),
+then run runtime detection with `.venv-xpu/bin/python`. A working configuration
+reports `selected_path: xpu-transformers-peft` and the XPU device name.
+`OLLAMA_VULKAN` and `OLLAMA_IGPU_ENABLE` affect Ollama only; they do not enable
+PyTorch XPU.
+
 ### 3) Fine-tuning launch
 
 CPU-safe smoke run:
@@ -216,6 +246,25 @@ python3 -m src.python.ai_scorer.training.cli train \
   --max-steps 400 \
   --gradient-accumulation-steps 16 \
   --run-id qwen25-keep-system-r1
+```
+
+Controlled Qwen3.5 run matching the strongest balanced Qwen2.5 experiment:
+
+```bash
+taskset -c 0-21 .venv-xpu/bin/python -m src.python.ai_scorer.training.cli train \
+  --model-profile qwen35-2b \
+  --dataset-profile keep-system \
+  --loss-mode response-only \
+  --sampling-mode label-preference-balanced \
+  --cpu-threads 22 \
+  --cpu-interop-threads 1 \
+  --max-seq-length 1024 \
+  --per-device-batch-size 1 \
+  --gradient-accumulation-steps 8 \
+  --learning-rate 1e-4 \
+  --num-train-epochs 25 \
+  --max-steps -1 \
+  --run-id qwen35-2b-balanced-response-e25
 ```
 
 Training defaults to `--sampling-mode label-preference-balanced`. Before model
@@ -280,30 +329,55 @@ Artifacts are written under:
 - `src/python/ai_scorer/training/artifacts/runs/<run-id>/`
 
 Each run writes `run_manifest.json` with config hash inputs, dataset hash, loss
-mode, git SHA, runtime selection, and elapsed time.
+mode, git SHA, model profile, training dependency versions, runtime selection,
+and elapsed time.
 
-### 4) Merge adapters into full HF weights
+### 4) Select a checkpoint on disjoint validation data
+
+Evaluate every saved checkpoint on the 52-case validation split and select by
+exact accuracy, N/A F1, coverage-penalized MAE, then the earlier checkpoint.
+Invalid response rate is also reported for diagnosis:
+
+```bash
+.venv-xpu/bin/python -m src.python.ai_scorer.training.cli validate-checkpoints \
+  --run-dir src/python/ai_scorer/training/artifacts/runs/<run-id>
+```
+
+The command resolves the same dataset directory recorded by the training run
+and writes `checkpoint_validation.json`. The canonical 53-case scorer suite is
+not used for checkpoint selection.
+
+### 5) Merge adapters into full HF weights
 
 ```bash
 python3 -m src.python.ai_scorer.training.cli merge \
   --run-dir src/python/ai_scorer/training/artifacts/runs/<run-id>
 ```
 
-### 5) Package to GGUF and Ollama
+Merge resolves the base model and loader from `run_manifest.json` and consumes
+the checkpoint selected in `checkpoint_validation.json`. Explicit adapter and
+model arguments remain available for recovery or older external artifacts.
+
+### 6) Package to GGUF and Ollama
 
 ```bash
 python3 -m src.python.ai_scorer.training.cli package \
   --run-dir src/python/ai_scorer/training/artifacts/runs/<run-id> \
   --convert-script /path/to/llama.cpp/convert_hf_to_gguf.py \
-  --ollama-tag ai-scorer-qwen25:<run-id>
+  --ollama-tag ai-scorer-qwen35:<run-id>
 ```
 
-### 6) Promotion gate (existing scorer eval)
+Package the selected merged model once with `--quant f16` for the control and
+once with `--quant q4_k_m` for the Raspberry Pi candidate, using separate
+output directories and Ollama tags.
+
+### 7) Promotion gate (existing scorer eval)
 
 ```bash
 python3 -m src.python.ai_scorer.training.cli eval-gate \
-  --candidate-model ai-scorer-qwen25:<run-id> \
+  --candidate-model ai-scorer-qwen35:<run-id> \
   --run-dir src/python/ai_scorer/training/artifacts/runs/<run-id>
 ```
 
-This executes `scripts/eval-scorer.sh` and persists gate pass/fail metadata.
+For Qwen3.5, set `SCORING_THINK=false` and `SCORING_NUM_PREDICT=8`. This
+executes `scripts/eval-scorer.sh` and persists gate pass/fail metadata.

@@ -8,7 +8,9 @@ generate-proto:
 	# 4. Generate Python code for ai_scorer
 	protoc --plugin=protoc-gen-mypy=/usr/bin/protoc-gen-mypy --mypy_out=src/python/ai_scorer/ --python_out=src/python/ai_scorer/ --proto_path=src/go/internal/proto/common/ common.proto
 
-.PHONY: test-fast test-full install-hooks eval-scorer training-preflight training-runtime training-train training-merge training-package training-eval-gate
+.PHONY: test-fast test-full install-hooks eval-scorer training-preflight training-runtime training-train training-validate-checkpoints training-merge training-package training-eval-gate
+
+TRAINING_PYTHON ?= python3
 
 test-fast:
 	bash scripts/test-gate.sh --mode fast
@@ -24,28 +26,33 @@ eval-scorer:
 	bash scripts/eval-scorer.sh $(CANDIDATE_MODEL)
 
 training-preflight:
-	python3 -m src.python.ai_scorer.training.cli preflight --dataset-profile $(or $(DATASET_PROFILE),keep-system)
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli preflight --dataset-profile $(or $(DATASET_PROFILE),keep-system)
 
 training-runtime:
-	python3 -m src.python.ai_scorer.training.cli detect-runtime
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli detect-runtime
 
 training-train:
-	python3 -m src.python.ai_scorer.training.cli train \
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli train \
+		$(if $(MODEL_PROFILE),--model-profile $(MODEL_PROFILE),) \
 		--dataset-profile $(or $(DATASET_PROFILE),keep-system) \
 		--run-id $(RUN_ID) \
 		$(if $(SMOKE_RUN),--smoke-run,)
 
 training-merge:
-	python3 -m src.python.ai_scorer.training.cli merge \
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli merge \
+		--run-dir src/python/ai_scorer/training/artifacts/runs/$(RUN_ID)
+
+training-validate-checkpoints:
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli validate-checkpoints \
 		--run-dir src/python/ai_scorer/training/artifacts/runs/$(RUN_ID)
 
 training-package:
-	python3 -m src.python.ai_scorer.training.cli package \
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli package \
 		--run-dir src/python/ai_scorer/training/artifacts/runs/$(RUN_ID) \
 		--convert-script $(CONVERT_SCRIPT) \
 		--ollama-tag $(CANDIDATE_MODEL)
 
 training-eval-gate:
-	python3 -m src.python.ai_scorer.training.cli eval-gate \
+	$(TRAINING_PYTHON) -m src.python.ai_scorer.training.cli eval-gate \
 		--candidate-model $(CANDIDATE_MODEL) \
 		--run-dir src/python/ai_scorer/training/artifacts/runs/$(RUN_ID)

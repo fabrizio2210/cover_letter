@@ -8,7 +8,7 @@
   ],
   "preference_set_hash": "d4c75d148e5bf9158400633434f57f2de1ec927aba7d7094fd133e2d3f60723d",
   "golden_fixture": "src/python/ai_scorer/evals/data/canonical/v1.json",
-  "golden_fixture_sha256": "97fd1b3ce6cbadaad033826025465dce2cd8d4d3f23da38110609ea196788f69",
+  "golden_fixture_sha256": "e7df8bd5cb118923ffeb46a628bc29d90c938b4b28bf715f883279fce0f2be12",
   "golden_case_count": 53,
   "golden_fingerprints": [
     "jdfp:v1:description:056af9d4ef261b1c506fb73f097b1d635c31e9c815023f7c464567286754be8a",

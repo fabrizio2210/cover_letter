@@ -9,10 +9,21 @@ from dataclasses import asdict
 
 from src.python.ai_scorer.training.fine_tune_manifest import (
     collect_jsonl_paths,
+    collect_training_package_versions,
     current_git_sha,
     now_epoch,
     tree_sha256,
     write_manifest,
+)
+from src.python.ai_scorer.training.fine_tune_models import (
+    DEFAULT_MODEL_PROFILE,
+    MODEL_PROFILE_NAMES,
+    ModelProfile,
+    apply_chat_template_ids,
+    load_causal_lm,
+    load_tokenizer,
+    resolve_lora_target_modules,
+    resolve_model_profile,
 )
 from src.python.ai_scorer.training.fine_tune_preflight import run_preflight
 from src.python.ai_scorer.training.fine_tune_runtime import detect_runtime
@@ -51,6 +62,58 @@ def _read_jsonl(path: str) -> list[dict]:
 
 _IGNORE_INDEX = -100
 LOSS_MODES = ("response-only", "chat-full")
+
+
+def _resolved_training_configuration(
+    model_profile: ModelProfile,
+    *,
+    per_device_batch_size: int,
+    gradient_accumulation_steps: int,
+    learning_rate: float,
+    max_steps: int,
+    num_train_epochs: int,
+    seed: int,
+) -> dict:
+    return {
+        "model": {
+            "torch_dtype": model_profile.torch_dtype,
+            "use_cache": False,
+        },
+        "lora": {
+            "r": 8,
+            "lora_alpha": 16,
+            "target_modules": list(model_profile.lora_target_modules),
+            "lora_dropout": 0.05,
+            "bias": "none",
+            "task_type": "CAUSAL_LM",
+        },
+        "training_arguments": {
+            "per_device_train_batch_size": per_device_batch_size,
+            "per_device_eval_batch_size": per_device_batch_size,
+            "gradient_accumulation_steps": gradient_accumulation_steps,
+            "learning_rate": learning_rate,
+            "max_steps": max_steps,
+            "num_train_epochs": num_train_epochs,
+            "logging_steps": 10,
+            "save_steps": 50,
+            "eval_steps": 50,
+            "eval_strategy": "steps",
+            "save_strategy": "steps",
+            "optim": "adamw_torch_fused",
+            "lr_scheduler_type": "linear",
+            "weight_decay": 0.0,
+            "warmup_steps": 0,
+            "max_grad_norm": 1.0,
+            "bf16": False,
+            "fp16": False,
+            "gradient_checkpointing": False,
+            "dataloader_num_workers": 0,
+            "save_total_limit": None,
+            "report_to": [],
+            "seed": seed,
+            "remove_unused_columns": False,
+        },
+    }
 
 
 def _positive_int(value: str) -> int:
@@ -126,6 +189,7 @@ def _encode_training_example(
     tokenizer,
     max_length: int,
     loss_mode: str,
+    enable_thinking: bool = False,
 ) -> dict[str, list[int]]:
     """Apply the model chat template and build labels for the selected loss mode."""
     if max_length <= 0:
@@ -136,19 +200,17 @@ def _encode_training_example(
         raise ValueError("Each training example must end with an assistant message")
 
     prompt_messages = messages[:-1]
-    prompt_ids = list(
-        tokenizer.apply_chat_template(
-            prompt_messages,
-            tokenize=True,
-            add_generation_prompt=True,
-        )
+    prompt_ids = apply_chat_template_ids(
+        tokenizer,
+        prompt_messages,
+        add_generation_prompt=True,
+        enable_thinking=enable_thinking,
     )
-    full_ids = list(
-        tokenizer.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=False,
-        )
+    full_ids = apply_chat_template_ids(
+        tokenizer,
+        messages,
+        add_generation_prompt=False,
+        enable_thinking=enable_thinking,
     )
     if full_ids[: len(prompt_ids)] != prompt_ids:
         raise ValueError("Chat template did not produce a stable assistant prompt prefix")
@@ -242,20 +304,18 @@ def _set_determinism(seed: int) -> None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            torch.xpu.manual_seed_all(seed)
     except Exception:
         pass
 
 
-def _train_cpu_transformers(
-    base_model_hf: str,
+def _train_transformers_peft(
+    model_profile: ModelProfile,
     train_path: str,
     val_path: str,
     output_dir: str,
-    per_device_batch_size: int,
-    gradient_accumulation_steps: int,
-    learning_rate: float,
-    max_steps: int,
-    num_train_epochs: int,
+    training_configuration: dict,
     max_seq_length: int,
     seed: int,
     loss_mode: str,
@@ -268,19 +328,21 @@ def _train_cpu_transformers(
     try:
         import torch  # type: ignore
         from peft import LoraConfig, get_peft_model  # type: ignore
-        from transformers import (  # type: ignore
-            AutoModelForCausalLM,
-            AutoTokenizer,
-            Trainer,
-            TrainingArguments,
-        )
+        from transformers import Trainer, TrainingArguments  # type: ignore
     except Exception as exc:
         raise RuntimeError(
-            "CPU fallback requires transformers, peft, and torch. Install training deps before running."
+            "Training requires transformers, peft, and torch. Install training deps before running."
         ) from exc
 
     class _TextDataset(torch.utils.data.Dataset):
-        def __init__(self, rows: list[dict], tokenizer, max_len: int, selected_loss_mode: str):
+        def __init__(
+            self,
+            rows: list[dict],
+            tokenizer,
+            max_len: int,
+            selected_loss_mode: str,
+            enable_thinking: bool,
+        ):
             self.examples = []
             for row in rows:
                 self.examples.append(
@@ -289,6 +351,7 @@ def _train_cpu_transformers(
                         tokenizer,
                         max_len,
                         selected_loss_mode,
+                        enable_thinking,
                     )
                 )
 
@@ -298,19 +361,15 @@ def _train_cpu_transformers(
         def __getitem__(self, idx):
             return self.examples[idx]
 
-    tokenizer = AutoTokenizer.from_pretrained(base_model_hf, use_fast=True)
+    tokenizer = load_tokenizer(model_profile)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(base_model_hf)
-    lora_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
+    model = load_causal_lm(model_profile)
+    model.config.use_cache = bool(training_configuration["model"]["use_cache"])
+    lora_options = dict(training_configuration["lora"])
+    lora_options["target_modules"] = resolve_lora_target_modules(model, model_profile)
+    lora_config = LoraConfig(**lora_options)
     model = get_peft_model(model, lora_config)
 
     source_train_rows = _read_jsonl(train_path)
@@ -329,26 +388,25 @@ def _train_cpu_transformers(
         )
         train_rows = balance_plan.rows
 
-    train_ds = _TextDataset(train_rows, tokenizer, max_seq_length, loss_mode)
-    val_ds = _TextDataset(val_rows, tokenizer, max_seq_length, loss_mode)
+    train_ds = _TextDataset(
+        train_rows,
+        tokenizer,
+        max_seq_length,
+        loss_mode,
+        model_profile.thinking,
+    )
+    val_ds = _TextDataset(
+        val_rows,
+        tokenizer,
+        max_seq_length,
+        loss_mode,
+        model_profile.thinking,
+    )
 
     collator = _CausalLMCollator(tokenizer)
     training_args = TrainingArguments(
         output_dir=output_dir,
-        per_device_train_batch_size=per_device_batch_size,
-        per_device_eval_batch_size=per_device_batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
-        learning_rate=learning_rate,
-        max_steps=max_steps,
-        num_train_epochs=num_train_epochs,
-        logging_steps=10,
-        save_steps=50,
-        eval_steps=50,
-        eval_strategy="steps",
-        save_strategy="steps",
-        report_to=[],
-        seed=seed,
-        remove_unused_columns=False,
+        **training_configuration["training_arguments"],
     )
 
     class _BalancedTrainer(Trainer):
@@ -395,8 +453,10 @@ def _train_cpu_transformers(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Fine-tuning launcher for ai_scorer")
-    parser.add_argument("--base-model-ollama", default="qwen2.5:1.5b")
-    parser.add_argument("--base-model-hf", default="Qwen/Qwen2.5-1.5B-Instruct")
+    parser.add_argument("--model-profile", choices=MODEL_PROFILE_NAMES, default=DEFAULT_MODEL_PROFILE)
+    parser.add_argument("--base-model-ollama", default="")
+    parser.add_argument("--base-model-hf", default="")
+    parser.add_argument("--base-model-revision", default="")
     parser.add_argument("--dataset-profile", choices=["keep-system", "no-system"], default="keep-system")
     parser.add_argument("--dataset-dir", default="")
     parser.add_argument("--output-root", default="src/python/ai_scorer/training/artifacts")
@@ -434,6 +494,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--smoke-run", action="store_true")
     args = parser.parse_args(argv)
 
+    model_profile = resolve_model_profile(
+        args.model_profile,
+        hf_id=args.base_model_hf,
+        revision=args.base_model_revision,
+        ollama_tag=args.base_model_ollama,
+    )
+
     cpu_runtime = _configure_cpu_runtime(args.cpu_threads, args.cpu_interop_threads)
     _set_determinism(args.seed)
 
@@ -451,6 +518,8 @@ def main(argv: list[str] | None = None) -> int:
     split_manifest = load_split_manifest(os.path.join(dataset_dir, "split-manifest.json"))
     if runtime.warning:
         print(f"[training.train] WARNING: {runtime.warning}")
+    elif runtime.xpu_available:
+        print(f"[training.train] xpu_device={runtime.xpu_device}")
     if cpu_runtime["configured"]:
         print(
             "[training.train] "
@@ -484,13 +553,23 @@ def main(argv: list[str] | None = None) -> int:
     balance_report_path = os.path.join(run_dir, "training_balance.json")
     write_manifest(balance_report_path, balance_report)
 
+    resolved_max_steps = 5 if args.smoke_run else args.max_steps
+    training_configuration = _resolved_training_configuration(
+        model_profile,
+        per_device_batch_size=args.per_device_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        learning_rate=args.learning_rate,
+        max_steps=resolved_max_steps,
+        num_train_epochs=args.num_train_epochs,
+        seed=args.seed,
+    )
+    base_model_manifest = model_profile.manifest_dict()
+    base_model_manifest["profile"] = base_model_manifest.pop("name")
     manifest_path = os.path.join(run_dir, "run_manifest.json")
     pre_manifest = {
         "run_id": run_id,
-        "base_model": {
-            "ollama_tag": args.base_model_ollama,
-            "hf_id": args.base_model_hf,
-        },
+        "base_model": base_model_manifest,
+        "package_versions": collect_training_package_versions(),
         "runtime": asdict(runtime),
         "cpu_runtime": cpu_runtime,
         "dataset_profile": args.dataset_profile,
@@ -517,8 +596,9 @@ def main(argv: list[str] | None = None) -> int:
         "per_device_batch_size": args.per_device_batch_size,
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
         "learning_rate": args.learning_rate,
-        "max_steps": 5 if args.smoke_run else args.max_steps,
+        "max_steps": resolved_max_steps,
         "num_train_epochs": args.num_train_epochs,
+        "training_configuration": training_configuration,
         "loss_mode": args.loss_mode,
         "sampling_mode": args.sampling_mode,
         "samples_per_job_preference": args.samples_per_job_preference,
@@ -537,17 +617,12 @@ def main(argv: list[str] | None = None) -> int:
 
     started = time.time()
 
-    max_steps = 5 if args.smoke_run else args.max_steps
-    metrics = _train_cpu_transformers(
-        base_model_hf=args.base_model_hf,
+    metrics = _train_transformers_peft(
+        model_profile=model_profile,
         train_path=train_path,
         val_path=val_path,
         output_dir=run_dir,
-        per_device_batch_size=args.per_device_batch_size,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        learning_rate=args.learning_rate,
-        max_steps=max_steps,
-        num_train_epochs=args.num_train_epochs,
+        training_configuration=training_configuration,
         max_seq_length=args.max_seq_length,
         seed=args.seed,
         loss_mode=args.loss_mode,
