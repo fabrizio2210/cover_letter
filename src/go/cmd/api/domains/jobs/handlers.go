@@ -368,6 +368,7 @@ type jobDescriptionsQueryParams struct {
 	ScoreFilterMode string
 	ScoreThreshold  float64
 	RemoteOnly      bool
+	HideClosed      bool
 	SortBy          string
 	SortDir         string
 }
@@ -445,6 +446,14 @@ func parseJobDescriptionsQuery(c *gin.Context) (jobDescriptionsQueryParams, erro
 			return query, errors.New("Invalid remote_only")
 		}
 		query.RemoteOnly = parsedRemoteOnly
+	}
+
+	if rawHideClosed := strings.TrimSpace(c.Query("hide_closed")); rawHideClosed != "" {
+		parsedHideClosed, err := strconv.ParseBool(rawHideClosed)
+		if err != nil {
+			return query, errors.New("Invalid hide_closed")
+		}
+		query.HideClosed = parsedHideClosed
 	}
 
 	if rawSortBy := strings.TrimSpace(c.Query("sort_by")); rawSortBy != "" {
@@ -593,6 +602,13 @@ func locationIsRemote(location string) bool {
 	}
 
 	return strings.Contains(normalized, "remote") || strings.Contains(normalized, "worldwide") || strings.Contains(normalized, "anywhere")
+}
+
+func jobIsClosed(job bson.M) bool {
+	if v, ok := job["is_open"].(bool); ok {
+		return !v
+	}
+	return false
 }
 
 func stringValue(value interface{}) string {
@@ -813,6 +829,9 @@ func GetJobDescriptions(c *gin.Context) {
 			continue
 		}
 		if query.RemoteOnly && !locationIsRemote(stringValue(normalized["location"])) {
+			continue
+		}
+		if query.HideClosed && jobIsClosed(normalized) {
 			continue
 		}
 		if !jobPassesSearch(normalized, searchLower) {

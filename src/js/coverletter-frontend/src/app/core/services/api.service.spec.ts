@@ -181,11 +181,12 @@ describe('ApiService', () => {
       scoreFilterMode: 'atLeast',
       scoreThreshold: 3.5,
       remoteOnly: true,
+      hideClosed: true,
       sortBy: 'score',
       sortDir: 'desc',
     }).subscribe();
 
-    const req = httpMock.expectOne('/api/job-descriptions?page=2&page_size=10&identity_id=id-1&company_id=company-1&search=golang&score_filter_mode=atLeast&score_threshold=3.5&remote_only=true&sort_by=score&sort_dir=desc');
+    const req = httpMock.expectOne('/api/job-descriptions?page=2&page_size=10&identity_id=id-1&company_id=company-1&search=golang&score_filter_mode=atLeast&score_threshold=3.5&remote_only=true&hide_closed=true&sort_by=score&sort_dir=desc');
     expect(req.request.method).toBe('GET');
     req.flush({
       items: [],

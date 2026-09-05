@@ -52,6 +52,11 @@
       </label>
 
       <label class="toggle-row">
+        <span>Hide Closed Jobs</span>
+        <input type="checkbox" [ngModel]="hideClosed" (ngModelChange)="onHideClosedChange($event)" />
+      </label>
+
+      <label class="toggle-row">
         <span>AI Skill Gap Analysis</span>
         <input type="checkbox" [(ngModel)]="aiSkillGapAnalysis" />
       </label>
@@ -161,6 +166,7 @@
         class="job-card"
         *ngFor="let job of filteredJobs"
         [class.job-card-selected]="isSelectedJob(job)"
+        [class.job-card-closed]="isClosed(job)"
         (click)="selectJob(job)"
       >
         <div class="job-card-top">
@@ -179,6 +185,7 @@
           <span><span class="material-symbols-outlined">language</span> {{ job.platform || 'Unknown' }}</span>
           <span><span class="material-symbols-outlined">pin_drop</span> {{ job.location || 'Location not set' }}</span>
           <span class="status-chip">{{ job.score?.scoring_status || 'unscored' }}</span>
+          <span class="status-chip closed-chip" *ngIf="isClosed(job)">Closed</span>
         </div>
 
         <div class="preference-scores" *ngIf="job.score as score">
@@ -256,6 +263,10 @@
         <h4>Selected Opportunity</h4>
         <p class="details-title">{{ job.title }}</p>
         <p>{{ job.location || 'Location not set' }} • {{ job.platform || 'Unknown platform' }}</p>
+        <div class="closed-notice" *ngIf="isClosed(job)">
+          This job posting has been closed
+          <span *ngIf="formatClosedAt(job)">(retired on {{ formatClosedAt(job) }})</span>.
+        </div>
         <div class="details-source-row" *ngIf="getExternalSourceUrl(job) as sourceUrl; else sourceUrlUnavailable">
           <a class="details-source-link" [href]="sourceUrl" target="_blank" rel="noopener noreferrer">
             <span class="material-symbols-outlined">open_in_new</span>

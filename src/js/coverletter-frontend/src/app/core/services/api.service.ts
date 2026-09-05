@@ -120,6 +120,9 @@ export class ApiService {
     if (typeof query?.remoteOnly === 'boolean') {
       params.set('remote_only', String(query.remoteOnly));
     }
+    if (typeof query?.hideClosed === 'boolean') {
+      params.set('hide_closed', String(query.hideClosed));
+    }
     if (query?.sortBy) {
       params.set('sort_by', query.sortBy);
     }

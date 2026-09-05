@@ -156,6 +156,10 @@
   box-shadow: 0 12px 30px rgba(22, 72, 179, 0.16);
 }
 
+.job-card-closed {
+  opacity: 0.55;
+}
+
 .job-card-top {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -231,6 +235,11 @@
   padding: 0.2rem 0.5rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.closed-chip {
+  background: #ffe9e9;
+  color: #b3261e;
 }
 
 .preference-scores {
@@ -471,6 +480,17 @@
   font-weight: 700;
   color: #1d2d48;
   margin-bottom: 0.3rem;
+}
+
+.closed-notice {
+  margin-top: 0.45rem;
+  border-radius: 0.6rem;
+  background: #fff2f2;
+  color: #b3261e;
+  border: 1px solid #ffd7d7;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .details-source-row {

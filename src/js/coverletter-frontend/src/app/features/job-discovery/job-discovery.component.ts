@@ -66,6 +66,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   scoreFilterMode: ScoreFilterMode = 'atLeast';
   readonly scorePresetValues = [0, 1, 2, 3, 4, 5];
   remoteOnly = false;
+  hideClosed = false;
   aiSkillGapAnalysis = false;
   private searchQueryInput$ = new Subject<string>();
   private crawlStreamSubscription?: Subscription;
@@ -115,6 +116,8 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
 
       this.remoteOnly = params.get('remote_only') === 'true';
 
+      this.hideClosed = params.get('hide_closed') === 'true';
+
       this.routeIdentityId = (params.get('identityId') || '').trim();
       const sharedIdentityId = this.identityContext.getSelectedIdentityId();
       this.selectedIdentityId = this.routeIdentityId || sharedIdentityId;
@@ -154,6 +157,7 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
       scoreFilterMode: this.scoreFilterMode,
       scoreThreshold: this.scoreThreshold,
       remoteOnly: this.remoteOnly,
+      hideClosed: this.hideClosed,
       sortBy: 'score' as const,
       sortDir: 'desc' as const,
     };
@@ -555,6 +559,28 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
     return (score ?? 0).toFixed(1);
   }
 
+  isClosed(job?: ScoredJobDescription | null): boolean {
+    return job?.is_open === false;
+  }
+
+  formatClosedAt(job?: ScoredJobDescription | null): string {
+    const closedAt = job?.closed_at;
+    if (!closedAt) {
+      return '';
+    }
+
+    if (typeof closedAt === 'string') {
+      const parsed = new Date(closedAt);
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString();
+    }
+
+    if (closedAt.seconds) {
+      return new Date(closedAt.seconds * 1000).toLocaleDateString();
+    }
+
+    return '';
+  }
+
   formatPreferenceScore(preferenceScore?: PreferenceScore | null): string {
     if (!preferenceScore || preferenceScore.score_available === false) {
       return 'N/A';
@@ -593,6 +619,11 @@ export class JobDiscoveryComponent implements OnInit, OnDestroy {
   onRemoteOnlyChange(enabled: boolean): void {
     this.remoteOnly = !!enabled;
     this.updateRouteQuery({ page: 1, remote_only: this.remoteOnly ? 'true' : null });
+  }
+
+  onHideClosedChange(enabled: boolean): void {
+    this.hideClosed = !!enabled;
+    this.updateRouteQuery({ page: 1, hide_closed: this.hideClosed ? 'true' : null });
   }
 
   onSearchQueryChange(value: string): void {

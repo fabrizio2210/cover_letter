@@ -84,6 +84,8 @@ export interface JobDescription {
   platform: string;
   external_job_id: string;
   source_url: string;
+  is_open?: boolean;
+  closed_at?: string | Timestamp;
   created_at?: string | Timestamp;
   updated_at?: string | Timestamp;
   company_info?: Company;
@@ -100,6 +102,7 @@ export interface JobDescriptionsQuery {
   scoreFilterMode?: JobScoreFilterMode;
   scoreThreshold?: number;
   remoteOnly?: boolean;
+  hideClosed?: boolean;
   sortBy?: 'score' | 'created_at' | 'updated_at' | 'title' | 'company';
   sortDir?: 'asc' | 'desc';
 }

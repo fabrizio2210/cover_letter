@@ -83,6 +83,7 @@ Query params:
 - `score_filter_mode` optional enum: `atLeast`, `exactly`, `atMost` (default `atLeast`)
 - `score_threshold` optional number, default `0`
 - `remote_only` optional boolean, default `false`
+- `hide_closed` optional boolean, default `false`; when `true`, jobs with `is_open: false` are excluded
 - `sort_by` optional enum: `score`, `created_at`, `updated_at`, `title`, `company` (default `score`)
 - `sort_dir` optional enum: `asc`, `desc` (default `desc`)
 

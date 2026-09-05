@@ -542,6 +542,7 @@ func TestGetJobDescriptions_InvalidQueryParams(t *testing.T) {
 		"/api/job-descriptions?score_filter_mode=bad",
 		"/api/job-descriptions?score_threshold=not-a-number",
 		"/api/job-descriptions?remote_only=not-a-bool",
+		"/api/job-descriptions?hide_closed=not-a-bool",
 		"/api/job-descriptions?sort_by=bad",
 		"/api/job-descriptions?sort_dir=bad",
 	}
@@ -552,6 +553,52 @@ func TestGetJobDescriptions_InvalidQueryParams(t *testing.T) {
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("expected 400 for %s, got %d", url, w.Code)
 		}
+	}
+}
+
+func TestGetJobDescriptions_HideClosedFilter(t *testing.T) {
+	openJobID := primitive.NewObjectID()
+	closedJobID := primitive.NewObjectID()
+	userID := "user-42"
+
+	jobDescriptions := &mockMongoCollection{
+		aggregateResults: []aggregateResult{
+			{cursor: &mockMongoCursor{docs: []bson.M{
+				{"_id": openJobID, "title": "Open Role"},
+				{"_id": closedJobID, "title": "Closed Role", "is_open": false},
+			}}},
+		},
+	}
+	jobScores := &mockMongoCollection{aggregateCursor: &mockMongoCursor{docs: []bson.M{}}}
+	identities := &mockMongoCollection{findOneResult: &mockMongoSingleResult{doc: bson.M{}}}
+	cleanup := setMockClient(map[string]*mockMongoCollection{
+		"job-descriptions":     jobDescriptions,
+		"job-preference-scores": jobScores,
+		"identities":            identities,
+	})
+	defer cleanup()
+
+	c, w := apptest.CreateGinTestContext(http.MethodGet, "/api/job-descriptions?hide_closed=true", nil)
+	c.Set("userId", userID)
+	GetJobDescriptions(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	body := decodeBodyPaginatedMap(t, w.Body.Bytes())
+	itemsRaw, ok := body["items"].([]interface{})
+	if !ok {
+		t.Fatalf("expected items array, got %#v", body["items"])
+	}
+	if len(itemsRaw) != 1 {
+		t.Fatalf("expected only the open job, got %d items", len(itemsRaw))
+	}
+	item, ok := itemsRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first item object, got %T", itemsRaw[0])
+	}
+	if item["id"] != openJobID.Hex() {
+		t.Fatalf("expected open job id, got %v", item["id"])
 	}
 }
 
