@@ -140,6 +140,11 @@ class OllamaPackagingTests(unittest.TestCase):
         )
         self.assertNotIn('ollama pull', PRODUCTION_STACK)
 
+    def test_ollama_service_constrains_memory_and_loaded_models(self):
+        self.assertIn('OLLAMA_MAX_LOADED_MODELS: "1"', PRODUCTION_STACK)
+        self.assertIn('OLLAMA_KEEP_ALIVE: "60s"', PRODUCTION_STACK)
+        self.assertIn('memory: 3.5G', PRODUCTION_STACK)
+
     def test_local_dev_build_uses_the_pinned_model_artifact(self):
         cicd_model_image = re.search(
             r'readonly OLLAMA_MODEL_IMAGE="([^"]+)"', CICD

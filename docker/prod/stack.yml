@@ -64,6 +64,9 @@ services:
   ollama:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ollama:${DEPLOY_TAG:-arm64}
     restart: always
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "60s"
     deploy:
       replicas: 1
       labels:
@@ -71,6 +74,7 @@ services:
       resources:
         limits:
           cpus: '3.0'
+          memory: 3.5G
     networks:
       - traefik_backends
 
