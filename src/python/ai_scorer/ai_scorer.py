@@ -2948,6 +2948,22 @@ def build_ollama_client(ollama_host):
     return ollama.Client(timeout=OLLAMA_REQUEST_TIMEOUT)
 
 
+REDIS_CONNECT_TIMEOUT = 5
+REDIS_SOCKET_TIMEOUT = 60
+REDIS_HEALTH_CHECK_INTERVAL = 30
+
+
+def build_redis_client(redis_host, redis_port):
+    return redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        socket_connect_timeout=REDIS_CONNECT_TIMEOUT,
+        socket_timeout=REDIS_SOCKET_TIMEOUT,
+        socket_keepalive=True,
+        health_check_interval=REDIS_HEALTH_CHECK_INTERVAL,
+    )
+
+
 def ensure_score_collection_indexes(job_preference_scores_col):
     # Enforce single score document per (job_id, identity_id).
     job_preference_scores_col.create_index(
@@ -3057,7 +3073,7 @@ def main():
     job_descriptions_col = global_db["job-descriptions"]
     companies_col = global_db["companies"]
 
-    redis_client = redis.Redis(host=redis_host, port=redis_port)
+    redis_client = build_redis_client(redis_host, redis_port)
 
     # user_managers maps user_id → ScoringRunManager (created lazily per user).
     user_managers: dict[str, ScoringRunManager] = {}
@@ -3096,7 +3112,7 @@ def main():
     try:
         while True:
             try:
-                msg: Any = redis_client.blpop([queue_name], timeout=0)
+                msg: Any = redis_client.blpop([queue_name], timeout=30)
                 if not msg:
                     continue
 
@@ -3124,6 +3140,8 @@ def main():
 
             except Exception as exc:
                 print(f"error: Error while consuming queue: {exc}")
+                redis_client = build_redis_client(redis_host, redis_port)
+                print(f"info: Reconnected to Redis at {redis_host}:{redis_port}")
                 time.sleep(5)
     finally:
         for _ in worker_threads:

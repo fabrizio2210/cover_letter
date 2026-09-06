@@ -27,6 +27,7 @@ from src.python.ai_scorer import common_pb2
 from src.python.ai_scorer.ai_scorer import (
     ScoringRunManager,
     build_ollama_client,
+    build_redis_client,
     build_prompt,
     compute_and_persist_aggregate,
     normalize_description_markdown,
@@ -1473,6 +1474,26 @@ class BuildOllamaClientTests(unittest.TestCase):
         timeout = ai_scorer_module.OLLAMA_REQUEST_TIMEOUT
         self.assertEqual(timeout.read, 300.0)
         self.assertEqual(timeout.connect, 10.0)
+
+
+class BuildRedisClientTests(unittest.TestCase):
+    def test_build_redis_client_applies_socket_timeouts(self):
+        with patch.object(ai_scorer_module.redis, "Redis") as mock_redis_cls:
+            build_redis_client("redis-host", 6380)
+
+        mock_redis_cls.assert_called_once_with(
+            host="redis-host",
+            port=6380,
+            socket_connect_timeout=5,
+            socket_timeout=60,
+            socket_keepalive=True,
+            health_check_interval=30,
+        )
+
+    def test_redis_timeout_constants_are_bounded(self):
+        self.assertEqual(ai_scorer_module.REDIS_CONNECT_TIMEOUT, 5)
+        self.assertEqual(ai_scorer_module.REDIS_SOCKET_TIMEOUT, 60)
+        self.assertEqual(ai_scorer_module.REDIS_HEALTH_CHECK_INTERVAL, 30)
 
 
 class ScoringOptionsTests(unittest.TestCase):
