@@ -26,6 +26,7 @@ from src.python.ai_scorer import ai_scorer as ai_scorer_module
 from src.python.ai_scorer import common_pb2
 from src.python.ai_scorer.ai_scorer import (
     ScoringRunManager,
+    build_ollama_client,
     build_prompt,
     compute_and_persist_aggregate,
     normalize_description_markdown,
@@ -1448,6 +1449,30 @@ class WorkerPoolConfigTests(unittest.TestCase):
         self.assertEqual(parse_worker_pool_size("not-a-number"), 1)
         self.assertEqual(parse_worker_pool_size("0"), 1)
         self.assertEqual(parse_worker_pool_size("-4"), 1)
+
+
+class BuildOllamaClientTests(unittest.TestCase):
+    def test_build_ollama_client_applies_request_timeout(self):
+        with patch.object(ai_scorer_module.ollama, "Client") as mock_client_cls:
+            build_ollama_client("http://ollama:11434")
+
+        mock_client_cls.assert_called_once_with(
+            host="http://ollama:11434",
+            timeout=ai_scorer_module.OLLAMA_REQUEST_TIMEOUT,
+        )
+
+    def test_build_ollama_client_without_host_still_applies_timeout(self):
+        with patch.object(ai_scorer_module.ollama, "Client") as mock_client_cls:
+            build_ollama_client(None)
+
+        mock_client_cls.assert_called_once_with(
+            timeout=ai_scorer_module.OLLAMA_REQUEST_TIMEOUT,
+        )
+
+    def test_ollama_request_timeout_bounds_read_and_connect(self):
+        timeout = ai_scorer_module.OLLAMA_REQUEST_TIMEOUT
+        self.assertEqual(timeout.read, 300.0)
+        self.assertEqual(timeout.connect, 10.0)
 
 
 class ScoringOptionsTests(unittest.TestCase):

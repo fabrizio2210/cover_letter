@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
 import ollama
 import redis
 from bson.objectid import ObjectId
@@ -2938,8 +2939,13 @@ def parse_worker_pool_size(raw_value):
     return value
 
 
+OLLAMA_REQUEST_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
+
+
 def build_ollama_client(ollama_host):
-    return ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+    if ollama_host:
+        return ollama.Client(host=ollama_host, timeout=OLLAMA_REQUEST_TIMEOUT)
+    return ollama.Client(timeout=OLLAMA_REQUEST_TIMEOUT)
 
 
 def ensure_score_collection_indexes(job_preference_scores_col):
