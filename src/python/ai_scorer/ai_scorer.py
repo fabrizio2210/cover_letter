@@ -2964,6 +2964,20 @@ def build_redis_client(redis_host, redis_port):
     )
 
 
+MONGO_CONNECT_TIMEOUT_MS = 10000
+MONGO_SERVER_SELECTION_TIMEOUT_MS = 30000
+MONGO_SOCKET_TIMEOUT_MS = 60000
+
+
+def build_mongo_client(mongo_uri):
+    return MongoClient(
+        mongo_uri,
+        connectTimeoutMS=MONGO_CONNECT_TIMEOUT_MS,
+        serverSelectionTimeoutMS=MONGO_SERVER_SELECTION_TIMEOUT_MS,
+        socketTimeoutMS=MONGO_SOCKET_TIMEOUT_MS,
+    )
+
+
 def ensure_score_collection_indexes(job_preference_scores_col):
     # Enforce single score document per (job_id, identity_id).
     job_preference_scores_col.create_index(
@@ -3068,7 +3082,7 @@ def main():
     except Exception as exc:
         raise RuntimeError(f"Failed to initialize embedding model '{effective_embedding_model}': {exc}") from exc
 
-    client = MongoClient(mongo_uri)
+    client = build_mongo_client(mongo_uri)
     global_db = client[mongo_db_name]
     job_descriptions_col = global_db["job-descriptions"]
     companies_col = global_db["companies"]

@@ -26,6 +26,7 @@ from src.python.ai_scorer import ai_scorer as ai_scorer_module
 from src.python.ai_scorer import common_pb2
 from src.python.ai_scorer.ai_scorer import (
     ScoringRunManager,
+    build_mongo_client,
     build_ollama_client,
     build_redis_client,
     build_prompt,
@@ -1494,6 +1495,24 @@ class BuildRedisClientTests(unittest.TestCase):
         self.assertEqual(ai_scorer_module.REDIS_CONNECT_TIMEOUT, 5)
         self.assertEqual(ai_scorer_module.REDIS_SOCKET_TIMEOUT, 60)
         self.assertEqual(ai_scorer_module.REDIS_HEALTH_CHECK_INTERVAL, 30)
+
+
+class BuildMongoClientTests(unittest.TestCase):
+    def test_build_mongo_client_applies_timeouts(self):
+        with patch.object(ai_scorer_module, "MongoClient") as mock_mongo_cls:
+            build_mongo_client("mongodb://mongo:27017/")
+
+        mock_mongo_cls.assert_called_once_with(
+            "mongodb://mongo:27017/",
+            connectTimeoutMS=10000,
+            serverSelectionTimeoutMS=30000,
+            socketTimeoutMS=60000,
+        )
+
+    def test_mongo_timeout_constants_are_bounded(self):
+        self.assertEqual(ai_scorer_module.MONGO_CONNECT_TIMEOUT_MS, 10000)
+        self.assertEqual(ai_scorer_module.MONGO_SERVER_SELECTION_TIMEOUT_MS, 30000)
+        self.assertEqual(ai_scorer_module.MONGO_SOCKET_TIMEOUT_MS, 60000)
 
 
 class ScoringOptionsTests(unittest.TestCase):
