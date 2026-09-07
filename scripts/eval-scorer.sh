@@ -11,7 +11,7 @@
 #
 # Environment variables:
 #   OLLAMA_HOST               Ollama base URL (default: http://localhost:11434)
-#   EVAL_CANDIDATE_MODEL      Candidate model to test (default: promoted model)
+#   EVAL_CANDIDATE_MODEL      Candidate model to test (default: stored reference model)
 #   EVAL_FIXTURES             Path to canonical fixture file
 #   EVAL_OUTPUT_DIR           Output directory for artifacts (default: eval-results)
 #   EVAL_PROFILE              Pipeline profile (default: production)
@@ -30,7 +30,7 @@ cd "$REPO_ROOT"
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 DEFAULT_CANDIDATE_MODEL="$(
     PYTHONPATH="$REPO_ROOT" python3 -c \
-        'from src.python.ai_scorer.scoring_config import PRODUCTION_SCORER_MODEL; print(PRODUCTION_SCORER_MODEL)'
+        'from src.python.ai_scorer.scoring_config import STORED_EVAL_REFERENCE_MODEL; print(STORED_EVAL_REFERENCE_MODEL)'
 )"
 EVAL_CANDIDATE_MODEL="${1:-${EVAL_CANDIDATE_MODEL:-$DEFAULT_CANDIDATE_MODEL}}"
 EVAL_FIXTURES="${2:-${EVAL_FIXTURES:-src/python/ai_scorer/evals/data/canonical/v1.json}}"

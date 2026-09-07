@@ -59,14 +59,17 @@ PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli label \
 
 ## 3) Run eval against the canonical fixture set
 
-Evaluations use the `production` profile by default. It activates the same
-query expansion, location normalization, explicit remote rendering, guarded
-preference normalization, and evidence-scope routing configured for the
-production scorer. The candidate model replaces only the final scorer model.
-Pointwise evidence reranking, including the location-metadata route that can
-activate it implicitly, remains pinned to the promoted production scorer.
-When no candidate is specified, the currently promoted production model is
-used.
+Evaluations use the `production` profile by default. It activates the query
+expansion, location normalization, explicit remote rendering, guarded
+preference normalization, and evidence-scope routing captured by the stored
+production reference. The candidate model replaces only the final scorer
+model. Pointwise evidence reranking, including the location-metadata route
+that can activate it implicitly, remains pinned to the stored reference
+scorer. When no candidate is specified, that reference model is used.
+
+The deployed scorer can differ temporarily from this stored reference during
+an operational model switch. Keep the last validated reference intact until a
+new production-profile evaluation is explicitly run and promoted.
 
 ```bash
 PYTHONPATH=. python3 -m src.python.ai_scorer.evals.cli eval \
@@ -87,7 +90,7 @@ runtime defaults, retrieval constants, an implementation revision, and hashes
 of the scoring source files. The pipeline fingerprint covers all of that
 provenance. A separate fixture fingerprint covers the ordered scorer inputs and
 golden labels. The regression gate runs only when both fingerprints match a
-well-formed stored run from the promoted production model and current profile
+well-formed stored run from the configured reference model and current profile
 version. Stored regression metrics have their own validated fingerprint. This
 prevents stale or edited reference metadata from silently gating a candidate.
 
@@ -110,10 +113,10 @@ as `SKIPPED` and exits nonzero so it cannot be mistaken for a promotion pass.
 which makes thinking-capable auxiliary models usable without changing the
 production default.
 
-### Refresh the promoted-model reference
+### Refresh the production reference
 
-Refresh stored reference metrics only with the promoted scorer and the exact
-production profile:
+Refresh stored reference metrics only after validating the intended reference
+scorer with the exact production profile:
 
 ```bash
 EVAL_REFRESH_REFERENCE=true \
@@ -124,8 +127,8 @@ make eval-scorer \
 
 This atomically updates only `meta.reference_metrics`, `meta.reference_run`,
 and the fixture format version. Golden cases and labels remain unchanged. A
-refresh is refused if any case errors, if the model is not the promoted model,
-or if any production-profile setting has been overridden.
+refresh is refused if any case errors, if the model is not the configured
+reference model, or if any production-profile setting has been overridden.
 
 ## Threshold defaults
 

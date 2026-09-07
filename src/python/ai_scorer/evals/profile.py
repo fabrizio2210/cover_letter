@@ -22,7 +22,6 @@ from src.python.ai_scorer.scoring_config import (
     DEFAULT_TITLE_NORMALIZATION_MODEL,
     PRODUCTION_PIPELINE_ENVIRONMENT,
     PRODUCTION_EVAL_MODEL_PINS,
-    PRODUCTION_SCORER_MODEL,
     SCORING_PIPELINE_IMPLEMENTATION_VERSION,
     SECONDARY_EMBEDDING_MODEL,
     SNIPPET_CANDIDATE_K,
@@ -33,12 +32,13 @@ from src.python.ai_scorer.scoring_config import (
     SNIPPET_RRF_RANK_CONSTANT,
     SNIPPET_TOP_K,
     SNIPPET_WINDOW_SIZE,
+    STORED_EVAL_REFERENCE_MODEL,
 )
 
 
 PRODUCTION_PROFILE_NAME = "production"
 PRODUCTION_PROFILE_VERSION = "2"
-PRODUCTION_REFERENCE_MODEL = PRODUCTION_SCORER_MODEL
+PRODUCTION_REFERENCE_MODEL = STORED_EVAL_REFERENCE_MODEL
 PRODUCTION_PROFILE_DEFAULTS: dict[str, str] = {
     "EVAL_WITH_SYSTEM_PROMPT": "true",
     **PRODUCTION_PIPELINE_ENVIRONMENT,
@@ -313,7 +313,7 @@ def reference_configuration_mismatches(
     if reference_run.get("profile_version") != PRODUCTION_PROFILE_VERSION:
         mismatches.append("stored reference profile version is stale")
     if reference_run.get("model") != PRODUCTION_REFERENCE_MODEL:
-        mismatches.append("stored reference model is not the promoted production model")
+        mismatches.append("stored reference model is not the configured reference model")
     if not isinstance(reference_run.get("pipeline"), Mapping):
         mismatches.append("stored reference pipeline is missing or malformed")
     if not isinstance(reference_run.get("implementation"), Mapping):

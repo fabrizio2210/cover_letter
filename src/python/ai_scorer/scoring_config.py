@@ -25,7 +25,7 @@ DEFAULT_CANDIDATE_QUERY_PREFIX = ""
 # a way that invalidates stored evaluation metrics.
 SCORING_PIPELINE_IMPLEMENTATION_VERSION = "1"
 
-PRODUCTION_SCORER_MODEL = "ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
+STORED_EVAL_REFERENCE_MODEL = "ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
 PRODUCTION_PIPELINE_ENVIRONMENT: dict[str, str] = {
     "QUERY_EXPANSION_MODEL": "qwen2.5:1.5b",
     "METADATA_NORMALIZATION_MODEL": "qwen2.5:1.5b",
@@ -39,7 +39,7 @@ PRODUCTION_PIPELINE_ENVIRONMENT: dict[str, str] = {
 
 # In production, pointwise evidence routing falls back to OLLAMA_MODEL. During
 # an eval the final scorer is intentionally replaced, so pin this auxiliary
-# role to the promoted model to preserve the production evidence-selection path.
+# role to the stored reference model to preserve its evidence-selection path.
 PRODUCTION_EVAL_MODEL_PINS: dict[str, str] = {
-    "POINTWISE_RERANKER_MODEL": PRODUCTION_SCORER_MODEL,
+    "POINTWISE_RERANKER_MODEL": STORED_EVAL_REFERENCE_MODEL,
 }

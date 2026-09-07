@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
+readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
 readonly DEFAULT_AUXILIARY_MODEL="qwen2.5:1.5b"
 
 image_reference="${1:-}"
@@ -9,10 +9,10 @@ model_name="${2:-$DEFAULT_MODEL_NAME}"
 auxiliary_model="${3:-$DEFAULT_AUXILIARY_MODEL}"
 startup_timeout_seconds="${OLLAMA_SMOKE_STARTUP_TIMEOUT_SECONDS:-120}"
 inference_timeout_seconds="${OLLAMA_SMOKE_INFERENCE_TIMEOUT_SECONDS:-600}"
-# Skip the memory-hungry full inference when the build host lacks enough free
-# RAM to load the F16 scorer model (~3 GiB) alongside Docker and the other stack
-# services. On such hosts we still verify that the container starts and that the
-# model is present and inspectable.
+# Skip full inference when the build host lacks enough free RAM to load the
+# scorer model alongside Docker and the other stack services. On such hosts we
+# still verify that the container starts and that the model is present and
+# inspectable.
 min_available_memory_bytes="${OLLAMA_SMOKE_MIN_AVAILABLE_MEMORY_BYTES:-6442450944}" # 6 GiB
 
 available_memory_bytes() {

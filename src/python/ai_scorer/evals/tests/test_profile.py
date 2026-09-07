@@ -29,7 +29,7 @@ EVAL_SCRIPT = (REPO_ROOT / "scripts/eval-scorer.sh").read_text(encoding="utf-8")
 
 
 class EvalProfileTests(unittest.TestCase):
-    def test_production_profile_defaults_match_deployed_scorer(self):
+    def test_production_profile_defaults_match_deployed_auxiliaries(self):
         scorer_service = re.search(
             r"^  ai-scorer:\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\n)",
             PRODUCTION_STACK,
@@ -55,6 +55,7 @@ class EvalProfileTests(unittest.TestCase):
             "REDIS_PORT",
             "JOB_SCORING_QUEUE_NAME",
             "OLLAMA_HOST",
+            "OLLAMA_MODEL",
             "AI_SCORER_TEST_MODE",
             "AI_SCORER_OLLAMA_PARALLELISM",
         }
@@ -65,10 +66,7 @@ class EvalProfileTests(unittest.TestCase):
         }
         self.assertEqual(
             deployed_pipeline,
-            {
-                "OLLAMA_MODEL": PRODUCTION_REFERENCE_MODEL,
-                **PRODUCTION_PIPELINE_ENVIRONMENT,
-            },
+            PRODUCTION_PIPELINE_ENVIRONMENT,
         )
         self.assertEqual(
             PRODUCTION_PROFILE_DEFAULTS,
@@ -79,7 +77,7 @@ class EvalProfileTests(unittest.TestCase):
             },
         )
         self.assertIn(
-            "from src.python.ai_scorer.scoring_config import PRODUCTION_SCORER_MODEL",
+            "from src.python.ai_scorer.scoring_config import STORED_EVAL_REFERENCE_MODEL",
             EVAL_SCRIPT,
         )
         self.assertNotIn(PRODUCTION_REFERENCE_MODEL, EVAL_SCRIPT)
@@ -205,7 +203,7 @@ class EvalProfileTests(unittest.TestCase):
         )
         wrong_model = {**reference, "model": "another-model"}
         self.assertIn(
-            "stored reference model is not the promoted production model",
+            "stored reference model is not the configured reference model",
             reference_configuration_mismatches(
                 wrong_model,
                 configuration,

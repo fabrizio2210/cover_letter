@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-f16"
-readonly DEFAULT_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-f16"
+readonly DEFAULT_MODEL_NAME="ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m"
+readonly DEFAULT_MODEL_IMAGE="fabrizio2210/coverletter-ollama-model:fp-v2-balanced-response-cp200-q4_k_m"
 readonly DEFAULT_MODEL_PLATFORMS="linux/amd64,linux/arm64"
 
 model_name="${1:-$DEFAULT_MODEL_NAME}"

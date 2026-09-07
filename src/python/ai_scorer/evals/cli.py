@@ -90,7 +90,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         return 2
     if args.refresh_reference and args.candidate != PRODUCTION_REFERENCE_MODEL:
         print(
-            "[eval] ERROR: reference refresh requires the promoted model: "
+            "[eval] ERROR: reference refresh requires the configured reference model: "
             f"{PRODUCTION_REFERENCE_MODEL}"
         )
         return 2
@@ -155,7 +155,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         for mismatch in configuration_mismatches:
             print(f"[eval]   {mismatch}")
         print(
-            "[eval] Refresh the promoted-model reference, or use "
+            "[eval] Refresh the configured production reference, or use "
             "--allow-profile-mismatch for an ungated experiment."
         )
         return 2
@@ -377,7 +377,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument(
         "--candidate",
         default=os.environ.get("EVAL_CANDIDATE_MODEL", PRODUCTION_REFERENCE_MODEL),
-        help="Candidate model name (default: EVAL_CANDIDATE_MODEL or promoted model)",
+        help=(
+            "Candidate model name "
+            "(default: EVAL_CANDIDATE_MODEL or stored reference model)"
+        ),
     )
     p_eval.add_argument(
         "--fixtures",
