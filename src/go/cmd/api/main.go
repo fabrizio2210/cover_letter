@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
+	"log"
 	"os"
 
+	fieldsdomain "github.com/fabrizio2210/cover_letter/src/go/cmd/api/domains/fields"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/facade"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/middleware"
 
@@ -17,6 +20,9 @@ func main() {
 	}
 
 	adminJWTSecret := []byte(os.Getenv("ADMIN_JWT_SECRET"))
+	if err := fieldsdomain.BootstrapDefaults(context.Background()); err != nil {
+		log.Fatalf("failed to bootstrap default fields: %v", err)
+	}
 
 	r := gin.Default()
 

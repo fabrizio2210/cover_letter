@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	apitesting "github.com/fabrizio2210/cover_letter/src/go/cmd/api/testing"
@@ -13,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type mockClient struct {
@@ -32,11 +35,13 @@ func (m *mockDatabase) Collection(_ string) MongoCollectionIface {
 }
 
 type mockCollection struct {
-	aggregateFn func(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
-	insertOneFn func(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
-	findOneFn   func(ctx context.Context, filter interface{}) MongoSingleResultIface
-	updateOneFn func(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
-	deleteOneFn func(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
+	aggregateFn      func(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	bulkWriteFn      func(ctx context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error)
+	countDocumentsFn func(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error)
+	insertOneFn      func(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
+	findOneFn        func(ctx context.Context, filter interface{}) MongoSingleResultIface
+	updateOneFn      func(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
+	deleteOneFn      func(ctx context.Context, filter interface{}) (*mongo.DeleteResult, error)
 }
 
 func (m *mockCollection) Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error) {
@@ -44,6 +49,20 @@ func (m *mockCollection) Aggregate(ctx context.Context, pipeline interface{}) (M
 		return m.aggregateFn(ctx, pipeline)
 	}
 	return &mockCursor{}, nil
+}
+
+func (m *mockCollection) BulkWrite(ctx context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+	if m.bulkWriteFn != nil {
+		return m.bulkWriteFn(ctx, models, opts...)
+	}
+	return &mongo.BulkWriteResult{}, nil
+}
+
+func (m *mockCollection) CountDocuments(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error) {
+	if m.countDocumentsFn != nil {
+		return m.countDocumentsFn(ctx, filter, opts...)
+	}
+	return 0, nil
 }
 
 func (m *mockCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {
@@ -170,6 +189,237 @@ func decodeJSONArray(t *testing.T, raw string) []map[string]interface{} {
 		t.Fatalf("failed to decode JSON array: %v", err)
 	}
 	return out
+}
+
+func bootstrapModelDetails(t *testing.T, model mongo.WriteModel) (primitive.ObjectID, string) {
+	t.Helper()
+	updateModel, ok := model.(*mongo.UpdateOneModel)
+	if !ok {
+		t.Fatalf("expected *mongo.UpdateOneModel, got %T", model)
+	}
+	if updateModel.Upsert == nil || !*updateModel.Upsert {
+		t.Fatal("expected bootstrap update to enable upsert")
+	}
+
+	filter, ok := updateModel.Filter.(bson.M)
+	if !ok {
+		t.Fatalf("expected bson.M filter, got %T", updateModel.Filter)
+	}
+	id, ok := filter["_id"].(primitive.ObjectID)
+	if !ok {
+		t.Fatalf("expected ObjectID filter, got %T", filter["_id"])
+	}
+
+	update, ok := updateModel.Update.(bson.M)
+	if !ok {
+		t.Fatalf("expected bson.M update, got %T", updateModel.Update)
+	}
+	setOnInsert, ok := update["$setOnInsert"].(bson.M)
+	if !ok {
+		t.Fatalf("expected $setOnInsert document, got %T", update["$setOnInsert"])
+	}
+	name, ok := setOnInsert["field"].(string)
+	if !ok {
+		t.Fatalf("expected string field name, got %T", setOnInsert["field"])
+	}
+	return id, name
+}
+
+func TestDefaultFieldPreset(t *testing.T) {
+	expected := []string{
+		"Technology",
+		"Financial Services",
+		"Healthcare",
+		"Education",
+		"Retail & E-commerce",
+		"Manufacturing",
+		"Construction",
+		"Real Estate",
+		"Energy & Utilities",
+		"Transportation & Logistics",
+		"Telecommunications",
+		"Media & Entertainment",
+		"Advertising & Marketing",
+		"Professional Services",
+		"Legal Services",
+		"Government & Public Sector",
+		"Nonprofit & Charities",
+		"Hospitality & Tourism",
+		"Food & Beverage",
+		"Agriculture",
+		"Automotive",
+		"Aerospace & Defense",
+		"Pharmaceuticals & Biotechnology",
+		"Insurance",
+		"Consumer Goods",
+		"Fashion & Apparel",
+		"Sports & Fitness",
+		"Environmental Services",
+		"Arts & Culture",
+		"Other",
+	}
+	if !reflect.DeepEqual(defaultFieldNames[:], expected) {
+		t.Fatalf("unexpected default field preset:\nwant: %#v\n got: %#v", expected, defaultFieldNames)
+	}
+
+	ids := make(map[primitive.ObjectID]string, len(defaultFieldNames))
+	for _, name := range defaultFieldNames {
+		id := defaultFieldObjectID(name)
+		if existingName, exists := ids[id]; exists {
+			t.Fatalf("default fields %q and %q share ID %s", existingName, name, id.Hex())
+		}
+		ids[id] = name
+	}
+
+	stableIDs := map[string]string{
+		"Technology": "8dea0bfcf9d91b5e52f9a5f6",
+		"Other":      "797a7f1426d9dea29bbee388",
+	}
+	for name, expectedID := range stableIDs {
+		if id := defaultFieldObjectID(name).Hex(); id != expectedID {
+			t.Fatalf("default field %q has ID %s, want %s", name, id, expectedID)
+		}
+	}
+}
+
+func TestBootstrapDefaults(t *testing.T) {
+	t.Run("non_empty_collection_is_unchanged", func(t *testing.T) {
+		bulkWriteCalled := false
+		setMockProvider(t, &mockCollection{
+			countDocumentsFn: func(_ context.Context, filter interface{}, _ ...*options.CountOptions) (int64, error) {
+				if !reflect.DeepEqual(filter, bson.D{}) {
+					t.Fatalf("expected empty count filter, got %#v", filter)
+				}
+				return 1, nil
+			},
+			bulkWriteFn: func(_ context.Context, _ []mongo.WriteModel, _ ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+				bulkWriteCalled = true
+				return &mongo.BulkWriteResult{}, nil
+			},
+		})
+
+		if err := BootstrapDefaults(context.Background()); err != nil {
+			t.Fatalf("BootstrapDefaults returned error: %v", err)
+		}
+		if bulkWriteCalled {
+			t.Fatal("expected no bootstrap write for a non-empty collection")
+		}
+	})
+
+	t.Run("empty_collection_receives_preset", func(t *testing.T) {
+		var capturedModels []mongo.WriteModel
+		var capturedOptions []*options.BulkWriteOptions
+		setMockProvider(t, &mockCollection{
+			countDocumentsFn: func(_ context.Context, _ interface{}, _ ...*options.CountOptions) (int64, error) {
+				return 0, nil
+			},
+			bulkWriteFn: func(_ context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+				capturedModels = models
+				capturedOptions = opts
+				return &mongo.BulkWriteResult{UpsertedCount: int64(len(models))}, nil
+			},
+		})
+
+		if err := BootstrapDefaults(context.Background()); err != nil {
+			t.Fatalf("BootstrapDefaults returned error: %v", err)
+		}
+		if len(capturedModels) != len(defaultFieldNames) {
+			t.Fatalf("expected %d writes, got %d", len(defaultFieldNames), len(capturedModels))
+		}
+		if len(capturedOptions) != 1 || capturedOptions[0].Ordered == nil || *capturedOptions[0].Ordered {
+			t.Fatalf("expected one unordered bulk-write option, got %#v", capturedOptions)
+		}
+
+		for i, model := range capturedModels {
+			id, name := bootstrapModelDetails(t, model)
+			if name != defaultFieldNames[i] {
+				t.Fatalf("write %d has field %q, want %q", i, name, defaultFieldNames[i])
+			}
+			if id != defaultFieldObjectID(name) {
+				t.Fatalf("write %d has ID %s, want %s", i, id.Hex(), defaultFieldObjectID(name).Hex())
+			}
+		}
+	})
+
+	t.Run("count_error_is_returned", func(t *testing.T) {
+		expectedErr := errors.New("count failed")
+		bulkWriteCalled := false
+		setMockProvider(t, &mockCollection{
+			countDocumentsFn: func(_ context.Context, _ interface{}, _ ...*options.CountOptions) (int64, error) {
+				return 0, expectedErr
+			},
+			bulkWriteFn: func(_ context.Context, _ []mongo.WriteModel, _ ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+				bulkWriteCalled = true
+				return &mongo.BulkWriteResult{}, nil
+			},
+		})
+
+		err := BootstrapDefaults(context.Background())
+		if !errors.Is(err, expectedErr) {
+			t.Fatalf("expected wrapped count error, got %v", err)
+		}
+		if bulkWriteCalled {
+			t.Fatal("expected no bootstrap write after count failure")
+		}
+	})
+
+	t.Run("bulk_write_error_is_returned", func(t *testing.T) {
+		expectedErr := errors.New("bulk write failed")
+		setMockProvider(t, &mockCollection{
+			countDocumentsFn: func(_ context.Context, _ interface{}, _ ...*options.CountOptions) (int64, error) {
+				return 0, nil
+			},
+			bulkWriteFn: func(_ context.Context, _ []mongo.WriteModel, _ ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+				return nil, expectedErr
+			},
+		})
+
+		if err := BootstrapDefaults(context.Background()); !errors.Is(err, expectedErr) {
+			t.Fatalf("expected wrapped bulk-write error, got %v", err)
+		}
+	})
+}
+
+func TestConcurrentBootstrapCallsUseSameUpsertIDs(t *testing.T) {
+	var mu sync.Mutex
+	var batches [][]mongo.WriteModel
+	setMockProvider(t, &mockCollection{
+		countDocumentsFn: func(_ context.Context, _ interface{}, _ ...*options.CountOptions) (int64, error) {
+			return 0, nil
+		},
+		bulkWriteFn: func(_ context.Context, models []mongo.WriteModel, _ ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+			mu.Lock()
+			batches = append(batches, append([]mongo.WriteModel(nil), models...))
+			mu.Unlock()
+			return &mongo.BulkWriteResult{}, nil
+		},
+	})
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-start
+			errs <- BootstrapDefaults(context.Background())
+		}()
+	}
+	close(start)
+	for i := 0; i < 2; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("BootstrapDefaults returned error: %v", err)
+		}
+	}
+
+	if len(batches) != 2 {
+		t.Fatalf("expected two bootstrap batches, got %d", len(batches))
+	}
+	for i := range batches[0] {
+		firstID, firstName := bootstrapModelDetails(t, batches[0][i])
+		secondID, secondName := bootstrapModelDetails(t, batches[1][i])
+		if firstID != secondID || firstName != secondName {
+			t.Fatalf("bootstrap callers targeted different documents at index %d", i)
+		}
+	}
 }
 
 func TestCreateField(t *testing.T) {

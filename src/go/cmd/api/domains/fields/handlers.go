@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoClientIface interface {
@@ -23,6 +24,8 @@ type MongoDatabaseIface interface {
 
 type MongoCollectionIface interface {
 	Aggregate(ctx context.Context, pipeline interface{}) (MongoCursorIface, error)
+	BulkWrite(ctx context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error)
+	CountDocuments(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error)
 	InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error)
 	FindOne(ctx context.Context, filter interface{}) MongoSingleResultIface
 	UpdateOne(ctx context.Context, filter interface{}, update interface{}) (*mongo.UpdateResult, error)
@@ -71,6 +74,14 @@ func (r *realMongoCollection) Aggregate(ctx context.Context, pipeline interface{
 		return nil, err
 	}
 	return &realMongoCursor{cur: cur}, nil
+}
+
+func (r *realMongoCollection) BulkWrite(ctx context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+	return r.col.BulkWrite(ctx, models, opts...)
+}
+
+func (r *realMongoCollection) CountDocuments(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error) {
+	return r.col.CountDocuments(ctx, filter, opts...)
 }
 
 func (r *realMongoCollection) InsertOne(ctx context.Context, doc interface{}) (*mongo.InsertOneResult, error) {

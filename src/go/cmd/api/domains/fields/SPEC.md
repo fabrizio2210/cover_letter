@@ -97,4 +97,40 @@ Response `200`:
 - `GET /api/fields` and all admin CRUD handlers are implemented in `domains/fields/handlers.go`.
 - `GetFields` is reused for both the user and admin GET endpoints.
 
+### Startup bootstrap
+
+Before serving requests, the API checks the global `fields` collection. When the collection is empty, it inserts this preset:
+
+- Technology
+- Financial Services
+- Healthcare
+- Education
+- Retail & E-commerce
+- Manufacturing
+- Construction
+- Real Estate
+- Energy & Utilities
+- Transportation & Logistics
+- Telecommunications
+- Media & Entertainment
+- Advertising & Marketing
+- Professional Services
+- Legal Services
+- Government & Public Sector
+- Nonprofit & Charities
+- Hospitality & Tourism
+- Food & Beverage
+- Agriculture
+- Automotive
+- Aerospace & Defense
+- Pharmaceuticals & Biotechnology
+- Insurance
+- Consumer Goods
+- Fashion & Apparel
+- Sports & Fitness
+- Environmental Services
+- Arts & Culture
+- Other
+
+If any field already exists, the bootstrap leaves the collection unchanged. Preset fields use stable ObjectIDs and idempotent upserts so concurrent API instances do not create duplicate presets. A database error during this check or write prevents the API from starting.
 
