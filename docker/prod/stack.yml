@@ -74,7 +74,7 @@ services:
       resources:
         limits:
           cpus: '3.0'
-          memory: 3.5G
+          memory: 2.7G
     networks:
       - traefik_backends
 
