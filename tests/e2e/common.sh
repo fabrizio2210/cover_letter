@@ -73,7 +73,10 @@ e2e_wait_compose_port() {
 
 e2e_compose_has_service() {
   local service="$1"
-  docker compose -f "$COMPOSE_FILE" config --services | grep -qx "$service"
+  local services
+
+  services="$(docker compose -f "$COMPOSE_FILE" config --services)" || return $?
+  grep -Fxq "$service" <<<"$services"
 }
 
 e2e_compose_has_container() {
