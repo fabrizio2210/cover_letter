@@ -1,0 +1,37 @@
+version: '3.4'
+
+x-stopped-service: &stopped-service
+  deploy:
+    replicas: 0
+
+services:
+  redis_cover_letter:
+    <<: *stopped-service
+  ai-querier:
+    <<: *stopped-service
+  ai-scorer:
+    <<: *stopped-service
+  ollama:
+    <<: *stopped-service
+  web-crawler:
+    <<: *stopped-service
+  crawler-ycombinator:
+    <<: *stopped-service
+  crawler-hackernews:
+    <<: *stopped-service
+  crawler-ats-job-extraction:
+    <<: *stopped-service
+  crawler-levelsfyi:
+    <<: *stopped-service
+  crawler-4dayweek:
+    <<: *stopped-service
+  enrichment-ats-enrichment:
+    <<: *stopped-service
+  enrichment-retiring-jobs:
+    <<: *stopped-service
+  mongo-express:
+    <<: *stopped-service
+  coverletter-api:
+    <<: *stopped-service
+  coverletter-frontend:
+    <<: *stopped-service

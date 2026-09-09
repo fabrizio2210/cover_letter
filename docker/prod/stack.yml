@@ -3,6 +3,22 @@ version: '3.4'
 x-portainer-access-labels: &portainer-access-labels
   io.portainer.accesscontrol.users: coverletter-mcp
 
+x-mongo-uri: &mongo-uri mongodb://mongo5:27017,mongo6:27017,mongo7:27017/?replicaSet=coverletter-rs&w=majority&retryWrites=true
+
+x-mongo-service: &mongo-service
+  image: mongo:4.4.18
+  command:
+    - mongod
+    - --replSet
+    - coverletter-rs
+    - --bind_ip_all
+    - --wiredTigerCacheSizeGB
+    - "0.256"
+  restart: always
+  stop_grace_period: 60s
+  networks:
+    - coverletter_backend
+
 services:
   redis_cover_letter:
     image: redis:7.4-bookworm
@@ -10,34 +26,35 @@ services:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   ai-querier:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export GEMINI_TOKEN="$$(cat /run/secrets/COVERLETTER_GEMINI_TOKEN)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.ai_querier.ai_querier
+      - export GEMINI_TOKEN="$$(cat /run/secrets/COVERLETTER_GEMINI_TOKEN)" && exec python -m src.python.ai_querier.ai_querier
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
     secrets:
       - COVERLETTER_GEMINI_TOKEN
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   ai-scorer:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai-scorer:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.ai_scorer.ai_scorer
+      - exec python -m src.python.ai_scorer.ai_scorer
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
@@ -53,13 +70,11 @@ services:
       EVIDENCE_SCOPE_MODEL: qwen2.5:1.5b
       AI_SCORER_TEST_MODE: 0
       AI_SCORER_OLLAMA_PARALLELISM: 1
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   ollama:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ollama:${DEPLOY_TAG:-arm64}
@@ -76,16 +91,17 @@ services:
           cpus: '3.0'
           memory: 2.7G
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   web-crawler:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-web-crawler:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.dispatcher.main --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && exec python -m src.python.web_crawler.dispatcher.main --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
@@ -98,21 +114,21 @@ services:
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
       - COVERLETTER_SERPER_API_KEY
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   crawler-ycombinator:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ycombinator:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ycombinator.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && exec python -m src.python.web_crawler.crawler_ycombinator.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -120,42 +136,41 @@ services:
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
     secrets:
       - COVERLETTER_SERPER_API_KEY
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   crawler-hackernews:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-hackernews:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_hackernews.worker --worker
+      - exec python -m src.python.web_crawler.crawler_hackernews.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   crawler-ats-job-extraction:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-ats-job-extraction:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_ats_job_extraction.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && exec python -m src.python.web_crawler.crawler_ats_job_extraction.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -164,21 +179,21 @@ services:
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
     secrets:
       - COVERLETTER_SERPER_API_KEY
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   crawler-levelsfyi:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-levelsfyi:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_levelsfyi.worker --worker
+      - exec python -m src.python.web_crawler.crawler_levelsfyi.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -186,22 +201,21 @@ services:
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   crawler-4dayweek:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-crawler-4dayweek:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.crawler_4dayweek.worker --worker
+      - exec python -m src.python.web_crawler.crawler_4dayweek.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -210,22 +224,21 @@ services:
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       CRAWLER_ENABLE_SCORING_ENQUEUE: "1"
       CRAWLER_REFERER: "https://4dayweek.io/jobs"
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
   enrichment-ats-enrichment:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-enrichment-ats-enrichment:${DEPLOY_TAG:-x86_64}
     command:
       - /bin/sh
       - -c
-      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_ats_enrichment.worker --worker
+      - export SERPER_API_KEY="$$(cat /run/secrets/COVERLETTER_SERPER_API_KEY)" && exec python -m src.python.web_crawler.enrichment_ats_enrichment.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -233,9 +246,8 @@ services:
       CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
     secrets:
       - COVERLETTER_SERPER_API_KEY
-      - COVERLETTER_MONGO_PASSWORD
     networks:
-      - traefik_backends
+      - coverletter_backend
     deploy:
       replicas: 4
       labels:
@@ -246,59 +258,148 @@ services:
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec python -m src.python.web_crawler.enrichment_retiring_jobs.worker --worker
+      - exec python -m src.python.web_crawler.enrichment_retiring_jobs.worker --worker
     restart: always
     environment:
+      MONGO_HOST: *mongo-uri
       REDIS_HOST: redis_cover_letter
       REDIS_PORT: 6379
       CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
       JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
     networks:
-      - traefik_backends
+      - coverletter_backend
 
-  mongo:
-    image: mongo:4.4.18
-    restart: always
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/COVERLETTER_MONGO_PASSWORD
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
+  mongo5:
+    <<: *mongo-service
     volumes:
-      - mongo_data:/data/db
+      - type: bind
+        source: /mnt/disk-usb1/docker/coverletter/mongo
+        target: /data/db
     deploy:
+      endpoint_mode: dnsrr
       labels:
         <<: *portainer-access-labels
-    networks:
-      - traefik_backends
+      placement:
+        constraints:
+          - node.hostname == raspberrypi5
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 640M
+        reservations:
+          memory: 256M
 
-  mongo-express:
-    image: mongo-express
+  mongo6:
+    <<: *mongo-service
+    volumes:
+      - type: bind
+        source: /mnt/disk-usb1/docker/coverletter/mongo
+        target: /data/db
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi6
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 640M
+        reservations:
+          memory: 256M
+
+  mongo7:
+    <<: *mongo-service
+    volumes:
+      - type: bind
+        source: /mnt/disk-usb1/docker/coverletter/mongo
+        target: /data/db
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi7
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 640M
+        reservations:
+          memory: 256M
+
+  mongo-rs-init:
+    image: mongo:4.4.18
     command:
       - /bin/sh
       - -c
-      - export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export ME_CONFIG_MONGODB_ADMINPASSWORD="$$MONGO_PASSWORD" && export ME_CONFIG_MONGODB_URL="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec node app
+      - |
+        set -eu
+        for host in mongo5 mongo6 mongo7; do
+          until mongo --quiet --host "$$host:27017" --eval 'quit(db.adminCommand({ping: 1}).ok ? 0 : 1)'; do
+            sleep 2
+          done
+        done
+        mongo --quiet --host mongo5:27017 --eval '
+          var status = db.adminCommand({replSetGetStatus: 1});
+          if (status.ok === 1) {
+            quit(0);
+          }
+          if (status.code !== 94) {
+            printjson(status);
+            quit(1);
+          }
+          var result = rs.initiate({
+            _id: "coverletter-rs",
+            members: [
+              {_id: 0, host: "mongo5:27017"},
+              {_id: 1, host: "mongo6:27017"},
+              {_id: 2, host: "mongo7:27017"}
+            ]
+          });
+          printjson(result);
+          quit(result.ok === 1 ? 0 : 1);
+        '
+    deploy:
+      mode: replicated-job
+      replicas: 1
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi5
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    networks:
+      - coverletter_backend
+
+  mongo-express:
+    image: mongo-express
     restart: always
+    environment:
+      ME_CONFIG_MONGODB_URL: *mongo-uri
     deploy:
       labels: 
         <<: *portainer-access-labels
+        traefik.docker.network: traefik_backends
         traefik.port: 80
         traefik.enable: "true"
         traefik.coverletter-mongoexpress.rule: "Host(`coverletter-mongo-express`)  && PathPrefix(`/`)"
         traefik.http.services.coverletter-mongoexpress-service.loadbalancer.server.port: 8081
         traefik.http.routers.coverletter-mongoexpress.rule: "Host(`coverletter-mongo-express`) && PathPrefix(`/`)"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-    secrets:
-      - COVERLETTER_MONGO_PASSWORD
     networks:
+      - coverletter_backend
       - traefik_backends
 
   coverletter-api:
@@ -306,28 +407,29 @@ services:
     command:
       - /bin/sh
       - -c
-      - export ADMIN_PASSWORD="$$(cat /run/secrets/COVERLETTER_ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/COVERLETTER_AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/COVERLETTER_ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/COVERLETTER_JWT_SECRET)" && export MONGO_PASSWORD="$$(cat /run/secrets/COVERLETTER_MONGO_PASSWORD)" && export MONGO_HOST="mongodb://root:$$MONGO_PASSWORD@mongo:27017/" && exec ./api
+      - export ADMIN_PASSWORD="$$(cat /run/secrets/COVERLETTER_ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/COVERLETTER_AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/COVERLETTER_ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/COVERLETTER_JWT_SECRET)" && exec ./api
     environment:
-      - REDIS_HOST=redis_cover_letter
-      - CRAWLER_TRIGGER_QUEUE_NAME=crawler_trigger_queue
-      - CRAWLER_YCOMBINATOR_QUEUE_NAME=crawler_ycombinator_queue
-      - CRAWLER_HACKERNEWS_QUEUE_NAME=crawler_hackernews_queue
-      - CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME=crawler_ats_job_extraction_queue
-      - CRAWLER_LEVELSFYI_QUEUE_NAME=crawler_levelsfyi_queue
-      - CRAWLER_4DAYWEEK_QUEUE_NAME=crawler_4dayweek_queue
-      - CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME=enrichment_ats_enrichment_queue
-      - JOB_SCORING_QUEUE_NAME=job_scoring_queue
-      - CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME=enrichment_retiring_jobs_queue
-      - JOB_UPDATE_CHANNEL_NAME=job_update_channel
+      MONGO_HOST: *mongo-uri
+      REDIS_HOST: redis_cover_letter
+      CRAWLER_TRIGGER_QUEUE_NAME: crawler_trigger_queue
+      CRAWLER_YCOMBINATOR_QUEUE_NAME: crawler_ycombinator_queue
+      CRAWLER_HACKERNEWS_QUEUE_NAME: crawler_hackernews_queue
+      CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: crawler_ats_job_extraction_queue
+      CRAWLER_LEVELSFYI_QUEUE_NAME: crawler_levelsfyi_queue
+      CRAWLER_4DAYWEEK_QUEUE_NAME: crawler_4dayweek_queue
+      CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: enrichment_ats_enrichment_queue
+      JOB_SCORING_QUEUE_NAME: job_scoring_queue
+      CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: enrichment_retiring_jobs_queue
+      JOB_UPDATE_CHANNEL_NAME: job_update_channel
     secrets:
       - COVERLETTER_ADMIN_PASSWORD
       - COVERLETTER_AUTH_USERS_JSON
       - COVERLETTER_ADMIN_JWT_SECRET
       - COVERLETTER_JWT_SECRET
-      - COVERLETTER_MONGO_PASSWORD
     deploy:
       labels:
         <<: *portainer-access-labels
+        traefik.docker.network: traefik_backends
         traefik.enable: "true"
         # 1. Define the Rate Limit Middleware
         traefik.http.middlewares.coverletter-limit-login.ratelimit.average: 1
@@ -342,6 +444,7 @@ services:
         traefik.http.routers.coverletter-login.priority: 100
     restart: unless-stopped
     networks:
+      - coverletter_backend
       - traefik_backends
 
   coverletter-frontend:
@@ -349,19 +452,13 @@ services:
     deploy:
       labels:
         <<: *portainer-access-labels
+        traefik.docker.network: traefik_backends
         traefik.enable: "true"
         traefik.http.routers.coverletter_frontend.rule: "Host(`coverletter.no-ip.dynu.net`) && PathPrefix(`/`)"
         traefik.http.services.coverletter_frontend-service.loadbalancer.server.port: 80
     restart: unless-stopped
     networks:
       - traefik_backends
-
-volumes:
-  mongo_data:
-    driver_opts:
-      type: "nfs"
-      o: "addr=192.168.100.1,nolock,soft,rw"
-      device: ":/mnt/HDD/docker/coverletter/mongo_data"
 
 secrets:
   COVERLETTER_GEMINI_TOKEN:
@@ -376,9 +473,9 @@ secrets:
     external: true
   COVERLETTER_SERPER_API_KEY:
     external: true
-  COVERLETTER_MONGO_PASSWORD:
-    external: true
 
 networks:
+  coverletter_backend:
+    driver: overlay
   traefik_backends:
     external: true
