@@ -70,7 +70,14 @@ def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str, user_id: str,
 
 def _connect_redis(config: CrawlerConfig):
     try:
-        client = redis_lib.Redis(host=config.redis_host, port=config.redis_port, socket_connect_timeout=5)
+        client = redis_lib.Redis(
+            host=config.redis_host,
+            port=config.redis_port,
+            socket_connect_timeout=5,
+            socket_timeout=60,
+            socket_keepalive=True,
+            health_check_interval=30,
+        )
         client.ping()
         return client
     except Exception as exc:

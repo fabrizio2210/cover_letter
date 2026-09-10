@@ -52,6 +52,9 @@ def _connect_redis(config: CrawlerConfig) -> redis.Redis:
         host=config.redis_host,
         port=config.redis_port,
         socket_connect_timeout=5,
+        socket_timeout=60,
+        socket_keepalive=True,
+        health_check_interval=30,
         decode_responses=True,
     )
     client.ping()
@@ -74,7 +77,7 @@ def worker_main(config: CrawlerConfig) -> None:
             queue_item = cast(
                 tuple[str, str] | None,
                 redis_client.blpop(
-                    [config.crawler_enrichment_retiring_jobs_queue_name], timeout=0
+                    [config.crawler_enrichment_retiring_jobs_queue_name], timeout=30
                 ),
             )
             if not queue_item:

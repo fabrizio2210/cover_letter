@@ -30,13 +30,20 @@ def main():
     global_db = client[mongo_db_name]
     companies_col = global_db["companies"]
 
-    r = redis.Redis(host=redis_host, port=redis_port)
+    r = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        socket_connect_timeout=5,
+        socket_timeout=60,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
 
     print(f"Listening for messages on Redis queue '{queue_name}'...")
 
     while True:
         try:
-            msg = r.blpop(queue_name, timeout=0)
+            msg = r.blpop(queue_name, timeout=30)
             if msg:
                 _, data = msg
                 try:
