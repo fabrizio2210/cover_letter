@@ -9,6 +9,7 @@ import (
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/redisutil"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
@@ -51,15 +52,7 @@ var queuePush = func(ctx context.Context, queueName string, payload []byte) erro
 }
 
 func defaultRedisClient() *redis.Client {
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
-	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+	return redisutil.NewClient()
 }
 
 // SetMongoClientProvider allows wrappers/tests to inject custom clients.

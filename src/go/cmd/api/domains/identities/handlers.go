@@ -10,6 +10,7 @@ import (
 
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/db"
 	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/models"
+	"github.com/fabrizio2210/cover_letter/src/go/cmd/api/redisutil"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
@@ -70,15 +71,7 @@ func SetQueuePushProvider(provider func(ctx context.Context, queueName string, p
 }
 
 func defaultRedisClient() *redis.Client {
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
-	return redis.NewClient(&redis.Options{Addr: redisHost + ":" + redisPort})
+	return redisutil.NewClient()
 }
 
 type realMongoClient struct{ client *mongo.Client }

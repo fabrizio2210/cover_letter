@@ -8,6 +8,7 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.redis_client import connect_redis
 from src.python.web_crawler.crawler_4dayweek.workflow import _WORKFLOW_ID, _emit_enrichment_events, run_crawler_4dayweek
 from src.python.web_crawler.db import get_database, get_user_database
 from src.python.web_crawler.progress import publish_progress, utc_timestamp
@@ -19,15 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def _connect_redis(config: CrawlerConfig) -> redis.Redis:
-    client = redis.Redis(
-        host=config.redis_host,
-        port=config.redis_port,
-        socket_connect_timeout=5,
-        socket_timeout=60,
-        socket_keepalive=True,
-        health_check_interval=30,
-        decode_responses=True,
-    )
+    client = connect_redis(config, decode_responses=True)
     client.ping()
     return client
 

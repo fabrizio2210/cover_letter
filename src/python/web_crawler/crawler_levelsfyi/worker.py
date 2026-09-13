@@ -9,6 +9,7 @@ from typing import cast
 import redis
 
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.redis_client import connect_redis
 from src.python.web_crawler.crawler_levelsfyi.workflow import (
     _WORKFLOW_ID,
     _emit_enrichment_events,
@@ -28,15 +29,7 @@ def _new_workflow_run_id() -> str:
 
 
 def _connect_redis(config: CrawlerConfig) -> redis.Redis:
-    client = redis.Redis(
-        host=config.redis_host,
-        port=config.redis_port,
-        socket_connect_timeout=5,
-        socket_timeout=60,
-        socket_keepalive=True,
-        health_check_interval=30,
-        decode_responses=True,
-    )
+    client = connect_redis(config, decode_responses=True)
     client.ping()
     return client
 

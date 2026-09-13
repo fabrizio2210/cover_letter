@@ -15,6 +15,7 @@ from src.python.web_crawler.company_resolver import (
     upsert_companies,
 )
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.redis_client import connect_redis
 from src.python.web_crawler.models import DiscoveredCompany, WorkflowResult
 from src.python.web_crawler.progress import utc_timestamp
 from src.python.web_crawler.role_filtering import load_identity_roles, text_matches_roles
@@ -103,15 +104,7 @@ def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str, user_id: str,
 
 def _connect_redis(config: CrawlerConfig):
     try:
-        client = redis.Redis(
-            host=config.redis_host,
-            port=config.redis_port,
-            socket_connect_timeout=5,
-            socket_timeout=60,
-            socket_keepalive=True,
-            health_check_interval=30,
-            decode_responses=True,
-        )
+        client = connect_redis(config, decode_responses=True)
         client.ping()
         return client
     except Exception as exc:

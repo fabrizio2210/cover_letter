@@ -281,6 +281,73 @@ Verify that `coverletter_mongo` mounts `coverletter_mongo_data`, starts with
 authentication enabled, and that the application aggregate counts match the
 preflight totals. Do not delete either storage copy during rollback.
 
+## Redis Sentinel
+
+Redis runs as a three-node Sentinel deployment for high availability, not
+sharding: one primary and two replicas, each holding a full copy, with three
+sentinels monitoring the primary at quorum 2. Each data node is constrained to
+one node and stores its AOF/RDB files in the node-local directory:
+
+```text
+/mnt/disk-usb1/docker/coverletter/redis
+```
+
+The directory must exist before deploying the stack, must be owned by UID and
+GID 999, and must have mode `0700`. Run on `raspberrypi5`, `raspberrypi6`, and
+`raspberrypi7`:
+
+```sh
+sudo install -d -o 999 -g 999 -m 0700 /mnt/disk-usb1/docker/coverletter/redis
+```
+
+`redis1` is the initial primary; `redis2` and `redis3` start with
+`--replicaof redis1 6379`. Sentinels monitor the master named
+`coverletter-redis` and read their configuration from the Swarm config
+`redis-sentinel-conf` (`docker/prod/redis/sentinel.conf`). Applications connect
+through the sentinels (`REDIS_SENTINELS`) using failover-aware clients, so a
+single node failure triggers automatic failover.
+
+Redis authentication is intentionally disabled, matching MongoDB. The data
+nodes are not published on a host port and are reachable only from services on
+the `coverletter_backend` network.
+
+### Verification and controlled failover
+
+From a Swarm manager:
+
+```sh
+docker service ps coverletter_redis1 coverletter_redis2 coverletter_redis3
+docker service ps coverletter_sentinel1 coverletter_sentinel2 coverletter_sentinel3
+```
+
+On `raspberrypi5`, inspect replication state:
+
+```sh
+docker exec "$(docker ps -q --filter name=coverletter_redis1)" \
+  redis-cli info replication
+```
+
+Inspect the sentinel view from any sentinel:
+
+```sh
+docker exec "$(docker ps -q --filter name=coverletter_sentinel1)" \
+  redis-cli -p 26379 sentinel masters
+docker exec "$(docker ps -q --filter name=coverletter_sentinel1)" \
+  redis-cli -p 26379 sentinel replicas coverletter-redis
+```
+
+Controlled failover: scale the current primary to zero, confirm a replica is
+promoted and the application remains usable, then restore it:
+
+```sh
+docker service scale coverletter_redis1=0
+# wait, then confirm redis2 or redis3 reports role:master
+docker service scale coverletter_redis1=1
+```
+
+Redis is a queue/pub-sub transport only; MongoDB is the source of truth, so
+in-flight queue messages may be lost during failover and can be re-triggered.
+
 ## Networks
 
 Backend services use the stack-managed `coverletter_backend` overlay. It is not

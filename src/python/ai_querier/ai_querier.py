@@ -12,9 +12,29 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 
 
+def parse_sentinels(raw):
+    if not raw:
+        return None
+    parsed = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        host, sep, port = entry.rpartition(":")
+        if not host or not sep:
+            continue
+        try:
+            parsed.append((host, int(port or 26379)))
+        except ValueError:
+            continue
+    return parsed or None
+
+
 def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    redis_sentinels = parse_sentinels(os.environ.get("REDIS_SENTINELS"))
+    redis_master_name = os.environ.get("REDIS_MASTER_NAME") or None
     queue_name = os.environ.get("REDIS_QUEUE_GENERATE_COVER_LETTER_NAME", "cover_letter_generation_queue")
     test_mode = os.environ.get("AI_QUERIER_TEST_MODE", "0") == "1"
     api_token = os.environ.get("GEMINI_TOKEN")
@@ -30,14 +50,26 @@ def main():
     global_db = client[mongo_db_name]
     companies_col = global_db["companies"]
 
-    r = redis.Redis(
-        host=redis_host,
-        port=redis_port,
-        socket_connect_timeout=5,
-        socket_timeout=60,
-        socket_keepalive=True,
-        health_check_interval=30,
-    )
+    if redis_sentinels and redis_master_name:
+        sentinel = redis.sentinel.Sentinel(
+            redis_sentinels,
+            socket_connect_timeout=5,
+            socket_timeout=60,
+        )
+        r = sentinel.master_for(
+            redis_master_name,
+            socket_keepalive=True,
+            health_check_interval=30,
+        )
+    else:
+        r = redis.Redis(
+            host=redis_host,
+            port=redis_port,
+            socket_connect_timeout=5,
+            socket_timeout=60,
+            socket_keepalive=True,
+            health_check_interval=30,
+        )
 
     print(f"Listening for messages on Redis queue '{queue_name}'...")
 

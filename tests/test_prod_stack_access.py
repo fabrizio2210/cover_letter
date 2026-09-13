@@ -9,9 +9,19 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STACK_FILE = REPO_ROOT / "docker/prod/stack.yml"
 MIGRATION_FILE = REPO_ROOT / "docker/prod/mongo-migration.yml"
 CICD_FILE = REPO_ROOT / "CICD.sh"
+SENTINEL_CONF_FILE = REPO_ROOT / "docker/prod/redis/sentinel.conf"
 PORTAINER_LABEL = "io.portainer.accesscontrol.users"
 PORTAINER_USER = "coverletter-mcp"
 MONGO_DATA_PATH = "/mnt/disk-usb1/docker/coverletter/mongo"
+REDIS_DATA_PATH = "/mnt/disk-usb1/docker/coverletter/redis"
+REDIS_SERVICES = {
+    "redis1",
+    "redis2",
+    "redis3",
+    "sentinel1",
+    "sentinel2",
+    "sentinel3",
+}
 
 
 def render_stack(*compose_files):
@@ -145,8 +155,7 @@ class ProductionMongoReplicaTests(unittest.TestCase):
                 self.assertEqual(1, len(matches), service)
                 discovered_clients[service] = matches[0]
 
-        non_clients = self.mongo_members | {
-            "redis_cover_letter",
+        non_clients = self.mongo_members | REDIS_SERVICES | {
             "ollama",
             "mongo-rs-init",
             "coverletter-frontend",
@@ -216,6 +225,68 @@ class ProductionMongoReplicaTests(unittest.TestCase):
         self.assertNotIn("coverletter_backend: null", frontend)
         self.assertIn("traefik_backends: null", frontend)
         self.assertIn("traefik.docker.network: traefik_backends", frontend)
+
+
+@unittest.skipUnless(shutil.which("docker"), "Docker CLI is not installed")
+class ProductionRedisSentinelTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rendered_stack = render_stack()
+        cls.services = rendered_service_blocks(cls.rendered_stack)
+
+    def test_data_nodes_have_local_storage_and_fixed_placement(self):
+        for index, name in enumerate(("redis1", "redis2", "redis3"), start=5):
+            with self.subTest(name=name):
+                block = self.services[name]
+                self.assertIn("- redis-server", block)
+                self.assertIn("- --appendonly", block)
+                self.assertIn('- "yes"', block)
+                self.assertIn("- --appendfsync", block)
+                self.assertIn("- everysec", block)
+                self.assertIn(f"source: {REDIS_DATA_PATH}", block)
+                self.assertIn("target: /data", block)
+                self.assertIn(f"- node.hostname == raspberrypi{index}", block)
+                self.assertIn("endpoint_mode: dnsrr", block)
+                self.assertIn('memory: "268435456"', block)
+                self.assertIn('memory: "134217728"', block)
+                self.assertIn("coverletter_backend: null", block)
+                self.assertNotIn("traefik_backends", block)
+
+    def test_replicas_replicate_from_redis1(self):
+        for name in ("redis2", "redis3"):
+            with self.subTest(name=name):
+                self.assertIn("- --replicaof", self.services[name])
+                self.assertIn("- redis1", self.services[name])
+                self.assertIn('- "6379"', self.services[name])
+        self.assertNotIn("--replicaof", self.services["redis1"])
+
+    def test_sentinels_share_config_and_fixed_placement(self):
+        for index, name in enumerate(
+            ("sentinel1", "sentinel2", "sentinel3"), start=5
+        ):
+            with self.subTest(name=name):
+                block = self.services[name]
+                self.assertIn("source: redis-sentinel-conf", block)
+                self.assertIn("target: /etc/redis/sentinel.conf", block)
+                self.assertIn(f"- node.hostname == raspberrypi{index}", block)
+                self.assertIn("coverletter_backend: null", block)
+                self.assertNotIn("traefik_backends", block)
+
+        conf = SENTINEL_CONF_FILE.read_text()
+        self.assertIn(
+            "sentinel monitor coverletter-redis redis1 6379 2", conf
+        )
+
+    def test_clients_connect_via_sentinels_not_direct_host(self):
+        self.assertNotIn("REDIS_HOST", self.rendered_stack)
+        self.assertNotIn("REDIS_PORT", self.rendered_stack)
+        self.assertIn(
+            "REDIS_SENTINELS: sentinel1:26379,sentinel2:26379,sentinel3:26379",
+            self.rendered_stack,
+        )
+        self.assertIn(
+            "REDIS_MASTER_NAME: coverletter-redis", self.rendered_stack
+        )
 
 
 if __name__ == "__main__":

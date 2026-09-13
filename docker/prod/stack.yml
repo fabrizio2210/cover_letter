@@ -19,14 +19,164 @@ x-mongo-service: &mongo-service
   networks:
     - coverletter_backend
 
+x-redis-sentinels: &redis-sentinels sentinel1:26379,sentinel2:26379,sentinel3:26379
+x-redis-master: &redis-master coverletter-redis
+
+x-redis-service: &redis-service
+  image: redis:7.4-bookworm
+  restart: always
+  volumes:
+    - type: bind
+      source: /mnt/disk-usb1/docker/coverletter/redis
+      target: /data
+  networks:
+    - coverletter_backend
+
+x-redis-sentinel-service: &redis-sentinel-service
+  image: redis:7.4-bookworm
+  command:
+    - /bin/sh
+    - -c
+    - cp /etc/redis/sentinel.conf /tmp/sentinel.conf && exec redis-server /tmp/sentinel.conf --sentinel
+  restart: always
+  configs:
+    - source: redis-sentinel-conf
+      target: /etc/redis/sentinel.conf
+  networks:
+    - coverletter_backend
+
 services:
-  redis_cover_letter:
-    image: redis:7.4-bookworm
+  redis1:
+    <<: *redis-service
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "900"
+      - "1"
+      - --save
+      - "300"
+      - "10"
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi5
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  redis2:
+    <<: *redis-service
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "900"
+      - "1"
+      - --save
+      - "300"
+      - "10"
+      - --replicaof
+      - redis1
+      - "6379"
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi6
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  redis3:
+    <<: *redis-service
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "900"
+      - "1"
+      - --save
+      - "300"
+      - "10"
+      - --replicaof
+      - redis1
+      - "6379"
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi7
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  sentinel1:
+    <<: *redis-sentinel-service
     deploy:
       labels:
         <<: *portainer-access-labels
-    networks:
-      - coverletter_backend
+      placement:
+        constraints:
+          - node.hostname == raspberrypi5
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  sentinel2:
+    <<: *redis-sentinel-service
+    deploy:
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi6
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  sentinel3:
+    <<: *redis-sentinel-service
+    deploy:
+      labels:
+        <<: *portainer-access-labels
+      placement:
+        constraints:
+          - node.hostname == raspberrypi7
+      restart_policy:
+        condition: any
+        delay: 5s
 
   ai-querier:
     image: ${DOCKER_ORG:-fabrizio2210}/coverletter-ai:${DEPLOY_TAG:-x86_64}
@@ -37,7 +187,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
     secrets:
       - COVERLETTER_GEMINI_TOKEN
     deploy:
@@ -55,8 +206,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
       OLLAMA_HOST: "http://ollama:11434"
       OLLAMA_MODEL: ai-scorer-qwen25:fp-v2-balanced-response-cp200-q4_k_m
@@ -102,8 +253,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_TRIGGER_QUEUE_NAME: "crawler_trigger_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
@@ -129,8 +280,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_YCOMBINATOR_QUEUE_NAME: "crawler_ycombinator_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
@@ -151,8 +302,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_HACKERNEWS_QUEUE_NAME: "crawler_hackernews_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
@@ -171,8 +322,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
       JOB_SCORING_QUEUE_NAME: "job_scoring_queue"
@@ -194,8 +345,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_LEVELSFYI_QUEUE_NAME: "crawler_levelsfyi_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
@@ -216,8 +367,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_4DAYWEEK_QUEUE_NAME: "crawler_4dayweek_queue"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
@@ -239,8 +390,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_PROGRESS_CHANNEL_NAME: "crawler_progress_channel"
       CRAWLER_ENRICHMENT_ATS_ENRICHMENT_QUEUE_NAME: "enrichment_ats_enrichment_queue"
       CRAWLER_ATS_JOB_EXTRACTION_QUEUE_NAME: "crawler_ats_job_extraction_queue"
@@ -262,8 +413,8 @@ services:
     restart: always
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
-      REDIS_PORT: 6379
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_ENRICHMENT_RETIRING_JOBS_QUEUE_NAME: "enrichment_retiring_jobs_queue"
       JOB_UPDATE_CHANNEL_NAME: "job_update_channel"
     deploy:
@@ -410,7 +561,8 @@ services:
       - export ADMIN_PASSWORD="$$(cat /run/secrets/COVERLETTER_ADMIN_PASSWORD)" && export AUTH_USERS_JSON="$$(cat /run/secrets/COVERLETTER_AUTH_USERS_JSON)" && export ADMIN_JWT_SECRET="$$(cat /run/secrets/COVERLETTER_ADMIN_JWT_SECRET)" && export JWT_SECRET="$$(cat /run/secrets/COVERLETTER_JWT_SECRET)" && exec ./api
     environment:
       MONGO_HOST: *mongo-uri
-      REDIS_HOST: redis_cover_letter
+      REDIS_SENTINELS: *redis-sentinels
+      REDIS_MASTER_NAME: *redis-master
       CRAWLER_TRIGGER_QUEUE_NAME: crawler_trigger_queue
       CRAWLER_YCOMBINATOR_QUEUE_NAME: crawler_ycombinator_queue
       CRAWLER_HACKERNEWS_QUEUE_NAME: crawler_hackernews_queue
@@ -473,6 +625,10 @@ secrets:
     external: true
   COVERLETTER_SERPER_API_KEY:
     external: true
+
+configs:
+  redis-sentinel-conf:
+    file: ./redis/sentinel.conf
 
 networks:
   coverletter_backend:

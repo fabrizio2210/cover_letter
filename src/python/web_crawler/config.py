@@ -60,6 +60,8 @@ class CrawlerConfig:
     force_serp_retry_on_prior_attempt: bool = False
     redis_host: str = "localhost"
     redis_port: int = 6379
+    redis_sentinels: str | None = None
+    redis_master_name: str | None = None
     enable_scoring_enqueue: bool = False
     referer: str = "https://4dayweek.io/jobs"
     crawler_trigger_queue_name: str = CRAWLER_TRIGGER_QUEUE
@@ -101,6 +103,8 @@ class CrawlerConfig:
             force_serp_retry_on_prior_attempt=_parse_bool(os.getenv("CRAWLER_FORCE_SERP_RETRY_ON_PRIOR_ATTEMPT"), default=False),
             redis_host=os.getenv("REDIS_HOST", "localhost"),
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
+            redis_sentinels=os.getenv("REDIS_SENTINELS") or None,
+            redis_master_name=os.getenv("REDIS_MASTER_NAME") or None,
             enable_scoring_enqueue=_parse_bool(os.getenv("CRAWLER_ENABLE_SCORING_ENQUEUE"), default=False),
             referer=os.getenv("CRAWLER_REFERER", "https://4dayweek.io/jobs"),
             crawler_trigger_queue_name=os.getenv("CRAWLER_TRIGGER_QUEUE_NAME", CRAWLER_TRIGGER_QUEUE),

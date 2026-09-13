@@ -2953,7 +2953,36 @@ REDIS_SOCKET_TIMEOUT = 60
 REDIS_HEALTH_CHECK_INTERVAL = 30
 
 
-def build_redis_client(redis_host, redis_port):
+def parse_sentinels(raw):
+    if not raw:
+        return None
+    parsed = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        host, sep, port = entry.rpartition(":")
+        if not host or not sep:
+            continue
+        try:
+            parsed.append((host, int(port or 26379)))
+        except ValueError:
+            continue
+    return parsed or None
+
+
+def build_redis_client(redis_host, redis_port, sentinels=None, master_name=None):
+    if sentinels and master_name:
+        sentinel = redis.sentinel.Sentinel(
+            sentinels,
+            socket_connect_timeout=REDIS_CONNECT_TIMEOUT,
+            socket_timeout=REDIS_SOCKET_TIMEOUT,
+        )
+        return sentinel.master_for(
+            master_name,
+            socket_keepalive=True,
+            health_check_interval=REDIS_HEALTH_CHECK_INTERVAL,
+        )
     return redis.Redis(
         host=redis_host,
         port=redis_port,
@@ -3055,6 +3084,8 @@ def scoring_worker_loop(
 def main():
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    redis_sentinels = parse_sentinels(os.environ.get("REDIS_SENTINELS"))
+    redis_master_name = os.environ.get("REDIS_MASTER_NAME") or None
     queue_name = os.environ.get("JOB_SCORING_QUEUE_NAME", "job_scoring_queue")
     scoring_progress_channel = os.environ.get("SCORING_PROGRESS_CHANNEL_NAME", "scoring_progress_channel")
 
@@ -3087,7 +3118,7 @@ def main():
     job_descriptions_col = global_db["job-descriptions"]
     companies_col = global_db["companies"]
 
-    redis_client = build_redis_client(redis_host, redis_port)
+    redis_client = build_redis_client(redis_host, redis_port, redis_sentinels, redis_master_name)
 
     # user_managers maps user_id → ScoringRunManager (created lazily per user).
     user_managers: dict[str, ScoringRunManager] = {}
@@ -3154,7 +3185,7 @@ def main():
 
             except Exception as exc:
                 print(f"error: Error while consuming queue: {exc}")
-                redis_client = build_redis_client(redis_host, redis_port)
+                redis_client = build_redis_client(redis_host, redis_port, redis_sentinels, redis_master_name)
                 print(f"info: Reconnected to Redis at {redis_host}:{redis_port}")
                 time.sleep(5)
     finally:

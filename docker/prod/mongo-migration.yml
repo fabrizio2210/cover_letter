@@ -5,7 +5,17 @@ x-stopped-service: &stopped-service
     replicas: 0
 
 services:
-  redis_cover_letter:
+  redis1:
+    <<: *stopped-service
+  redis2:
+    <<: *stopped-service
+  redis3:
+    <<: *stopped-service
+  sentinel1:
+    <<: *stopped-service
+  sentinel2:
+    <<: *stopped-service
+  sentinel3:
     <<: *stopped-service
   ai-querier:
     <<: *stopped-service

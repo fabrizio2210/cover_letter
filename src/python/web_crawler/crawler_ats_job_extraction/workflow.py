@@ -5,8 +5,6 @@ import logging
 import time
 from typing import Callable, Iterable
 
-import redis as redis_lib
-
 import requests
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -14,6 +12,7 @@ from google.protobuf.json_format import MessageToDict
 
 from src.python.ai_querier import common_pb2
 from src.python.web_crawler.config import CrawlerConfig
+from src.python.web_crawler.redis_client import connect_redis
 from src.python.web_crawler.models import WorkflowResult
 from src.python.web_crawler.sources.ats_job_fetcher import fetch_jobs
 from src.python.web_crawler.enrichment_ats_enrichment.workflow import _company_from_document
@@ -70,14 +69,7 @@ def _try_enqueue(redis_client, config: CrawlerConfig, job_id: str, user_id: str,
 
 def _connect_redis(config: CrawlerConfig):
     try:
-        client = redis_lib.Redis(
-            host=config.redis_host,
-            port=config.redis_port,
-            socket_connect_timeout=5,
-            socket_timeout=60,
-            socket_keepalive=True,
-            health_check_interval=30,
-        )
+        client = connect_redis(config)
         client.ping()
         return client
     except Exception as exc:
