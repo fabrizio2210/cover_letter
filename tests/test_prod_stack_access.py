@@ -276,6 +276,7 @@ class ProductionRedisSentinelTests(unittest.TestCase):
         self.assertIn(
             "sentinel monitor coverletter-redis redis1 6379 2", conf
         )
+        self.assertIn("sentinel resolve-hostnames yes", conf)
 
     def test_clients_connect_via_sentinels_not_direct_host(self):
         self.assertNotIn("REDIS_HOST", self.rendered_stack)
