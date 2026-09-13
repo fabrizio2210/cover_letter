@@ -302,10 +302,11 @@ sudo install -d -o 999 -g 999 -m 0700 /mnt/disk-usb1/docker/coverletter/redis
 
 `redis1` is the initial primary; `redis2` and `redis3` start with
 `--replicaof redis1 6379`. Sentinels monitor the master named
-`coverletter-redis` and read their configuration from the Swarm config
-`redis-sentinel-conf` (`docker/prod/redis/sentinel.conf`). Applications connect
-through the sentinels (`REDIS_SENTINELS`) using failover-aware clients, so a
-single node failure triggers automatic failover.
+`coverletter-redis` with quorum 2; their configuration is written to
+`/tmp/sentinel.conf` by the container entrypoint before starting
+`redis-server --sentinel`. Applications connect through the sentinels
+(`REDIS_SENTINELS`) using failover-aware clients, so a single node failure
+triggers automatic failover.
 
 Redis authentication is intentionally disabled, matching MongoDB. The data
 nodes are not published on a host port and are reachable only from services on

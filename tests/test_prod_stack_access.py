@@ -9,7 +9,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STACK_FILE = REPO_ROOT / "docker/prod/stack.yml"
 MIGRATION_FILE = REPO_ROOT / "docker/prod/mongo-migration.yml"
 CICD_FILE = REPO_ROOT / "CICD.sh"
-SENTINEL_CONF_FILE = REPO_ROOT / "docker/prod/redis/sentinel.conf"
 PORTAINER_LABEL = "io.portainer.accesscontrol.users"
 PORTAINER_USER = "coverletter-mcp"
 MONGO_DATA_PATH = "/mnt/disk-usb1/docker/coverletter/mongo"
@@ -266,17 +265,16 @@ class ProductionRedisSentinelTests(unittest.TestCase):
         ):
             with self.subTest(name=name):
                 block = self.services[name]
-                self.assertIn("source: redis-sentinel-conf", block)
-                self.assertIn("target: /etc/redis/sentinel.conf", block)
+                self.assertIn("- /bin/sh", block)
+                self.assertIn(
+                    "sentinel monitor coverletter-redis redis1 6379 2", block
+                )
+                self.assertIn("sentinel resolve-hostnames yes", block)
+                self.assertIn("port 26379", block)
+                self.assertIn("exec redis-server /tmp/sentinel.conf --sentinel", block)
                 self.assertIn(f"- node.hostname == raspberrypi{index}", block)
                 self.assertIn("coverletter_backend: null", block)
                 self.assertNotIn("traefik_backends", block)
-
-        conf = SENTINEL_CONF_FILE.read_text()
-        self.assertIn(
-            "sentinel monitor coverletter-redis redis1 6379 2", conf
-        )
-        self.assertIn("sentinel resolve-hostnames yes", conf)
 
     def test_clients_connect_via_sentinels_not_direct_host(self):
         self.assertNotIn("REDIS_HOST", self.rendered_stack)

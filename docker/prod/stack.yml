@@ -37,11 +37,18 @@ x-redis-sentinel-service: &redis-sentinel-service
   command:
     - /bin/sh
     - -c
-    - cp /etc/redis/sentinel.conf /tmp/sentinel.conf && exec redis-server /tmp/sentinel.conf --sentinel
+    - |
+      cat > /tmp/sentinel.conf <<'EOF'
+      port 26379
+      dir /tmp
+      sentinel resolve-hostnames yes
+      sentinel monitor coverletter-redis redis1 6379 2
+      sentinel down-after-milliseconds coverletter-redis 5000
+      sentinel failover-timeout coverletter-redis 10000
+      sentinel parallel-syncs coverletter-redis 1
+      EOF
+      exec redis-server /tmp/sentinel.conf --sentinel
   restart: always
-  configs:
-    - source: redis-sentinel-conf
-      target: /etc/redis/sentinel.conf
   networks:
     - coverletter_backend
 
@@ -625,10 +632,6 @@ secrets:
     external: true
   COVERLETTER_SERPER_API_KEY:
     external: true
-
-configs:
-  redis-sentinel-conf:
-    file: ./redis/sentinel.conf
 
 networks:
   coverletter_backend:
