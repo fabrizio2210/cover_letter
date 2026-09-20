@@ -104,7 +104,7 @@ The system is architected as a distributed microservice stack running in contain
 | **AI Workers** | Python 3.12, `google-generativeai`, `ollama`, `fastembed`, `beautifulsoup4`, `requests` |
 | **Data & Cache** | MongoDB 4.4+ (Replica Set), Redis 7.4 (3-node Sentinel deployment) |
 | **Routing / Edge**| Traefik Reverse Proxy (Docker Provider, SSL, Dashboard) |
-| **Infrastructure**| Docker Swarm (Production on ARM64 Raspberry Pi 5), Docker Compose (Local Dev) |
+| **Infrastructure**| Docker Swarm (Production on ARM64 Raspberry Pi 4), Docker Compose (Local Dev) |
 
 ---
 
@@ -327,7 +327,7 @@ The script outputs an immutable digest (`@sha256:...`) which is committed into `
 ## Production Deployment
 
 ### Docker Swarm Architecture
-Production runs on a 3-node Docker Swarm cluster of Raspberry Pi 5 boards (`raspberrypi5`, `raspberrypi6`, `raspberrypi7`) running 64-bit Linux (`linux/arm64`):
+Production runs on a 3-node Docker Swarm cluster of Raspberry Pi 4 boards (`raspberrypi5`, `raspberrypi6`, `raspberrypi7`) running 64-bit Linux (`linux/arm64`):
 
 - **MongoDB Replica Set**: Runs `coverletter-rs` across the three nodes with node-local SSD mounts (`/mnt/disk-usb1/docker/coverletter/mongo`).
 - **High-Availability Redis**: Master-replica Redis deployment monitored by a 3-node Sentinel quorum (`sentinel1`, `sentinel2`, `sentinel3`) with automated master failover.
