@@ -131,17 +131,6 @@ class ProductionMongoReplicaTests(unittest.TestCase):
                 self.assertIn("coverletter_backend: null", block)
                 self.assertNotIn("traefik_backends", block)
 
-    def test_initializer_is_a_single_idempotent_job(self):
-        block = self.services["mongo-rs-init"]
-        self.assertIn("mode: replicated-job", block)
-        self.assertIn("replicas: 1", block)
-        self.assertIn("status.code !== 94", block)
-        self.assertIn('_id: "coverletter-rs"', block)
-        configured_members = set(
-            re.findall(r'\{_id: \d+, host: "(mongo\d+):27017"\}', block)
-        )
-        self.assertEqual(self.mongo_members, configured_members)
-
     def test_production_clients_share_uri_matching_replica_members(self):
         discovered_clients = {}
         for service, block in self.services.items():
@@ -156,7 +145,6 @@ class ProductionMongoReplicaTests(unittest.TestCase):
 
         non_clients = self.mongo_members | REDIS_SERVICES | {
             "ollama",
-            "mongo-rs-init",
             "coverletter-frontend",
         }
         self.assertEqual(set(self.services) - non_clients, set(discovered_clients))
@@ -187,14 +175,12 @@ class ProductionMongoReplicaTests(unittest.TestCase):
         migration_services = rendered_service_blocks(
             render_stack(STACK_FILE, MIGRATION_FILE)
         )
-        stopped_services = set(migration_services) - self.mongo_members - {
-            "mongo-rs-init"
-        }
+        stopped_services = set(migration_services) - self.mongo_members
         for service in stopped_services:
             with self.subTest(service=service):
                 self.assertIn("replicas: 0", migration_services[service])
 
-        for service in self.mongo_members | {"mongo-rs-init"}:
+        for service in self.mongo_members:
             with self.subTest(service=service):
                 self.assertNotIn("replicas: 0", migration_services[service])
 

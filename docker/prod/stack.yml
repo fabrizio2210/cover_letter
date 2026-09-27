@@ -496,52 +496,6 @@ services:
         reservations:
           memory: 256M
 
-  mongo-rs-init:
-    image: mongo:4.4.18
-    command:
-      - /bin/sh
-      - -c
-      - |
-        set -eu
-        for host in mongo5 mongo6 mongo7; do
-          until mongo --quiet --host "$$host:27017" --eval 'quit(db.adminCommand({ping: 1}).ok ? 0 : 1)'; do
-            sleep 2
-          done
-        done
-        mongo --quiet --host mongo5:27017 --eval '
-          var status = db.adminCommand({replSetGetStatus: 1});
-          if (status.ok === 1) {
-            quit(0);
-          }
-          if (status.code !== 94) {
-            printjson(status);
-            quit(1);
-          }
-          var result = rs.initiate({
-            _id: "coverletter-rs",
-            members: [
-              {_id: 0, host: "mongo5:27017"},
-              {_id: 1, host: "mongo6:27017"},
-              {_id: 2, host: "mongo7:27017"}
-            ]
-          });
-          printjson(result);
-          quit(result.ok === 1 ? 0 : 1);
-        '
-    deploy:
-      mode: replicated-job
-      replicas: 1
-      labels:
-        <<: *portainer-access-labels
-      placement:
-        constraints:
-          - node.hostname == raspberrypi5
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-    networks:
-      - coverletter_backend
-
   mongo-express:
     image: mongo-express
     restart: always
