@@ -224,10 +224,11 @@ class ProductionRedisSentinelTests(unittest.TestCase):
             with self.subTest(name=name):
                 block = self.services[name]
                 self.assertIn("- redis-server", block)
-                self.assertIn("- --appendonly", block)
-                self.assertIn('- "yes"', block)
-                self.assertIn("- --appendfsync", block)
-                self.assertIn("- everysec", block)
+                self.assertNotIn("--appendonly", block)
+                self.assertNotIn("--appendfsync", block)
+                self.assertIn("- --min-replicas-to-write", block)
+                self.assertIn('- "1"', block)
+                self.assertIn("- --min-replicas-max-lag", block)
                 self.assertIn(f"source: {REDIS_DATA_PATH}", block)
                 self.assertIn("target: /data", block)
                 self.assertIn(f"- node.hostname == raspberrypi{index}", block)

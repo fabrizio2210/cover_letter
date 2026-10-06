@@ -286,7 +286,7 @@ preflight totals. Do not delete either storage copy during rollback.
 Redis runs as a three-node Sentinel deployment for high availability, not
 sharding: one primary and two replicas, each holding a full copy, with three
 sentinels monitoring the primary at quorum 2. Each data node is constrained to
-one node and stores its AOF/RDB files in the node-local directory:
+one node and stores its RDB snapshot files in the node-local directory:
 
 ```text
 /mnt/disk-usb1/docker/coverletter/redis
@@ -301,7 +301,11 @@ sudo install -d -o 999 -g 999 -m 0700 /mnt/disk-usb1/docker/coverletter/redis
 ```
 
 `redis1` is the initial primary; `redis2` and `redis3` start with
-`--replicaof redis1 6379`. Sentinels monitor the master named
+`--replicaof redis1 6379`. Persistence is RDB-only (`--save`), intentionally
+without AOF, so an unclean shutdown cannot leave a corrupt append-only file that
+blocks startup; the queued data is ephemeral and replayable. Each node also sets
+`--min-replicas-to-write 1` so an isolated primary refuses writes and cannot
+diverge during a partition. Sentinels monitor the master named
 `coverletter-redis` with quorum 2; their configuration is written to
 `/tmp/sentinel.conf` by the container entrypoint before starting
 `redis-server --sentinel`. Applications connect through the sentinels

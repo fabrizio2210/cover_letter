@@ -57,15 +57,15 @@ services:
     <<: *redis-service
     command:
       - redis-server
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - everysec
       - --save
       - "900"
       - "1"
       - --save
       - "300"
+      - "10"
+      - --min-replicas-to-write
+      - "1"
+      - --min-replicas-max-lag
       - "10"
     deploy:
       endpoint_mode: dnsrr
@@ -87,15 +87,15 @@ services:
     <<: *redis-service
     command:
       - redis-server
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - everysec
       - --save
       - "900"
       - "1"
       - --save
       - "300"
+      - "10"
+      - --min-replicas-to-write
+      - "1"
+      - --min-replicas-max-lag
       - "10"
       - --replicaof
       - redis1
@@ -120,15 +120,15 @@ services:
     <<: *redis-service
     command:
       - redis-server
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - everysec
       - --save
       - "900"
       - "1"
       - --save
       - "300"
+      - "10"
+      - --min-replicas-to-write
+      - "1"
+      - --min-replicas-max-lag
       - "10"
       - --replicaof
       - redis1
